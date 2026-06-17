@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const { session_id }: { session_id: string } = await req.json();
   if (!session_id) return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
