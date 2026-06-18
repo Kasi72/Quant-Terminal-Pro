@@ -1,6 +1,10 @@
 import type { ScreeningResult } from './types';
 
-export function exportCSV(rows: ScreeningResult[], filename = 'screener_results.csv') {
+// Allow derived rows (with extra fields like tier, win_rate, stop_loss, target)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExportRow = any;
+
+export function exportCSV(rows: ExportRow[], filename = 'screener_results.csv') {
   if (!rows.length) return;
   const keys = Object.keys(rows[0]) as (keyof ScreeningResult)[];
   const header = keys.join(',');
@@ -13,7 +17,7 @@ export function exportCSV(rows: ScreeningResult[], filename = 'screener_results.
   download(`${header}\n${body}`, filename, 'text/csv');
 }
 
-export async function exportXLSX(rows: ScreeningResult[], filename = 'screener_results.xlsx') {
+export async function exportXLSX(rows: ExportRow[], filename = 'screener_results.xlsx') {
   const XLSX = (await import('xlsx')).default;
   const wb = XLSX.utils.book_new();
 
@@ -34,7 +38,7 @@ export async function exportXLSX(rows: ScreeningResult[], filename = 'screener_r
   XLSX.writeFile(wb, filename);
 }
 
-export async function exportPDF(rows: ScreeningResult[], filename = 'screener_results.pdf') {
+export async function exportPDF(rows: ExportRow[], filename = 'screener_results.pdf') {
   const jsPDF = (await import('jspdf')).default;
   await import('jspdf-autotable');
 
