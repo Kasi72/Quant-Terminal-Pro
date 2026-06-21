@@ -60,6 +60,13 @@ import {
   type ScanFavorite, type TradeReview, type MonthlyReport,
 } from '@/lib/performanceEngine';
 import { validateTrade, applyValidation, computeRollingStats } from '@/lib/autoValidator';
+import {
+  computeMansfieldRS, rankRS, computeSectorRotation, checkWeeklyAlignment,
+  backtestSignal, computePortfolioCorrelation, computeAnchoredVWAP,
+  computeSignalDecay, getAdaptiveScanInterval, computeRiskOfRuin, checkEarningsProximity,
+  type RSRanking, type SectorFlow, type TFAlignment, type HistBacktest,
+  type CorrelationResult, type SignalDecay, type RiskOfRuin, type EarningsProximity,
+} from '@/lib/advancedFeatures';
 
 type ColDef = {
   key: string; label: string; width: number; align: 'left' | 'right' | 'center';
@@ -441,6 +448,14 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'rs_rank', label: 'RS Rank', width: 65, align: 'right',
+    fmt: () => '',
+    numVal: () => 0,
+    cellClass: () => '' },
+  { key: 'tf_align', label: 'TF', width: 40, align: 'center',
+    fmt: () => '',
+    numVal: () => 0,
+    cellClass: () => '' },
   { key: 'track_btn', label: '📌', width: 40, align: 'center',
     fmt: () => '',
     numVal: () => 0,
@@ -450,7 +465,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','momentumScore','statsScore','nearBrk','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','rs_rank','tf_align','momentumScore','statsScore','nearBrk','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -601,7 +616,7 @@ function HomePageInner() {
   const [signalHistory, setSignalHistory] = useState<SignalHistory>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
-  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence'>('scanner');
   const [sessions, setSessions] = useState<ScanSession[]>([]);
   const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
   const [reviews, setReviews] = useState<TradeReview[]>([]);
@@ -859,6 +874,48 @@ function HomePageInner() {
       });
     }
 
+    // Intelligence features computation
+    if (newResults.length > 0 && niftyData) {
+      // #1: Mansfield RS Ranking
+      const rsRaw: Array<{ symbol: string; rs52w: number }> = [];
+      const rsMap = new Map<string, RSRanking>();
+      for (const r of newResults) {
+        const candles = freshCandleMap[r.symbol];
+        if (candles && niftyData) {
+          const rs = computeMansfieldRS(candles, niftyData);
+          rsRaw.push({ symbol: r.symbol, rs52w: rs.rs52w });
+          rsMap.set(r.symbol, { ...rs, rsRank: 0 });
+        }
+      }
+      const ranks = rankRS(rsRaw);
+      for (const [sym, rank] of ranks) {
+        const existing = rsMap.get(sym);
+        if (existing) rsMap.set(sym, { ...existing, rsRank: rank });
+      }
+      setRsData(rsMap);
+
+      // #2: Sector Rotation
+      const sectorMap: Record<string, string> = {};
+      for (const r of newResults) { sectorMap[r.symbol] = getSectorTag(r.symbol); }
+      setSectorFlows(computeSectorRotation(newResults, sectorMap, freshCandleMap, ranks));
+
+      // #3: Multi-TF Alignment
+      const tfMap = new Map<string, TFAlignment>();
+      for (const r of newResults) {
+        if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) continue;
+        const candles = freshCandleMap[r.symbol];
+        if (candles) tfMap.set(r.symbol, checkWeeklyAlignment(candles));
+      }
+      setTfAlignments(tfMap);
+
+      // #5: Portfolio correlation of tracked trades
+      const openSymbols = trackedTradesRef.current.filter(t => t.status === 'open').map(t => t.symbol);
+      if (openSymbols.length >= 2) setPortCorrelation(computePortfolioCorrelation(openSymbols, freshCandleMap));
+
+      // #7+10: Earnings season check
+      setEarningsSeason(checkEarningsProximity(new Date().toISOString().slice(0, 10)));
+    }
+
     // Auto-save session
     if (newResults.length > 0) {
       saveSession(newResults, scanAll ? 'ALL4' : paramSetKey, scanSource);
@@ -871,17 +928,21 @@ function HomePageInner() {
     }
   }, [paramSetKey, scanAll, lookback, niftyCandles, scanSource]);
 
-  // Feature #5: Auto-refresh during market hours (every 15 min)
+  // Feature #5+#8: Adaptive auto-refresh during market hours
   useEffect(() => {
     if (!autoRefresh || scanning || lastScanSymbols.length === 0) return;
-    const interval = setInterval(() => {
+    const check = () => {
       const now = new Date();
       const istMins = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) % 1440;
       const istHour = Math.floor(istMins / 60);
       const istMin = istMins % 60;
-      const inMarketHours = (istHour > 9 || (istHour === 9 && istMin >= 15)) && (istHour < 15 || (istHour === 15 && istMin <= 30));
-      if (inMarketHours) runScan(lastScanSymbols);
-    }, 15 * 60 * 1000);
+      const adaptiveMin = getAdaptiveScanInterval(istHour, istMin);
+      if (adaptiveMin > 0) runScan(lastScanSymbols);
+      return adaptiveMin;
+    };
+    const adaptiveMin = check();
+    const intervalMs = (adaptiveMin > 0 ? adaptiveMin : 15) * 60 * 1000;
+    const interval = setInterval(check, intervalMs);
     return () => clearInterval(interval);
   }, [autoRefresh, scanning, lastScanSymbols, runScan]);
 
@@ -995,6 +1056,12 @@ function HomePageInner() {
 
   // Auto-fetch market regime on mount (ref guards against StrictMode double-fire)
   const regimeFetchedRef = useRef(false);
+  const [rsData, setRsData] = useState<Map<string, RSRanking>>(new Map());
+  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
+  const [tfAlignments, setTfAlignments] = useState<Map<string, TFAlignment>>(new Map());
+  const [histBacktests, setHistBacktests] = useState<Map<string, HistBacktest>>(new Map());
+  const [portCorrelation, setPortCorrelation] = useState<CorrelationResult | null>(null);
+  const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   useEffect(() => {
     if (marketRegime || regimeFetchedRef.current) return;
     regimeFetchedRef.current = true;
@@ -1718,6 +1785,7 @@ function HomePageInner() {
           ['journal', '📝 Journal'],
           ['focus', '⚡ Focus'],
           ['validation', '🔬 Validation'],
+          ['intelligence', '🧠 Intelligence'],
         ] as const).map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === key ? 'border-indigo-400 text-indigo-300 bg-slate-800/30' : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'}`}>
@@ -2120,6 +2188,223 @@ function HomePageInner() {
                 {trackedTrades.length === 0 && <div className="text-xs text-slate-600 py-2">No trades tracked yet</div>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Intelligence Tab ── */}
+        {activeTab === 'intelligence' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🧠 Trading Intelligence</h2>
+
+            {results.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-600">
+                <div className="text-5xl mb-4">🧠</div>
+                <div className="text-lg font-medium mb-1">Intelligence Module</div>
+                <div className="text-sm">Run a scan to activate RS ranking, sector rotation, multi-TF analysis</div>
+              </div>
+            ) : (<>
+
+            {/* Earnings Season Warning */}
+            {earningsSeason.warning && (
+              <div className="bg-amber-900/30 border border-amber-700 rounded-lg px-4 py-2 text-xs text-amber-300">
+                ⚠ {earningsSeason.message} — reduce position size or verify individual stock earnings dates before entry
+              </div>
+            )}
+
+            {/* #1: RS Ranking — Top 10 Leaders */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">RS Leaders (Top 10)</div>
+              <div className="grid grid-cols-5 gap-2">
+                {[...rsData.entries()]
+                  .sort((a, b) => b[1].rsRank - a[1].rsRank)
+                  .slice(0, 10)
+                  .map(([sym, rs]) => {
+                    const isBuy = results.find(r => r.symbol === sym && ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage));
+                    return (
+                      <div key={sym} className={`bg-slate-900/40 rounded px-2 py-1.5 text-xs cursor-pointer hover:bg-slate-800/60 ${isBuy ? 'border border-emerald-800' : ''}`} onClick={() => setSelectedSymbol(sym)}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-slate-200 font-semibold">{sym.replace('.NS', '').replace('.BO', '')}</span>
+                          <span className="text-green-300 font-bold">{rs.rsRank}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className={`text-[10px] ${rs.rsStatus === 'leader' ? 'text-green-400' : rs.rsStatus === 'improving' ? 'text-emerald-400' : rs.rsStatus === 'declining' ? 'text-amber-400' : 'text-red-400'}`}>{rs.rsStatus}</span>
+                          <span className="text-[10px] text-slate-500">slope {rs.rsSlope > 0 ? '+' : ''}{rs.rsSlope.toFixed(1)}</span>
+                        </div>
+                        {isBuy && <div className="text-[10px] text-emerald-400 mt-0.5">★ {STAGE_CONFIG[isBuy.stage].label}</div>}
+                      </div>
+                    );
+                  })}
+              </div>
+              {rsData.size === 0 && <div className="text-xs text-slate-600 py-2">RS data not available — run a scan with Nifty data</div>}
+            </div>
+
+            {/* #2: Sector Rotation Heatmap */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Sector Rotation</div>
+              {sectorFlows.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {sectorFlows.slice(0, 12).map(sf => (
+                    <div key={sf.sector} className={`rounded px-2.5 py-1.5 text-xs border ${sf.flowLabel === 'inflow' ? 'bg-emerald-900/20 border-emerald-800' : sf.flowLabel === 'outflow' ? 'bg-red-900/20 border-red-800' : 'bg-slate-900/40 border-slate-700'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-200 truncate">{sf.sector}</span>
+                        <span className={`font-bold ${sf.flowLabel === 'inflow' ? 'text-emerald-400' : sf.flowLabel === 'outflow' ? 'text-red-400' : 'text-slate-500'}`}>{sf.strength}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                        <span className="text-slate-500">{sf.signalCount} signals</span>
+                        <span className="text-slate-500">RS {sf.avgRS.toFixed(0)}</span>
+                        <span className={sf.flowLabel === 'inflow' ? 'text-emerald-500' : sf.flowLabel === 'outflow' ? 'text-red-500' : 'text-slate-600'}>
+                          {sf.flowLabel === 'inflow' ? '↑ inflow' : sf.flowLabel === 'outflow' ? '↓ outflow' : '— neutral'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="text-xs text-slate-600 py-2">Run a scan to see sector rotation</div>}
+            </div>
+
+            {/* #3: Multi-TF Aligned Signals */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Multi-Timeframe Aligned (Daily + Weekly)</div>
+              {(() => {
+                const dwSignals = [...tfAlignments.entries()].filter(([, tf]) => tf.alignment === 'DW');
+                const dSignals = [...tfAlignments.entries()].filter(([, tf]) => tf.alignment === 'D');
+                return dwSignals.length > 0 || dSignals.length > 0 ? (
+                  <div className="space-y-1">
+                    {dwSignals.map(([sym]) => {
+                      const r = results.find(x => x.symbol === sym);
+                      const rs = rsData.get(sym);
+                      return (
+                        <div key={sym} className="flex items-center gap-3 text-xs bg-emerald-900/20 border border-emerald-800/50 rounded px-2 py-1.5 cursor-pointer hover:bg-emerald-900/30" onClick={() => setSelectedSymbol(sym)}>
+                          <span className="text-green-300 font-bold w-6">DW</span>
+                          <span className="font-mono text-slate-200 w-28">{sym.replace('.NS', '').replace('.BO', '')}</span>
+                          <span className={`${STAGE_CONFIG[r?.stage ?? 'NO_SIGNAL'].color}`}>{STAGE_CONFIG[r?.stage ?? 'NO_SIGNAL'].label}</span>
+                          <span className="text-slate-500">RS {rs?.rsRank ?? '—'}</span>
+                          <span className="text-slate-500">R:R {r?.priceEngine.rewardRisk.toFixed(1) ?? '—'}</span>
+                          <span className="text-emerald-400 ml-auto">★ Weekly Breakout Confirmed</span>
+                        </div>
+                      );
+                    })}
+                    {dSignals.map(([sym]) => {
+                      const r = results.find(x => x.symbol === sym);
+                      return (
+                        <div key={sym} className="flex items-center gap-3 text-xs bg-slate-900/40 rounded px-2 py-1.5 cursor-pointer hover:bg-slate-800/40" onClick={() => setSelectedSymbol(sym)}>
+                          <span className="text-yellow-300 font-bold w-6">D</span>
+                          <span className="font-mono text-slate-200 w-28">{sym.replace('.NS', '').replace('.BO', '')}</span>
+                          <span className={`${STAGE_CONFIG[r?.stage ?? 'NO_SIGNAL'].color}`}>{STAGE_CONFIG[r?.stage ?? 'NO_SIGNAL'].label}</span>
+                          <span className="text-slate-500">Weekly compressing — watch for DW</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <div className="text-xs text-slate-600 py-2">{results.length > 0 ? 'No multi-timeframe aligned signals in this scan' : 'Run a scan first'}</div>;
+              })()}
+            </div>
+
+            {/* #5: Portfolio Correlation */}
+            {portCorrelation && portCorrelation.pairs.length > 0 && (
+              <div className={`rounded-lg p-3 ${portCorrelation.concentrated ? 'bg-red-900/20 border border-red-800' : 'bg-slate-800/40'}`}>
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
+                  Portfolio Correlation {portCorrelation.concentrated && <span className="text-red-400 ml-2">⚠ CONCENTRATED</span>}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                  <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                    <div className="text-slate-500">Avg Correlation</div>
+                    <div className={`text-lg font-bold ${portCorrelation.avgCorrelation > 0.7 ? 'text-red-400' : portCorrelation.avgCorrelation > 0.5 ? 'text-amber-400' : 'text-emerald-400'}`}>{portCorrelation.avgCorrelation.toFixed(2)}</div>
+                  </div>
+                  <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                    <div className="text-slate-500">Max Correlation</div>
+                    <div className="text-slate-200 text-lg font-bold">{portCorrelation.maxCorrelation.toFixed(2)}</div>
+                    <div className="text-[10px] text-slate-600">{portCorrelation.maxPair[0].replace('.NS', '')} / {portCorrelation.maxPair[1].replace('.NS', '')}</div>
+                  </div>
+                  <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                    <div className="text-slate-500">Diversification</div>
+                    <div className={`text-lg font-bold ${portCorrelation.avgCorrelation < 0.4 ? 'text-emerald-400' : portCorrelation.avgCorrelation < 0.6 ? 'text-yellow-300' : 'text-red-400'}`}>{portCorrelation.avgCorrelation < 0.4 ? 'Good' : portCorrelation.avgCorrelation < 0.6 ? 'Fair' : 'Poor'}</div>
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  {portCorrelation.pairs.sort((a, b) => Math.abs(b.corr) - Math.abs(a.corr)).slice(0, 5).map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-slate-400 w-24">{p.a.replace('.NS', '')}</span>
+                      <span className="text-slate-600">↔</span>
+                      <span className="font-mono text-slate-400 w-24">{p.b.replace('.NS', '')}</span>
+                      <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${Math.abs(p.corr) > 0.7 ? 'bg-red-500' : Math.abs(p.corr) > 0.4 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.abs(p.corr) * 100}%` }} />
+                      </div>
+                      <span className={`font-mono w-12 text-right ${Math.abs(p.corr) > 0.7 ? 'text-red-400' : 'text-slate-400'}`}>{p.corr.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* #9: Risk of Ruin */}
+            {(() => {
+              const ws = computeWinRateStats(trackedTrades);
+              if (ws.total < 5) return (
+                <div className="bg-slate-800/40 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Risk of Ruin</div>
+                  <div className="text-xs text-slate-600">Need 5+ closed trades to compute risk metrics</div>
+                </div>
+              );
+              const ror = computeRiskOfRuin(ws.winRate, ws.avgWinR, Math.abs(ws.avgLossR), 1.0);
+              return (
+                <div className={`rounded-lg p-3 ${ror.safetyRating === 'dangerous' ? 'bg-red-900/20 border border-red-800' : ror.safetyRating === 'moderate' ? 'bg-amber-900/20 border border-amber-800' : 'bg-emerald-900/20 border border-emerald-800'}`}>
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Risk of Ruin Analysis</div>
+                  <div className="grid grid-cols-5 gap-2 text-xs">
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-slate-500">30% DD Prob</div>
+                      <div className={`text-lg font-bold ${ror.rorPct < 5 ? 'text-emerald-400' : ror.rorPct < 25 ? 'text-amber-400' : 'text-red-400'}`}>{ror.rorPct.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-slate-500">Kelly %</div>
+                      <div className="text-slate-200 text-lg font-bold">{ror.kellyPct.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-slate-500">Half-Kelly</div>
+                      <div className="text-emerald-400 text-lg font-bold">{ror.halfKellyPct.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-slate-500">Max Consec Loss</div>
+                      <div className="text-slate-200 text-lg font-bold">{ror.maxConsecLosses}</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-slate-500">Safety</div>
+                      <div className={`text-lg font-bold ${ror.safetyRating === 'safe' ? 'text-emerald-400' : ror.safetyRating === 'moderate' ? 'text-amber-400' : 'text-red-400'}`}>{ror.safetyRating.toUpperCase()}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* #8: Adaptive Scan Info */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Adaptive Scan Schedule (IST)</div>
+              <div className="grid grid-cols-4 gap-2 text-xs">
+                {[
+                  { time: '9:15-9:45', interval: '5 min', reason: 'Opening breakouts', active: true },
+                  { time: '9:45-2:30', interval: '30 min', reason: 'Midday consolidation', active: false },
+                  { time: '2:30-3:30', interval: '10 min', reason: 'Closing hour action', active: true },
+                  { time: 'After 3:30', interval: 'Off', reason: 'Market closed', active: false },
+                ].map((s, i) => (
+                  <div key={i} className={`rounded px-2 py-1.5 border ${s.active ? 'bg-emerald-900/20 border-emerald-800' : 'bg-slate-900/40 border-slate-700'}`}>
+                    <div className="font-semibold text-slate-200">{s.time}</div>
+                    <div className={s.active ? 'text-emerald-400' : 'text-slate-500'}>{s.interval}</div>
+                    <div className="text-[10px] text-slate-600">{s.reason}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Signal Decay Legend */}
+            <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
+              <div><span className="text-slate-500 font-semibold">RS Rank:</span> Mansfield Relative Strength percentile (0-100). Above 70 = leader, below 30 = laggard. Only buy RS leaders.</div>
+              <div><span className="text-slate-500 font-semibold">TF Align:</span> DW = Daily + Weekly breakout confirmed (highest probability). D = Daily only (weekly still compressing).</div>
+              <div><span className="text-slate-500 font-semibold">Sector Rotation:</span> Green = money flowing in + signals appearing. Red = money leaving. Trade WITH sector momentum.</div>
+              <div><span className="text-slate-500 font-semibold">Correlation:</span> Above 0.7 = concentrated risk. Diversify across uncorrelated sectors.</div>
+              <div><span className="text-slate-500 font-semibold">Risk of Ruin:</span> Probability of a 30% drawdown given current win rate and R:R. Below 5% = safe.</div>
+            </div>
+
+            </>)}
           </div>
         )}
 
@@ -2644,7 +2929,15 @@ function HomePageInner() {
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
                                 col.cellClass ? col.cellClass(row) : 'text-slate-300',
                               ].join(' ')}>
-                              {col.key === 'track_btn' ? (
+                              {col.key === 'rs_rank' ? (() => {
+                                const rs = rsData.get(row.symbol);
+                                if (!rs) return <span className="text-slate-600">—</span>;
+                                return <span className={`font-mono ${rs.rsRank >= 80 ? 'text-green-300 font-bold' : rs.rsRank >= 60 ? 'text-emerald-400' : rs.rsRank >= 40 ? 'text-slate-300' : rs.rsRank >= 20 ? 'text-amber-400' : 'text-red-400'}`} title={`RS: ${rs.rs52w.toFixed(0)} | Slope: ${rs.rsSlope.toFixed(1)} | ${rs.rsStatus}`}>{rs.rsRank}</span>;
+                              })() : col.key === 'tf_align' ? (() => {
+                                const tf = tfAlignments.get(row.symbol);
+                                if (!tf) return <span className="text-slate-700">—</span>;
+                                return <span className={`font-semibold ${tf.alignment === 'DW' ? 'text-green-300' : tf.alignment === 'D' ? 'text-yellow-300' : 'text-slate-600'}`} title={tf.alignment === 'DW' ? 'Daily + Weekly aligned' : tf.alignment === 'D' ? 'Daily only (weekly compressing)' : 'No alignment'}>{tf.alignment}</span>;
+                              })() : col.key === 'track_btn' ? (
                                 <button onClick={(e) => { e.stopPropagation(); trackTrade(row); }}
                                   className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${trackedTrades.some(t => t.symbol === row.symbol) ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 hover:bg-emerald-900/40 text-slate-500 hover:text-emerald-300'}`}>
                                   {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}
