@@ -3382,20 +3382,24 @@ function HomePageInner() {
                     }
                     const sheetText = ts ? tradeSheetToClipboard(ts) : '';
                     return (
-                      <div className="flex-1 relative group">
+                      <div className="flex-1">
                         <button onClick={() => {
                           if (!sheetText) { setShowTradeSheet('no_data'); setTimeout(() => setShowTradeSheet(null), 2000); return; }
-                          try { navigator.clipboard.writeText(sheetText).catch(() => {}); } catch { /* fallback */ const ta = document.createElement('textarea'); ta.value = sheetText; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
-                          setShowTradeSheet(selectedResult.symbol); setTimeout(() => setShowTradeSheet(null), 2000);
+                          const ta = document.createElement('textarea'); ta.value = sheetText; ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+                          document.body.appendChild(ta); ta.select();
+                          try { document.execCommand('copy'); } catch {}
+                          document.body.removeChild(ta);
+                          try { navigator.clipboard.writeText(sheetText).catch(() => {}); } catch {}
+                          setShowTradeSheet(selectedResult.symbol === showTradeSheet ? null : selectedResult.symbol);
                         }}
                           className="w-full px-2 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-xs font-medium text-blue-300 transition-colors">
                           {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
                         </button>
-                        {/* Hover preview tooltip */}
-                        {sheetText && (
-                          <div className="absolute left-0 top-full mt-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[99999]">
-                            <div className="bg-gradient-to-br from-[#0f172a] to-[#020617] border-2 border-blue-500/50 rounded-lg p-3 shadow-2xl shadow-blue-900/30">
-                              <div className="text-[9px] font-mono leading-relaxed whitespace-pre-wrap">
+                        {/* Inline trade sheet (shown on click) */}
+                        {showTradeSheet === selectedResult.symbol && sheetText && (
+                          <div className="mt-2">
+                            <div className="bg-gradient-to-br from-[#0f172a] to-[#020617] border-2 border-blue-500/40 rounded-lg p-2.5 shadow-lg">
+                              <div className="text-[9px] font-mono leading-relaxed">
                                 {sheetText.split('\n').map((line, i) => (
                                   <div key={i} className={
                                     line.startsWith('═══') ? 'text-blue-400 font-bold mb-0.5' :
@@ -3413,7 +3417,7 @@ function HomePageInner() {
                                   }>{line || ' '}</div>
                                 ))}
                               </div>
-                              <div className="text-[8px] text-blue-400/60 mt-1.5 pt-1 border-t border-blue-800/30 text-center">Click to copy to clipboard</div>
+                              <div className="text-[8px] text-emerald-400 mt-1.5 pt-1 border-t border-blue-800/30 text-center font-semibold">Copied to clipboard</div>
                             </div>
                           </div>
                         )}
