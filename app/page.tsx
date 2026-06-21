@@ -61,6 +61,11 @@ import {
 } from '@/lib/performanceEngine';
 import { validateTrade, applyValidation, computeRollingStats } from '@/lib/autoValidator';
 import {
+  computeMfeMaeScatter, computeExpectancyCurve, computeRDistribution,
+  computeOptimization, computeSectorPerformance, computeConvictionCorrelation,
+  computeEdgeDecay, computeDayOfWeek, computeRegimePerformance,
+} from '@/lib/validationAnalytics';
+import {
   computeMansfieldRS, rankRS, computeSectorRotation, checkWeeklyAlignment,
   backtestSignal, computePortfolioCorrelation, computeAnchoredVWAP,
   computeSignalDecay, getAdaptiveScanInterval, computeRiskOfRuin, checkEarningsProximity,
@@ -2368,10 +2373,10 @@ function HomePageInner() {
           </div>
         )}
 
-        {/* ── Trade Auto Validation Tab ── */}
+        {/* ── Trade Auto Validation Tab (Scientific Dashboard) ── */}
         {activeTab === 'validation' && (
-          <div className="flex-1 overflow-auto p-4 space-y-4">
-            {/* Summary Cards */}
+          <div className="flex-1 overflow-auto p-4 space-y-3">
+            {/* Summary Cards — same as before but compact */}
             {(() => {
               const all = trackedTrades;
               const open = all.filter(t => t.status === 'open');
@@ -2576,13 +2581,275 @@ function HomePageInner() {
                     )}
                   </div>
 
+                  {/* ══════════════════════════════════════════════════════ */}
+                  {/* SCIENTIFIC ANALYTICS (10 features)                   */}
+                  {/* ══════════════════════════════════════════════════════ */}
+
+                  {closed.length >= 3 && (<>
+
+                  {/* ROW: Expectancy Curve + R-Distribution side by side */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* #2: Expectancy Curve */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Expectancy Curve (Cumulative R)</div>
+                      {(() => {
+                        const curve = computeExpectancyCurve(trackedTrades);
+                        if (curve.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more closed trades</div>;
+                        const maxR = Math.max(...curve.map(p => p.cumulativeR), 0.1);
+                        const minR = Math.min(...curve.map(p => p.cumulativeR), -0.1);
+                        const range = maxR - minR || 1;
+                        const h = 120, w = 100;
+                        const zeroY = ((maxR) / range) * 100;
+                        return (
+                          <div className="relative" style={{ height: h }}>
+                            <div className="absolute inset-0 border border-slate-700/30 rounded overflow-hidden">
+                              {/* Zero line */}
+                              <div className="absolute left-0 right-0 border-t border-slate-600/50 border-dashed" style={{ top: `${zeroY}%` }} />
+                              {/* Curve */}
+                              <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
+                                <polyline fill="none" stroke={curve[curve.length - 1].cumulativeR >= 0 ? '#22c55e' : '#ef4444'} strokeWidth="2"
+                                  points={curve.map((p, i) => `${(i / Math.max(curve.length - 1, 1)) * w},${((maxR - p.cumulativeR) / range) * h}`).join(' ')} />
+                              </svg>
+                            </div>
+                            <div className="absolute top-0 right-1 text-[10px] text-emerald-400">+{maxR.toFixed(1)}R</div>
+                            <div className="absolute bottom-0 right-1 text-[10px] text-red-400">{minR.toFixed(1)}R</div>
+                            <div className="absolute bottom-0 left-1 text-[10px] text-slate-600">{curve.length - 1} trades</div>
+                          </div>
+                        );
+                      })()}
+                      <div className={`text-center text-[10px] mt-1 ${(computeExpectancyCurve(trackedTrades).pop()?.cumulativeR ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {(computeExpectancyCurve(trackedTrades).pop()?.cumulativeR ?? 0) >= 0 ? '↑ Positive edge — keep trading' : '↓ Negative edge — review system'}
+                      </div>
+                    </div>
+
+                    {/* #3: R-Multiple Distribution */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">R-Multiple Distribution</div>
+                      {(() => {
+                        const dist = computeRDistribution(trackedTrades);
+                        const maxCount = Math.max(...dist.map(d => d.count), 1);
+                        return (
+                          <div className="space-y-1">
+                            {dist.map(d => (
+                              <div key={d.range} className="flex items-center gap-2 text-[10px]">
+                                <span className="w-16 text-right text-slate-400 shrink-0">{d.range}</span>
+                                <div className="flex-1 bg-slate-800 rounded-full h-4 overflow-hidden">
+                                  <div className="h-full rounded-full flex items-center pl-1 text-[9px] font-bold text-white" style={{ width: `${Math.max((d.count / maxCount) * 100, d.count > 0 ? 12 : 0)}%`, backgroundColor: d.color }}>
+                                    {d.count > 0 ? d.count : ''}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* #1: MFE/MAE Scatter */}
+                  <div className="bg-slate-800/40 rounded-lg p-3">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">MFE vs MAE Scatter (each dot = 1 trade)</div>
+                    {(() => {
+                      const points = computeMfeMaeScatter(trackedTrades);
+                      if (points.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more closed trades</div>;
+                      const maxMfe = Math.max(...points.map(p => p.mfeR), 1);
+                      const minMae = Math.min(...points.map(p => p.maeR), -1);
+                      return (
+                        <div className="relative h-40 border border-slate-700/30 rounded overflow-hidden">
+                          {/* Axes */}
+                          <div className="absolute bottom-0 left-1/2 top-0 border-l border-slate-600/30" />
+                          <div className="absolute left-0 right-0 bottom-1/2 border-t border-slate-600/30" />
+                          {/* Labels */}
+                          <div className="absolute top-1 left-1 text-[9px] text-slate-600">MFE (profit potential) ↑</div>
+                          <div className="absolute bottom-1 right-1 text-[9px] text-slate-600">MAE (drawdown) →</div>
+                          {/* Points */}
+                          {points.map((p, i) => {
+                            const x = 50 + (minMae !== 0 ? (p.maeR / Math.abs(minMae)) * 45 : 0);
+                            const y = 95 - (maxMfe > 0 ? (p.mfeR / maxMfe) * 85 : 0);
+                            return (
+                              <div key={i} title={`${p.symbol}: MFE +${p.mfeR.toFixed(1)}R, MAE ${p.maeR.toFixed(1)}R, P&L ${p.pnlR.toFixed(1)}R`}
+                                className={`absolute w-2.5 h-2.5 rounded-full border ${p.winner ? 'bg-emerald-500/70 border-emerald-400' : 'bg-red-500/70 border-red-400'}`}
+                                style={{ left: `${Math.max(2, Math.min(98, x))}%`, top: `${Math.max(2, Math.min(98, y))}%`, transform: 'translate(-50%, -50%)' }} />
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                    <div className="flex justify-between text-[9px] text-slate-600 mt-1 px-1">
+                      <span>🟢 = winner &nbsp; 🔴 = loser</span>
+                      <span>Top-left = high MFE, low MAE (ideal)</span>
+                    </div>
+                  </div>
+
+                  {/* ROW: Stop/Target Optimization + Conviction */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* #4: Stop & Target Optimization */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Target Reach Analysis</div>
+                      {(() => {
+                        const opt = computeOptimization(trackedTrades);
+                        if (!opt) return <div className="text-xs text-slate-600 py-2">Need 5+ closed trades</div>;
+                        return (
+                          <div className="space-y-1.5">
+                            {opt.mfeReachPct.map(m => (
+                              <div key={m.rLevel} className="flex items-center gap-2 text-[10px]">
+                                <span className="w-8 text-right text-slate-400 font-mono">{m.rLevel}R</span>
+                                <div className="flex-1 bg-slate-800 rounded-full h-3.5 overflow-hidden">
+                                  <div className={`h-full rounded-full flex items-center justify-end pr-1 text-[9px] font-bold text-white ${m.pctReaching >= 60 ? 'bg-emerald-600' : m.pctReaching >= 40 ? 'bg-yellow-600' : 'bg-red-600'}`}
+                                    style={{ width: `${Math.max(m.pctReaching, 8)}%` }}>
+                                    {m.pctReaching.toFixed(0)}%
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-700/50 space-y-0.5">
+                              <div>Optimal T1: <b className="text-emerald-400">{opt.optimalT1R}R</b> (60%+ trades reach this)</div>
+                              <div>Profit capture: <b className={opt.profitCapturePct >= 50 ? 'text-emerald-400' : 'text-amber-400'}>{opt.profitCapturePct.toFixed(0)}%</b> of available MFE</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* #7: Conviction vs Outcome */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Conviction vs Outcome</div>
+                      {(() => {
+                        const { points, correlation } = computeConvictionCorrelation(trackedTrades);
+                        if (points.length < 3) return <div className="text-xs text-slate-600 py-2">Need 3+ closed trades</div>;
+                        return (
+                          <div>
+                            <div className="relative h-28 border border-slate-700/30 rounded overflow-hidden mb-1">
+                              {points.map((p, i) => {
+                                const x = Math.max(5, Math.min(95, p.conviction));
+                                const maxR = Math.max(...points.map(q => Math.abs(q.pnlR)), 1);
+                                const y = 50 - (p.pnlR / maxR) * 45;
+                                return (
+                                  <div key={i} title={`${p.symbol}: Conv ${p.conviction}, P&L ${p.pnlR.toFixed(1)}R`}
+                                    className={`absolute w-2 h-2 rounded-full ${p.winner ? 'bg-emerald-400' : 'bg-red-400'}`}
+                                    style={{ left: `${x}%`, top: `${Math.max(2, Math.min(98, y))}%`, transform: 'translate(-50%, -50%)' }} />
+                                );
+                              })}
+                              <div className="absolute bottom-0 left-0 right-0 border-t border-slate-600/30" style={{ top: '50%' }} />
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-slate-600">Low conv ← → High conv</span>
+                              <span className={`font-semibold ${correlation > 0.3 ? 'text-emerald-400' : correlation > 0 ? 'text-slate-400' : 'text-red-400'}`}>
+                                r = {correlation.toFixed(2)} {correlation > 0.3 ? '✓ Scoring works' : correlation < 0 ? '⚠ Inverted!' : '— Weak signal'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* ROW: Edge Decay + Day of Week + Sector */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* #8: Edge Decay */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Edge Trend</div>
+                      {(() => {
+                        const { points, trending } = computeEdgeDecay(trackedTrades);
+                        if (points.length < 2) return <div className="text-xs text-slate-600 py-2">Need 6+ trades</div>;
+                        const maxWR = Math.max(...points.map(p => p.winRate), 1);
+                        return (
+                          <div>
+                            <div className="flex items-end gap-px h-16">
+                              {points.map((p, i) => (
+                                <div key={i} className="flex-1 flex flex-col justify-end" title={`Trade ${p.windowEnd}: ${p.winRate.toFixed(0)}% WR`}>
+                                  <div className={`rounded-t ${p.winRate >= 50 ? 'bg-emerald-500/60' : 'bg-red-500/60'}`}
+                                    style={{ height: `${(p.winRate / maxWR) * 100}%`, minHeight: 2 }} />
+                                </div>
+                              ))}
+                            </div>
+                            <div className={`text-center text-[10px] mt-1 font-semibold ${trending === 'improving' ? 'text-emerald-400' : trending === 'decaying' ? 'text-red-400' : 'text-slate-400'}`}>
+                              {trending === 'improving' ? '↑ Edge improving' : trending === 'decaying' ? '↓ Edge decaying — review system' : '— Edge stable'}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* #9: Day of Week */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Entry Day Analysis</div>
+                      {(() => {
+                        const days = computeDayOfWeek(trackedTrades);
+                        if (days.length === 0) return <div className="text-xs text-slate-600 py-2">Need closed trades</div>;
+                        return (
+                          <div className="space-y-1">
+                            {days.map(d => (
+                              <div key={d.day} className="flex items-center gap-2 text-[10px]">
+                                <span className="w-6 text-slate-400 font-semibold">{d.day}</span>
+                                <div className="flex-1 bg-slate-800 rounded-full h-3 overflow-hidden">
+                                  <div className={`h-full rounded-full ${d.winRate >= 60 ? 'bg-emerald-500' : d.winRate >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                    style={{ width: `${Math.max(d.winRate, 5)}%` }} />
+                                </div>
+                                <span className={`w-10 text-right font-mono ${d.winRate >= 60 ? 'text-emerald-400' : d.winRate >= 40 ? 'text-yellow-300' : 'text-red-400'}`}>{d.winRate.toFixed(0)}%</span>
+                                <span className="text-slate-600 w-4 text-right">{d.trades}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* #6: Sector Performance */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Sector Performance</div>
+                      {(() => {
+                        const sectors = computeSectorPerformance(trackedTrades);
+                        if (sectors.length === 0) return <div className="text-xs text-slate-600 py-2">Need closed trades</div>;
+                        return (
+                          <div className="space-y-1">
+                            {sectors.slice(0, 6).map(s => (
+                              <div key={s.sector} className="flex items-center gap-2 text-[10px]">
+                                <span className="w-14 text-slate-300 font-semibold truncate">{s.sector}</span>
+                                <span className={`w-10 text-right font-mono ${s.winRate >= 60 ? 'text-emerald-400' : s.winRate >= 40 ? 'text-yellow-300' : 'text-red-400'}`}>{s.winRate.toFixed(0)}%</span>
+                                <span className={`w-10 text-right font-mono ${s.avgR >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{s.avgR >= 0 ? '+' : ''}{s.avgR.toFixed(1)}R</span>
+                                <span className="text-slate-600">{s.trades}t</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* #5: Regime Performance */}
+                  {(() => {
+                    const regimes = computeRegimePerformance(trackedTrades);
+                    if (regimes.length < 2) return null;
+                    return (
+                      <div className="bg-slate-800/40 rounded-lg p-3">
+                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Period Comparison</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {regimes.map(r => (
+                            <div key={r.regime} className="bg-slate-900/40 rounded px-3 py-2 text-xs">
+                              <div className="text-slate-400 font-semibold mb-1">{r.regime}</div>
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div><div className="text-[10px] text-slate-600">WR</div><div className={`font-bold ${r.winRate >= 55 ? 'text-emerald-400' : 'text-red-400'}`}>{r.winRate.toFixed(0)}%</div></div>
+                                <div><div className="text-[10px] text-slate-600">Avg R</div><div className={`font-bold ${r.avgR >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{r.avgR >= 0 ? '+' : ''}{r.avgR.toFixed(2)}R</div></div>
+                                <div><div className="text-[10px] text-slate-600">Trades</div><div className="font-bold text-slate-300">{r.trades}</div></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  </>)}
+
                   {/* Engine Info */}
-                  <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
-                    <div><span className="text-slate-500 font-semibold">Validation Engine:</span> Level 3 bar-by-bar sequential — checks if LOW hits stop BEFORE HIGH hits target on each candle (conservative, worst-case assumption)</div>
-                    <div><span className="text-slate-500 font-semibold">Auto-Runs:</span> After every scan on all open tracked trades using freshly fetched OHLCV data</div>
-                    <div><span className="text-slate-500 font-semibold">MFE (Maximum Favorable Excursion):</span> Highest % / R-multiple the price reached above entry — shows profit left on the table</div>
-                    <div><span className="text-slate-500 font-semibold">MAE (Maximum Adverse Excursion):</span> Deepest % / R-multiple drawdown below entry — shows how close to getting stopped</div>
-                    <div><span className="text-slate-500 font-semibold">Auto-Expiry:</span> Trades open &gt;10 trading days without hitting T1 or stop are auto-expired at last closing price</div>
+                  <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                    <div><b className="text-slate-500">Engine:</b> Level 3 bar-by-bar sequential (stop checked before target)</div>
+                    <div><b className="text-slate-500">Auto-Runs:</b> After every scan on all open tracked trades</div>
+                    <div><b className="text-slate-500">MFE:</b> Highest R-multiple above entry — profit left on the table</div>
+                    <div><b className="text-slate-500">MAE:</b> Deepest R-multiple below entry — how close to stop</div>
+                    <div><b className="text-slate-500">Expiry:</b> 10 trading days without target or stop → auto-expired</div>
+                    <div><b className="text-slate-500">Entry Skip:</b> Validates from day AFTER entry (no same-day false stops)</div>
                   </div>
                 </>
               );
