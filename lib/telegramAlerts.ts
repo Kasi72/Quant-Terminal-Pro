@@ -48,13 +48,15 @@ export async function sendTelegramMessage(cfg: TelegramConfig, message: string):
   } catch { return false; }
 }
 
+function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
 // ─── Alert #1: New BUY Signal ───────────────────────────────────────────────
 
 export function formatNewSignalAlert(r: AnalysisResult, extras?: {
   conviction?: number; rsRank?: number; tfAlign?: string; onset?: string;
   pivotPosition?: string; pivotR1?: number; pivotS1?: number; pivotWarning?: string;
 }): string {
-  const sym = r.symbol.replace('.NS', '').replace('.BO', '');
+  const sym = esc(r.symbol.replace('.NS', '').replace('.BO', ''));
   const stageLabel = r.stage.replace(/_/g, ' ');
   const pe = r.priceEngine;
   const rps = pe.plannedEntry - pe.tacticalStop;
@@ -89,7 +91,7 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
 // ─── Alert #2: Target Hit ───────────────────────────────────────────────────
 
 export function formatTargetHitAlert(t: TrackedTrade): string {
-  const sym = t.symbol.replace('.NS', '').replace('.BO', '');
+  const sym = esc(t.symbol.replace('.NS', '').replace('.BO', ''));
   const target = t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : 'T3';
   let msg = `✅ <b>TARGET HIT — ${sym}</b>\n\n`;
   msg += `${target} hit at ₹${(t.closedPrice ?? 0).toFixed(2)}\n`;
@@ -103,7 +105,7 @@ export function formatTargetHitAlert(t: TrackedTrade): string {
 // ─── Alert #3: Stopped Out ──────────────────────────────────────────────────
 
 export function formatStoppedAlert(t: TrackedTrade): string {
-  const sym = t.symbol.replace('.NS', '').replace('.BO', '');
+  const sym = esc(t.symbol.replace('.NS', '').replace('.BO', ''));
   let msg = `🔴 <b>STOPPED — ${sym}</b>\n\n`;
   msg += `Stop hit at ₹${(t.closedPrice ?? t.stopLoss).toFixed(2)}\n`;
   msg += `Entry: ₹${t.entryPrice.toFixed(2)} | P&L: ${(t.pnlPct ?? 0).toFixed(2)}%\n`;
@@ -139,11 +141,11 @@ export function formatDailySummaryAlert(
   let msg = `📊 <b>DAILY SCAN SUMMARY — ${date}</b>\n\n`;
   msg += `Scanned: ${totalScanned} stocks\n`;
   msg += `Actionable: ${actionable}`;
-  if (newSignals.length > 0) msg += `\nNew: ${newSignals.map(s => s.replace('.NS', '')).join(', ')}`;
-  if (droppedSignals.length > 0) msg += `\nDropped: ${droppedSignals.map(s => s.replace('.NS', '')).join(', ')}`;
+  if (newSignals.length > 0) msg += `\nNew: ${newSignals.map(s => esc(s.replace('.NS', ''))).join(', ')}`;
+  if (droppedSignals.length > 0) msg += `\nDropped: ${droppedSignals.map(s => esc(s.replace('.NS', ''))).join(', ')}`;
   msg += `\n\nPortfolio: ${openTrades} open | WR: ${winRate.toFixed(0)}% | ${cumulativeR >= 0 ? '+' : ''}${cumulativeR.toFixed(1)}R cumulative`;
   if (bestSignal) {
-    msg += `\nBest: <b>${bestSignal.symbol.replace('.NS', '')}</b> (Conv ${bestSignal.conviction}, R:R ${bestSignal.rr.toFixed(1)})`;
+    msg += `\nBest: <b>${esc(bestSignal.symbol.replace('.NS', ''))}</b> (Conv ${bestSignal.conviction}, R:R ${bestSignal.rr.toFixed(1)})`;
   }
   return msg;
 }
@@ -151,7 +153,7 @@ export function formatDailySummaryAlert(
 // ─── Alert #6: Signal Decay Warning ─────────────────────────────────────────
 
 export function formatSignalDecayAlert(symbol: string, ageDays: number, decayedConv: number, extended: boolean): string {
-  const sym = symbol.replace('.NS', '').replace('.BO', '');
+  const sym = esc(symbol.replace('.NS', '').replace('.BO', ''));
   let msg = `⏳ <b>SIGNAL AGING — ${sym}</b>\n\n`;
   msg += `Signal is ${ageDays} days old (conviction decayed to ${decayedConv})\n`;
   if (extended) msg += `Stock has moved >1 ATR above entry — extended\n`;

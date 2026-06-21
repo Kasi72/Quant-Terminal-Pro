@@ -926,6 +926,9 @@ function HomePageInner() {
     }
 
     // Intelligence features computation
+    let localRsMap = new Map<string, RSRanking>();
+    let localTfMap = new Map<string, TFAlignment>();
+    let localPivMap = pivotData;
     if (newResults.length > 0 && niftyData) {
       // #1: Mansfield RS Ranking
       const rsRaw: Array<{ symbol: string; rs52w: number }> = [];
@@ -965,6 +968,8 @@ function HomePageInner() {
 
       // #7+10: Earnings season check
       setEarningsSeason(checkEarningsProximity(new Date().toISOString().slice(0, 10)));
+      localRsMap = rsMap;
+      localTfMap = tfMap;
     }
 
     // Pivot points — computed independently of Nifty data
@@ -978,6 +983,7 @@ function HomePageInner() {
         }
       }
       setPivotData(pivMap);
+      localPivMap = pivMap;
     }
 
     // ── Telegram Alerts ──
@@ -988,9 +994,9 @@ function HomePageInner() {
         const prevSyms = new Set(resultsRef.current.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).map(r => r.symbol));
         const newBuys = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage) && !prevSyms.has(r.symbol));
         for (const r of newBuys.slice(0, 5)) {
-          const rs = rsData.get(r.symbol);
-          const tf = tfAlignments.get(r.symbol);
-          const piv = pivotData.get(r.symbol);
+          const rs = localRsMap.get(r.symbol);
+          const tf = localTfMap.get(r.symbol);
+          const piv = localPivMap.get(r.symbol);
           const msg = formatNewSignalAlert(r, {
             conviction: computeConviction(r), rsRank: rs?.rsRank, tfAlign: tf?.alignment,
             pivotPosition: piv?.position, pivotR1: piv?.classic.r1, pivotS1: piv?.classic.s1,
