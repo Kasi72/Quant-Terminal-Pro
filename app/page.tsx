@@ -1143,6 +1143,7 @@ function HomePageInner() {
   const [portCorrelation, setPortCorrelation] = useState<CorrelationResult | null>(null);
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
+  const [validateFlash, setValidateFlash] = useState(0);
   useEffect(() => {
     if (marketRegime || regimeFetchedRef.current) return;
     regimeFetchedRef.current = true;
@@ -1327,42 +1328,43 @@ function HomePageInner() {
               data-tip-color="cyan"
               onClick={async () => {
                 if (scanningRef.current) return;
+                const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
+                if (openTrades.length === 0) return;
                 setScanning(true); scanningRef.current = true;
+                setTotal(openTrades.length); setProgress(0);
                 try {
-                  const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
                   let updated = [...trackedTradesRef.current];
                   let validated = 0;
                   for (const t of openTrades) {
                     try {
                       const { candles } = await fetchOHLCVClient(t.symbol);
-                      if (!candles || candles.length < 2) continue;
+                      if (!candles || candles.length < 2) { setProgress(p => p + 1); continue; }
                       const entryTs = new Date(t.entryDate).getTime() / 1000 + 86400;
                       const sinceEntry = candles.filter(c => c.ts >= entryTs);
-                      if (sinceEntry.length === 0) continue;
+                      if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(t, sinceEntry);
                       const idx = updated.findIndex(u => u.symbol === t.symbol);
                       if (idx >= 0) {
                         updated[idx] = applyValidation(updated[idx], result);
-                        // Always update currentPrice from latest candle
                         const lastCandle = candles[candles.length - 1];
                         if (lastCandle && lastCandle.c > 0) updated[idx].currentPrice = lastCandle.c;
-                        // Track highest price seen (MFE)
                         const maxH = Math.max(...sinceEntry.map(c => c.h));
                         if (maxH > (updated[idx].highestPrice ?? 0)) updated[idx].highestPrice = maxH;
                         validated++;
                       }
                     } catch {}
+                    setProgress(p => p + 1);
                   }
                   setTrackedTrades(updated);
                   try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
-                  if (validated > 0) setShowTradeSheet(`validated_${validated}`);
-                  setTimeout(() => setShowTradeSheet(null), 2000);
+                  setValidateFlash(validated);
+                  setTimeout(() => setValidateFlash(0), 3000);
                 } catch {} finally {
                   setScanning(false); scanningRef.current = false;
                 }
               }}
               className="h-7 px-2.5 bg-cyan-900/40 hover:bg-cyan-900/60 disabled:opacity-40 border border-cyan-600 rounded text-[11px] font-semibold text-cyan-300 transition-colors">
-              {scanning ? '🔬 ...' : showTradeSheet?.startsWith('validated_') ? `✓ ${showTradeSheet.split('_')[1]} updated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}</button>
+              {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}</button>
           )}
         </div>
 
