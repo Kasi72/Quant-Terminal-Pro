@@ -2715,10 +2715,10 @@ function HomePageInner() {
                   onClick={() => {
                     const allTrades: import('@/lib/backtestEngine').BacktestTrade[] = [];
                     for (const [sym, candles] of Object.entries(candleCache)) {
-                      const trades = runBacktest(candles, sym, 200, 10);
+                      const trades = runBacktest(candles, sym, 200, 10, accountSize);
                       allTrades.push(...trades);
                     }
-                    setBacktestResult(aggregateBacktest(allTrades));
+                    setBacktestResult(aggregateBacktest(allTrades, niftyCandles ?? undefined, accountSize));
                   }}
                   className="h-6 px-3 bg-amber-900/40 hover:bg-amber-900/60 border border-amber-600 rounded text-[11px] font-semibold text-amber-300 disabled:opacity-40 transition-colors">
                   {backtestResult ? 'Re-run Backtest' : 'Run Backtest'}</button>
@@ -2789,6 +2789,76 @@ function HomePageInner() {
                     <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Avg Loss</span><div className="text-red-400 font-bold">-{backtestResult.avgLossR.toFixed(2)}R</div></div>
                     <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Max Win Streak</span><div className="text-emerald-400 font-bold">{backtestResult.maxConsecWins}</div></div>
                     <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Max Loss Streak</span><div className="text-red-400 font-bold">{backtestResult.maxConsecLosses}</div></div>
+                  </div>
+
+                  {/* Kotak Costs Summary */}
+                  <div className="bg-slate-900/40 rounded p-2 mb-3 text-[10px]">
+                    <div className="text-slate-500 font-semibold mb-1">Kotak Securities Costs</div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div><span className="text-slate-600">Total Costs</span><div className="text-red-400 font-mono">₹{backtestResult.totalCosts.toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Avg/Trade</span><div className="text-slate-300 font-mono">₹{backtestResult.avgCostPerTrade.toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Net P&L</span><div className={`font-mono font-bold ${backtestResult.trades.reduce((s,t) => s + t.pnlNet, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>₹{backtestResult.trades.reduce((s,t) => s + t.pnlNet, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Gross P&L</span><div className="text-slate-400 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.pnlGross, 0).toFixed(0)}</div></div>
+                    </div>
+                  </div>
+
+                  {/* #3: Benchmark vs Nifty */}
+                  {backtestResult.benchmark && (
+                    <div className="bg-slate-900/40 rounded p-2 mb-3 text-[10px]">
+                      <div className="text-slate-500 font-semibold mb-1">Strategy vs Nifty 50 (Buy & Hold)</div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div><span className="text-slate-600">Strategy</span><div className={`text-lg font-bold ${backtestResult.benchmark.strategyReturn >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{backtestResult.benchmark.strategyReturn >= 0 ? '+' : ''}{backtestResult.benchmark.strategyReturn.toFixed(1)}%</div></div>
+                        <div><span className="text-slate-600">Nifty B&H</span><div className={`text-lg font-bold ${backtestResult.benchmark.niftyReturn >= 0 ? 'text-slate-300' : 'text-red-400'}`}>{backtestResult.benchmark.niftyReturn >= 0 ? '+' : ''}{backtestResult.benchmark.niftyReturn.toFixed(1)}%</div></div>
+                        <div><span className="text-slate-600">Alpha</span><div className={`text-lg font-bold ${backtestResult.benchmark.alpha >= 0 ? 'text-[#39FF14]' : 'text-red-400'}`}>{backtestResult.benchmark.alpha >= 0 ? '+' : ''}{backtestResult.benchmark.alpha.toFixed(1)}%</div></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* #4: Monte Carlo */}
+                  {backtestResult.monteCarlo && (
+                    <div className="bg-slate-900/40 rounded p-2 mb-3 text-[10px]">
+                      <div className="text-slate-500 font-semibold mb-1">Monte Carlo (500 simulations, shuffled trade order)</div>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div><span className="text-slate-600">Worst 10%</span><div className="text-red-400 font-bold font-mono">₹{(backtestResult.monteCarlo.p10/100000).toFixed(1)}L</div></div>
+                        <div><span className="text-slate-600">Median</span><div className="text-slate-200 font-bold font-mono">₹{(backtestResult.monteCarlo.median/100000).toFixed(1)}L</div></div>
+                        <div><span className="text-slate-600">Best 10%</span><div className="text-emerald-400 font-bold font-mono">₹{(backtestResult.monteCarlo.p90/100000).toFixed(1)}L</div></div>
+                        <div><span className="text-slate-600">Ruin Prob</span><div className={`font-bold ${backtestResult.monteCarlo.ruinProbability < 5 ? 'text-emerald-400' : backtestResult.monteCarlo.ruinProbability < 20 ? 'text-amber-400' : 'text-red-400'}`}>{backtestResult.monteCarlo.ruinProbability.toFixed(1)}%</div></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* #5: Drawdown + #6: Walk-Forward side by side */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-slate-900/40 rounded p-2 text-[10px]">
+                      <div className="text-slate-500 font-semibold mb-1">Drawdown Analysis</div>
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between"><span className="text-slate-600">Max DD</span><span className="text-red-400 font-mono font-bold">{backtestResult.drawdownAnalysis.maxDDPct.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">DD Duration</span><span className="text-slate-300 font-mono">{backtestResult.drawdownAnalysis.maxDDDuration} trades</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Avg DD</span><span className="text-slate-400 font-mono">{backtestResult.drawdownAnalysis.avgDDPct.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Recovery</span><span className="text-emerald-400 font-mono">{backtestResult.drawdownAnalysis.recoveryTrades} trades</span></div>
+                      </div>
+                      {/* Underwater curve mini */}
+                      {backtestResult.drawdownAnalysis.underwaterCurve.length > 2 && (
+                        <div className="mt-1 h-8 relative">
+                          <svg viewBox={`0 0 100 20`} className="w-full h-full" preserveAspectRatio="none">
+                            <polyline fill="none" stroke="#ef4444" strokeWidth="1"
+                              points={backtestResult.drawdownAnalysis.underwaterCurve.map((p, i) => `${(i / Math.max(backtestResult.drawdownAnalysis.underwaterCurve.length - 1, 1)) * 100},${Math.min(p.ddPct / Math.max(backtestResult.drawdownAnalysis.maxDDPct, 1) * 18, 18) + 1}`).join(' ')} />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-900/40 rounded p-2 text-[10px]">
+                      <div className="text-slate-500 font-semibold mb-1">Walk-Forward (70/30 split)</div>
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between"><span className="text-slate-600">In-Sample WR</span><span className="text-slate-300 font-mono">{backtestResult.walkForward.inSampleWR.toFixed(0)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">In-Sample Exp</span><span className="text-slate-300 font-mono">{backtestResult.walkForward.inSampleExp >= 0 ? '+' : ''}{backtestResult.walkForward.inSampleExp.toFixed(2)}R</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Out-Sample WR</span><span className={`font-mono font-bold ${backtestResult.walkForward.outSampleWR >= backtestResult.walkForward.inSampleWR * 0.8 ? 'text-emerald-400' : 'text-amber-400'}`}>{backtestResult.walkForward.outSampleWR.toFixed(0)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Out-Sample Exp</span><span className={`font-mono font-bold ${backtestResult.walkForward.outSampleExp >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{backtestResult.walkForward.outSampleExp >= 0 ? '+' : ''}{backtestResult.walkForward.outSampleExp.toFixed(2)}R</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Degradation</span><span className={`font-mono ${backtestResult.walkForward.degradation < 30 ? 'text-emerald-400' : 'text-amber-400'}`}>{backtestResult.walkForward.degradation.toFixed(0)}%</span></div>
+                        <div className={`mt-1 text-center font-semibold ${backtestResult.walkForward.robust ? 'text-emerald-400' : 'text-red-400'}`}>{backtestResult.walkForward.robust ? '✓ ROBUST' : '✗ NOT ROBUST'}</div>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
