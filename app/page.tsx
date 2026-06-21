@@ -150,14 +150,14 @@ async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: str
   doc.save(filename);
 }
 
-const STAGE_CONFIG: Record<StageRating, { label: string; color: string; textColor: string }> = {
-  ULTRA_STRONG_BUY:  { label: 'ULTRA STRONG BUY', color: 'text-yellow-300',  textColor: '#fde047' },
-  STRONG_BUY:        { label: 'STRONG BUY',        color: 'text-green-300',   textColor: '#86efac' },
-  BUY:               { label: 'BUY',               color: 'text-emerald-400', textColor: '#34d399' },
-  PRE_BREAKOUT:      { label: 'PRE-BREAKOUT',       color: 'text-blue-300',    textColor: '#93c5fd' },
-  EARLY_INFLECTION:  { label: 'EARLY INFLECTION',   color: 'text-cyan-400',    textColor: '#22d3ee' },
-  COMPRESSION_WATCH: { label: 'COMPRESSION WATCH',  color: 'text-slate-300',   textColor: '#cbd5e1' },
-  NO_SIGNAL:         { label: 'NO SIGNAL',          color: 'text-slate-500',   textColor: '#64748b' },
+const STAGE_CONFIG: Record<StageRating, { label: string; color: string; textColor: string; bgColor: string }> = {
+  ULTRA_STRONG_BUY:  { label: 'ULTRA STRONG BUY', color: 'text-[#39FF14]',    textColor: '#39FF14', bgColor: '#39FF1420' },
+  STRONG_BUY:        { label: 'STRONG BUY',        color: 'text-[#22c55e]',   textColor: '#22c55e', bgColor: '#22c55e20' },
+  BUY:               { label: 'BUY',               color: 'text-[#4ade80]',   textColor: '#4ade80', bgColor: '#4ade8020' },
+  PRE_BREAKOUT:      { label: 'PRE-BREAKOUT',       color: 'text-[#a3e635]',   textColor: '#a3e635', bgColor: '#a3e63520' },
+  EARLY_INFLECTION:  { label: 'EARLY INFLECTION',   color: 'text-[#facc15]',   textColor: '#facc15', bgColor: '#facc1520' },
+  COMPRESSION_WATCH: { label: 'COMPRESSION WATCH',  color: 'text-[#f97316]',   textColor: '#f97316', bgColor: '#f9731620' },
+  NO_SIGNAL:         { label: 'NO SIGNAL',          color: 'text-[#ef4444]',   textColor: '#ef4444', bgColor: '#ef444420' },
 };
 
 const ALL_STAGES: StageRating[] = [
@@ -1694,85 +1694,53 @@ function HomePageInner() {
         </div>
       )}
 
-      {/* ── Stage filter chips + per-stage exports ── */}
+      {/* ── Stage filters + exports (unified single bar) ── */}
       {results.length > 0 && (
-        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 space-y-2">
-          {/* Filter chips row */}
-          <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+          {/* All filter + export */}
+          <div className="flex items-center gap-0.5 shrink-0">
             <button onClick={() => setStageFilter('ALL')}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${stageFilter === 'ALL' ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+              className={`px-2 py-0.5 rounded-l text-[11px] font-medium border transition-colors ${stageFilter === 'ALL' ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
               All ({stageCounts['ALL'] ?? 0})</button>
-            {ALL_STAGES.map(stage => {
-              const count = stageCounts[stage] ?? 0;
-              if (count === 0) return null;
-              const cfg = STAGE_CONFIG[stage];
-              const active = stageFilter === stage;
-              return (
-                <button key={stage} onClick={(e) => {
-                    if (e.shiftKey) {
-                      setStageFilter('ALL');
-                      setMultiStageFilter(prev => { const next = new Set(prev); if (next.has(stage)) next.delete(stage); else next.add(stage); return next; });
-                    } else { setStageFilter(stage); setMultiStageFilter(new Set()); }
-                  }}
-                  style={active ? { borderColor: cfg.textColor, color: cfg.textColor } : {}}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-slate-800' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                  {cfg.label} ({count})</button>
-              );
-            })}
-            {filteredResults.length !== results.length && (
-              <span className="ml-auto text-xs text-slate-500">{filteredResults.length} of {results.length} shown</span>
-            )}
+            <button onClick={() => exportGroupCSV(results, COLUMNS, `QTP_all.csv`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">CSV</button>
+            <button onClick={() => exportGroupXLSX(results, COLUMNS, `QTP_all.xlsx`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLSX</button>
+            <button onClick={() => exportGroupPDF(results, COLUMNS, `All Results`, `QTP_all.pdf`)} className="px-1 py-0.5 border border-slate-700 rounded-r text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">PDF</button>
           </div>
 
-          {/* #7: Scan stats summary */}
+          <div className="w-px h-5 bg-slate-700 shrink-0" />
+
+          {/* Per-stage: filter chip + export buttons grouped together */}
+          {ALL_STAGES.map(stage => {
+            const count = stageCounts[stage] ?? 0;
+            if (count === 0) return null;
+            const cfg = STAGE_CONFIG[stage];
+            const active = stageFilter === stage;
+            const stageRows = results.filter(r => r.stage === stage);
+            const shortName = stage.replace(/_/g, '-').toLowerCase();
+            return (
+              <div key={stage} className="flex items-center gap-0.5 shrink-0">
+                <button onClick={(e) => {
+                    if (e.shiftKey) { setStageFilter('ALL'); setMultiStageFilter(prev => { const next = new Set(prev); if (next.has(stage)) next.delete(stage); else next.add(stage); return next; }); }
+                    else { setStageFilter(stage); setMultiStageFilter(new Set()); }
+                  }}
+                  style={{ borderColor: active ? cfg.textColor : undefined, color: cfg.textColor, backgroundColor: active ? cfg.bgColor : undefined }}
+                  className={`px-2 py-0.5 rounded-l text-[11px] font-semibold border transition-colors ${active ? '' : 'border-slate-700 hover:border-slate-500'}`}>
+                  {cfg.label} ({count})</button>
+                <button onClick={() => exportGroupCSV(stageRows, COLUMNS, `QTP_${shortName}.csv`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">CSV</button>
+                <button onClick={() => exportGroupXLSX(stageRows, COLUMNS, `QTP_${shortName}.xlsx`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLSX</button>
+                <button onClick={() => exportGroupPDF(stageRows, COLUMNS, `${cfg.label}`, `QTP_${shortName}.pdf`)} className="px-1 py-0.5 border border-slate-700 rounded-r text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">PDF</button>
+              </div>
+            );
+          })}
+
+          {/* Scan stats inline */}
           {scanStats.actionable > 0 && (
-            <div className="flex gap-3 flex-wrap items-center text-xs text-slate-500 py-1 border-t border-slate-800/50 mt-1 pt-1">
-              <span>📊</span>
-              <span>Avg Conf: <b className="text-slate-300">{scanStats.avgConfidence.toFixed(0)}%</b></span>
-              {scanStats.avgRisk > 0 && <span>Avg Risk: <b className="text-slate-300">{scanStats.avgRisk.toFixed(1)}%</b></span>}
-              {scanStats.bestRR && <span>Best R:R: <b className="text-emerald-400">{scanStats.bestRR.symbol}</b> ({scanStats.bestRR.rr.toFixed(1)})</span>}
-              {scanStats.highestConviction && <span>Top Conv: <b className="text-yellow-300">{scanStats.highestConviction.symbol}</b> ({scanStats.highestConviction.conv})</span>}
-              {multiStageFilter.size > 0 && <span className="text-cyan-500">Multi-filter: {multiStageFilter.size} stages (Shift+click)</span>}
+            <div className="flex items-center gap-2 ml-auto text-[10px] text-slate-500 shrink-0">
+              {scanStats.bestRR && <span>R:R <b className="text-emerald-400">{scanStats.bestRR.symbol}</b> {scanStats.bestRR.rr.toFixed(1)}</span>}
+              {scanStats.highestConviction && <span>Conv <b className="text-yellow-300">{scanStats.highestConviction.symbol}</b> {scanStats.highestConviction.conv}</span>}
+              {filteredResults.length !== results.length && <span>{filteredResults.length}/{results.length}</span>}
             </div>
           )}
-
-          {/* Per-stage export row */}
-          <div className="flex gap-x-4 gap-y-1.5 flex-wrap items-center">
-            <span className="text-xs text-slate-600 font-medium shrink-0">Export by stage:</span>
-            {ALL_STAGES.map(stage => {
-              const stageRows = results.filter(r => r.stage === stage);
-              if (stageRows.length === 0) return null;
-              const cfg = STAGE_CONFIG[stage];
-              const shortName = stage.replace(/_/g, '-').toLowerCase();
-              const paramName = PARAM_SETS[paramSetKey].name.replace(/\s+/g, '_');
-              return (
-                <div key={stage} className="flex items-center gap-1">
-                  <span className="text-xs shrink-0" style={{ color: cfg.textColor }}>
-                    {cfg.label} ({stageRows.length})
-                  </span>
-                  <button
-                    onClick={() => exportGroupCSV(stageRows, COLUMNS, `QTP_${paramName}_${shortName}.csv`)}
-                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">CSV</button>
-                  <button
-                    onClick={() => exportGroupXLSX(stageRows, COLUMNS, `QTP_${paramName}_${shortName}.xlsx`)}
-                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">XLSX</button>
-                  <button
-                    onClick={() => exportGroupPDF(stageRows, COLUMNS, `${cfg.label} — ${PARAM_SETS[paramSetKey].name}`, `QTP_${paramName}_${shortName}.pdf`)}
-                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">PDF</button>
-                </div>
-              );
-            })}
-            {/* Also export full results */}
-            <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-700">
-              <span className="text-xs text-slate-500 shrink-0">All results:</span>
-              <button onClick={() => exportGroupCSV(results, COLUMNS, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.csv`)}
-                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">CSV</button>
-              <button onClick={() => exportGroupXLSX(results, COLUMNS, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.xlsx`)}
-                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">XLSX</button>
-              <button onClick={() => exportGroupPDF(results, COLUMNS, `All Results — ${PARAM_SETS[paramSetKey].name}`, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.pdf`)}
-                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">PDF</button>
-            </div>
-          </div>
         </div>
       )}
 
