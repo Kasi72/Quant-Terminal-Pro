@@ -891,9 +891,8 @@ function buildTradeEngine(
   }
   const efficiencyRatio = erDen > 0 ? erNum / erDen : 0.5;
 
-  // Buffer: adaptive based on efficiency ratio
-  // Trending (ER > 0.6): tight 0.03 × ATR
-  // Noisy (ER < 0.3): wide 0.08 × ATR
+  // Buffer = (0.10 - 0.07 × ER) × ATR14
+  // ER=1.0 → 0.03×ATR, ER=0.6 → 0.058×ATR, ER=0.0 → 0.10×ATR
   // Minimum: 1 tick (₹0.05)
   const adaptiveBuffer = Math.max(0.05, (0.10 - 0.07 * efficiencyRatio) * atr14);
 
