@@ -14,6 +14,14 @@ export interface TradeSheet {
   totalCost: number;
   maxRisk: number;
   riskPct: number;
+  pivotPP?: number;
+  pivotR1?: number;
+  pivotR2?: number;
+  pivotS1?: number;
+  pivotS2?: number;
+  pivotPosition?: string;
+  pivotConfluence?: string;
+  pivotWarnings?: string[];
 }
 
 export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskPct = 1): TradeSheet | null {
@@ -43,7 +51,8 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
 }
 
 export function tradeSheetToClipboard(ts: TradeSheet): string {
-  return [
+  const lines = [
+    `═══ TRADE SHEET ═══`,
     `SYMBOL: ${ts.symbol}`,
     `ACTION: ${ts.action}`,
     `ENTRY: ₹${ts.entry.toFixed(2)} (Limit)`,
@@ -54,7 +63,22 @@ export function tradeSheetToClipboard(ts: TradeSheet): string {
     `TRAIL: ${ts.trailRule}`,
     `CAPITAL: ₹${(ts.totalCost / 100000).toFixed(2)}L`,
     `MAX RISK: ₹${ts.maxRisk.toLocaleString('en-IN')}`,
-  ].join('\n');
+  ];
+  if (ts.pivotPP) {
+    lines.push('', `═══ PIVOT LEVELS ═══`);
+    if (ts.pivotR2) lines.push(`R2: ₹${ts.pivotR2.toFixed(2)}`);
+    if (ts.pivotR1) lines.push(`R1: ₹${ts.pivotR1.toFixed(2)}`);
+    lines.push(`PP: ₹${ts.pivotPP.toFixed(2)}`);
+    if (ts.pivotS1) lines.push(`S1: ₹${ts.pivotS1.toFixed(2)}`);
+    if (ts.pivotS2) lines.push(`S2: ₹${ts.pivotS2.toFixed(2)}`);
+    if (ts.pivotPosition) lines.push(`Position: ${ts.pivotPosition}`);
+    if (ts.pivotConfluence) lines.push(`Confluence: ${ts.pivotConfluence}`);
+    if (ts.pivotWarnings?.length) {
+      lines.push('', `═══ PIVOT ALERTS ═══`);
+      for (const w of ts.pivotWarnings) lines.push(w);
+    }
+  }
+  return lines.join('\n');
 }
 
 // ─── #2: Win Rate Tracker ────────────────────────────────────────────────────

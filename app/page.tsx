@@ -958,8 +958,10 @@ function HomePageInner() {
 
       // #7+10: Earnings season check
       setEarningsSeason(checkEarningsProximity(new Date().toISOString().slice(0, 10)));
+    }
 
-      // Pivot points for all scanned stocks
+    // Pivot points — computed independently of Nifty data
+    if (newResults.length > 0) {
       const pivMap = new Map<string, AllPivots>();
       for (const r of newResults) {
         const candles = freshCandleMap[r.symbol];
@@ -3371,6 +3373,18 @@ function HomePageInner() {
                     const regimeMult = marketRegime?.sizingMultiplier ?? 1;
                     const ts = generateTradeSheet(selectedResult, accountSize * regimeMult);
                     if (ts) {
+                      const piv = pivotData.get(selectedResult.symbol);
+                      if (piv) {
+                        ts.pivotPP = piv.classic.pp;
+                        ts.pivotR1 = piv.classic.r1;
+                        ts.pivotR2 = piv.classic.r2;
+                        ts.pivotS1 = piv.classic.s1;
+                        ts.pivotS2 = piv.classic.s2;
+                        ts.pivotPosition = piv.position;
+                        ts.pivotConfluence = piv.confluence.slice(0, 3).map(c => `₹${c.price.toFixed(0)} (${c.strength} methods, ${c.type})`).join(' | ');
+                        const warnings = checkTargetPivotConflict(ts.entry, ts.stopLoss, ts.target1, ts.target2, piv);
+                        ts.pivotWarnings = warnings.map(w => w.warning);
+                      }
                       navigator.clipboard.writeText(tradeSheetToClipboard(ts)).catch(() => {});
                       setShowTradeSheet(selectedResult.symbol);
                       setTimeout(() => setShowTradeSheet(null), 2000);
