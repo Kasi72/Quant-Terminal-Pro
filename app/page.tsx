@@ -1323,14 +1323,18 @@ function HomePageInner() {
 
         {/* Group 4: Quick filters */}
         <div className="flex items-center gap-1 shrink-0">
-          {results.length > 0 && QUICK_FILTERS.map(qf => (
-            <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
-              title={qf.description}
-              className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${quickFilter === qf.key ? 'bg-indigo-900/50 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-              {qf.emoji} {qf.label}</button>
-          ))}
+          {results.length > 0 && (() => {
+            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan' };
+            return QUICK_FILTERS.map(qf => (
+              <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
+                data-tip={qf.description} data-tip-color={qfColors[qf.key] ?? 'blue'}
+                className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${quickFilter === qf.key ? 'bg-indigo-900/50 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+                {qf.emoji} {qf.label}</button>
+            ));
+          })()}
           {nearBreakoutCount > 0 && (
             <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '>0' }))}
+              data-tip="Stocks within 5% of breaking out of compression zone" data-tip-color="yellow"
               className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
               ⚡ {nearBreakoutCount} BRK</button>
           )}
