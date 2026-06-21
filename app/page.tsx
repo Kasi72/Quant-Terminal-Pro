@@ -2978,7 +2978,16 @@ function HomePageInner() {
                           <div className="text-[10px] text-slate-400 leading-relaxed mb-1.5">{nar.setup}</div>
                           <div className="text-[10px] text-emerald-400/80 mb-1">{nar.entry}</div>
                           {nar.caution !== 'No specific risk flags identified.' && <div className="text-[10px] text-amber-400/70 mb-1">⚠ {nar.caution}</div>}
-                          <div className={`text-[10px] font-semibold ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-500'}`}>{nar.verdict}</div>
+                          <div className="flex items-center gap-2">
+                            <div className={`text-[10px] font-semibold flex-1 ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-500'}`}>{nar.verdict}</div>
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              const text = `${nar.headline}\n\n${nar.setup}\n\n${nar.entry}\n${nar.caution !== 'No specific risk flags identified.' ? '\n⚠ ' + nar.caution : ''}\n\n${nar.verdict}\n\n— Dr KKR Quant Terminal Pro v8.0`;
+                              const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+                            }}
+                              className="px-2 py-0.5 bg-cyan-900/40 hover:bg-cyan-900/60 border border-cyan-700 rounded text-[10px] font-medium text-cyan-300 transition-colors shrink-0">📋 Copy</button>
+                          </div>
                         </div>
                       );
                     })}
