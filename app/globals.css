@@ -1,54 +1,35 @@
 @import "tailwindcss";
 
-/* ── Tooltip System ── */
-[data-tip] {
-  position: relative;
-}
-[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 10px;
+/* ── Tooltip Portal (positioned by JS) ── */
+#qtp-tooltip {
+  position: fixed;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  max-width: 260px;
-  white-space: normal;
+  line-height: 1.5;
+  max-width: 280px;
   text-align: center;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  transform: translateX(-50%) translateY(4px);
-  z-index: 9999;
+  transition: opacity 0.15s ease;
+  z-index: 99999;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: #e2e8f0;
-  border: 1px solid #334155;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.15);
+  border: 1px solid #475569;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  word-wrap: break-word;
+  white-space: normal;
 }
-[data-tip]::before {
+#qtp-tooltip.visible { opacity: 1; }
+#qtp-tooltip::after {
   content: '';
   position: absolute;
-  bottom: calc(100% + 2px);
+  top: -6px;
   left: 50%;
   transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: #334155;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  z-index: 9999;
-}
-[data-tip]:hover::after,
-[data-tip]:hover::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-[data-tip]:hover::before {
-  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #475569;
 }
 /* Color variants */
 [data-tip-color="green"]::after { border-color: #166534; background: linear-gradient(135deg, #14532d 0%, #052e16 100%); }

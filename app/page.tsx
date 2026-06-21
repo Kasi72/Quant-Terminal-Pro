@@ -1059,6 +1059,26 @@ function HomePageInner() {
     });
   }
 
+  // Tooltip portal system — positions a single div at body level via JS
+  useEffect(() => {
+    let tip = document.getElementById('qtp-tooltip');
+    if (!tip) { tip = document.createElement('div'); tip.id = 'qtp-tooltip'; document.body.appendChild(tip); }
+    function show(e: MouseEvent) {
+      const el = (e.target as HTMLElement).closest('[data-tip]') as HTMLElement | null;
+      if (!el || !tip) return;
+      tip.textContent = el.getAttribute('data-tip') ?? '';
+      const rect = el.getBoundingClientRect();
+      tip.style.left = `${rect.left + rect.width / 2}px`;
+      tip.style.top = `${rect.bottom + 8}px`;
+      tip.style.transform = 'translateX(-50%)';
+      tip.classList.add('visible');
+    }
+    function hide() { if (tip) tip.classList.remove('visible'); }
+    document.addEventListener('mouseover', show);
+    document.addEventListener('mouseout', hide);
+    return () => { document.removeEventListener('mouseover', show); document.removeEventListener('mouseout', hide); };
+  }, []);
+
   // Auto-fetch market regime on mount (ref guards against StrictMode double-fire)
   const regimeFetchedRef = useRef(false);
   const [rsData, setRsData] = useState<Map<string, RSRanking>>(new Map());
