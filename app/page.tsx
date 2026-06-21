@@ -1228,129 +1228,120 @@ function HomePageInner() {
         </div>
       </header>
 
-      {/* ── Controls bar ── */}
-      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 flex items-center gap-2 flex-wrap">
-        <button disabled={scanning} onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
-          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-medium text-slate-200 transition-colors">New Scan</button>
-        <button disabled={scanning} onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
-          className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-medium text-white transition-colors">Demo Mode</button>
-        <div className="h-4 w-px bg-slate-700" />
-        <button disabled={scanning} onClick={() => fileInputRef.current?.click()}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">Upload CSV</button>
-        <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
-        <select
-          disabled={scanning}
-          value=""
-          onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-          className="px-2 py-1.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-700 rounded text-xs font-medium text-emerald-300 cursor-pointer focus:outline-none focus:border-emerald-500"
-        >
-          <option value="" disabled>Nifty Index ▾</option>
-          {NIFTY_PRESETS.map(p => (
-            <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
+      {/* ── Controls bar — organized into logical groups ── */}
+      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1.5 flex items-center gap-1 overflow-x-auto">
+
+        {/* Group 1: Scan actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button disabled={scanning} onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
+            className="h-7 px-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded text-[11px] font-medium text-slate-200 transition-colors">New Scan</button>
+          <button disabled={scanning} onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
+            className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
+          <button disabled={scanning} onClick={() => fileInputRef.current?.click()}
+            className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
+          <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
+        </div>
+
+        <div className="w-px h-5 bg-slate-700 shrink-0" />
+
+        {/* Group 2: Index presets */}
+        <div className="flex items-center gap-1 shrink-0">
+          <select disabled={scanning} value=""
+            onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            className="h-7 px-1.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 border border-emerald-700 rounded text-[11px] font-medium text-emerald-300 cursor-pointer focus:outline-none">
+            <option value="" disabled>Nifty ▾</option>
+            {NIFTY_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
+          </select>
+          <select disabled={scanning} value=""
+            onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            className="h-7 px-1.5 bg-amber-900/40 hover:bg-amber-900/60 disabled:opacity-40 border border-amber-700 rounded text-[11px] font-medium text-amber-300 cursor-pointer focus:outline-none">
+            <option value="" disabled>Sector ▾</option>
+            {SECTOR_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
+          </select>
+          <select disabled={scanning} value=""
+            onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            className="h-7 px-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-700 rounded text-[11px] font-medium text-purple-300 cursor-pointer focus:outline-none">
+            <option value="" disabled>Thematic ▾</option>
+            <optgroup label="── Thematic ──">
+              {THEMATIC_PRESETS.filter(p => p.category === 'thematic').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
+            </optgroup>
+            <optgroup label="── Strategy ──">
+              {THEMATIC_PRESETS.filter(p => p.category === 'strategy').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
+            </optgroup>
+          </select>
+          <button disabled={scanning} onClick={() => setShowPasteBox(p => !p)}
+            className={`h-7 px-2.5 border rounded text-[11px] font-medium transition-colors disabled:opacity-40 ${showPasteBox ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'}`}>
+            Paste</button>
+        </div>
+
+        <div className="w-px h-5 bg-slate-700 shrink-0" />
+
+        {/* Group 3: Export */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={exportCSV} disabled={filteredResults.length === 0}
+            className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">CSV</button>
+          <button onClick={exportXLSX} disabled={filteredResults.length === 0}
+            className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">XLSX</button>
+          {filteredResults.some(r => r.priceEngine.tradeValid) && (
+            <button onClick={() => {
+              const csv = exportZerodhaBasket(filteredResults, accountSize);
+              const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+              a.download = 'zerodha_basket.csv'; a.click(); URL.revokeObjectURL(a.href);
+            }} className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">Zerodha</button>
+          )}
+        </div>
+
+        <div className="w-px h-5 bg-slate-700 shrink-0" />
+
+        {/* Group 4: Quick filters */}
+        <div className="flex items-center gap-1 shrink-0">
+          {results.length > 0 && QUICK_FILTERS.map(qf => (
+            <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
+              title={qf.description}
+              className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${quickFilter === qf.key ? 'bg-indigo-900/50 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+              {qf.emoji} {qf.label}</button>
           ))}
-        </select>
-        <select
-          disabled={scanning}
-          value=""
-          onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-          className="px-2 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-700 rounded text-xs font-medium text-amber-300 cursor-pointer focus:outline-none focus:border-amber-500"
-        >
-          <option value="" disabled>Sector Index ▾</option>
-          {SECTOR_PRESETS.map(p => (
-            <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
-          ))}
-        </select>
-        <select
-          disabled={scanning}
-          value=""
-          onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-          className="px-2 py-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-purple-700 rounded text-xs font-medium text-purple-300 cursor-pointer focus:outline-none focus:border-purple-500"
-        >
-          <option value="" disabled>Thematic / Strategy ▾</option>
-          <optgroup label="── Thematic ──">
-            {THEMATIC_PRESETS.filter(p => p.category === 'thematic').map(p => (
-              <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
-            ))}
-          </optgroup>
-          <optgroup label="── Strategy ──">
-            {THEMATIC_PRESETS.filter(p => p.category === 'strategy').map(p => (
-              <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
-            ))}
-          </optgroup>
-        </select>
-        <button disabled={scanning} onClick={() => setShowPasteBox(p => !p)}
-          className={`px-3 py-1.5 border rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${showPasteBox ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'}`}>
-          Paste Symbols</button>
-        <div className="h-4 w-px bg-slate-700" />
-        <button onClick={exportCSV} disabled={filteredResults.length === 0}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">CSV</button>
-        <button onClick={exportXLSX} disabled={filteredResults.length === 0}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">XLSX</button>
-        {hasColFilters && (
-          <button onClick={() => setColFilters({})}
-            className="px-3 py-1.5 bg-amber-900/50 hover:bg-amber-900 border border-amber-700 rounded text-xs font-medium text-amber-300 transition-colors">
-            Clear Filters ×</button>
-        )}
-        <div className="h-4 w-px bg-slate-700" />
-        {/* #8: Quick filters */}
-        {results.length > 0 && QUICK_FILTERS.map(qf => (
-          <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
-            title={qf.description}
-            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${quickFilter === qf.key ? 'bg-indigo-900/50 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-            {qf.emoji} {qf.label}</button>
-        ))}
-        <div className="h-4 w-px bg-slate-700" />
-        {/* #2: Win rate tracker */}
-        <button onClick={() => setShowTracker(v => !v)}
-          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-          📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% WR (${trackedTrades.length})` : 'Tracker'}</button>
-        {/* Sessions */}
-        <button onClick={() => setShowSessions(v => !v)}
-          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-          💾 {sessions.length > 0 ? sessions.length : 'Sessions'}</button>
-        {/* Watchlist */}
-        <button onClick={() => setShowWatchlist(v => !v)}
-          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showWatchlist ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-          ⭐ {watchlist.length > 0 ? watchlist.length : 'Watch'}</button>
-        {/* #5: Zerodha export */}
-        {filteredResults.some(r => r.priceEngine.tradeValid) && (
-          <button onClick={() => {
-            const csv = exportZerodhaBasket(filteredResults, accountSize);
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-            a.download = 'zerodha_basket.csv'; a.click(); URL.revokeObjectURL(a.href);
-          }}
-            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
-            📤 Zerodha</button>
-        )}
-        {/* #9: Journal export */}
-        {results.length > 0 && (
-          <button onClick={() => {
-            const md = generateJournalMarkdown(results, scanStats, trackedTrades, marketRegime?.label ?? 'Unknown');
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([md], {type:'text/markdown'}));
-            a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.md`; a.click(); URL.revokeObjectURL(a.href);
-          }}
-            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
-            📝 Journal</button>
-        )}
-        {/* #10: Theme toggle */}
-        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
-          {theme === 'dark' ? '☀' : '🌙'}</button>
-        {/* Sub-tab buttons removed — now inline above table */}
-        {/* Feature #11: Near-breakout filter */}
-        {nearBreakoutCount > 0 && (
-          <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '>0' }))}
-            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
-            ⚡ {nearBreakoutCount} Near BRK</button>
-        )}
-        {/* Feature #2: Sector heatmap */}
-        {results.length > 0 && (
-          <button onClick={() => setShowHeatMap(v => !v)}
-            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showHeatMap ? 'bg-purple-900/50 border-purple-600 text-purple-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-            ▦ Sectors</button>
-        )}
+          {nearBreakoutCount > 0 && (
+            <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '>0' }))}
+              className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
+              ⚡ {nearBreakoutCount} BRK</button>
+          )}
+          {hasColFilters && (
+            <button onClick={() => setColFilters({})}
+              className="h-7 px-2 bg-amber-900/50 hover:bg-amber-900 border border-amber-700 rounded text-[11px] font-medium text-amber-300 transition-colors">× Clr</button>
+          )}
+        </div>
+
+        <div className="w-px h-5 bg-slate-700 shrink-0" />
+
+        {/* Group 5: Panels & tools */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => setShowTracker(v => !v)}
+            className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}%` : 'WR'}</button>
+          <button onClick={() => setShowSessions(v => !v)}
+            className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            💾 {sessions.length || '—'}</button>
+          <button onClick={() => setShowWatchlist(v => !v)}
+            className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showWatchlist ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            ⭐ {watchlist.length || '—'}</button>
+          {results.length > 0 && (
+            <button onClick={() => setShowHeatMap(v => !v)}
+              className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showHeatMap ? 'bg-purple-900/50 border-purple-600 text-purple-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+              ▦</button>
+          )}
+          {results.length > 0 && (
+            <button onClick={() => {
+              const md = generateJournalMarkdown(results, scanStats, trackedTrades, marketRegime?.label ?? 'Unknown');
+              const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([md], {type:'text/markdown'}));
+              a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.md`; a.click(); URL.revokeObjectURL(a.href);
+            }} className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors">
+              📝</button>
+          )}
+          <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">
+            {theme === 'dark' ? '☀' : '🌙'}</button>
+        </div>
         {/* Feature #6: Failed symbols */}
         {failedSymbols.length > 0 && (
           <button onClick={() => setShowFailedPanel(v => !v)}
