@@ -473,13 +473,13 @@ const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   all: new Set(/* all keys — handled below */),
 };
 
-const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string }> = [
-  { key: 'overview', label: 'Overview', emoji: '📊' },
-  { key: 'screening', label: 'Screening', emoji: '🔬' },
-  { key: 'tradeplan', label: 'Trade Plan', emoji: '💰' },
-  { key: 'momentum', label: 'Momentum', emoji: '📈' },
-  { key: 'statistics', label: 'Statistics', emoji: '📉' },
-  { key: 'all', label: 'All', emoji: '⊡' },
+const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; color: string }> = [
+  { key: 'overview',   label: 'Overview',    emoji: '📊', color: '#60a5fa' },
+  { key: 'screening',  label: 'Screening',   emoji: '🔬', color: '#a78bfa' },
+  { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399' },
+  { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c' },
+  { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee' },
+  { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8' },
 ];
 
 function getVisibleColumns(subtab: ScannerSubTab) {
@@ -1736,19 +1736,20 @@ function HomePageInner() {
       )}
 
       {/* ── Tab Bar ── */}
-      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 flex gap-0">
+      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1 flex items-center gap-1">
         {([
-          ['scanner', '📊 Scanner'],
-          ['performance', '📈 Performance'],
-          ['tradedesk', '🎯 Trade Desk'],
-          ['journal', '📝 Journal'],
-          ['focus', '⚡ Focus'],
-          ['validation', '🔬 Validation'],
-          ['intelligence', '🧠 Intelligence'],
-        ] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setActiveTab(key)}
-            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === key ? 'border-indigo-400 text-indigo-300 bg-slate-800/30' : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'}`}>
-            {label}
+          ['scanner',      '📊', 'Scanner',      '#818cf8'],
+          ['performance',  '📈', 'Performance',  '#34d399'],
+          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316'],
+          ['journal',      '📝', 'Journal',      '#a78bfa'],
+          ['focus',        '⚡', 'Focus',        '#facc15'],
+          ['validation',   '🔬', 'Validation',   '#22d3ee'],
+          ['intelligence', '🧠', 'Intelligence', '#f472b6'],
+        ] as const).map(([key, emoji, label, color]) => (
+          <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
+            style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
+            className={`h-7 px-3 rounded border text-[11px] font-semibold transition-colors ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
+            {emoji} {label}
           </button>
         ))}
         {/* Scan favorites */}
@@ -2784,14 +2785,15 @@ function HomePageInner() {
 
           {/* Scanner sub-tab bar (horizontal) */}
           {results.length > 0 && (
-            <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1.5 flex items-center gap-1 border-b border-slate-800/50">
+            <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1 flex items-center gap-1 border-b border-slate-800/50">
               {SUBTAB_META.map(st => (
                 <button key={st.key} onClick={() => setScannerSubTab(st.key)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${scannerSubTab === st.key ? 'bg-indigo-900/50 border border-indigo-600 text-indigo-300' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}>
+                  style={scannerSubTab === st.key ? { borderColor: st.color, color: st.color, backgroundColor: `${st.color}15` } : {}}
+                  className={`h-6 px-2.5 rounded border text-[11px] font-semibold transition-colors ${scannerSubTab === st.key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
                   {st.emoji} {st.label}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-slate-600">{visibleColumns.length} cols</span>
+              <span className="ml-auto text-[10px] text-slate-600">{visibleColumns.length} cols</span>
             </div>
           )}
 
