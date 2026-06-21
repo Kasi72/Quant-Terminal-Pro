@@ -1583,7 +1583,9 @@ function HomePageInner() {
                   <div className="ml-auto flex gap-1.5">
                     <button onClick={() => {
                       // Restore session results — rebuild minimal AnalysisResult from compact
-                      const restored: AnalysisResult[] = s.results.map((c: any) => ({
+                      const restored: AnalysisResult[] = s.results.map((c: any) => {
+                        const rps = (c.rps ?? (c.en - c.sl)) || 0;
+                        return {
                         symbol: c.sym, stage: c.stg, inflectionScore: c.infl, confidence: c.conf, paramSetKey: c.pk,
                         lastClose: c.cls, lastDate: c.dt, avgTurnover20: 0, atrPct14: 0, atrPct14Pctl120: 0,
                         volRatio20: 0, rsi2: 50, rsi14: 50, zone: null,
@@ -1591,13 +1593,35 @@ function HomePageInner() {
                         pre10HighVolCount: 0, pre10RedVolBias: 0, exactRangeATR14: 0, exactVolRatio20: 0,
                         exactVolVsPre5: 0, closeLoc: 0, upperWickPct: 0, bodyPct: 0,
                         signalRangePct: 0, volatilityExpansionRatio: 0, ultraPrecisionScore: 0, candleQualityScore: 0,
-                        priceEngine: { breakoutLevel: 0, plannedEntry: c.en, gapPct: 0, gapATR: 0, entryMode: 'breakout' as const, entryStatus: 'normal' as const, entryBuffer: 0, efficiencyRatio: 0, tacticalStop: c.sl, tacticalRiskPct: c.rk, stopWeinstein: 0, stopKase: 0, stopElder: 0, stopSignalLow: 0, disasterStop: 0, disasterRiskPct: 0, riskPerShare: c.en - c.sl, target5: c.t1, target7: 0, target10: 0, target3R: 0, t1R: 2, t2R: 3, t3R_mult: 5, rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0, failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0, tradeValid: c.tv },
+                        priceEngine: {
+                          breakoutLevel: 0, plannedEntry: c.en, gapPct: c.gapP ?? 0, gapATR: 0,
+                          entryMode: 'breakout' as const, entryStatus: 'normal' as const, entryBuffer: 0, efficiencyRatio: 0,
+                          tacticalStop: c.sl, tacticalRiskPct: c.rk,
+                          stopWeinstein: c.sl2 ?? 0, stopKase: c.sl2 ?? 0, stopElder: 0, stopSignalLow: 0,
+                          disasterStop: c.ds ?? 0, disasterRiskPct: c.dr ?? 0, riskPerShare: rps,
+                          target5: c.t1, target7: c.t2 ?? 0, target10: c.t3 ?? 0, target3R: 0,
+                          t1R: rps > 0 ? (c.t1 - c.en) / rps : 0, t2R: rps > 0 && c.t2 ? (c.t2 - c.en) / rps : 0, t3R_mult: 0,
+                          rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
+                          failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0, tradeValid: c.tv,
+                        },
                         conditionsMet: 0, totalConditions: 20, checklist: [],
                         momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: c.ms, rsNifty20: 1.0 },
-                        nearBreakoutPct: c.nb ? 1 : 99, nearBreakout: c.nb,
-                        stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: c.ss },
+                        nearBreakoutPct: c.nbp ?? (c.nb ? 1 : 99), nearBreakout: c.nb,
+                        stats: {
+                          volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false,
+                          lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false,
+                          skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0,
+                          cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0,
+                          ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false,
+                          rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0,
+                          ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false,
+                          guppySpreadPct: c.gp ?? 99, guppyCompressed: (c.gp ?? 99) < 1, guppyUltraCompressed: (c.gp ?? 99) < 0.5,
+                          candlePattern: c.cp ?? '—', candlePatternFull: c.cpf ?? 'Unknown',
+                          candlePatternType: (c.cpt ?? 'neutral') as 'bullish' | 'bearish' | 'neutral',
+                          candlePatternStrength: c.cps ?? 0, statsScore: c.ss,
+                        },
                         clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
-                      }));
+                      };});
                       setResults(restored); setShowSessions(false);
                     }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
                     <button onClick={() => { deleteSession(s.id); setSessions(loadSessions()); }}

@@ -21,6 +21,20 @@ export interface CompactResult {
   ss: number;
   nb: boolean;
   cd: { d: number; dt: number; h: number; ht: number; e: number; et: number; u: number; ut: number };
+  // v7.6: additional fields for full restore
+  cp?: string;     // candle pattern short
+  cpf?: string;    // candle pattern full name
+  cpt?: string;    // candle pattern type (bullish/bearish/neutral)
+  cps?: number;    // candle pattern strength
+  gp?: number;     // guppy spread %
+  sl2?: number;    // SL 2nd low (consensus stop)
+  nbp?: number;    // near breakout %
+  t2?: number;     // target 2
+  t3?: number;     // target 3
+  dr?: number;     // disaster risk %
+  ds?: number;     // disaster stop
+  rps?: number;    // risk per share
+  gapP?: number;   // gap %
 }
 
 export interface ScanSession {
@@ -50,7 +64,13 @@ function compress(r: AnalysisResult): CompactResult {
       sl: r.priceEngine?.tacticalStop ?? 0, t1: r.priceEngine?.target5 ?? 0,
       rr: r.priceEngine?.rewardRisk ?? 0, rk: r.priceEngine?.tacticalRiskPct ?? 0,
       ms: r.momentum?.momentumScore ?? 0, ss: r.stats?.statsScore ?? 0,
-      nb: r.nearBreakout ?? false,
+      nb: r.nearBreakout ?? false, nbp: r.nearBreakoutPct ?? 0,
+      cp: r.stats?.candlePattern ?? '', cpf: r.stats?.candlePatternFull ?? '', cpt: r.stats?.candlePatternType ?? 'neutral', cps: r.stats?.candlePatternStrength ?? 0,
+      gp: r.stats?.guppySpreadPct ?? 99,
+      sl2: (() => { const stops = [r.priceEngine?.stopWeinstein ?? 0, r.priceEngine?.stopKase ?? 0, r.priceEngine?.stopElder ?? 0, r.priceEngine?.stopSignalLow ?? 0].filter(s => s > 0).sort((a, b) => a - b); return stops.length >= 2 ? stops[1] : stops[0] ?? 0; })(),
+      t2: r.priceEngine?.target7 ?? 0, t3: r.priceEngine?.target10 ?? 0,
+      dr: r.priceEngine?.disasterRiskPct ?? 0, ds: r.priceEngine?.disasterStop ?? 0,
+      rps: r.priceEngine?.riskPerShare ?? 0, gapP: r.priceEngine?.gapPct ?? 0,
       cd: {
         d: r.clusterBreakdown?.deployable?.met ?? 0, dt: r.clusterBreakdown?.deployable?.total ?? 21,
         h: r.clusterBreakdown?.highPrecision?.met ?? 0, ht: r.clusterBreakdown?.highPrecision?.total ?? 19,
