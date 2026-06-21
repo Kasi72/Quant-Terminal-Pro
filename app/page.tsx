@@ -83,6 +83,31 @@ type ColDef = {
 // ── Export helpers ──────────────────────────────────────────────────────────
 
 // Safe column formatter for exports — catches errors from missing fields
+// Volume-Thrust Close-High Onset Candle detection (backtested: 81.82% hit rate for >5% momentum run)
+type OnsetTier = 'BEST' | 'STRONG' | 'FULL_BODY' | 'REJECTION' | 'WEAK' | null;
+function detectOnsetCandle(r: AnalysisResult): OnsetTier {
+  const cl = r.closeLoc, vp5 = r.exactVolVsPre5, vr20 = r.volRatio20, ra = r.exactRangeATR14;
+  const bp = r.bodyPct, uw = r.upperWickPct, sr = r.signalRangePct;
+  const brk = r.zone !== null && r.lastClose > r.zone.zoneHigh * 1.001;
+  if (!brk) return null;
+  // Tier 1: High Conviction (strictest — 81.82% backtest hit rate)
+  if (cl >= 70 && vp5 >= 2.50 && vr20 >= 1.50 && ra >= 1.20 && ra <= 4.50 && bp >= 45 && uw <= 30 && sr <= 8.5)
+    return 'BEST';
+  // Tier 2: Volume-Thrust Close-High (standard — 52.30% Wilson lower bound)
+  if (cl >= 65 && vp5 >= 2.00 && vr20 >= 1.20 && ra >= 1.00 && ra <= 5.00 && bp >= 35 && uw <= 35 && sr <= 11.0)
+    return 'STRONG';
+  // Tier 3: Near-Marubozu Bullish Drive (50% hit rate)
+  if (cl >= 65 && bp >= 50 && uw <= 25 && ra >= 1.00)
+    return 'FULL_BODY';
+  // Tier 4: Hammer-like lower-wick rejection
+  if (cl >= 60 && r.stats && (r.stats.candlePattern === 'HAMR' || r.stats.candlePattern === 'DGDF') && ra >= 1.00)
+    return 'REJECTION';
+  // Tier 5: Small body / weak onset
+  if (cl >= 55 && bp < 35 && ra >= 1.00 && vp5 >= 1.50)
+    return 'WEAK';
+  return null;
+}
+
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
   try { return col.fmt(r); } catch { return '—'; }
 }
@@ -211,11 +236,20 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.lastClose > 0 ? r.lastClose.toFixed(2) : '—',
     numVal: r => r.lastClose,
     cellClass: () => 'text-slate-200 font-mono' },
-  { key: 'candle',  label: 'Candle',        width: 48,  align: 'center',
-    fmt: r => r.stats.candlePattern ?? '—',
+  { key: 'candle',  label: 'Candle',        width: 60,  align: 'center',
+    fmt: r => {
+      const onset = detectOnsetCandle(r);
+      const pattern = r.stats?.candlePattern ?? '—';
+      if (onset === 'BEST') return `★ ${pattern}`;
+      if (onset === 'STRONG') return `★ ${pattern}`;
+      return pattern;
+    },
     cellClass: r => {
-      const t = r.stats.candlePatternType;
-      const s = r.stats.candlePatternStrength ?? 0;
+      const onset = detectOnsetCandle(r);
+      if (onset === 'BEST') return 'text-[#39FF14] font-bold';
+      if (onset === 'STRONG') return 'text-[#4ade80] font-bold';
+      const t = r.stats?.candlePatternType;
+      const s = r.stats?.candlePatternStrength ?? 0;
       if (t === 'bullish') return s >= 3 ? 'text-emerald-400 font-bold' : s >= 2 ? 'text-emerald-400' : 'text-emerald-600';
       if (t === 'bearish') return s >= 3 ? 'text-red-400 font-bold' : s >= 2 ? 'text-red-400' : 'text-red-600';
       return 'text-slate-500';
@@ -2965,7 +2999,7 @@ function HomePageInner() {
                             </div>
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
                               <span>CMP ₹{r.lastClose.toFixed(2)}</span>
-                              <span>Candle: <span className={r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{r.stats.candlePatternFull}</span></span>
+                              <span>Candle: <span className={detectOnsetCandle(r) ? 'text-[#39FF14] font-bold' : r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{detectOnsetCandle(r) ? `★ ${r.stats.candlePatternFull}` : r.stats.candlePatternFull}</span></span>
                               {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
                             </div>
@@ -3234,6 +3268,24 @@ function HomePageInner() {
                 <div>
                   <div className="font-mono font-bold text-slate-100 text-base">{selectedResult.symbol}</div>
                   <div className="text-xs text-slate-500 mt-0.5">{selectedResult.lastDate} · ₹{selectedResult.lastClose.toFixed(2)}</div>
+                  {(() => {
+                    const onset = detectOnsetCandle(selectedResult);
+                    if (!onset) return null;
+                    const labels: Record<string, { label: string; desc: string }> = {
+                      BEST: { label: '★ Best Onset Candle', desc: 'Volume-thrust close-high — 81.82% backtest hit rate for >5% move' },
+                      STRONG: { label: '★ Strong Onset', desc: 'Volume-thrust expansion — 52.30% Wilson lower bound' },
+                      FULL_BODY: { label: '◆ Full Body Drive', desc: 'Near-marubozu bullish — visually strong but can be late' },
+                      REJECTION: { label: '◇ Rejection Breakout', desc: 'Hammer-like lower-wick — useful, needs more confirmation' },
+                      WEAK: { label: '○ Weak Onset', desc: 'Small body — avoid unless other signals are very strong' },
+                    };
+                    const cfg = labels[onset];
+                    return (
+                      <div className={`mt-1 px-2 py-1 rounded text-[10px] font-semibold ${onset === 'BEST' ? 'bg-[#39FF14]/15 text-[#39FF14] border border-[#39FF14]/30' : onset === 'STRONG' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-700' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                        <div>{cfg.label}</div>
+                        <div className="font-normal text-[9px] opacity-70 mt-0.5">{cfg.desc}</div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <button onClick={() => setSelectedSymbol(null)}
                   className="text-slate-600 hover:text-slate-300 text-xl leading-none ml-2 mt-0.5">×</button>
