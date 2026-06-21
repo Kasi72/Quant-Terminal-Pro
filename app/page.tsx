@@ -3903,7 +3903,7 @@ function HomePageInner() {
                     const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Quant Terminal Pro v7.8`;
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
-                    className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] text-slate-500 hover:text-slate-300 transition-colors">📤 Share</button>
+                    className="flex-1 px-2 py-1.5 bg-cyan-900/40 hover:bg-cyan-900/60 border border-cyan-700 rounded text-xs font-medium text-cyan-300 transition-colors">📤 Share</button>
                 </div>
 
               {/* Signal Narrative */}
