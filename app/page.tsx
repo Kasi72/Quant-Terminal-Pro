@@ -497,6 +497,14 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'missing', label: 'Missing', width: 110, align: 'left',
+    fmt: r => {
+      if (['BUY','STRONG_BUY','ULTRA_STRONG_BUY','NO_SIGNAL','COMPRESSION_WATCH'].includes(r.stage)) return '—';
+      const fails = r.checklist?.filter(c => !c.pass).slice(0, 2).map(c => c.label.replace(/[≥≤<>]/g, '').slice(0, 15)) ?? [];
+      return fails.length > 0 ? fails.join(', ') : '—';
+    },
+    numVal: r => r.checklist ? r.checklist.filter(c => !c.pass).length : 99,
+    cellClass: r => ['PRE_BREAKOUT','EARLY_INFLECTION'].includes(r.stage) ? 'text-amber-500 text-[9px]' : 'text-slate-700 text-[9px]' },
   { key: 'pivot_pp', label: 'PP', width: 70, align: 'right',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'pivot_r1', label: 'R1', width: 70, align: 'right',
@@ -509,6 +517,12 @@ const COLUMNS: ColDef[] = [
     fmt: () => '',
     numVal: () => 0,
     cellClass: () => '' },
+  { key: 'narrative', label: 'Narrative', width: 300, align: 'left',
+    fmt: r => {
+      if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) return '—';
+      try { const n = generateNarrative(r); return `${n.setup} ${n.entry} ${n.verdict}`; } catch { return '—'; }
+    },
+    numVal: () => 0, cellClass: () => 'text-slate-500 text-[9px]' },
   { key: 'track_btn', label: '📌', width: 40, align: 'center',
     fmt: () => '',
     numVal: () => 0,
@@ -518,7 +532,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','rs_rank','tf_align','momentumScore','statsScore','nearBrk','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -922,6 +936,13 @@ function HomePageInner() {
     flushResults();
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
+    // Market breadth: % of stocks above 200 SMA
+    if (newResults.length > 20) {
+      const above200 = newResults.filter(r => r.stats?.sma200 > 0 && r.lastClose > r.stats.sma200).length;
+      const pct = newResults.length > 0 ? above200 / newResults.length * 100 : 0;
+      setMarketBreadth({ above200, total: newResults.length, pct: Number.isFinite(pct) ? pct : 0 });
+    }
+
     // Auto-filter to show actionable signals first (but keep ALL visible with stage chips)
     const hasActionable = newResults.some(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
     if (hasActionable) {
@@ -1172,6 +1193,13 @@ function HomePageInner() {
 
   // Track a trade (#2)
   function trackTrade(r: AnalysisResult) {
+    // Risk warning: check if adding this trade exceeds 5% total risk
+    const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' && t.symbol !== r.symbol);
+    const currentRisk = openTrades.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
+    const newRisk = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
+    const totalRiskPct = accountSize > 0 ? ((currentRisk + newRisk) / accountSize) * 100 : 0;
+    if (totalRiskPct > 5 && !confirm(`⚠ Total risk will be ${totalRiskPct.toFixed(1)}% of account (exceeds 5% max recommended). Continue?`)) return;
+
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
       entryDate: new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
@@ -1224,6 +1252,8 @@ function HomePageInner() {
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
   const [validateFlash, setValidateFlash] = useState(0);
+  const [marketBreadth, setMarketBreadth] = useState<{ above200: number; total: number; pct: number } | null>(null);
+  const [compareList, setCompareList] = useState<string[]>([]);
   const [reviewedSymbols, setReviewedSymbols] = useState<Set<string>>(new Set());
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
@@ -1385,17 +1415,23 @@ function HomePageInner() {
             className="px-2 py-0.5 rounded text-xs font-medium border bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300 transition-colors">
             🔍 Check Market</button>
         )}
+        {marketBreadth && (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${marketBreadth.pct >= 60 ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : marketBreadth.pct >= 40 ? 'bg-yellow-900/30 border-yellow-700 text-yellow-300' : 'bg-red-900/30 border-red-700 text-red-300'}`}
+            title={`${marketBreadth.above200} of ${marketBreadth.total} stocks above 200 SMA — ${marketBreadth.pct >= 60 ? 'Healthy market' : marketBreadth.pct >= 40 ? 'Mixed market' : 'Weak market'}`}>
+            Breadth {marketBreadth.pct.toFixed(0)}%
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {(() => {
             const openT = trackedTrades.filter(t => t.status === 'open');
-            if (openT.length === 0) return <span className="text-[10px] text-slate-600 font-mono">Acc ₹{(accountSize/100000).toFixed(0)}L</span>;
+            if (openT.length === 0) return <span className="text-[10px] text-slate-600 font-mono flex items-center gap-1">Acc ₹<input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)} className="w-14 bg-transparent border-b border-slate-700 focus:border-indigo-500 text-slate-400 text-[10px] font-mono text-center focus:outline-none" />({(accountSize/100000).toFixed(0)}L)</span>;
             const totalRisk = openT.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
             const totalCap = openT.reduce((s, t) => s + t.entryPrice, 0);
             const riskPct = accountSize > 0 ? (totalRisk / accountSize * 100) : 0;
             return (
               <span className={`text-[10px] font-mono ${riskPct > 3 ? 'text-red-400' : riskPct > 1.5 ? 'text-amber-400' : 'text-slate-500'}`}
                 title={`${openT.length} open · ₹${(totalCap/1000).toFixed(0)}K deployed · ₹${totalRisk.toFixed(0)} at risk`}>
-                {openT.length} pos · ₹{totalRisk.toFixed(0)} risk ({riskPct.toFixed(1)}%) · Acc ₹{(accountSize/100000).toFixed(0)}L
+                {openT.length} pos · ₹{totalRisk.toFixed(0)} risk ({riskPct.toFixed(1)}%) · <input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)} className="w-14 bg-transparent border-b border-slate-700 focus:border-indigo-500 text-[10px] font-mono text-center focus:outline-none" style={{color: 'inherit'}} />({(accountSize/100000).toFixed(0)}L)
               </span>
             );
           })()}
@@ -3799,10 +3835,14 @@ function HomePageInner() {
                                 if (!tf) return <span className="text-slate-700">—</span>;
                                 return <span className={`font-semibold ${tf.alignment === 'DW' ? 'text-green-300' : tf.alignment === 'D' ? 'text-yellow-300' : 'text-slate-600'}`} title={tf.alignment === 'DW' ? 'Daily + Weekly aligned' : tf.alignment === 'D' ? 'Daily only (weekly compressing)' : 'No alignment'}>{tf.alignment}</span>;
                               })() : col.key === 'track_btn' ? (
-                                <button onClick={(e) => { e.stopPropagation(); trackTrade(row); }}
-                                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${trackedTrades.some(t => t.symbol === row.symbol) ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 hover:bg-emerald-900/40 text-slate-500 hover:text-emerald-300'}`}>
-                                  {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}
-                                </button>
+                                <div className="flex gap-0.5">
+                                  <button onClick={(e) => { e.stopPropagation(); trackTrade(row); }}
+                                    className={`text-[10px] px-1 py-0.5 rounded transition-colors ${trackedTrades.some(t => t.symbol === row.symbol) ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 hover:bg-emerald-900/40 text-slate-500 hover:text-emerald-300'}`}>
+                                    {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setCompareList(prev => prev.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : prev.length < 3 ? [...prev, row.symbol] : prev); }}
+                                    className={`text-[10px] px-1 py-0.5 rounded transition-colors ${compareList.includes(row.symbol) ? 'bg-indigo-900/40 text-indigo-300' : 'opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-indigo-900/40 text-slate-600 hover:text-indigo-300'}`}
+                                    title="Add to compare (max 3)">⇔</button>
+                                </div>
                               ) : col.fmt(row)}
                               {col.key === 'symbol' && (
                                 <button onClick={(e) => { e.stopPropagation(); const ta = document.createElement('textarea'); ta.value = row.symbol.replace('.NS','').replace('.BO',''); ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }}
@@ -3833,6 +3873,47 @@ function HomePageInner() {
         </div>
 
         </>}
+
+        {/* ── Quick Compare Panel ── */}
+        {compareList.length >= 2 && (
+          <div className="w-80 flex-shrink-0 border-l border-indigo-800/50 bg-[#0d1117] overflow-y-auto p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Compare ({compareList.length})</span>
+              <button onClick={() => setCompareList([])} className="text-xs text-slate-600 hover:text-slate-300">Clear ×</button>
+            </div>
+            <table className="w-full text-[10px]">
+              <thead><tr className="text-slate-500 border-b border-slate-700">
+                <th className="text-left py-1">Metric</th>
+                {compareList.map(sym => <th key={sym} className="text-right py-1 font-mono text-slate-300">{sym.replace('.NS','').replace('.BO','')}</th>)}
+              </tr></thead>
+              <tbody>
+                {(() => {
+                  const cr = compareList.map(sym => results.find(r => r.symbol === sym)).filter(Boolean) as AnalysisResult[];
+                  if (cr.length < 2) return null;
+                  const metrics = [
+                    { label: 'Stage', fn: (r: AnalysisResult) => STAGE_CONFIG[r.stage].label, color: (r: AnalysisResult) => STAGE_CONFIG[r.stage].color },
+                    { label: 'Conviction', fn: (r: AnalysisResult) => String(computeConviction(r)), color: (r: AnalysisResult) => computeConviction(r) >= 70 ? 'text-yellow-300' : 'text-slate-300' },
+                    { label: 'Entry ₹', fn: (r: AnalysisResult) => r.priceEngine.plannedEntry.toFixed(2), color: () => 'text-slate-200' },
+                    { label: 'Stop ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-red-400' },
+                    { label: 'T1 ₹', fn: (r: AnalysisResult) => r.priceEngine.target5.toFixed(2), color: () => 'text-emerald-400' },
+                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400' },
+                    { label: 'Risk%', fn: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct.toFixed(1) + '%', color: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct <= 2 ? 'text-emerald-400' : 'text-amber-400' },
+                    { label: 'RS Rank', fn: (r: AnalysisResult) => String(rsData.get(r.symbol)?.rsRank ?? '—'), color: (r: AnalysisResult) => (rsData.get(r.symbol)?.rsRank ?? 0) >= 70 ? 'text-emerald-400' : 'text-slate-400' },
+                    { label: 'Candle', fn: (r: AnalysisResult) => r.stats?.candlePatternFull ?? '—', color: (r: AnalysisResult) => r.stats?.candlePatternType === 'bullish' ? 'text-emerald-400' : 'text-slate-400' },
+                    { label: 'Sector', fn: (r: AnalysisResult) => getSectorTag(r.symbol) || '—', color: () => 'text-slate-500' },
+                    { label: 'MomScore', fn: (r: AnalysisResult) => String(r.momentum?.momentumScore ?? '—'), color: (r: AnalysisResult) => (r.momentum?.momentumScore ?? 0) >= 60 ? 'text-emerald-400' : 'text-slate-400' },
+                  ];
+                  return metrics.map(m => (
+                    <tr key={m.label} className="border-b border-slate-800/30">
+                      <td className="py-0.5 text-slate-500">{m.label}</td>
+                      {cr.map(r => <td key={r.symbol} className={`py-0.5 text-right font-mono ${m.color(r)}`}>{m.fn(r)}</td>)}
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* ── Detail panel (shared across tabs) ── */}
         {selectedResult && (activeTab === 'scanner' || activeTab === 'focus' || activeTab === 'validation') && (
