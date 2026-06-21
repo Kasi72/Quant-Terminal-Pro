@@ -922,6 +922,11 @@ function HomePageInner() {
     flushResults();
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
+    // Auto-filter to show actionable signals first (but keep ALL visible with stage chips)
+    const hasActionable = newResults.some(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+    if (hasActionable) {
+      setSortCol('stage'); setSortDir('desc');
+    }
     // Auto-validate open trades using freshly fetched candle data (local map, not stale state)
     if (trackedTradesRef.current.some(t => t.status === 'open')) {
       setTrackedTrades(prev => {
@@ -1219,6 +1224,7 @@ function HomePageInner() {
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
   const [validateFlash, setValidateFlash] = useState(0);
+  const [reviewedSymbols, setReviewedSymbols] = useState<Set<string>>(new Set());
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
   const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false } });
@@ -1382,14 +1388,14 @@ function HomePageInner() {
         <div className="ml-auto flex items-center gap-2">
           {(() => {
             const openT = trackedTrades.filter(t => t.status === 'open');
-            if (openT.length === 0) return null;
+            if (openT.length === 0) return <span className="text-[10px] text-slate-600 font-mono">Acc ₹{(accountSize/100000).toFixed(0)}L</span>;
             const totalRisk = openT.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
             const totalCap = openT.reduce((s, t) => s + t.entryPrice, 0);
             const riskPct = accountSize > 0 ? (totalRisk / accountSize * 100) : 0;
             return (
               <span className={`text-[10px] font-mono ${riskPct > 3 ? 'text-red-400' : riskPct > 1.5 ? 'text-amber-400' : 'text-slate-500'}`}
                 title={`${openT.length} open · ₹${(totalCap/1000).toFixed(0)}K deployed · ₹${totalRisk.toFixed(0)} at risk`}>
-                {openT.length} pos · ₹{totalRisk.toFixed(0)} risk ({riskPct.toFixed(1)}%)
+                {openT.length} pos · ₹{totalRisk.toFixed(0)} risk ({riskPct.toFixed(1)}%) · Acc ₹{(accountSize/100000).toFixed(0)}L
               </span>
             );
           })()}
@@ -1580,6 +1586,8 @@ function HomePageInner() {
           <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} data-tip={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} data-tip-color="yellow"
             className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">
             {theme === 'dark' ? '☀' : '🌙'}</button>
+          <button data-tip="Keyboard: ↑↓ navigate rows · T track trade · W add to watchlist · Esc close sidebar" data-tip-color="blue"
+            className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">?</button>
           <button onClick={() => setShowTgSettings(v => !v)}
             data-tip="Telegram alerts — get notified on new signals, target hits, stops" data-tip-color="blue"
             className={`h-7 w-7 rounded text-[11px] font-medium border transition-colors flex items-center justify-center ${tgConfig.enabled ? 'bg-blue-900/50 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
@@ -1589,7 +1597,7 @@ function HomePageInner() {
         {failedSymbols.length > 0 && (
           <button onClick={() => setShowFailedPanel(v => !v)}
             className="px-2.5 py-1 bg-red-900/40 border border-red-700 rounded text-xs font-medium text-red-400 hover:text-red-300 transition-colors">
-            {failedSymbols.length} failed</button>
+            {failedSymbols.length} failed ({failedSymbols.slice(0, 3).map(f => f.sym.replace('.NS', '').replace('.BO', '')).join(', ')}{failedSymbols.length > 3 ? '...' : ''})</button>
         )}
         {scanning && (
           <button onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; }}
@@ -3478,6 +3486,7 @@ function HomePageInner() {
                               <span>Candle: <span className={detectOnsetCandle(r) ? 'text-[#39FF14] font-bold' : r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{detectOnsetCandle(r) ? `★ ${r.stats.candlePatternFull}` : r.stats.candlePatternFull}</span></span>
                               {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
+                              {(() => { const age = getSignalAge(r.symbol, r.stage, signalHistory); return age > 0 ? <span className={age <= 1 ? 'text-emerald-400' : age <= 3 ? 'text-slate-400' : 'text-amber-400'}>{age <= 1 ? 'NEW today' : `${age}d old`}</span> : null; })()}
                             </div>
                           </div>
                           <div className="text-right">
@@ -3686,8 +3695,8 @@ function HomePageInner() {
                       const diff = scanDiff.get(row.symbol);
                       return (
                         <tr key={row.symbol + i}
-                          onClick={() => setSelectedSymbol(isSelected ? null : row.symbol)}
-                          className={`cursor-pointer border-b border-slate-800/40 transition-colors ${isSelected ? 'bg-indigo-900/25' : diff ? 'bg-cyan-900/10' : 'hover:bg-slate-800/40'}`}>
+                          onClick={() => { setSelectedSymbol(isSelected ? null : row.symbol); if (!isSelected) setReviewedSymbols(prev => new Set(prev).add(row.symbol)); }}
+                          className={`cursor-pointer border-b border-slate-800/40 transition-colors group ${isSelected ? 'bg-indigo-900/25' : diff ? 'bg-cyan-900/10' : 'hover:bg-slate-800/40'} ${reviewedSymbols.has(row.symbol) && !isSelected ? 'opacity-70' : ''}`}>
                           {visibleColumns.map(col => (
                             <td key={col.key}
                               style={{ width: col.width, minWidth: col.width }}
@@ -3721,7 +3730,7 @@ function HomePageInner() {
                                   className="ml-0.5 text-slate-700 hover:text-slate-400 text-[9px] opacity-0 group-hover:opacity-100 transition-opacity" title="Copy symbol">⧉</button>
                               )}
                               {col.key === 'symbol' && diff && (
-                                <span className="ml-0.5 text-cyan-400 text-xs" title={`Was: ${STAGE_CONFIG[diff.prev].label}`}>↑</span>
+                                <span className="ml-0.5 px-1 py-0 bg-cyan-900/50 border border-cyan-700 rounded text-[8px] text-cyan-300 font-bold" title={`Upgraded from ${STAGE_CONFIG[diff.prev].label}`}>NEW</span>
                               )}
                               {col.key === 'symbol' && row.nearBreakout && !diff && (
                                 <span className="ml-0.5 text-yellow-400 text-xs" title="Near breakout">⚡</span>
@@ -3748,7 +3757,7 @@ function HomePageInner() {
 
         {/* ── Detail panel (shared across tabs) ── */}
         {selectedResult && (activeTab === 'scanner' || activeTab === 'focus' || activeTab === 'validation') && (
-          <div className="w-72 flex-shrink-0 border-l border-slate-800 bg-[#0d1117] overflow-y-auto">
+          <div className="w-80 flex-shrink-0 border-l border-slate-800 bg-[#0d1117] overflow-y-auto">
             <div className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -3885,6 +3894,16 @@ function HomePageInner() {
                       </div>
                     );
                   })()}
+                  <button onClick={() => {
+                    const sym = selectedResult.symbol.replace('.NS','').replace('.BO','');
+                    const stage = STAGE_CONFIG[selectedResult.stage].label;
+                    const pe = selectedResult.priceEngine;
+                    const conv = computeConviction(selectedResult);
+                    const verdict = pe.rewardRisk >= 3.5 ? 'Elite' : pe.rewardRisk >= 2.5 ? 'Very Good' : pe.rewardRisk >= 2.0 ? 'Good' : 'Acceptable';
+                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Quant Terminal Pro v7.8`;
+                    const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                  }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
+                    className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] text-slate-500 hover:text-slate-300 transition-colors">📤 Share</button>
                 </div>
 
               {/* Signal Narrative */}
