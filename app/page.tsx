@@ -478,13 +478,13 @@ const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   all: new Set(/* all keys — handled below */),
 };
 
-const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; color: string; tip: string }> = [
-  { key: 'overview',   label: 'Overview',    emoji: '📊', color: '#60a5fa', tip: 'Key columns: Stage, Conviction, Entry, R:R, Verdict, RS Rank' },
-  { key: 'screening',  label: 'Screening',   emoji: '🔬', color: '#a78bfa', tip: 'Screening parameters: ATR, zone, volume ratios, UPS, CQS' },
-  { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399', tip: 'Full trade engine: Entry, Stop, Targets, R:R, Gap%, EMAs' },
-  { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c', tip: 'Momentum quality: EMA alignment, OBV, ADX, vol dry-up' },
-  { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee', tip: 'Statistical edge: TTM Squeeze, Hurst, GARCH, entropy, BB/KC' },
-  { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8', tip: 'All 60+ columns visible — use horizontal scroll' },
+const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; color: string; tip: string; tipColor: string }> = [
+  { key: 'overview',   label: 'Overview',    emoji: '📊', color: '#60a5fa', tip: 'Key columns: Stage, Conviction, Entry, R:R, Verdict, RS Rank', tipColor: 'blue' },
+  { key: 'screening',  label: 'Screening',   emoji: '🔬', color: '#a78bfa', tip: 'Screening parameters: ATR, zone, volume ratios, UPS, CQS', tipColor: 'purple' },
+  { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399', tip: 'Full trade engine: Entry, Stop, Targets, R:R, Gap%, EMAs', tipColor: 'green' },
+  { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c', tip: 'Momentum quality: EMA alignment, OBV, ADX, vol dry-up', tipColor: 'orange' },
+  { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee', tip: 'Statistical edge: TTM Squeeze, Hurst, GARCH, entropy, BB/KC', tipColor: 'cyan' },
+  { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8', tip: 'All 60+ columns visible — use horizontal scroll', tipColor: 'blue' },
 ];
 
 function getVisibleColumns(subtab: ScannerSubTab) {
@@ -1063,17 +1063,20 @@ function HomePageInner() {
   useEffect(() => {
     let tip = document.getElementById('qtp-tooltip');
     if (!tip) { tip = document.createElement('div'); tip.id = 'qtp-tooltip'; document.body.appendChild(tip); }
+    const colorClasses = ['tip-green','tip-amber','tip-purple','tip-blue','tip-cyan','tip-red','tip-pink','tip-yellow','tip-orange'];
     function show(e: MouseEvent) {
       const el = (e.target as HTMLElement).closest('[data-tip]') as HTMLElement | null;
       if (!el || !tip) return;
       tip.textContent = el.getAttribute('data-tip') ?? '';
+      tip.className = '';
+      const color = el.getAttribute('data-tip-color');
+      if (color && colorClasses.includes(`tip-${color}`)) tip.classList.add(`tip-${color}`);
       const rect = el.getBoundingClientRect();
       tip.style.left = `${rect.left + rect.width / 2}px`;
-      tip.style.top = `${rect.bottom + 8}px`;
-      tip.style.transform = 'translateX(-50%)';
-      tip.classList.add('visible');
+      tip.style.top = `${rect.bottom + 10}px`;
+      requestAnimationFrame(() => tip!.classList.add('visible'));
     }
-    function hide() { if (tip) tip.classList.remove('visible'); }
+    function hide() { if (tip) { tip.classList.remove('visible'); } }
     document.addEventListener('mouseover', show);
     document.addEventListener('mouseout', hide);
     return () => { document.removeEventListener('mouseover', show); document.removeEventListener('mouseout', hide); };
@@ -1258,11 +1261,11 @@ function HomePageInner() {
 
         {/* Group 1: Scan actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <button disabled={scanning} data-tip="Clear results and start a fresh scan" onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
+          <button disabled={scanning} data-tip="Clear results and start a fresh scan" data-tip-color="red" onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
             className="h-7 px-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded text-[11px] font-medium text-slate-200 transition-colors">New Scan</button>
           <button disabled={scanning} data-tip="Load sample data to explore the screener without scanning" data-tip-color="indigo" onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
             className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
-          <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" onClick={() => fileInputRef.current?.click()}
+          <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
         </div>
@@ -1294,7 +1297,7 @@ function HomePageInner() {
               {THEMATIC_PRESETS.filter(p => p.category === 'strategy').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
             </optgroup>
           </select>
-          <button disabled={scanning} data-tip="Paste stock symbols directly — one per line or comma-separated" onClick={() => setShowPasteBox(p => !p)}
+          <button disabled={scanning} data-tip="Paste stock symbols directly — one per line or comma-separated" data-tip-color="cyan" onClick={() => setShowPasteBox(p => !p)}
             className={`h-7 px-2.5 border rounded text-[11px] font-medium transition-colors disabled:opacity-40 ${showPasteBox ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'}`}>
             Paste</button>
         </div>
@@ -1303,9 +1306,9 @@ function HomePageInner() {
 
         {/* Group 3: Export */}
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={exportCSV} disabled={filteredResults.length === 0} data-tip="Export filtered results as CSV spreadsheet"
+          <button onClick={exportCSV} disabled={filteredResults.length === 0} data-tip="Export filtered results as CSV spreadsheet" data-tip-color="blue"
             className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">CSV</button>
-          <button onClick={exportXLSX} disabled={filteredResults.length === 0} data-tip="Export filtered results as Excel workbook"
+          <button onClick={exportXLSX} disabled={filteredResults.length === 0} data-tip="Export filtered results as Excel workbook" data-tip-color="blue"
             className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">XLSX</button>
           {filteredResults.some(r => r.priceEngine.tradeValid) && (
             <button onClick={() => {
@@ -1360,10 +1363,10 @@ function HomePageInner() {
               const md = generateJournalMarkdown(results, scanStats, trackedTrades, marketRegime?.label ?? 'Unknown');
               const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([md], {type:'text/markdown'}));
               a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.md`; a.click(); URL.revokeObjectURL(a.href);
-            }} data-tip="Export trade journal as Markdown file" className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors">
+            }} data-tip="Export trade journal as Markdown file" data-tip-color="purple" className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors">
               📝</button>
           )}
-          <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} data-tip={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} data-tip={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} data-tip-color="yellow"
             className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">
             {theme === 'dark' ? '☀' : '🌙'}</button>
         </div>
@@ -1763,16 +1766,16 @@ function HomePageInner() {
       {/* ── Tab Bar ── */}
       <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1 flex items-center gap-1">
         {([
-          ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views'],
-          ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard'],
-          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management'],
-          ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker'],
-          ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view'],
-          ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis'],
-          ['intelligence', '🧠', 'Intelligence', '#f472b6', 'RS ranking, sector rotation, multi-TF, correlation guard'],
-        ] as const).map(([key, emoji, label, color, tip]) => (
+          ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
+          ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
+          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management', 'orange'],
+          ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
+          ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
+          ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
+          ['intelligence', '🧠', 'Intelligence', '#f472b6', 'RS ranking, sector rotation, multi-TF, correlation guard', 'pink'],
+        ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
           <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
-            data-tip={tip}
+            data-tip={tip} data-tip-color={tipColor}
             style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
             className={`h-7 px-3 rounded border text-[11px] font-semibold transition-colors ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
             {emoji} {label}
@@ -3076,7 +3079,7 @@ function HomePageInner() {
             <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1 flex items-center gap-1 border-b border-slate-800/50">
               {SUBTAB_META.map(st => (
                 <button key={st.key} onClick={() => setScannerSubTab(st.key)}
-                  data-tip={st.tip}
+                  data-tip={st.tip} data-tip-color={st.tipColor}
                   style={scannerSubTab === st.key ? { borderColor: st.color, color: st.color, backgroundColor: `${st.color}15` } : {}}
                   className={`h-6 px-2.5 rounded border text-[11px] font-semibold transition-colors ${scannerSubTab === st.key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
                   {st.emoji} {st.label}
