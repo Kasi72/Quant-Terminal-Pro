@@ -478,13 +478,13 @@ const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   all: new Set(/* all keys — handled below */),
 };
 
-const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; color: string }> = [
-  { key: 'overview',   label: 'Overview',    emoji: '📊', color: '#60a5fa' },
-  { key: 'screening',  label: 'Screening',   emoji: '🔬', color: '#a78bfa' },
-  { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399' },
-  { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c' },
-  { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee' },
-  { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8' },
+const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; color: string; tip: string }> = [
+  { key: 'overview',   label: 'Overview',    emoji: '📊', color: '#60a5fa', tip: 'Key columns: Stage, Conviction, Entry, R:R, Verdict, RS Rank' },
+  { key: 'screening',  label: 'Screening',   emoji: '🔬', color: '#a78bfa', tip: 'Screening parameters: ATR, zone, volume ratios, UPS, CQS' },
+  { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399', tip: 'Full trade engine: Entry, Stop, Targets, R:R, Gap%, EMAs' },
+  { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c', tip: 'Momentum quality: EMA alignment, OBV, ADX, vol dry-up' },
+  { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee', tip: 'Statistical edge: TTM Squeeze, Hurst, GARCH, entropy, BB/KC' },
+  { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8', tip: 'All 60+ columns visible — use horizontal scroll' },
 ];
 
 function getVisibleColumns(subtab: ScannerSubTab) {
@@ -1238,11 +1238,11 @@ function HomePageInner() {
 
         {/* Group 1: Scan actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <button disabled={scanning} onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
+          <button disabled={scanning} data-tip="Clear results and start a fresh scan" onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
             className="h-7 px-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded text-[11px] font-medium text-slate-200 transition-colors">New Scan</button>
-          <button disabled={scanning} onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
+          <button disabled={scanning} data-tip="Load sample data to explore the screener without scanning" data-tip-color="indigo" onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
             className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
-          <button disabled={scanning} onClick={() => fileInputRef.current?.click()}
+          <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
         </div>
@@ -1251,19 +1251,19 @@ function HomePageInner() {
 
         {/* Group 2: Index presets */}
         <div className="flex items-center gap-1 shrink-0">
-          <select disabled={scanning} value=""
+          <select disabled={scanning} value="" data-tip="Scan stocks from Nifty broad market indices (50, 100, 200, 500, Full Equity)" data-tip-color="green"
             onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
             className="h-7 px-1.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 border border-emerald-700 rounded text-[11px] font-medium text-emerald-300 cursor-pointer focus:outline-none">
             <option value="" disabled>Nifty ▾</option>
             {NIFTY_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
-          <select disabled={scanning} value=""
+          <select disabled={scanning} value="" data-tip="Scan stocks from 30 NSE sectoral indices (IT, Bank, Pharma, Auto, etc.)" data-tip-color="amber"
             onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
             className="h-7 px-1.5 bg-amber-900/40 hover:bg-amber-900/60 disabled:opacity-40 border border-amber-700 rounded text-[11px] font-medium text-amber-300 cursor-pointer focus:outline-none">
             <option value="" disabled>Sector ▾</option>
             {SECTOR_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
-          <select disabled={scanning} value=""
+          <select disabled={scanning} value="" data-tip="Scan thematic & strategy indices (MNC, PSE, Growth, Value, Momentum, etc.)" data-tip-color="purple"
             onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
             className="h-7 px-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-700 rounded text-[11px] font-medium text-purple-300 cursor-pointer focus:outline-none">
             <option value="" disabled>Thematic ▾</option>
@@ -1274,7 +1274,7 @@ function HomePageInner() {
               {THEMATIC_PRESETS.filter(p => p.category === 'strategy').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
             </optgroup>
           </select>
-          <button disabled={scanning} onClick={() => setShowPasteBox(p => !p)}
+          <button disabled={scanning} data-tip="Paste stock symbols directly — one per line or comma-separated" onClick={() => setShowPasteBox(p => !p)}
             className={`h-7 px-2.5 border rounded text-[11px] font-medium transition-colors disabled:opacity-40 ${showPasteBox ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'}`}>
             Paste</button>
         </div>
@@ -1283,16 +1283,16 @@ function HomePageInner() {
 
         {/* Group 3: Export */}
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={exportCSV} disabled={filteredResults.length === 0}
+          <button onClick={exportCSV} disabled={filteredResults.length === 0} data-tip="Export filtered results as CSV spreadsheet"
             className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">CSV</button>
-          <button onClick={exportXLSX} disabled={filteredResults.length === 0}
+          <button onClick={exportXLSX} disabled={filteredResults.length === 0} data-tip="Export filtered results as Excel workbook"
             className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">XLSX</button>
           {filteredResults.some(r => r.priceEngine.tradeValid) && (
             <button onClick={() => {
               const csv = exportZerodhaBasket(filteredResults, accountSize);
               const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
               a.download = 'zerodha_basket.csv'; a.click(); URL.revokeObjectURL(a.href);
-            }} className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">Zerodha</button>
+            }} data-tip="Export as Zerodha basket order — auto-detects NSE/BSE exchange" data-tip-color="green" className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">Zerodha</button>
           )}
         </div>
 
@@ -1321,17 +1321,17 @@ function HomePageInner() {
 
         {/* Group 5: Panels & tools */}
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setShowTracker(v => !v)}
+          <button onClick={() => setShowTracker(v => !v)} data-tip="Win rate tracker — shows open positions, P&L, and trading statistics" data-tip-color="green"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}%` : 'WR'}</button>
-          <button onClick={() => setShowSessions(v => !v)}
+          <button onClick={() => setShowSessions(v => !v)} data-tip="Saved scan sessions — compare, export, import historical scans" data-tip-color="blue"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             💾 {sessions.length || '—'}</button>
-          <button onClick={() => setShowWatchlist(v => !v)}
+          <button onClick={() => setShowWatchlist(v => !v)} data-tip="Watchlist — stocks you're monitoring for future entries" data-tip-color="amber"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showWatchlist ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             ⭐ {watchlist.length || '—'}</button>
           {results.length > 0 && (
-            <button onClick={() => setShowHeatMap(v => !v)}
+            <button onClick={() => setShowHeatMap(v => !v)} data-tip="Sector heatmap — signal density by sector" data-tip-color="purple"
               className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showHeatMap ? 'bg-purple-900/50 border-purple-600 text-purple-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
               ▦</button>
           )}
@@ -1340,10 +1340,10 @@ function HomePageInner() {
               const md = generateJournalMarkdown(results, scanStats, trackedTrades, marketRegime?.label ?? 'Unknown');
               const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([md], {type:'text/markdown'}));
               a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.md`; a.click(); URL.revokeObjectURL(a.href);
-            }} className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors">
+            }} data-tip="Export trade journal as Markdown file" className="h-7 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors">
               📝</button>
           )}
-          <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+          <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} data-tip={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
             className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">
             {theme === 'dark' ? '☀' : '🌙'}</button>
         </div>
@@ -1743,15 +1743,16 @@ function HomePageInner() {
       {/* ── Tab Bar ── */}
       <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1 flex items-center gap-1">
         {([
-          ['scanner',      '📊', 'Scanner',      '#818cf8'],
-          ['performance',  '📈', 'Performance',  '#34d399'],
-          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316'],
-          ['journal',      '📝', 'Journal',      '#a78bfa'],
-          ['focus',        '⚡', 'Focus',        '#facc15'],
-          ['validation',   '🔬', 'Validation',   '#22d3ee'],
-          ['intelligence', '🧠', 'Intelligence', '#f472b6'],
-        ] as const).map(([key, emoji, label, color]) => (
+          ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views'],
+          ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard'],
+          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management'],
+          ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker'],
+          ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view'],
+          ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis'],
+          ['intelligence', '🧠', 'Intelligence', '#f472b6', 'RS ranking, sector rotation, multi-TF, correlation guard'],
+        ] as const).map(([key, emoji, label, color, tip]) => (
           <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
+            data-tip={tip}
             style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
             className={`h-7 px-3 rounded border text-[11px] font-semibold transition-colors ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
             {emoji} {label}
@@ -3055,6 +3056,7 @@ function HomePageInner() {
             <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1 flex items-center gap-1 border-b border-slate-800/50">
               {SUBTAB_META.map(st => (
                 <button key={st.key} onClick={() => setScannerSubTab(st.key)}
+                  data-tip={st.tip}
                   style={scannerSubTab === st.key ? { borderColor: st.color, color: st.color, backgroundColor: `${st.color}15` } : {}}
                   className={`h-6 px-2.5 rounded border text-[11px] font-semibold transition-colors ${scannerSubTab === st.key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
                   {st.emoji} {st.label}

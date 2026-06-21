@@ -1,5 +1,71 @@
 @import "tailwindcss";
 
+/* ── Tooltip System ── */
+[data-tip] {
+  position: relative;
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 260px;
+  white-space: normal;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform: translateX(-50%) translateY(4px);
+  z-index: 9999;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.15);
+}
+[data-tip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #334155;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+}
+[data-tip]:hover::after,
+[data-tip]:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+[data-tip]:hover::before {
+  transform: translateX(-50%);
+}
+/* Color variants */
+[data-tip-color="green"]::after { border-color: #166534; background: linear-gradient(135deg, #14532d 0%, #052e16 100%); }
+[data-tip-color="green"]::before { border-top-color: #166534; }
+[data-tip-color="amber"]::after { border-color: #92400e; background: linear-gradient(135deg, #78350f 0%, #451a03 100%); }
+[data-tip-color="amber"]::before { border-top-color: #92400e; }
+[data-tip-color="purple"]::after { border-color: #581c87; background: linear-gradient(135deg, #3b0764 0%, #1e1b4b 100%); }
+[data-tip-color="purple"]::before { border-top-color: #581c87; }
+[data-tip-color="blue"]::after { border-color: #1e3a5f; background: linear-gradient(135deg, #172554 0%, #0c1426 100%); }
+[data-tip-color="blue"]::before { border-top-color: #1e3a5f; }
+[data-tip-color="red"]::after { border-color: #7f1d1d; background: linear-gradient(135deg, #450a0a 0%, #1c0404 100%); }
+[data-tip-color="red"]::before { border-top-color: #7f1d1d; }
+[data-tip-color="indigo"]::after { border-color: #3730a3; background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%); }
+[data-tip-color="indigo"]::before { border-top-color: #3730a3; }
+[data-tip-color="cyan"]::after { border-color: #155e75; background: linear-gradient(135deg, #164e63 0%, #082f49 100%); }
+[data-tip-color="cyan"]::before { border-top-color: #155e75; }
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
