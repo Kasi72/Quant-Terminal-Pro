@@ -64,13 +64,13 @@ export function tradeSheetToClipboard(ts: TradeSheet): string {
     `CAPITAL: ₹${(ts.totalCost / 100000).toFixed(2)}L`,
     `MAX RISK: ₹${ts.maxRisk.toLocaleString('en-IN')}`,
   ];
-  if (ts.pivotPP) {
+  if (ts.pivotPP && Number.isFinite(ts.pivotPP)) {
     lines.push('', `═══ PIVOT LEVELS ═══`);
-    if (ts.pivotR2) lines.push(`R2: ₹${ts.pivotR2.toFixed(2)}`);
-    if (ts.pivotR1) lines.push(`R1: ₹${ts.pivotR1.toFixed(2)}`);
+    if (ts.pivotR2 && Number.isFinite(ts.pivotR2)) lines.push(`R2: ₹${ts.pivotR2.toFixed(2)}`);
+    if (ts.pivotR1 && Number.isFinite(ts.pivotR1)) lines.push(`R1: ₹${ts.pivotR1.toFixed(2)}`);
     lines.push(`PP: ₹${ts.pivotPP.toFixed(2)}`);
-    if (ts.pivotS1) lines.push(`S1: ₹${ts.pivotS1.toFixed(2)}`);
-    if (ts.pivotS2) lines.push(`S2: ₹${ts.pivotS2.toFixed(2)}`);
+    if (ts.pivotS1 && Number.isFinite(ts.pivotS1)) lines.push(`S1: ₹${ts.pivotS1.toFixed(2)}`);
+    if (ts.pivotS2 && Number.isFinite(ts.pivotS2)) lines.push(`S2: ₹${ts.pivotS2.toFixed(2)}`);
     if (ts.pivotPosition) lines.push(`Position: ${ts.pivotPosition}`);
     if (ts.pivotConfluence) lines.push(`Confluence: ${ts.pivotConfluence}`);
     if (ts.pivotWarnings?.length) {

@@ -3369,33 +3369,57 @@ function HomePageInner() {
                   className={`flex-1 px-2 py-1.5 border rounded text-xs font-medium transition-colors ${selectedResult.priceEngine.tradeValid ? 'bg-emerald-900/40 hover:bg-emerald-900/60 border-emerald-700 text-emerald-300' : 'bg-amber-900/30 hover:bg-amber-900/50 border-amber-700 text-amber-400'}`}>
                   {trackedTrades.some(t => t.symbol === selectedResult.symbol) ? '✓ Tracked' : selectedResult.priceEngine.tradeValid ? '📌 Track Trade' : '⚠ Track (R:R low)'}
                 </button>
-                  <button onClick={() => {
+                  {(() => {
                     const regimeMult = marketRegime?.sizingMultiplier ?? 1;
                     const ts = generateTradeSheet(selectedResult, accountSize * regimeMult);
-                    if (ts) {
-                      const piv = pivotData.get(selectedResult.symbol);
-                      if (piv) {
-                        ts.pivotPP = piv.classic.pp;
-                        ts.pivotR1 = piv.classic.r1;
-                        ts.pivotR2 = piv.classic.r2;
-                        ts.pivotS1 = piv.classic.s1;
-                        ts.pivotS2 = piv.classic.s2;
-                        ts.pivotPosition = piv.position;
-                        ts.pivotConfluence = piv.confluence.slice(0, 3).map(c => `₹${c.price.toFixed(0)} (${c.strength} methods, ${c.type})`).join(' | ');
-                        const warnings = checkTargetPivotConflict(ts.entry, ts.stopLoss, ts.target1, ts.target2, piv);
-                        ts.pivotWarnings = warnings.map(w => w.warning);
-                      }
-                      navigator.clipboard.writeText(tradeSheetToClipboard(ts)).catch(() => {});
-                      setShowTradeSheet(selectedResult.symbol);
-                      setTimeout(() => setShowTradeSheet(null), 2000);
-                    } else {
-                      setShowTradeSheet('no_data');
-                      setTimeout(() => setShowTradeSheet(null), 2000);
+                    const piv = pivotData.get(selectedResult.symbol);
+                    if (ts && piv) {
+                      ts.pivotPP = piv.classic.pp; ts.pivotR1 = piv.classic.r1; ts.pivotR2 = piv.classic.r2;
+                      ts.pivotS1 = piv.classic.s1; ts.pivotS2 = piv.classic.s2; ts.pivotPosition = piv.position;
+                      ts.pivotConfluence = piv.confluence.slice(0, 3).map(c => `₹${c.price.toFixed(0)} (${c.strength}m, ${c.type})`).join(' | ');
+                      const warns = checkTargetPivotConflict(ts.entry, ts.stopLoss, ts.target1, ts.target2, piv);
+                      ts.pivotWarnings = warns.map(w => w.warning);
                     }
-                  }}
-                    className="flex-1 px-2 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-xs font-medium text-blue-300 transition-colors">
-                    {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
-                  </button>
+                    const sheetText = ts ? tradeSheetToClipboard(ts) : '';
+                    return (
+                      <div className="flex-1 relative group">
+                        <button onClick={() => {
+                          if (!sheetText) { setShowTradeSheet('no_data'); setTimeout(() => setShowTradeSheet(null), 2000); return; }
+                          try { navigator.clipboard.writeText(sheetText).catch(() => {}); } catch { /* fallback */ const ta = document.createElement('textarea'); ta.value = sheetText; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+                          setShowTradeSheet(selectedResult.symbol); setTimeout(() => setShowTradeSheet(null), 2000);
+                        }}
+                          className="w-full px-2 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-xs font-medium text-blue-300 transition-colors">
+                          {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
+                        </button>
+                        {/* Hover preview tooltip */}
+                        {sheetText && (
+                          <div className="absolute left-0 top-full mt-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[99999]">
+                            <div className="bg-gradient-to-br from-[#0f172a] to-[#020617] border-2 border-blue-500/50 rounded-lg p-3 shadow-2xl shadow-blue-900/30">
+                              <div className="text-[9px] font-mono leading-relaxed whitespace-pre-wrap">
+                                {sheetText.split('\n').map((line, i) => (
+                                  <div key={i} className={
+                                    line.startsWith('═══') ? 'text-blue-400 font-bold mb-0.5' :
+                                    line.startsWith('SYMBOL') ? 'text-white font-bold' :
+                                    line.startsWith('ENTRY') ? 'text-slate-200' :
+                                    line.startsWith('STOP') ? 'text-red-400' :
+                                    line.startsWith('TARGET') ? 'text-emerald-400' :
+                                    line.startsWith('R1') || line.startsWith('R2') ? 'text-red-300' :
+                                    line.startsWith('S1') || line.startsWith('S2') ? 'text-emerald-300' :
+                                    line.startsWith('PP') ? 'text-yellow-300' :
+                                    line.startsWith('Position') || line.startsWith('Confluence') ? 'text-cyan-300' :
+                                    line.startsWith('T1 near') || line.startsWith('T2') ? 'text-amber-300' :
+                                    line.startsWith('Stop protected') ? 'text-emerald-300' :
+                                    'text-slate-400'
+                                  }>{line || ' '}</div>
+                                ))}
+                              </div>
+                              <div className="text-[8px] text-blue-400/60 mt-1.5 pt-1 border-t border-blue-800/30 text-center">Click to copy to clipboard</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
               {/* Pivot Levels */}

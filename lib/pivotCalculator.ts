@@ -114,10 +114,11 @@ export interface AllPivots {
 }
 
 export function computeAllPivots(candles: Candle[]): AllPivots | null {
-  if (candles.length < 2) return null;
+  if (!candles || candles.length < 2) return null;
   const prev = candles[candles.length - 2];
   const curr = candles[candles.length - 1];
-  if (!prev || prev.h <= 0) return null;
+  if (!prev || !curr || !Number.isFinite(prev.h) || prev.h <= 0 || prev.l <= 0 || prev.c <= 0) return null;
+  if (prev.h < prev.l) return null;
 
   const h = prev.h, l = prev.l, c = prev.c, o = prev.o;
   const cmp = curr.c;
