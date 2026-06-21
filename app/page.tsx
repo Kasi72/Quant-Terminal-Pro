@@ -766,11 +766,22 @@ function HomePageInner() {
   }, [scannerSubTab]);
   const tableWidth = useMemo(() => getTableWidth(visibleColumns), [visibleColumns]);
 
-  // Sync top ↔ bottom scrollbars
+  // Sync top ↔ bottom scrollbars (width + scroll position)
+  const [actualTableWidth, setActualTableWidth] = useState(0);
   useEffect(() => {
     const top = topScrollRef.current;
     const bot = botScrollRef.current;
     if (!top || !bot) return;
+
+    // Sync inner width of top scrollbar to actual scrollWidth of bottom
+    const syncWidth = () => {
+      const sw = bot.scrollWidth;
+      if (sw > 0 && sw !== actualTableWidth) setActualTableWidth(sw);
+    };
+    syncWidth();
+    const resizeObs = new ResizeObserver(syncWidth);
+    resizeObs.observe(bot);
+
     let source: 'top' | 'bot' | null = null;
     let rafId = 0;
     const onTop = () => {
@@ -787,8 +798,8 @@ function HomePageInner() {
     };
     top.addEventListener('scroll', onTop);
     bot.addEventListener('scroll', onBot);
-    return () => { top.removeEventListener('scroll', onTop); bot.removeEventListener('scroll', onBot); cancelAnimationFrame(rafId); };
-  }, [results.length]);
+    return () => { top.removeEventListener('scroll', onTop); bot.removeEventListener('scroll', onBot); resizeObs.disconnect(); cancelAnimationFrame(rafId); };
+  }, [results.length, visibleColumns.length]);
 
   const runScan = useCallback(async (symbols: string[]) => {
     if (scanningRef.current) return;
@@ -3595,7 +3606,7 @@ function HomePageInner() {
                 className="flex-shrink-0 overflow-x-scroll border-b border-slate-700 bg-slate-900"
                 style={{ height: '16px' }}
               >
-                <div style={{ width: `${tableWidth}px`, height: '1px' }} />
+                <div style={{ width: `${actualTableWidth || tableWidth}px`, height: '1px' }} />
               </div>
 
               {/* ── Table ── */}
