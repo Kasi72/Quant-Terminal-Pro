@@ -682,6 +682,7 @@ function HomePageInner() {
   const sessionImportRef = useRef<HTMLInputElement>(null);
   const [multiStageFilter, setMultiStageFilter] = useState<Set<StageRating>>(new Set());
   const [scanStartTime, setScanStartTime] = useState(0);
+  const [scanEndTime, setScanEndTime] = useState<string>('');
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
@@ -720,6 +721,9 @@ function HomePageInner() {
       const savedTheme = localStorage.getItem('qtp_theme');
       if (savedTheme === 'light') setTheme('light');
       setTgConfig(loadTelegramConfig());
+      const savedParamSet = localStorage.getItem('qtp_paramset');
+      if (savedParamSet === 'ALL4') setScanAll(true);
+      else if (savedParamSet && PARAM_SET_OPTIONS.some(o => o.key === savedParamSet)) setParamSetKey(savedParamSet as ParamSetKey);
     } catch {
       // Nuclear fallback — clear everything
       try { localStorage.clear(); } catch { /* ignore */ }
@@ -1052,6 +1056,7 @@ function HomePageInner() {
       console.error('Scan error:', err);
     } finally {
       setScanning(false); scanningRef.current = false;
+      setScanEndTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }));
     }
   }, [paramSetKey, scanAll, lookback, niftyCandles, scanSource]);
 
@@ -1329,12 +1334,12 @@ function HomePageInner() {
       <header className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2.5 flex items-center gap-3">
         <div className="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center text-xs font-bold text-white select-none">Q</div>
         <span className="font-bold text-slate-100 text-sm">Quant Terminal Pro</span>
-        <span className="text-xs text-slate-600">v7.1</span>
+        <span className="text-xs text-slate-600">v7.8</span>
         <select
           value={scanAll ? 'ALL4' : paramSetKey}
           onChange={e => {
-            if (e.target.value === 'ALL4') { setScanAll(true); }
-            else { setScanAll(false); setParamSetKey(e.target.value as ParamSetKey); }
+            if (e.target.value === 'ALL4') { setScanAll(true); try { localStorage.setItem('qtp_paramset', 'ALL4'); } catch {} }
+            else { setScanAll(false); setParamSetKey(e.target.value as ParamSetKey); try { localStorage.setItem('qtp_paramset', e.target.value); } catch {} }
           }}
           className={`ml-2 border rounded text-xs px-2 py-1 focus:outline-none cursor-pointer ${scanAll ? 'bg-cyan-900/40 border-cyan-600 text-cyan-300 focus:border-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-200 focus:border-indigo-500'}`}
         >
@@ -1375,6 +1380,19 @@ function HomePageInner() {
             🔍 Check Market</button>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {(() => {
+            const openT = trackedTrades.filter(t => t.status === 'open');
+            if (openT.length === 0) return null;
+            const totalRisk = openT.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
+            const totalCap = openT.reduce((s, t) => s + t.entryPrice, 0);
+            const riskPct = accountSize > 0 ? (totalRisk / accountSize * 100) : 0;
+            return (
+              <span className={`text-[10px] font-mono ${riskPct > 3 ? 'text-red-400' : riskPct > 1.5 ? 'text-amber-400' : 'text-slate-500'}`}
+                title={`${openT.length} open · ₹${(totalCap/1000).toFixed(0)}K deployed · ₹${totalRisk.toFixed(0)} at risk`}>
+                {openT.length} pos · ₹{totalRisk.toFixed(0)} risk ({riskPct.toFixed(1)}%)
+              </span>
+            );
+          })()}
           {results.length > 0 && (
             <button onClick={() => setShowRiskSizer(v => !v)}
               className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showRiskSizer ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
@@ -1395,6 +1413,11 @@ function HomePageInner() {
             className="h-7 px-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded text-[11px] font-medium text-slate-200 transition-colors">New Scan</button>
           <button disabled={scanning} data-tip="Load sample data to explore the screener without scanning" data-tip-color="indigo" onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
             className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
+          {lastScanSymbols.length > 0 && (
+            <button disabled={scanning} data-tip={`Rescan same ${lastScanSymbols.length} stocks from last scan`} data-tip-color="green"
+              onClick={() => runScan(lastScanSymbols)}
+              className="h-7 px-2.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 border border-emerald-700 rounded text-[11px] font-semibold text-emerald-300 transition-colors">↻ Rescan</button>
+          )}
           <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
@@ -3693,11 +3716,15 @@ function HomePageInner() {
                                   {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}
                                 </button>
                               ) : col.fmt(row)}
+                              {col.key === 'symbol' && (
+                                <button onClick={(e) => { e.stopPropagation(); const ta = document.createElement('textarea'); ta.value = row.symbol.replace('.NS','').replace('.BO',''); ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }}
+                                  className="ml-0.5 text-slate-700 hover:text-slate-400 text-[9px] opacity-0 group-hover:opacity-100 transition-opacity" title="Copy symbol">⧉</button>
+                              )}
                               {col.key === 'symbol' && diff && (
-                                <span className="ml-1 text-cyan-400 text-xs" title={`Was: ${STAGE_CONFIG[diff.prev].label}`}>↑</span>
+                                <span className="ml-0.5 text-cyan-400 text-xs" title={`Was: ${STAGE_CONFIG[diff.prev].label}`}>↑</span>
                               )}
                               {col.key === 'symbol' && row.nearBreakout && !diff && (
-                                <span className="ml-1 text-yellow-400 text-xs" title="Near breakout">⚡</span>
+                                <span className="ml-0.5 text-yellow-400 text-xs" title="Near breakout">⚡</span>
                               )}
                               {col.key === 'symbol' && (() => {
                                 const age = getSignalAge(row.symbol, row.stage, signalHistory);
@@ -4099,11 +4126,12 @@ function HomePageInner() {
 
       {/* ── Footer ── */}
       <footer className="flex-shrink-0 border-t border-slate-800 bg-[#0d1117] px-4 py-1.5 flex items-center gap-3 text-xs text-slate-600">
-        <span>{results.length} scanned</span>
+        <span>{results.length} scanned{failedSymbols.length > 0 ? ` (${results.length} ok, ${failedSymbols.length} failed)` : ''}</span>
         <span>·</span>
         <span className="text-emerald-700">
           {results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).length} actionable
         </span>
+        {scanEndTime && <><span>·</span><span className="text-slate-500">⏱ {scanEndTime}</span></>}
         {nearBreakoutCount > 0 && <><span>·</span><span className="text-yellow-600">⚡ {nearBreakoutCount} near breakout</span></>}
         {scanDiff.size > 0 && <><span>·</span><span className="text-cyan-600">↑ {scanDiff.size} changed</span></>}
         <span>·</span>
@@ -4142,7 +4170,7 @@ function HomePageInner() {
           )
         )}
         {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
-        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Quant Terminal Pro v7.3</span>
+        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Quant Terminal Pro v7.8</span>
       </footer>
     </main>
   );
