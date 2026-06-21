@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_BODY_SIZE = 10 * 1024; // 10KB
+
 export async function POST(req: NextRequest) {
   try {
-    const { token, chatId, message, parseMode } = await req.json();
+    // Guard: reject oversized request bodies
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return NextResponse.json({ ok: false, error: 'Request body too large (max 10KB)' }, { status: 413 });
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_BODY_SIZE) {
+      return NextResponse.json({ ok: false, error: 'Request body too large (max 10KB)' }, { status: 413 });
+    }
+    const { token, chatId, message, parseMode } = JSON.parse(rawBody);
     if (!token || !chatId || !message) {
       return NextResponse.json({ ok: false, error: 'Missing token, chatId, or message' }, { status: 400 });
     }
@@ -21,6 +32,7 @@ export async function POST(req: NextRequest) {
         parse_mode: parseMode || 'HTML',
         disable_web_page_preview: true,
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     const data = await res.json();

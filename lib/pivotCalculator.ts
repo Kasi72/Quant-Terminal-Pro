@@ -2,7 +2,7 @@
 
 interface Candle { ts: number; o: number; h: number; l: number; c: number; v: number; }
 
-function tick(p: number): number { return Math.round(p * 20) / 20; }
+function tick(p: number): number { const r = Math.round(p * 20) / 20; return Number.isFinite(r) ? r : 0; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PIVOT LEVELS
@@ -177,6 +177,7 @@ export interface ConfluenceZone {
 }
 
 function detectConfluence(allPivots: PivotLevels[], cmp: number): ConfluenceZone[] {
+  if (!Number.isFinite(cmp) || cmp <= 0) return [];
   // Collect all non-zero levels
   const allLevels: Array<{ method: string; level: string; price: number }> = [];
   for (const p of allPivots) {
@@ -214,8 +215,9 @@ function detectConfluence(allPivots: PivotLevels[], cmp: number): ConfluenceZone
 
     if (cluster.length >= 2) {
       const avgPrice = cluster.reduce((s, l) => s + l.price, 0) / cluster.length;
-      const minP = Math.min(...cluster.map(l => l.price));
-      const maxP = Math.max(...cluster.map(l => l.price));
+      const clusterPrices = cluster.map(l => l.price);
+      const minP = clusterPrices.length > 0 ? Math.min(...clusterPrices) : 0;
+      const maxP = clusterPrices.length > 0 ? Math.max(...clusterPrices) : 0;
       const dist = avgPrice - cmp;
       const absDist = Math.abs(dist);
       const pctDist = cmp > 0 ? (absDist / cmp) * 100 : 0;

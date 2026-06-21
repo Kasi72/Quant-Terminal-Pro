@@ -152,11 +152,13 @@ export function checkWeeklyAlignment(dailyCandles: Candle[]): TFAlignment {
   // Check weekly compression: last 6-12 weeks range tightness
   const last12 = weeks.slice(-12);
   const ranges = last12.map(w => w.h > 0 ? (w.h - w.l) / w.h * 100 : 0);
-  const avgRange = ranges.reduce((s, v) => s + v, 0) / ranges.length;
+  const avgRange = ranges.length > 0 ? ranges.reduce((s, v) => s + v, 0) / ranges.length : 0;
   const weeklyCompression = avgRange < 8;
 
   // Check weekly breakout: last week's close > max high of prior 6 weeks
-  const priorHigh = Math.max(...weeks.slice(-7, -1).map(w => w.h));
+  const priorWeeks = weeks.slice(-7, -1);
+  if (priorWeeks.length === 0) return none;
+  const priorHigh = Math.max(...priorWeeks.map(w => w.h));
   const lastWeekClose = weeks[weeks.length - 1].c;
   const weeklyBreakout = lastWeekClose > priorHigh;
 
@@ -273,7 +275,8 @@ export function computePortfolioCorrelation(
     }
   }
 
-  const avgCorr = pairs.length > 0 ? pairs.reduce((s, p) => s + Math.abs(p.corr), 0) / pairs.length : 0;
+  const avgCorrRaw = pairs.length > 0 ? pairs.reduce((s, p) => s + Math.abs(p.corr), 0) / pairs.length : 0;
+  const avgCorr = Number.isFinite(avgCorrRaw) ? avgCorrRaw : 0;
   return { avgCorrelation: safe(avgCorr), maxCorrelation: safe(maxCorr), maxPair, concentrated: avgCorr > 0.7, pairs };
 }
 
@@ -361,14 +364,16 @@ export function computeRiskOfRuin(winRate: number, avgWinR: number, avgLossR: nu
   if (w <= 0 || l <= 0 || avgLossR <= 0) return { rorPct: 100, kellyPct: 0, halfKellyPct: 0, maxConsecLosses: 0, safetyRating: 'dangerous' };
 
   // Kelly Criterion: f* = (bp - q) / b where b = avgWin/avgLoss, p = winRate, q = 1-p
-  const b = avgWinR / avgLossR;
+  const bRaw = avgWinR / avgLossR;
+  const b = Number.isFinite(bRaw) ? bRaw : 0;
   const kelly = safe((b * w - l) / b * 100);
   const halfKelly = safe(kelly / 2);
 
   // Risk of ruin approximation (simplified)
   // RoR = ((1 - edge) / (1 + edge)) ^ (capital_units)
   const edge = w * avgWinR - l * avgLossR;
-  const capitalUnits = 30 / riskPerTrade; // units to lose 30%
+  const capitalUnitsRaw = 30 / riskPerTrade; // units to lose 30%
+  const capitalUnits = Number.isFinite(capitalUnitsRaw) ? capitalUnitsRaw : 0;
   let ror: number;
   if (edge <= 0) {
     ror = 100;

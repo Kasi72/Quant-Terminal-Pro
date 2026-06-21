@@ -214,8 +214,8 @@ export function computeConvictionCorrelation(trades: TrackedTrade[]): { points: 
   }));
   if (points.length < 3) return { points, correlation: 0 };
 
-  const mX = points.reduce((s, p) => s + p.conviction, 0) / points.length;
-  const mY = points.reduce((s, p) => s + p.pnlR, 0) / points.length;
+  const mX = points.length > 0 ? points.reduce((s, p) => s + p.conviction, 0) / points.length : 0;
+  const mY = points.length > 0 ? points.reduce((s, p) => s + p.pnlR, 0) / points.length : 0;
   let num = 0, dX = 0, dY = 0;
   for (const p of points) { num += (p.conviction - mX) * (p.pnlR - mY); dX += (p.conviction - mX) ** 2; dY += (p.pnlR - mY) ** 2; }
   const den = Math.sqrt(dX * dY);
@@ -244,8 +244,8 @@ export function computeEdgeDecay(trades: TrackedTrade[], windowSize = 5): { poin
   if (points.length < 3) return { points, trending: 'stable' };
   const firstHalf = points.slice(0, Math.floor(points.length / 2));
   const secondHalf = points.slice(Math.floor(points.length / 2));
-  const avgFirst = firstHalf.reduce((s, p) => s + p.winRate, 0) / firstHalf.length;
-  const avgSecond = secondHalf.reduce((s, p) => s + p.winRate, 0) / secondHalf.length;
+  const avgFirst = firstHalf.length > 0 ? firstHalf.reduce((s, p) => s + p.winRate, 0) / firstHalf.length : 0;
+  const avgSecond = secondHalf.length > 0 ? secondHalf.reduce((s, p) => s + p.winRate, 0) / secondHalf.length : 0;
   const trending = avgSecond > avgFirst + 5 ? 'improving' : avgSecond < avgFirst - 5 ? 'decaying' : 'stable';
 
   return { points, trending };
