@@ -65,6 +65,7 @@ import {
   computeOptimization, computeSectorPerformance, computeConvictionCorrelation,
   computeEdgeDecay, computeDayOfWeek, computeRegimePerformance,
 } from '@/lib/validationAnalytics';
+import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
 import {
   computeMansfieldRS, rankRS, computeSectorRotation, checkWeeklyAlignment,
   backtestSignal, computePortfolioCorrelation, computeAnchoredVWAP,
@@ -487,10 +488,14 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'pivot_pp', label: 'PP', width: 70, align: 'right',
+    fmt: () => '', numVal: () => 0, cellClass: () => '' },
+  { key: 'pivot_r1', label: 'R1', width: 70, align: 'right',
+    fmt: () => '', numVal: () => 0, cellClass: () => '' },
+  { key: 'pivot_s1', label: 'S1', width: 70, align: 'right',
+    fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'rs_rank', label: 'RS Rank', width: 65, align: 'right',
-    fmt: () => '',
-    numVal: () => 0,
-    cellClass: () => '' },
+    fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'tf_align', label: 'TF', width: 40, align: 'center',
     fmt: () => '',
     numVal: () => 0,
@@ -506,7 +511,7 @@ type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'stat
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','rs_rank','tf_align','momentumScore','statsScore','nearBrk','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
-  tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
+  tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
   all: new Set(/* all keys — handled below */),
@@ -953,6 +958,17 @@ function HomePageInner() {
 
       // #7+10: Earnings season check
       setEarningsSeason(checkEarningsProximity(new Date().toISOString().slice(0, 10)));
+
+      // Pivot points for all scanned stocks
+      const pivMap = new Map<string, AllPivots>();
+      for (const r of newResults) {
+        const candles = freshCandleMap[r.symbol];
+        if (candles && candles.length >= 2) {
+          const piv = computeAllPivots(candles);
+          if (piv) pivMap.set(r.symbol, piv);
+        }
+      }
+      setPivotData(pivMap);
     }
 
     // Auto-save session
@@ -1124,6 +1140,7 @@ function HomePageInner() {
   const [histBacktests, setHistBacktests] = useState<Map<string, HistBacktest>>(new Map());
   const [portCorrelation, setPortCorrelation] = useState<CorrelationResult | null>(null);
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
+  const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
   useEffect(() => {
     if (marketRegime || regimeFetchedRef.current) return;
     regimeFetchedRef.current = true;
@@ -3220,7 +3237,13 @@ function HomePageInner() {
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
                                 col.cellClass ? col.cellClass(row) : 'text-slate-300',
                               ].join(' ')}>
-                              {col.key === 'rs_rank' ? (() => {
+                              {(col.key === 'pivot_pp' || col.key === 'pivot_r1' || col.key === 'pivot_s1') ? (() => {
+                                const piv = pivotData.get(row.symbol);
+                                if (!piv) return <span className="text-slate-700">—</span>;
+                                const val = col.key === 'pivot_pp' ? piv.classic.pp : col.key === 'pivot_r1' ? piv.classic.r1 : piv.classic.s1;
+                                const isAbove = piv.cmp > val;
+                                return <span className={`font-mono ${col.key === 'pivot_r1' ? 'text-red-400' : col.key === 'pivot_s1' ? 'text-emerald-400' : isAbove ? 'text-emerald-400' : 'text-red-400'}`} title={`${col.key === 'pivot_pp' ? 'Pivot Point' : col.key === 'pivot_r1' ? 'Resistance 1' : 'Support 1'} (Classic) | CMP ${piv.position}`}>₹{val.toFixed(0)}</span>;
+                              })() : col.key === 'rs_rank' ? (() => {
                                 const rs = rsData.get(row.symbol);
                                 if (!rs) return <span className="text-slate-600">—</span>;
                                 return <span className={`font-mono ${rs.rsRank >= 80 ? 'text-green-300 font-bold' : rs.rsRank >= 60 ? 'text-emerald-400' : rs.rsRank >= 40 ? 'text-slate-300' : rs.rsRank >= 20 ? 'text-amber-400' : 'text-red-400'}`} title={`RS: ${rs.rs52w.toFixed(0)} | Slope: ${rs.rsSlope.toFixed(1)} | ${rs.rsStatus}`}>{rs.rsRank}</span>;
@@ -3360,6 +3383,70 @@ function HomePageInner() {
                     {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
                   </button>
                 </div>
+
+              {/* Pivot Levels */}
+              {(() => {
+                const piv = pivotData.get(selectedResult.symbol);
+                if (!piv) return null;
+                const warnings = selectedResult.priceEngine.tradeValid ? checkTargetPivotConflict(
+                  selectedResult.priceEngine.plannedEntry, selectedResult.priceEngine.tacticalStop,
+                  selectedResult.priceEngine.target5, selectedResult.priceEngine.target7, piv
+                ) : [];
+                return (
+                  <div className="mb-4">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Pivot Levels (Classic)</div>
+                    <div className="space-y-0.5 text-xs font-mono">
+                      {[
+                        { label: 'R3', price: piv.classic.r3, color: 'text-red-500' },
+                        { label: 'R2', price: piv.classic.r2, color: 'text-red-400' },
+                        { label: 'R1', price: piv.classic.r1, color: 'text-red-300' },
+                        { label: 'PP', price: piv.classic.pp, color: 'text-slate-200 font-semibold' },
+                        { label: 'S1', price: piv.classic.s1, color: 'text-emerald-300' },
+                        { label: 'S2', price: piv.classic.s2, color: 'text-emerald-400' },
+                        { label: 'S3', price: piv.classic.s3, color: 'text-emerald-500' },
+                      ].map(lv => {
+                        const isCmpHere = piv.cmp >= lv.price - 2 && piv.cmp <= lv.price + 2;
+                        return (
+                          <div key={lv.label} className={`flex justify-between items-center ${isCmpHere ? 'bg-indigo-900/30 rounded px-1 -mx-1' : ''}`}>
+                            <span className="text-slate-500 w-6">{lv.label}</span>
+                            <div className="flex-1 mx-2 border-b border-dotted border-slate-800" />
+                            <span className={lv.color}>₹{lv.price.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1.5">
+                      CMP: {piv.position}
+                      {piv.nextResistance && <span className="text-red-400"> · R: ₹{piv.nextResistance.price.toFixed(0)} ({piv.nextResistance.distance.toFixed(0)} away)</span>}
+                      {piv.nextSupport && <span className="text-emerald-400"> · S: ₹{piv.nextSupport.price.toFixed(0)}</span>}
+                    </div>
+                    {/* Confluence zones */}
+                    {piv.confluence.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-[10px] text-slate-500 font-semibold">Confluence Zones</div>
+                        {piv.confluence.slice(0, 4).map((cz, i) => (
+                          <div key={i} className={`flex items-center gap-1.5 text-[10px] px-1.5 py-0.5 rounded ${cz.type === 'resistance' ? 'bg-red-900/20 text-red-300' : 'bg-emerald-900/20 text-emerald-300'}`}>
+                            <span className="font-semibold">{cz.type === 'resistance' ? '▲' : '▼'}</span>
+                            <span>₹{cz.price.toFixed(0)}</span>
+                            <span className="text-slate-500">({cz.strength} methods)</span>
+                            <span className={`ml-auto ${cz.relevance === 'immediate' ? 'text-yellow-300 font-semibold' : 'text-slate-600'}`}>{cz.relevance}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Target vs Pivot warnings */}
+                    {warnings.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {warnings.map((w, i) => (
+                          <div key={i} className={`text-[10px] px-1.5 py-1 rounded ${w.target === 'SL' ? 'bg-emerald-900/20 text-emerald-300' : 'bg-amber-900/20 text-amber-300'}`}>
+                            {w.target === 'SL' ? '🛡' : '⚠'} {w.warning}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {selectedResult.priceEngine.tradeValid && (
                 <div className="mb-4">
