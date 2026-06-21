@@ -66,6 +66,9 @@ import {
   computeEdgeDecay, computeDayOfWeek, computeRegimePerformance,
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
+import { runBacktest, aggregateBacktest, type BacktestResult } from '@/lib/backtestEngine';
+import { generateNarrative, type SignalNarrative } from '@/lib/narrativeEngine';
+import { optimizePortfolio, type PortfolioResult } from '@/lib/portfolioOptimizer';
 import {
   loadTelegramConfig, saveTelegramConfig, sendTelegramMessage,
   formatNewSignalAlert, formatTargetHitAlert, formatStoppedAlert,
@@ -666,7 +669,7 @@ function HomePageInner() {
   const [signalHistory, setSignalHistory] = useState<SignalHistory>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
-  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence' | 'pro'>('scanner');
   const [sessions, setSessions] = useState<ScanSession[]>([]);
   const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
   const [reviews, setReviews] = useState<TradeReview[]>([]);
@@ -1200,6 +1203,8 @@ function HomePageInner() {
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
   const [validateFlash, setValidateFlash] = useState(0);
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
   const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false } });
   const [showTgSettings, setShowTgSettings] = useState(false);
   const [tgTestStatus, setTgTestStatus] = useState<'' | 'sending' | 'ok' | 'fail'>('');
@@ -2030,6 +2035,7 @@ function HomePageInner() {
           ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
           ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
           ['intelligence', '🧠', 'Intelligence', '#f472b6', 'RS ranking, sector rotation, multi-TF, correlation guard', 'pink'],
+          ['pro', '🏆', 'Pro', '#fbbf24', 'Backtester, signal narrative, portfolio optimizer', 'yellow'],
         ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
           <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
             data-tip={tip} data-tip-color={tipColor}
@@ -2651,6 +2657,223 @@ function HomePageInner() {
             </div>
 
             </>)}
+          </div>
+        )}
+
+        {/* ── Pro Tab (Backtester + Portfolio Optimizer) ── */}
+        {activeTab === 'pro' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🏆 Pro Analytics</h2>
+
+            {/* Backtest Section */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Historical Backtest</div>
+                <button disabled={scanning || Object.keys(candleCache).length === 0}
+                  onClick={() => {
+                    const allTrades: import('@/lib/backtestEngine').BacktestTrade[] = [];
+                    for (const [sym, candles] of Object.entries(candleCache)) {
+                      const trades = runBacktest(candles, sym, 200, 10);
+                      allTrades.push(...trades);
+                    }
+                    setBacktestResult(aggregateBacktest(allTrades));
+                  }}
+                  className="h-6 px-3 bg-amber-900/40 hover:bg-amber-900/60 border border-amber-600 rounded text-[11px] font-semibold text-amber-300 disabled:opacity-40 transition-colors">
+                  {backtestResult ? 'Re-run Backtest' : 'Run Backtest'}</button>
+              </div>
+              {!backtestResult ? (
+                <div className="text-xs text-slate-600 py-4 text-center">Run a scan first, then click "Run Backtest" to test the screening engine on historical data</div>
+              ) : (
+                <>
+                  {/* KPIs */}
+                  <div className="grid grid-cols-6 gap-2 mb-3">
+                    {[
+                      { label: 'Signals', value: String(backtestResult.totalSignals), color: 'text-slate-200' },
+                      { label: 'Win Rate', value: `${backtestResult.winRate.toFixed(0)}%`, color: backtestResult.winRate >= 55 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'Expectancy', value: `${backtestResult.expectancyR >= 0 ? '+' : ''}${backtestResult.expectancyR.toFixed(2)}R`, color: backtestResult.expectancyR >= 0 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'Profit Factor', value: backtestResult.profitFactor.toFixed(2), color: backtestResult.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-amber-400' },
+                      { label: 'Max DD', value: `${backtestResult.maxDrawdownPct.toFixed(1)}%`, color: backtestResult.maxDrawdownPct < 15 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'Sharpe', value: backtestResult.sharpeRatio.toFixed(2), color: backtestResult.sharpeRatio >= 1.5 ? 'text-emerald-400' : 'text-amber-400' },
+                    ].map((k, i) => (
+                      <div key={i} className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                        <div className="text-[10px] text-slate-500">{k.label}</div>
+                        <div className={`text-lg font-bold ${k.color}`}>{k.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Equity Curve */}
+                  <div className="bg-slate-900/40 rounded p-2 mb-3">
+                    <div className="text-[10px] text-slate-500 mb-1">Equity Curve (₹10L start, 1% risk/trade)</div>
+                    {(() => {
+                      const ec = backtestResult.equityCurve;
+                      if (ec.length < 2) return null;
+                      const maxE = Math.max(...ec.map(p => p.equity));
+                      const minE = Math.min(...ec.map(p => p.equity));
+                      const range = maxE - minE || 1;
+                      const h = 100;
+                      return (
+                        <div className="relative" style={{ height: h }}>
+                          <svg viewBox={`0 0 100 ${h}`} className="w-full h-full" preserveAspectRatio="none">
+                            <polyline fill="none" stroke={ec[ec.length - 1].equity >= 1000000 ? '#22c55e' : '#ef4444'} strokeWidth="1.5"
+                              points={ec.map((p, i) => `${(i / Math.max(ec.length - 1, 1)) * 100},${((maxE - p.equity) / range) * h}`).join(' ')} />
+                          </svg>
+                          <div className="absolute top-0 right-1 text-[9px] text-emerald-400">₹{(maxE / 100000).toFixed(1)}L</div>
+                          <div className="absolute bottom-0 right-1 text-[9px] text-slate-500">₹{(minE / 100000).toFixed(1)}L</div>
+                          <div className="absolute bottom-0 left-1 text-[9px] text-slate-600">{ec.length - 1} trades</div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Monthly Returns */}
+                  {backtestResult.monthlyReturns.length > 0 && (
+                    <div className="bg-slate-900/40 rounded p-2 mb-3">
+                      <div className="text-[10px] text-slate-500 mb-1">Monthly Returns</div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {backtestResult.monthlyReturns.slice(-12).map(m => (
+                          <div key={m.month} className={`text-center rounded px-1 py-0.5 text-[9px] ${m.pnlR >= 0 ? 'bg-emerald-900/30 text-emerald-300' : 'bg-red-900/30 text-red-300'}`}>
+                            <div className="text-slate-500">{m.month.slice(5)}</div>
+                            <div className="font-bold">{m.pnlR >= 0 ? '+' : ''}{m.pnlR.toFixed(1)}R</div>
+                            <div className="text-slate-600">{m.trades}t</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-4 gap-2 text-[10px]">
+                    <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Avg Win</span><div className="text-emerald-400 font-bold">+{backtestResult.avgWinR.toFixed(2)}R</div></div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Avg Loss</span><div className="text-red-400 font-bold">-{backtestResult.avgLossR.toFixed(2)}R</div></div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Max Win Streak</span><div className="text-emerald-400 font-bold">{backtestResult.maxConsecWins}</div></div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1 text-center"><span className="text-slate-500">Max Loss Streak</span><div className="text-red-400 font-bold">{backtestResult.maxConsecLosses}</div></div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Portfolio Optimizer Section */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Portfolio Optimizer</div>
+                <button disabled={filteredResults.length === 0}
+                  onClick={() => {
+                    const signals = filteredResults
+                      .filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage))
+                      .map(r => ({
+                        symbol: r.symbol, sector: getSectorTag(r.symbol), conviction: computeConviction(r),
+                        rewardRisk: r.priceEngine.rewardRisk, rsRank: rsData.get(r.symbol)?.rsRank ?? 50,
+                        entryPrice: r.priceEngine.plannedEntry, stopLoss: r.priceEngine.tacticalStop,
+                        tradeValid: r.priceEngine.tradeValid,
+                      }));
+                    setPortfolioResult(optimizePortfolio(signals, candleCache, accountSize));
+                  }}
+                  className="h-6 px-3 bg-indigo-900/40 hover:bg-indigo-900/60 border border-indigo-600 rounded text-[11px] font-semibold text-indigo-300 disabled:opacity-40 transition-colors">
+                  Optimize</button>
+              </div>
+              {!portfolioResult ? (
+                <div className="text-xs text-slate-600 py-4 text-center">Run a scan with BUY signals, then click "Optimize" to build the best portfolio</div>
+              ) : portfolioResult.selected.length === 0 ? (
+                <div className="text-xs text-slate-600 py-4 text-center">No valid BUY signals to optimize</div>
+              ) : (
+                <>
+                  {/* Portfolio KPIs */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-[10px] text-slate-500">Diversification</div>
+                      <div className={`text-xl font-bold ${portfolioResult.diversificationScore >= 70 ? 'text-emerald-400' : portfolioResult.diversificationScore >= 40 ? 'text-yellow-300' : 'text-red-400'}`}>{portfolioResult.diversificationScore}</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-[10px] text-slate-500">Avg Correlation</div>
+                      <div className={`text-xl font-bold ${portfolioResult.portfolioCorrelation < 0.4 ? 'text-emerald-400' : 'text-amber-400'}`}>{portfolioResult.portfolioCorrelation.toFixed(2)}</div>
+                    </div>
+                    <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                      <div className="text-[10px] text-slate-500">Expected R:R</div>
+                      <div className="text-xl font-bold text-slate-200">{portfolioResult.expectedRR.toFixed(2)}</div>
+                    </div>
+                  </div>
+
+                  {/* Selected stocks */}
+                  <div className="text-[10px] text-emerald-400 font-semibold mb-1 uppercase">Selected ({portfolioResult.selected.length})</div>
+                  <div className="space-y-1 mb-3">
+                    {portfolioResult.selected.map((s, i) => (
+                      <div key={s.symbol} className="flex items-center gap-2 text-xs bg-emerald-900/15 border border-emerald-800/30 rounded px-2 py-1.5 cursor-pointer hover:bg-emerald-900/25" onClick={() => setSelectedSymbol(s.symbol)}>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.grade === 'A' ? 'bg-emerald-600 text-white' : s.grade === 'B' ? 'bg-yellow-600 text-white' : 'bg-slate-600 text-white'}`}>{s.grade}</span>
+                        <span className="font-mono text-slate-200 font-semibold w-24">{s.symbol.replace('.NS', '').replace('.BO', '')}</span>
+                        <span className="text-slate-500 w-10">{s.sector || '—'}</span>
+                        <span className="text-slate-400">Conv {s.conviction}</span>
+                        <span className={`${s.rewardRisk >= 2.5 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
+                        <span className="text-slate-500">RS {s.rsRank}</span>
+                        <span className="ml-auto text-slate-400 font-mono">{s.weight.toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Capital allocation */}
+                  <div className="text-[10px] text-slate-500 font-semibold mb-1 uppercase">Capital Allocation (₹{(accountSize / 100000).toFixed(0)}L, {1}% risk)</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[10px]">
+                      <thead><tr className="text-slate-500 border-b border-slate-700">
+                        <th className="text-left py-0.5 px-1">Symbol</th><th className="text-right py-0.5 px-1">Shares</th><th className="text-right py-0.5 px-1">Capital</th><th className="text-right py-0.5 px-1">Risk</th>
+                      </tr></thead>
+                      <tbody>
+                        {portfolioResult.capitalAllocation.map(a => (
+                          <tr key={a.symbol} className="border-b border-slate-800/30">
+                            <td className="py-0.5 px-1 font-mono text-slate-200">{a.symbol.replace('.NS', '')}</td>
+                            <td className="py-0.5 px-1 text-right text-emerald-400 font-bold">{a.shares}</td>
+                            <td className="py-0.5 px-1 text-right text-slate-300 font-mono">₹{(a.capital / 1000).toFixed(0)}K</td>
+                            <td className="py-0.5 px-1 text-right text-red-400 font-mono">₹{a.risk.toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Skipped stocks */}
+                  {portfolioResult.skipped.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-[10px] text-red-400/70 font-semibold mb-0.5 uppercase">Skipped ({portfolioResult.skipped.length})</div>
+                      <div className="space-y-0.5">
+                        {portfolioResult.skipped.slice(0, 8).map(s => (
+                          <div key={s.symbol} className="flex items-center gap-2 text-[10px] text-slate-600">
+                            <span className="font-mono w-24">{s.symbol.replace('.NS', '').replace('.BO', '')}</span>
+                            <span className="text-slate-700">— {s.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Signal Narrative Preview */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Signal Narratives (Top 3)</div>
+              {(() => {
+                const topSignals = filteredResults
+                  .filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid)
+                  .sort((a, b) => computeConviction(b) - computeConviction(a))
+                  .slice(0, 3);
+                if (topSignals.length === 0) return <div className="text-xs text-slate-600 py-4 text-center">No BUY signals — run a scan first</div>;
+                return (
+                  <div className="space-y-3">
+                    {topSignals.map(r => {
+                      const nar = generateNarrative(r, rsData.get(r.symbol), tfAlignments.get(r.symbol), pivotData.get(r.symbol), detectOnsetCandle(r), computeConviction(r), earningsSeason.warning);
+                      return (
+                        <div key={r.symbol} className="bg-slate-900/40 rounded-lg p-3 border border-slate-700/50 cursor-pointer hover:border-slate-600" onClick={() => setSelectedSymbol(r.symbol)}>
+                          <div className="text-xs text-slate-200 font-semibold mb-1">{nar.headline}</div>
+                          <div className="text-[10px] text-slate-400 leading-relaxed mb-1.5">{nar.setup}</div>
+                          <div className="text-[10px] text-emerald-400/80 mb-1">{nar.entry}</div>
+                          {nar.caution !== 'No specific risk flags identified.' && <div className="text-[10px] text-amber-400/70 mb-1">⚠ {nar.caution}</div>}
+                          <div className={`text-[10px] font-semibold ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-500'}`}>{nar.verdict}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
 
@@ -3625,6 +3848,23 @@ function HomePageInner() {
                     );
                   })()}
                 </div>
+
+              {/* Signal Narrative */}
+              {['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(selectedResult.stage) && (() => {
+                const nar = generateNarrative(selectedResult, rsData.get(selectedResult.symbol), tfAlignments.get(selectedResult.symbol), pivotData.get(selectedResult.symbol), detectOnsetCandle(selectedResult), computeConviction(selectedResult), earningsSeason.warning);
+                return (
+                  <div className="mb-4">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Trade Thesis</div>
+                    <div className="text-[10px] leading-relaxed space-y-1.5">
+                      <div className="text-slate-200 font-semibold">{nar.headline}</div>
+                      <div className="text-slate-400">{nar.setup}</div>
+                      <div className="text-emerald-400/80">{nar.entry}</div>
+                      {nar.caution !== 'No specific risk flags identified.' && <div className="text-amber-400/80">⚠ {nar.caution}</div>}
+                      <div className={`font-semibold ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-400'}`}>{nar.verdict}</div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Pivot Levels */}
               {(() => {
