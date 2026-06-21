@@ -67,6 +67,12 @@ import {
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
 import {
+  loadTelegramConfig, saveTelegramConfig, sendTelegramMessage,
+  formatNewSignalAlert, formatTargetHitAlert, formatStoppedAlert,
+  formatRegimeChangeAlert, formatDailySummaryAlert, formatSignalDecayAlert,
+  type TelegramConfig,
+} from '@/lib/telegramAlerts';
+import {
   computeMansfieldRS, rankRS, computeSectorRotation, checkWeeklyAlignment,
   backtestSignal, computePortfolioCorrelation, computeAnchoredVWAP,
   computeSignalDecay, getAdaptiveScanInterval, computeRiskOfRuin, checkEarningsProximity,
@@ -710,6 +716,7 @@ function HomePageInner() {
       try { setReviews(loadReviews()); } catch { /* ignore */ }
       const savedTheme = localStorage.getItem('qtp_theme');
       if (savedTheme === 'light') setTheme('light');
+      setTgConfig(loadTelegramConfig());
     } catch {
       // Nuclear fallback — clear everything
       try { localStorage.clear(); } catch { /* ignore */ }
@@ -973,6 +980,49 @@ function HomePageInner() {
       setPivotData(pivMap);
     }
 
+    // ── Telegram Alerts ──
+    if (tgConfig.enabled && newResults.length > 0) {
+      const tg = tgConfig;
+      // #1: New BUY signals
+      if (tg.alerts.newSignal) {
+        const prevSyms = new Set(resultsRef.current.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).map(r => r.symbol));
+        const newBuys = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage) && !prevSyms.has(r.symbol));
+        for (const r of newBuys.slice(0, 5)) {
+          const rs = rsData.get(r.symbol);
+          const tf = tfAlignments.get(r.symbol);
+          const piv = pivotData.get(r.symbol);
+          const msg = formatNewSignalAlert(r, {
+            conviction: computeConviction(r), rsRank: rs?.rsRank, tfAlign: tf?.alignment,
+            pivotPosition: piv?.position, pivotR1: piv?.classic.r1, pivotS1: piv?.classic.s1,
+          });
+          sendTelegramMessage(tg, msg);
+        }
+      }
+      // #4: Market regime change
+      if (tg.alerts.regimeChange && marketRegime && prevRegimeRef.current && prevRegimeRef.current !== marketRegime.regime) {
+        sendTelegramMessage(tg, formatRegimeChangeAlert(prevRegimeRef.current, marketRegime.regime, marketRegime.niftyClose, marketRegime.ema50, marketRegime.ema200, marketRegime.sizingMultiplier));
+      }
+      if (marketRegime) prevRegimeRef.current = marketRegime.regime;
+      // #5: Daily summary (first scan of day)
+      if (tg.alerts.dailySummary) {
+        const today = new Date().toISOString().slice(0, 10);
+        const lastSummaryDate = localStorage.getItem('qtp_tg_last_summary');
+        if (lastSummaryDate !== today) {
+          const actionable = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+          const prevSyms2 = new Set(resultsRef.current.map(r => r.symbol));
+          const newSigs = actionable.filter(r => !prevSyms2.has(r.symbol)).map(r => r.symbol);
+          const ws = computeWinRateStats(trackedTradesRef.current);
+          const cumR = trackedTradesRef.current.filter(t => t.status !== 'open').reduce((s, t) => s + (t.pnlR ?? 0), 0);
+          const best = actionable.sort((a, b) => computeConviction(b) - computeConviction(a))[0];
+          sendTelegramMessage(tg, formatDailySummaryAlert(today, newResults.length, actionable.length, newSigs, [],
+            trackedTradesRef.current.filter(t => t.status === 'open').length, ws.winRate, cumR,
+            best ? { symbol: best.symbol, conviction: computeConviction(best), rr: best.priceEngine.rewardRisk } : undefined
+          ));
+          try { localStorage.setItem('qtp_tg_last_summary', today); } catch {}
+        }
+      }
+    }
+
     // Auto-save session
     if (newResults.length > 0) {
       saveSession(newResults, scanAll ? 'ALL4' : paramSetKey, scanSource);
@@ -1144,6 +1194,10 @@ function HomePageInner() {
   const [earningsSeason, setEarningsSeason] = useState<EarningsProximity>({ daysToEarnings: null, warning: false, message: '' });
   const [pivotData, setPivotData] = useState<Map<string, AllPivots>>(new Map());
   const [validateFlash, setValidateFlash] = useState(0);
+  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false } });
+  const [showTgSettings, setShowTgSettings] = useState(false);
+  const [tgTestStatus, setTgTestStatus] = useState<'' | 'sending' | 'ok' | 'fail'>('');
+  const prevRegimeRef = useRef<string | null>(null);
   useEffect(() => {
     if (marketRegime || regimeFetchedRef.current) return;
     regimeFetchedRef.current = true;
@@ -1355,6 +1409,16 @@ function HomePageInner() {
                     } catch {}
                     setProgress(p => p + 1);
                   }
+                  // Telegram alerts #2/#3: target hit / stopped
+                  if (tgConfig.enabled) {
+                    const prev = trackedTradesRef.current;
+                    for (const u of updated) {
+                      const p = prev.find(x => x.symbol === u.symbol);
+                      if (!p || p.status !== 'open') continue;
+                      if ((u.status === 'hit_t1' || u.status === 'hit_t2' || u.status === 'hit_t3') && tgConfig.alerts.targetHit) sendTelegramMessage(tgConfig, formatTargetHitAlert(u));
+                      if (u.status === 'stopped' && tgConfig.alerts.stopped) sendTelegramMessage(tgConfig, formatStoppedAlert(u));
+                    }
+                  }
                   setTrackedTrades(updated);
                   try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
                   setValidateFlash(validated);
@@ -1471,6 +1535,10 @@ function HomePageInner() {
           <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} data-tip={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} data-tip-color="yellow"
             className="h-7 w-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center">
             {theme === 'dark' ? '☀' : '🌙'}</button>
+          <button onClick={() => setShowTgSettings(v => !v)}
+            data-tip="Telegram alerts — get notified on new signals, target hits, stops" data-tip-color="blue"
+            className={`h-7 w-7 rounded text-[11px] font-medium border transition-colors flex items-center justify-center ${tgConfig.enabled ? 'bg-blue-900/50 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            ✈</button>
         </div>
         {/* Feature #6: Failed symbols */}
         {failedSymbols.length > 0 && (
@@ -1763,6 +1831,63 @@ function HomePageInner() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Telegram Settings Panel ── */}
+      {showTgSettings && (
+        <div className="flex-shrink-0 border-b border-blue-800/50 bg-[#0d1117] px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">✈ Telegram Alerts</span>
+            <div className="flex items-center gap-2">
+              <button onClick={async () => {
+                setTgTestStatus('sending');
+                const ok = await sendTelegramMessage(tgConfig, '✅ <b>Quant Terminal Pro</b> — Telegram connected successfully!');
+                setTgTestStatus(ok ? 'ok' : 'fail');
+                setTimeout(() => setTgTestStatus(''), 3000);
+              }} disabled={!tgConfig.botToken || !tgConfig.chatId}
+                className="px-2 py-0.5 bg-blue-900/50 hover:bg-blue-900 border border-blue-700 rounded text-xs text-blue-300 disabled:opacity-40 transition-colors">
+                {tgTestStatus === 'sending' ? '...' : tgTestStatus === 'ok' ? '✓ Sent!' : tgTestStatus === 'fail' ? '✗ Failed' : 'Test'}</button>
+              <button onClick={() => setShowTgSettings(false)} className="text-slate-500 text-xs hover:text-slate-300">close ×</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-0.5">Bot Token (from @BotFather)</label>
+              <input value={tgConfig.botToken} onChange={e => { const c = { ...tgConfig, botToken: e.target.value }; setTgConfig(c); saveTelegramConfig(c); }}
+                placeholder="7123456789:AAHx..." className="w-full h-7 px-2 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono" />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 block mb-0.5">Chat ID (your Telegram user ID)</label>
+              <input value={tgConfig.chatId} onChange={e => { const c = { ...tgConfig, chatId: e.target.value }; setTgConfig(c); saveTelegramConfig(c); }}
+                placeholder="123456789" className="w-full h-7 px-2 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 mt-2">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+              <input type="checkbox" checked={tgConfig.enabled} onChange={e => { const c = { ...tgConfig, enabled: e.target.checked }; setTgConfig(c); saveTelegramConfig(c); }}
+                className="rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500 w-3.5 h-3.5" />
+              <span className={tgConfig.enabled ? 'text-blue-300 font-semibold' : 'text-slate-400'}>Enabled</span>
+            </label>
+            <div className="flex gap-3 text-[10px]">
+              {([
+                ['newSignal', '🟢 New Signal'],
+                ['targetHit', '✅ Target Hit'],
+                ['stopped', '🔴 Stopped'],
+                ['regimeChange', '⚠ Regime'],
+                ['dailySummary', '📊 Summary'],
+                ['signalDecay', '⏳ Decay'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" checked={tgConfig.alerts[key]} onChange={e => {
+                    const c = { ...tgConfig, alerts: { ...tgConfig.alerts, [key]: e.target.checked } };
+                    setTgConfig(c); saveTelegramConfig(c);
+                  }} className="rounded border-slate-600 bg-slate-800 text-blue-500 w-3 h-3" />
+                  <span className={tgConfig.alerts[key] ? 'text-slate-300' : 'text-slate-600'}>{label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       )}
