@@ -1,151 +1,2969 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import UploadZone from '@/components/UploadZone';
-import ProgressBar from '@/components/ProgressBar';
-import ScreenerTable from '@/components/ScreenerTable';
-import type { ScreeningResult } from '@/lib/types';
-import { Activity, TrendingUp, Zap, Shield } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect, useMemo, Component, type ReactNode } from 'react';
 
-const CLUSTERS = [
-  { key: 'passed_deployable', label: 'Deployable 20+', icon: Activity, color: 'text-blue-400' },
-  { key: 'passed_high_precision', label: 'HighPrecision 15+', icon: TrendingUp, color: 'text-teal-400' },
-  { key: 'passed_elite', label: 'Elite 10+', icon: Zap, color: 'text-orange-400' },
-  { key: 'passed_ultra_selective', label: 'UltraSelective 8+', icon: Shield, color: 'text-yellow-400' },
-] as const;
-
-const CONCURRENCY = 4; // parallel fetches
-
-export default function HomePage() {
-  const [loading, setLoading]     = useState(false);
-  const [processed, setProcessed] = useState(0);
-  const [total, setTotal]         = useState(0);
-  const [results, setResults]     = useState<ScreeningResult[]>([]);
-  const abortRef = useRef(false);
-
-  const handleSymbols = useCallback(async (symbols: string[]) => {
-    abortRef.current = false;
-    setLoading(true);
-    setResults([]);
-    setProcessed(0);
-    setTotal(symbols.length);
-
-    // 1. Create session
-    const sessRes = await fetch('/api/screen', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbols }),
-    });
-    const { session_id } = await sessRes.json();
-
-    // 2. Process symbols in parallel batches (4 at a time)
-    async function processOne(sym: string) {
-      if (abortRef.current) return;
-      await fetch('/api/process-symbol', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id, symbol: sym }),
-      });
-      setProcessed((p) => p + 1);
+// Global error boundary — prevents white screen crashes
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  constructor(props: { children: ReactNode }) { super(props); this.state = { hasError: false, error: '' }; }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error: error.message }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen bg-[#0a0c10] flex items-center justify-center">
+          <div className="bg-slate-800 rounded-lg p-8 max-w-md text-center">
+            <div className="text-3xl mb-3">⚠️</div>
+            <h2 className="text-slate-200 font-bold mb-2">Something went wrong</h2>
+            <p className="text-slate-400 text-sm mb-4">{this.state.error}</p>
+            <button onClick={() => { try { localStorage.clear(); } catch {} window.location.reload(); }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-sm font-medium">
+              Clear Data & Reload
+            </button>
+          </div>
+        </div>
+      );
     }
+    return this.props.children;
+  }
+}
+import { fetchOHLCVClient } from '@/lib/fetchClient';
+import {
+  analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
+  computeClusterBreakdown, generateDemoData, PARAM_SETS, PARAM_SET_OPTIONS,
+  type AnalysisResult, type ParamSetKey, type StageRating, type MultiAnalysisResult, type Candle,
+} from '@/lib/stockEngine';
+import { NIFTY_PRESETS } from '@/lib/niftyPresets';
+import { SECTOR_PRESETS } from '@/lib/sectorPresets';
+import { THEMATIC_PRESETS } from '@/lib/thematicPresets';
+import {
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
+  detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
+  type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
+} from '@/lib/tradingUtils';
+import {
+  loadWatchlist, saveWatchlist, loadSignalHistory, saveSignalHistory, updateSignalHistory,
+  getSignalAge, exportZerodhaBasket, detectOverlap, generateSparklineSVG,
+  type WatchlistItem, type SignalHistory,
+} from '@/lib/tradingUtils2';
+import {
+  computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
+  deduplicateSymbols, type ScanStats,
+} from '@/lib/tradingUtils3';
+import { computeExpectedValue, computeKelly } from '@/lib/statsEngine';
+import {
+  loadSessions, saveSession, deleteSession, deleteAllSessions, renameSession,
+  exportSessions, importSessions, compareSessions, formatSessionTime,
+  type ScanSession, type SessionDiff,
+} from '@/lib/sessionManager';
+import {
+  buildEquityCurve, generateMonthlyReports, loadFavorites, saveFavorites,
+  DEFAULT_RULES, loadReviews, saveReviews,
+  type ScanFavorite, type TradeReview, type MonthlyReport,
+} from '@/lib/performanceEngine';
+import { validateTrade, applyValidation, computeRollingStats } from '@/lib/autoValidator';
 
-    const queue = [...symbols];
-    const workers = Array.from({ length: CONCURRENCY }, async () => {
-      while (queue.length > 0 && !abortRef.current) {
-        const sym = queue.shift();
-        if (sym) await processOne(sym);
+type ColDef = {
+  key: string; label: string; width: number; align: 'left' | 'right' | 'center';
+  fmt: (r: AnalysisResult) => string;
+  numVal?: (r: AnalysisResult) => number;
+  cellClass?: (r: AnalysisResult) => string;
+};
+
+// ── Export helpers ──────────────────────────────────────────────────────────
+
+// Safe column formatter for exports — catches errors from missing fields
+function safeColFmt(col: ColDef, r: AnalysisResult): string {
+  try { return col.fmt(r); } catch { return '—'; }
+}
+
+function csvEscape(val: string): string {
+  if (val.includes('"') || val.includes(',') || val.includes('\n')) {
+    return '"' + val.replace(/"/g, '""') + '"';
+  }
+  return '"' + val + '"';
+}
+
+function exportGroupCSV(rows: AnalysisResult[], cols: ColDef[], filename: string) {
+  const headers = cols.map(c => csvEscape(c.label)).join(',');
+  const body = rows.map(r => cols.map(c => csvEscape(safeColFmt(c, r))).join(',')).join('\n');
+  const blob = new Blob(['﻿' + headers + '\n' + body], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function exportGroupXLSX(rows: AnalysisResult[], cols: ColDef[], filename: string) {
+  let XLSX: typeof import('xlsx');
+  try { XLSX = await import('xlsx'); } catch { alert('Failed to load XLSX library'); return; }
+  const data = rows.map(r => Object.fromEntries(cols.map(c => [c.label, safeColFmt(c, r)])));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Results');
+  XLSX.writeFile(wb, filename);
+}
+
+async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: string, filename: string) {
+  let jsPDF: typeof import('jspdf')['default'], autoTable: typeof import('jspdf-autotable')['default'];
+  try { jsPDF = (await import('jspdf')).default; autoTable = (await import('jspdf-autotable')).default; } catch { alert('Failed to load PDF library'); return; }
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+  doc.setFontSize(14);
+  doc.setTextColor(100, 160, 255);
+  doc.text(title, 14, 12);
+  doc.setFontSize(8);
+  doc.setTextColor(120, 130, 150);
+  doc.text(`Quant Terminal Pro v7.2  ·  ${rows.length} stocks  ·  ${new Date().toLocaleDateString('en-IN')}  ·  Param: ${rows[0]?.paramSetKey ?? 'N/A'}`, 14, 18);
+
+  const stageColors: Record<string, [number, number, number]> = {
+    'ULTRA STRONG BUY': [253, 224, 71], 'STRONG BUY': [134, 239, 172], 'BUY': [52, 211, 153],
+    'PRE-BREAKOUT': [147, 197, 253], 'EARLY INFLECTION': [34, 211, 238],
+    'COMPRESSION WATCH': [203, 213, 225], 'NO SIGNAL': [100, 116, 139],
+  };
+
+  autoTable(doc, {
+    head: [cols.map(c => c.label)],
+    body: rows.map(r => cols.map(c => safeColFmt(c, r))),
+    startY: 22,
+    styles: { fontSize: 5.5, cellPadding: 1.0, textColor: [200, 210, 220] },
+    headStyles: { fillColor: [30, 41, 59], textColor: [148, 163, 184], fontSize: 5.5 },
+    alternateRowStyles: { fillColor: [15, 23, 42] },
+    bodyStyles: { fillColor: [10, 12, 16] },
+    theme: 'grid',
+    didParseCell: (data: any) => {
+      if (data.section === 'body') {
+        const stageIdx = cols.findIndex(c => c.key === 'stage');
+        if (data.column.index === stageIdx && data.row.raw) {
+          const stageText = data.row.raw[stageIdx];
+          const color = stageColors[stageText];
+          if (color) data.cell.styles.textColor = color;
+        }
       }
-    });
-    await Promise.all(workers);
+    },
+  });
+  doc.save(filename);
+}
 
-    // 3. Finalize session
-    await fetch('/api/finalize-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id }),
-    });
+const STAGE_CONFIG: Record<StageRating, { label: string; color: string; textColor: string }> = {
+  ULTRA_STRONG_BUY:  { label: 'ULTRA STRONG BUY', color: 'text-yellow-300',  textColor: '#fde047' },
+  STRONG_BUY:        { label: 'STRONG BUY',        color: 'text-green-300',   textColor: '#86efac' },
+  BUY:               { label: 'BUY',               color: 'text-emerald-400', textColor: '#34d399' },
+  PRE_BREAKOUT:      { label: 'PRE-BREAKOUT',       color: 'text-blue-300',    textColor: '#93c5fd' },
+  EARLY_INFLECTION:  { label: 'EARLY INFLECTION',   color: 'text-cyan-400',    textColor: '#22d3ee' },
+  COMPRESSION_WATCH: { label: 'COMPRESSION WATCH',  color: 'text-slate-300',   textColor: '#cbd5e1' },
+  NO_SIGNAL:         { label: 'NO SIGNAL',          color: 'text-slate-500',   textColor: '#64748b' },
+};
 
-    // 4. Fetch all results
-    const finalRes = await fetch(`/api/session/${session_id}`);
-    const finalData = await finalRes.json();
-    if (finalData.results) setResults(finalData.results);
+const ALL_STAGES: StageRating[] = [
+  'ULTRA_STRONG_BUY','STRONG_BUY','BUY','PRE_BREAKOUT','EARLY_INFLECTION','COMPRESSION_WATCH','NO_SIGNAL',
+];
 
-    setLoading(false);
+const COLUMNS: ColDef[] = [
+  { key: 'symbol',    label: 'Symbol',      width: 120, align: 'left',
+    fmt: r => r.symbol,
+    cellClass: () => 'text-slate-200 font-medium font-mono' },
+  { key: 'sector',    label: 'Sector',     width: 50, align: 'center',
+    fmt: r => getSectorTag(r.symbol),
+    cellClass: () => 'text-slate-500 text-xs' },
+  { key: 'conviction', label: 'Conv', width: 55, align: 'right',
+    fmt: r => String(computeConviction(r)),
+    numVal: r => computeConviction(r),
+    cellClass: r => { const c = computeConviction(r); return c >= 70 ? 'text-yellow-300 font-bold' : c >= 50 ? 'text-emerald-400 font-semibold' : c >= 30 ? 'text-slate-300' : 'text-slate-600'; } },
+  { key: 'stage',     label: 'Stage',       width: 155, align: 'left',
+    fmt: r => STAGE_CONFIG[r.stage].label,
+    cellClass: r => STAGE_CONFIG[r.stage].color + ' font-semibold' },
+  { key: 'inflectionScore', label: 'Infl.Score', width: 90, align: 'right',
+    fmt: r => r.inflectionScore.toFixed(0),
+    numVal: r => r.inflectionScore,
+    cellClass: r => r.inflectionScore >= 60 ? 'text-yellow-300 font-semibold' : r.inflectionScore >= 45 ? 'text-emerald-400' : 'text-slate-400' },
+  { key: 'confidence', label: 'Conf%',      width: 68,  align: 'right',
+    fmt: r => r.confidence.toFixed(0) + '%',
+    numVal: r => r.confidence,
+    cellClass: () => 'text-slate-300' },
+  { key: 'clDep', label: 'D20+', width: 50, align: 'center',
+    fmt: r => r.clusterBreakdown?.deployable ? `${r.clusterBreakdown.deployable.met}/${r.clusterBreakdown.deployable.total}` : '—',
+    numVal: r => r.clusterBreakdown?.deployable?.met ?? 0,
+    cellClass: r => { const c = r.clusterBreakdown?.deployable; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+  { key: 'clHP', label: 'HP15+', width: 50, align: 'center',
+    fmt: r => r.clusterBreakdown?.highPrecision ? `${r.clusterBreakdown.highPrecision.met}/${r.clusterBreakdown.highPrecision.total}` : '—',
+    numVal: r => r.clusterBreakdown?.highPrecision?.met ?? 0,
+    cellClass: r => { const c = r.clusterBreakdown?.highPrecision; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+  { key: 'clElt', label: 'E10+', width: 50, align: 'center',
+    fmt: r => r.clusterBreakdown?.elite ? `${r.clusterBreakdown.elite.met}/${r.clusterBreakdown.elite.total}` : '—',
+    numVal: r => r.clusterBreakdown?.elite?.met ?? 0,
+    cellClass: r => { const c = r.clusterBreakdown?.elite; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+  { key: 'clUS', label: 'US8+', width: 50, align: 'center',
+    fmt: r => r.clusterBreakdown?.ultraSelective ? `${r.clusterBreakdown.ultraSelective.met}/${r.clusterBreakdown.ultraSelective.total}` : '—',
+    numVal: r => r.clusterBreakdown?.ultraSelective?.met ?? 0,
+    cellClass: r => { const c = r.clusterBreakdown?.ultraSelective; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+  { key: 'cmp',      label: 'CMP ₹',        width: 85,  align: 'right',
+    fmt: r => r.lastClose > 0 ? r.lastClose.toFixed(2) : '—',
+    numVal: r => r.lastClose,
+    cellClass: () => 'text-slate-200 font-mono' },
+  { key: 'candle',  label: 'Candle',        width: 48,  align: 'center',
+    fmt: r => r.stats.candlePattern ?? '—',
+    cellClass: r => {
+      const t = r.stats.candlePatternType;
+      const s = r.stats.candlePatternStrength ?? 0;
+      if (t === 'bullish') return s >= 3 ? 'text-emerald-400 font-bold' : s >= 2 ? 'text-emerald-400' : 'text-emerald-600';
+      if (t === 'bearish') return s >= 3 ? 'text-red-400 font-bold' : s >= 2 ? 'text-red-400' : 'text-red-600';
+      return 'text-slate-500';
+    } },
+  { key: 'guppy',   label: 'Guppy',        width: 65,  align: 'right',
+    fmt: r => r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(2) + '%' : '—',
+    numVal: r => r.stats.guppyCompressed ? -r.stats.guppySpreadPct : r.stats.guppySpreadPct,
+    cellClass: r => r.stats.guppyUltraCompressed ? 'text-emerald-400 font-bold font-mono' : r.stats.guppyCompressed ? 'text-yellow-300 font-semibold font-mono' : r.stats.guppySpreadPct < 2 ? 'text-slate-400 font-mono' : 'text-slate-600 font-mono' },
+  { key: 'ema10',   label: '10 EMA',       width: 78,  align: 'right',
+    fmt: r => r.stats.ema10 > 0 ? r.stats.ema10.toFixed(2) + (r.stats.ema10Cross ? ' ✕' : '') : '—',
+    numVal: r => r.stats.ema10,
+    cellClass: r => r.stats.ema10Cross ? 'text-yellow-300 font-bold font-mono' : r.lastClose > r.stats.ema10 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono' },
+  { key: 'ema21',   label: '21 EMA',       width: 78,  align: 'right',
+    fmt: r => r.stats.ema21 > 0 ? r.stats.ema21.toFixed(2) + (r.stats.ema21Cross ? ' ✕' : '') : '—',
+    numVal: r => r.stats.ema21,
+    cellClass: r => r.stats.ema21Cross ? 'text-yellow-300 font-bold font-mono' : r.lastClose > r.stats.ema21 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono' },
+  { key: 'ema55',   label: '55 EMA',       width: 78,  align: 'right',
+    fmt: r => r.stats.ema55 > 0 ? r.stats.ema55.toFixed(2) + (r.stats.ema55Cross ? ' ✕' : '') : '—',
+    numVal: r => r.stats.ema55,
+    cellClass: r => r.stats.ema55Cross ? 'text-yellow-300 font-bold font-mono' : r.lastClose > r.stats.ema55 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono' },
+  { key: 'sma200',  label: '200 SMA',      width: 80,  align: 'right',
+    fmt: r => r.stats.sma200 > 0 ? r.stats.sma200.toFixed(2) + (r.stats.sma200Cross ? ' ✕' : '') : '—',
+    numVal: r => r.stats.sma200,
+    cellClass: r => r.stats.sma200Cross ? 'text-yellow-300 font-bold font-mono' : r.lastClose > r.stats.sma200 ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono' },
+  { key: 'pe_er',     label: 'ER',           width: 42,  align: 'right',
+    fmt: r => r.priceEngine.efficiencyRatio > 0 ? r.priceEngine.efficiencyRatio.toFixed(2) : '—',
+    numVal: r => r.priceEngine.efficiencyRatio,
+    cellClass: r => r.priceEngine.efficiencyRatio >= 0.6 ? 'text-emerald-400 font-mono' : r.priceEngine.efficiencyRatio >= 0.3 ? 'text-slate-300 font-mono' : 'text-red-400 font-mono' },
+  { key: 'pe_entry',  label: 'Entry ₹',     width: 90,  align: 'right',
+    fmt: r => r.priceEngine.plannedEntry > 0 ? r.priceEngine.plannedEntry.toFixed(2) : '—',
+    numVal: r => r.priceEngine.plannedEntry,
+    cellClass: () => 'text-slate-200' },
+  { key: 'pe_cons',  label: 'SL:2ndLow',    width: 82,  align: 'right',
+    fmt: r => {
+      const stops = [r.priceEngine.stopWeinstein, r.priceEngine.stopKase, r.priceEngine.stopElder, r.priceEngine.stopSignalLow].filter(s => s > 0).sort((a, b) => a - b);
+      return stops.length >= 2 ? stops[1].toFixed(2) : stops.length === 1 ? stops[0].toFixed(2) : '—';
+    },
+    numVal: r => {
+      const stops = [r.priceEngine.stopWeinstein, r.priceEngine.stopKase, r.priceEngine.stopElder, r.priceEngine.stopSignalLow].filter(s => s > 0).sort((a, b) => a - b);
+      return stops.length >= 2 ? stops[1] : 0;
+    },
+    cellClass: () => 'text-yellow-300 font-bold font-mono' },
+  { key: 'pe_tact',   label: 'Tact.Stop ₹', width: 95, align: 'right',
+    fmt: r => r.priceEngine.tacticalStop > 0 ? r.priceEngine.tacticalStop.toFixed(2) : '—',
+    numVal: r => r.priceEngine.tacticalStop,
+    cellClass: () => 'text-red-400' },
+  { key: 'pe_dis',    label: 'Dis.Stop ₹',  width: 90,  align: 'right',
+    fmt: r => r.priceEngine.disasterStop > 0 ? r.priceEngine.disasterStop.toFixed(2) : '—',
+    numVal: r => r.priceEngine.disasterStop,
+    cellClass: () => 'text-red-500' },
+  { key: 'pe_risk',   label: 'Risk%',        width: 68,  align: 'right',
+    fmt: r => r.priceEngine.tacticalRiskPct > 0 ? r.priceEngine.tacticalRiskPct.toFixed(2) + '%' : '—',
+    numVal: r => r.priceEngine.tacticalRiskPct,
+    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk <= 1.5 ? 'text-green-300 font-bold' : rk <= 2.5 ? 'text-yellow-300' : rk <= 3.5 ? 'text-orange-400' : 'text-red-400 font-semibold'; } },
+  { key: 'pe_disrisk', label: 'DisRisk%',   width: 72,  align: 'right',
+    fmt: r => r.priceEngine.disasterRiskPct > 0 ? r.priceEngine.disasterRiskPct.toFixed(2) + '%' : '—',
+    numVal: r => r.priceEngine.disasterRiskPct,
+    cellClass: () => 'text-slate-400' },
+  { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
+    fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
+    numVal: r => r.priceEngine.rewardRisk,
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'text-green-300 font-bold' : rr >= 2.5 ? 'text-orange-400 font-semibold' : rr >= 1.5 ? 'text-yellow-300' : rr >= 1.2 ? 'text-slate-400' : 'text-red-500'; } },
+  { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
+    fmt: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'Elite' : rr >= 2.5 ? 'Very Good' : rr >= 2.0 ? 'Good' : rr >= 1.5 ? 'Acceptable' : rr > 0 ? 'Rejected' : '—'; },
+    numVal: r => r.priceEngine.rewardRisk,
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'text-green-300 font-bold' : rr >= 2.5 ? 'text-orange-400 font-semibold' : rr >= 2.0 ? 'text-yellow-300' : rr >= 1.5 ? 'text-yellow-300/70' : 'text-red-500'; } },
+  { key: 'pe_t1',     label: 'T1 ₹',         width: 85,  align: 'right',
+    fmt: r => r.priceEngine.target5 > 0 ? r.priceEngine.target5.toFixed(2) : '—',
+    numVal: r => r.priceEngine.target5,
+    cellClass: () => 'text-emerald-400' },
+  { key: 'pe_t2',     label: 'T2 ₹',         width: 85,  align: 'right',
+    fmt: r => r.priceEngine.target7 > 0 ? r.priceEngine.target7.toFixed(2) : '—',
+    numVal: r => r.priceEngine.target7,
+    cellClass: () => 'text-emerald-300' },
+  { key: 'pe_t3r',    label: 'T3R ₹',         width: 85,  align: 'right',
+    fmt: r => r.priceEngine.target3R > 0 ? r.priceEngine.target3R.toFixed(2) : '—',
+    numVal: r => r.priceEngine.target3R,
+    cellClass: () => 'text-yellow-300' },
+  { key: 'pe_gap',    label: 'Gap%',           width: 65,  align: 'right',
+    fmt: r => r.priceEngine.plannedEntry > 0 ? r.priceEngine.gapPct.toFixed(2) + '%' : '—',
+    numVal: r => r.priceEngine.gapPct,
+    cellClass: () => 'text-slate-400' },
+  { key: 'pe_status', label: 'Entry Status',   width: 100, align: 'center',
+    fmt: r => r.priceEngine.plannedEntry > 0 ? r.priceEngine.entryStatus : '—',
+    cellClass: r => r.priceEngine.plannedEntry === 0 ? 'text-slate-600' : r.priceEngine.entryStatus === 'normal' ? 'text-emerald-400' : r.priceEngine.entryStatus === 'half_size' ? 'text-amber-400' : 'text-red-400' },
+  { key: 'pe_valid',  label: 'Trade Valid',    width: 90,  align: 'center',
+    fmt: r => r.priceEngine.plannedEntry > 0 ? (r.priceEngine.tradeValid ? '✓ YES' : '✗ NO') : '—',
+    cellClass: r => r.priceEngine.plannedEntry === 0 ? 'text-slate-600' : r.priceEngine.tradeValid ? 'text-emerald-400 font-semibold' : 'text-slate-600' },
+  { key: 'pe_rps',   label: 'R ₹',           width: 65,  align: 'right',
+    fmt: r => r.priceEngine.riskPerShare > 0 ? r.priceEngine.riskPerShare.toFixed(2) : '—',
+    numVal: r => r.priceEngine.riskPerShare,
+    cellClass: () => 'text-amber-400 font-mono' },
+  { key: 'pe_sW',    label: 'SL:Wein',       width: 78,  align: 'right',
+    fmt: r => r.priceEngine.stopWeinstein > 0 ? r.priceEngine.stopWeinstein.toFixed(2) : '—',
+    numVal: r => r.priceEngine.stopWeinstein,
+    cellClass: () => 'text-slate-400 font-mono' },
+  { key: 'pe_sK',    label: 'SL:Kase',       width: 78,  align: 'right',
+    fmt: r => r.priceEngine.stopKase > 0 ? r.priceEngine.stopKase.toFixed(2) : '—',
+    numVal: r => r.priceEngine.stopKase,
+    cellClass: () => 'text-slate-400 font-mono' },
+  { key: 'pe_sE',    label: 'SL:Elder',      width: 78,  align: 'right',
+    fmt: r => r.priceEngine.stopElder > 0 ? r.priceEngine.stopElder.toFixed(2) : '—',
+    numVal: r => r.priceEngine.stopElder,
+    cellClass: () => 'text-slate-400 font-mono' },
+  { key: 'pe_sSL',   label: 'SL:SigLow',     width: 78,  align: 'right',
+    fmt: r => r.priceEngine.stopSignalLow > 0 ? r.priceEngine.stopSignalLow.toFixed(2) : '—',
+    numVal: r => r.priceEngine.stopSignalLow,
+    cellClass: () => 'text-slate-400 font-mono' },
+  { key: 'pe_chT1',  label: 'Ch@T1',         width: 72,  align: 'right',
+    fmt: r => r.priceEngine.chandelierT1 > 0 ? r.priceEngine.chandelierT1.toFixed(2) : '—',
+    numVal: r => r.priceEngine.chandelierT1,
+    cellClass: () => 'text-cyan-400 font-mono' },
+  { key: 'pe_chT2',  label: 'Ch@T2',         width: 72,  align: 'right',
+    fmt: r => r.priceEngine.chandelierT2 > 0 ? r.priceEngine.chandelierT2.toFixed(2) : '—',
+    numVal: r => r.priceEngine.chandelierT2,
+    cellClass: () => 'text-cyan-400 font-mono' },
+  { key: 'pe_gATR',  label: 'Gap ATR',       width: 60,  align: 'right',
+    fmt: r => r.priceEngine.gapATR > 0 ? r.priceEngine.gapATR.toFixed(1) : '—',
+    numVal: r => r.priceEngine.gapATR,
+    cellClass: r => r.priceEngine.gapATR > 2 ? 'text-red-400 font-mono' : r.priceEngine.gapATR > 1 ? 'text-amber-400 font-mono' : 'text-slate-400 font-mono' },
+  { key: 'volRatio20', label: 'Vol/20d',       width: 75,  align: 'right',
+    fmt: r => r.volRatio20.toFixed(2) + '×',
+    numVal: r => r.volRatio20,
+    cellClass: () => 'text-slate-300' },
+  { key: 'atrPct14Pctl120', label: 'ATR%Pctl', width: 82, align: 'right',
+    fmt: r => r.atrPct14Pctl120.toFixed(1) + '%',
+    numVal: r => r.atrPct14Pctl120,
+    cellClass: () => 'text-slate-400' },
+  { key: 'zone_atr',  label: 'Zone ATR',       width: 78,  align: 'right',
+    fmt: r => r.zone ? r.zone.zoneATRRatio.toFixed(2) : '—',
+    numVal: r => r.zone?.zoneATRRatio ?? 0,
+    cellClass: () => 'text-slate-400' },
+  { key: 'closeLoc',  label: 'CloseLoc%',      width: 80,  align: 'right',
+    fmt: r => r.closeLoc.toFixed(0) + '%',
+    numVal: r => r.closeLoc,
+    cellClass: () => 'text-slate-300' },
+  { key: 'upperWickPct', label: 'Wick%',       width: 68,  align: 'right',
+    fmt: r => r.upperWickPct.toFixed(0) + '%',
+    numVal: r => r.upperWickPct,
+    cellClass: () => 'text-slate-400' },
+  { key: 'ultraPrecisionScore', label: 'Prec.Score', width: 82, align: 'right',
+    fmt: r => r.ultraPrecisionScore.toFixed(0),
+    numVal: r => r.ultraPrecisionScore,
+    cellClass: r => r.ultraPrecisionScore >= 70 ? 'text-yellow-300' : r.ultraPrecisionScore >= 50 ? 'text-emerald-400' : 'text-slate-400' },
+  { key: 'volatilityExpansionRatio', label: 'VolExp×', width: 75, align: 'right',
+    fmt: r => r.volatilityExpansionRatio.toFixed(2) + '×',
+    numVal: r => r.volatilityExpansionRatio,
+    cellClass: () => 'text-slate-300' },
+  // v7.2 momentum columns
+  { key: 'momentumScore', label: 'MomScore', width: 82, align: 'right',
+    fmt: r => r.momentum.momentumScore.toFixed(0),
+    numVal: r => r.momentum.momentumScore,
+    cellClass: r => r.momentum.momentumScore >= 70 ? 'text-yellow-300 font-semibold' : r.momentum.momentumScore >= 40 ? 'text-emerald-400' : 'text-slate-500' },
+  { key: 'emaAligned', label: 'EMA✓', width: 55, align: 'center',
+    fmt: r => r.momentum.emaAligned ? '✓' : '✗',
+    numVal: r => r.momentum.emaAligned ? 1 : 0,
+    cellClass: r => r.momentum.emaAligned ? 'text-emerald-400' : 'text-slate-600' },
+  { key: 'higherLow', label: 'HL✓', width: 50, align: 'center',
+    fmt: r => r.momentum.higherLowConfirmed ? '✓' : '✗',
+    numVal: r => r.momentum.higherLowConfirmed ? 1 : 0,
+    cellClass: r => r.momentum.higherLowConfirmed ? 'text-emerald-400' : 'text-slate-600' },
+  { key: 'volDryUp', label: 'DryUp', width: 55, align: 'right',
+    fmt: r => String(r.momentum.volDryUpScore),
+    numVal: r => r.momentum.volDryUpScore,
+    cellClass: r => r.momentum.volDryUpScore >= 3 ? 'text-emerald-400' : 'text-slate-500' },
+  { key: 'obvSlope', label: 'OBV↗', width: 62, align: 'right',
+    fmt: r => r.momentum.obvSlope10.toFixed(2),
+    numVal: r => r.momentum.obvSlope10,
+    cellClass: r => r.momentum.obvSlope10 >= 0.5 ? 'text-emerald-400' : r.momentum.obvSlope10 > 0 ? 'text-slate-400' : 'text-red-400' },
+  { key: 'adx14', label: 'ADX', width: 55, align: 'right',
+    fmt: r => r.momentum.adx14.toFixed(0),
+    numVal: r => r.momentum.adx14,
+    cellClass: r => r.momentum.adxInRange ? 'text-emerald-400' : 'text-slate-500' },
+  { key: 'gapRR', label: 'GapRR', width: 60, align: 'right',
+    fmt: r => r.momentum.gapAdjustedRR > 0 ? r.momentum.gapAdjustedRR.toFixed(1) : '—',
+    numVal: r => r.momentum.gapAdjustedRR,
+    cellClass: r => r.momentum.gapAdjustedRR >= 2 ? 'text-emerald-400' : r.momentum.gapAdjustedRR > 0 ? 'text-amber-400' : 'text-slate-600' },
+  { key: 'rsNifty', label: 'RS/N50', width: 65, align: 'right',
+    fmt: r => r.momentum.rsNifty20.toFixed(2),
+    numVal: r => r.momentum.rsNifty20,
+    cellClass: r => r.momentum.rsNifty20 >= 1.05 ? 'text-emerald-400 font-semibold' : r.momentum.rsNifty20 >= 1.0 ? 'text-slate-300' : 'text-red-400' },
+  // v9.0 stats columns
+  { key: 'statsScore', label: 'Stats', width: 55, align: 'right',
+    fmt: r => String(r.stats.statsScore),
+    numVal: r => r.stats.statsScore,
+    cellClass: r => r.stats.statsScore >= 60 ? 'text-yellow-300 font-semibold' : r.stats.statsScore >= 30 ? 'text-emerald-400' : 'text-slate-500' },
+  { key: 'volZ', label: 'VolZ', width: 50, align: 'right',
+    fmt: r => r.stats.volZScore.toFixed(1),
+    numVal: r => r.stats.volZScore,
+    cellClass: r => r.stats.volZSignificant ? 'text-emerald-400 font-semibold' : r.stats.volZScore >= 1.5 ? 'text-slate-300' : 'text-slate-600' },
+  { key: 'bbPctl', label: 'BB%', width: 48, align: 'right',
+    fmt: r => r.stats.bbWidthPctl.toFixed(0),
+    numVal: r => r.stats.bbWidthPctl,
+    cellClass: r => r.stats.bbSqueeze ? 'text-yellow-300 font-semibold' : r.stats.bbWidthPctl <= 20 ? 'text-emerald-400' : 'text-slate-500' },
+  { key: 'hurst', label: 'Hurst', width: 50, align: 'right',
+    fmt: r => r.stats.hurst.toFixed(2),
+    numVal: r => r.stats.hurst,
+    cellClass: r => r.stats.hurstTrending ? 'text-emerald-400' : r.stats.hurst < 0.45 ? 'text-red-400' : 'text-slate-500' },
+  // TTM Squeeze + RSI14 + CCI34 columns
+  { key: 'ttmSqz', label: 'TTM', width: 52, align: 'center',
+    fmt: r => r.stats.ttmSqueezeFired ? '🟢 FIRE' : r.stats.ttmSqueezeOn ? '🔴 ON' : '⚫ OFF',
+    numVal: r => r.stats.ttmSqueezeFired ? 2 : r.stats.ttmSqueezeOn ? 1 : 0,
+    cellClass: r => r.stats.ttmSqueezeFired ? 'text-green-400 font-bold' : r.stats.ttmSqueezeOn ? 'text-red-400 font-semibold' : 'text-slate-600' },
+  { key: 'ttmMom', label: 'Mom', width: 50, align: 'right',
+    fmt: r => r.stats.ttmMomentum.toFixed(1),
+    numVal: r => r.stats.ttmMomentum,
+    cellClass: r => r.stats.ttmMomentum > 0 && r.stats.ttmMomentumRising ? 'text-emerald-400' : r.stats.ttmMomentum > 0 ? 'text-cyan-400' : r.stats.ttmMomentum < 0 && !r.stats.ttmMomentumRising ? 'text-red-400' : 'text-amber-400' },
+  { key: 'rsi14', label: 'RSI14', width: 50, align: 'right',
+    fmt: r => r.stats.rsi14.toFixed(0),
+    numVal: r => r.stats.rsi14,
+    cellClass: r => r.stats.rsi14 >= 70 ? 'text-red-400 font-semibold' : r.stats.rsi14 >= 55 ? 'text-emerald-400' : r.stats.rsi14 <= 30 ? 'text-red-400' : r.stats.rsi14 <= 45 ? 'text-amber-400' : 'text-slate-400' },
+  { key: 'cci34', label: 'CCI34', width: 55, align: 'right',
+    fmt: r => r.stats.cci34.toFixed(0),
+    numVal: r => r.stats.cci34,
+    cellClass: r => r.stats.cci34 >= 100 ? 'text-emerald-400 font-semibold' : r.stats.cci34 >= 0 ? 'text-slate-300' : r.stats.cci34 <= -100 ? 'text-red-400 font-semibold' : 'text-amber-400' },
+  // v9.1 columns
+  { key: 'dd52WH', label: '52WH%', width: 55, align: 'right',
+    fmt: r => r.stats.drawdownFrom52WH.toFixed(1),
+    numVal: r => r.stats.drawdownFrom52WH,
+    cellClass: r => r.stats.drawdownFrom52WH <= 5 ? 'text-emerald-400 font-semibold' : r.stats.drawdownFrom52WH <= 15 ? 'text-slate-300' : 'text-red-400' },
+  { key: 'pct52WL', label: '52WL%', width: 55, align: 'right',
+    fmt: r => r.stats.pctFrom52WL.toFixed(0),
+    numVal: r => r.stats.pctFrom52WL,
+    cellClass: r => r.stats.pctFrom52WL >= 50 ? 'text-emerald-400' : r.stats.pctFrom52WL >= 20 ? 'text-slate-300' : 'text-red-400' },
+  { key: 'sharpe', label: 'Sharpe', width: 55, align: 'right',
+    fmt: r => r.stats.sharpe20.toFixed(1),
+    numVal: r => r.stats.sharpe20,
+    cellClass: r => r.stats.sharpe20 >= 2 ? 'text-yellow-300 font-semibold' : r.stats.sharpe20 >= 1 ? 'text-emerald-400' : r.stats.sharpe20 > 0 ? 'text-slate-400' : 'text-red-400' },
+  { key: 'insBar', label: 'InsBr', width: 45, align: 'right',
+    fmt: r => r.stats.insideBars > 0 ? String(r.stats.insideBars) : '—',
+    numVal: r => r.stats.insideBars,
+    cellClass: r => r.stats.insideBars >= 3 ? 'text-yellow-300 font-semibold' : r.stats.insideBars >= 2 ? 'text-emerald-400' : 'text-slate-600' },
+  // v7.3 columns
+  { key: 'nearBrk', label: 'Near BRK', width: 72, align: 'center',
+    fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
+    numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
+    cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'track_btn', label: '📌', width: 40, align: 'center',
+    fmt: () => '',
+    numVal: () => 0,
+    cellClass: () => '' },
+];
+
+type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
+
+const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','momentumScore','statsScore','nearBrk','track_btn']),
+  screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
+  tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
+  momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
+  all: new Set(/* all keys — handled below */),
+};
+
+const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string }> = [
+  { key: 'overview', label: 'Overview', emoji: '📊' },
+  { key: 'screening', label: 'Screening', emoji: '🔬' },
+  { key: 'tradeplan', label: 'Trade Plan', emoji: '💰' },
+  { key: 'momentum', label: 'Momentum', emoji: '📈' },
+  { key: 'statistics', label: 'Statistics', emoji: '📉' },
+  { key: 'all', label: 'All', emoji: '⊡' },
+];
+
+function getVisibleColumns(subtab: ScannerSubTab) {
+  if (subtab === 'all') return COLUMNS;
+  const keys = SUBTAB_KEYS[subtab];
+  return COLUMNS.filter(c => keys.has(c.key));
+}
+
+function getTableWidth(cols: ColDef[]) { return cols.reduce((s, c) => s + c.width, 0); }
+
+function safeFmt(fmt: (r: AnalysisResult) => string): (r: AnalysisResult) => string {
+  return (r: AnalysisResult) => { try { return fmt(r); } catch { return '—'; } };
+}
+function safeNum(fn?: (r: AnalysisResult) => number): ((r: AnalysisResult) => number) | undefined {
+  if (!fn) return undefined;
+  return (r: AnalysisResult) => { try { return fn(r); } catch { return 0; } };
+}
+function safeCls(fn?: (r: AnalysisResult) => string): ((r: AnalysisResult) => string) | undefined {
+  if (!fn) return undefined;
+  return (r: AnalysisResult) => { try { return fn(r); } catch { return 'text-slate-500'; } };
+}
+
+// Apply a filter string to a formatted cell value.
+// Supports: ">50" ">=50" "<50" "<=50" "=50" or plain text/number (contains match).
+function matchesFilter(formatted: string, filter: string): boolean {
+  if (!filter) return true;
+  const f = filter.trim();
+  if (!f) return true;
+
+  const numMatch = f.match(/^(>=|<=|!=|>|<|=)\s*(-?[\d.]+)$/);
+  if (numMatch) {
+    const op = numMatch[1];
+    const threshold = parseFloat(numMatch[2]);
+    if (isNaN(threshold)) return formatted.toLowerCase().includes(f.toLowerCase());
+    const cellNum = parseFloat(formatted.replace(/[^0-9.-]/g, ''));
+    if (isNaN(cellNum)) return false;
+    if (op === '>')  return cellNum > threshold;
+    if (op === '>=') return cellNum >= threshold;
+    if (op === '<')  return cellNum < threshold;
+    if (op === '<=') return cellNum <= threshold;
+    if (op === '=')  return cellNum === threshold;
+    if (op === '!=') return cellNum !== threshold;
+  }
+  // Plain text — case-insensitive contains
+  return formatted.toLowerCase().includes(f.toLowerCase());
+}
+
+function parseSymbols(text: string): string[] {
+  return text
+    .split(/[\n,;\t]+/)
+    .map(s => s.trim().replace(/^["']|["']$/g, '').toUpperCase())
+    .filter(s => s.length > 0 && s.length <= 20 && /^[A-Z0-9.&-]+$/.test(s));
+}
+
+function parseCSV(text: string): string[] {
+  const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  const lines = clean.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length === 0) return [];
+
+  function splitLine(line: string): string[] {
+    const cols: string[] = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  }
+
+  const headers = splitLine(lines[0]).map(h => h.replace(/^["']|["']$/g, '').trim().toUpperCase());
+  const SYMBOL_HEADERS = ['SYMBOL','TICKER','SCRIP','STOCK','SCRIPT','NSE_SYMBOL','BSE_SYMBOL','CODE'];
+  let symCol = headers.findIndex(h => SYMBOL_HEADERS.includes(h));
+  const dataStart = symCol >= 0 ? 1 : 0;
+  if (symCol < 0) symCol = 0;
+
+  const syms: string[] = [];
+  for (let i = dataStart; i < lines.length; i++) {
+    const cols = splitLine(lines[i]);
+    const raw = (cols[symCol] ?? '').replace(/^["']|["']$/g, '').trim().toUpperCase();
+    if (raw && raw.length > 0 && raw.length <= 20 && /^[A-Z0-9.&-]+$/.test(raw)) {
+      syms.push(raw);
+    }
+  }
+  return [...new Set(syms)];
+}
+
+function HomePageInner() {
+  const [paramSetKey, setParamSetKey] = useState<ParamSetKey>('optimized_deployable_20plus');
+  const [scanAll, setScanAll] = useState(false);
+  const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [multiResults, setMultiResults] = useState<MultiAnalysisResult[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const scanningRef = useRef(false);
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [errCount, setErrCount] = useState(0);
+  const [lastErr, setLastErr] = useState('');
+  const [failedSymbols, setFailedSymbols] = useState<Array<{sym: string; err: string}>>([]);
+  const [showFailedPanel, setShowFailedPanel] = useState(false);
+  const [stageFilter, setStageFilter] = useState<StageRating | 'ALL'>('ALL');
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState('inflectionScore');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [showPasteBox, setShowPasteBox] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [scannerSubTab, setScannerSubTab] = useState<ScannerSubTab>('overview');
+  const [lookback, setLookback] = useState(1);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastScanSymbols, setLastScanSymbols] = useState<string[]>([]);
+  const [secondarySortCol, setSecondarySortCol] = useState<string | null>(null);
+  const [secondarySortDir, setSecondarySortDir] = useState<'asc' | 'desc'>('desc');
+  const [niftyCandles, setNiftyCandles] = useState<Candle[] | null>(null);
+  const [previousResults, setPreviousResults] = useState<AnalysisResult[]>([]);
+  const [accountSize, setAccountSize] = useState(1000000);
+  const [showRiskSizer, setShowRiskSizer] = useState(false);
+  const [showHeatMap, setShowHeatMap] = useState(false);
+  const [showDataQuality, setShowDataQuality] = useState(false);
+  const [trackedTrades, setTrackedTrades] = useState<TrackedTrade[]>([]);
+  const resultsRef = useRef<AnalysisResult[]>([]);
+  resultsRef.current = results;
+  const trackedTradesRef = useRef<TrackedTrade[]>([]);
+  trackedTradesRef.current = trackedTrades;
+  const [showTracker, setShowTracker] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
+  const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
+  const [showTradeSheet, setShowTradeSheet] = useState<string | null>(null);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [showWatchlist, setShowWatchlist] = useState(false);
+  const [signalHistory, setSignalHistory] = useState<SignalHistory>({});
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
+  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation'>('scanner');
+  const [sessions, setSessions] = useState<ScanSession[]>([]);
+  const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
+  const [reviews, setReviews] = useState<TradeReview[]>([]);
+  const [showRulesCheck, setShowRulesCheck] = useState(false);
+  const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
+  const [showSessions, setShowSessions] = useState(false);
+  const [scanSource, setScanSource] = useState('Custom');
+  const [sessionDiff, setSessionDiff] = useState<SessionDiff | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const sessionImportRef = useRef<HTMLInputElement>(null);
+  const [multiStageFilter, setMultiStageFilter] = useState<Set<StageRating>>(new Set());
+  const [scanStartTime, setScanStartTime] = useState(0);
+  const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
+  const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
+
+  const abortRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const botScrollRef = useRef<HTMLDivElement>(null);
+
+  // Feature #2: localStorage persistence
+  useEffect(() => {
+    if (results.length > 0) {
+      try { localStorage.setItem('qtp_paramSetKey', paramSetKey); } catch {}
+      // Don't persist full results to localStorage — use sessions instead
+    }
+  }, [results, paramSetKey]);
+
+  useEffect(() => {
+    try {
+      // Clear old results that may have incompatible schema
+      // Only keep tracked trades, watchlist, sessions, and settings
+      localStorage.removeItem('qtp_results');
+      const savedKey = localStorage.getItem('qtp_paramSetKey');
+      const savedTrades = localStorage.getItem('qtp_tracked_trades');
+      if (savedKey) { setParamSetKey(savedKey as ParamSetKey); }
+      if (savedTrades) { try {
+        const parsed = JSON.parse(savedTrades);
+        setTrackedTrades(Array.isArray(parsed) ? parsed.filter((t: TrackedTrade) => t && typeof t.entryPrice === 'number' && typeof t.stopLoss === 'number') : []);
+      } catch { /* ignore */ } }
+      try { setWatchlist(loadWatchlist()); } catch { /* ignore */ }
+      try { setSignalHistory(loadSignalHistory()); } catch { /* ignore */ }
+      try { setSessions(loadSessions()); } catch { /* ignore */ }
+      try { setFavorites(loadFavorites()); } catch { /* ignore */ }
+      try { setReviews(loadReviews()); } catch { /* ignore */ }
+      const savedTheme = localStorage.getItem('qtp_theme');
+      if (savedTheme === 'light') setTheme('light');
+    } catch {
+      // Nuclear fallback — clear everything
+      try { localStorage.clear(); } catch { /* ignore */ }
+    }
   }, []);
 
-  const stats = CLUSTERS.map(({ key, label, icon: Icon, color }) => ({
-    label,
-    Icon,
-    color,
-    count: results.filter((r) => r[key as keyof ScreeningResult]).length,
-  }));
+  // Persist tracked trades
+  useEffect(() => {
+    if (trackedTrades.length > 0) {
+      try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(trackedTrades)); } catch {}
+    }
+  }, [trackedTrades]);
+
+  // #3: Update signal history when results change
+  useEffect(() => {
+    if (results.length > 0) {
+      setSignalHistory(prev => {
+        const updated = updateSignalHistory(results, prev);
+        saveSignalHistory(updated);
+        return updated;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results.length]);
+
+  // Theme persistence
+  useEffect(() => {
+    try { localStorage.setItem('qtp_theme', theme); } catch {}
+  }, [theme]);
+
+  // Compute market regime from nifty candles
+  useEffect(() => {
+    if (niftyCandles && niftyCandles.length > 200) {
+      setMarketRegime(detectMarketRegime(niftyCandles));
+    }
+  }, [niftyCandles]);
+
+  // Keyboard shortcuts moved after filteredResults declaration
+
+  const visibleColumns = useMemo(() => {
+    return getVisibleColumns(scannerSubTab).map(c => ({
+      ...c, fmt: safeFmt(c.fmt), numVal: safeNum(c.numVal), cellClass: safeCls(c.cellClass),
+    }));
+  }, [scannerSubTab]);
+  const tableWidth = useMemo(() => getTableWidth(visibleColumns), [visibleColumns]);
+
+  // Sync top ↔ bottom scrollbars
+  useEffect(() => {
+    const top = topScrollRef.current;
+    const bot = botScrollRef.current;
+    if (!top || !bot) return;
+    let source: 'top' | 'bot' | null = null;
+    let rafId = 0;
+    const onTop = () => {
+      if (source === 'bot') return;
+      source = 'top';
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => { bot.scrollLeft = top.scrollLeft; source = null; });
+    };
+    const onBot = () => {
+      if (source === 'top') return;
+      source = 'bot';
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => { top.scrollLeft = bot.scrollLeft; source = null; });
+    };
+    top.addEventListener('scroll', onTop);
+    bot.addEventListener('scroll', onBot);
+    return () => { top.removeEventListener('scroll', onTop); bot.removeEventListener('scroll', onBot); cancelAnimationFrame(rafId); };
+  }, [results.length]);
+
+  const runScan = useCallback(async (symbols: string[]) => {
+    if (scanningRef.current) return;
+    // #10: Dedup guard
+    const { unique: dedupedSymbols, removed } = deduplicateSymbols(symbols);
+    if (removed > 0) console.log(`Removed ${removed} duplicate symbols`);
+
+    abortRef.current = false;
+    setPreviousResults(resultsRef.current);
+    setScanStartTime(Date.now());
+    setScanning(true); scanningRef.current = true;
+    try {
+    setResults([]);
+    setMultiResults([]);
+    setSelectedRowIdx(-1);
+    const scanSymbols = dedupedSymbols;
+    setProgress(0);
+    setErrCount(0);
+    setLastErr('');
+    setFailedSymbols([]);
+    setTotal(scanSymbols.length);
+    setSelectedSymbol(null);
+    setStageFilter('ALL');
+    setColFilters({});
+    setGlobalSearch('');
+
+    const newResults: AnalysisResult[] = [];
+    const freshCandleMap: Record<string, Candle[]> = {};
+    const newMultiResults: MultiAnalysisResult[] = [];
+    const newFailed: Array<{sym: string; err: string}> = [];
+    const CONCURRENCY = 3;
+    const queue = [...scanSymbols];
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function flushResults() {
+      setResults([...newResults]);
+      if (scanAll) setMultiResults([...newMultiResults]);
+    }
+
+    function scheduleFlush() {
+      if (flushTimer) return;
+      flushTimer = setTimeout(() => { flushTimer = null; flushResults(); }, 300);
+    }
+
+    // Feature #4: Pre-fetch Nifty 50 candles for RS calculation
+    let niftyData: Candle[] | null = niftyCandles;
+    if (!niftyData) {
+      try {
+        const { candles: nc } = await fetchOHLCVClient('^NSEI');
+        niftyData = nc;
+        setNiftyCandles(nc);
+      } catch {
+        try {
+          const { candles: nc } = await fetchOHLCVClient('NIFTY_50.NS');
+          niftyData = nc;
+          setNiftyCandles(nc);
+        } catch { /* Nifty fetch failed — RS will default to 1.0 */ }
+      }
+    }
+
+    async function processOne(sym: string) {
+      if (abortRef.current) return;
+      try {
+        const { candles, resolvedSymbol } = await fetchOHLCVClient(sym);
+        if (abortRef.current) return;
+        let result: AnalysisResult;
+        if (scanAll) {
+          const multi = analyzeStockMulti(candles, resolvedSymbol);
+          newMultiResults.push(multi);
+          result = multi.best;
+        } else if (lookback > 1) {
+          result = analyzeStockWithLookback(candles, paramSetKey, lookback);
+          result.symbol = resolvedSymbol;
+          result.clusterBreakdown = computeClusterBreakdown(candles);
+        } else {
+          result = analyzeStock(candles, paramSetKey);
+          result.symbol = resolvedSymbol;
+          result.clusterBreakdown = computeClusterBreakdown(candles);
+        }
+        // Feature #4: compute RS vs Nifty
+        if (niftyData && niftyData.length > 20) {
+          const rs = computeRSvsNifty(candles, niftyData, 20);
+          result.momentum = { ...result.momentum, rsNifty20: Number.isFinite(rs) ? rs : 1.0 };
+        }
+        // Cache candles for sparkline + validation
+        const sliced = candles.slice(-60);
+        freshCandleMap[result.symbol] = sliced;
+        setCandleCache(prev => ({ ...prev, [result.symbol]: sliced }));
+        newResults.push(result);
+        // #8: Alert sound on new BUY signal
+        if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
+          const prevStage = previousResults.find(p => p.symbol === result.symbol)?.stage;
+          if (!prevStage || !['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(prevStage)) {
+            try { new Audio('data:audio/wav;base64,UklGRl9vT19teleXBQVZFZm10teleIBAAEARKwAAIhYAQACABAAZGF0YQ==').play().catch(() => {}); } catch {}
+          }
+        }
+        scheduleFlush();
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        newFailed.push({ sym, err: errMsg });
+        setErrCount(n => n + 1);
+        setLastErr(`${sym}: ${errMsg}`);
+      }
+      setProgress(p => p + 1);
+    }
+
+    await Promise.all(
+      Array.from({ length: CONCURRENCY }, async () => {
+        while (queue.length > 0 && !abortRef.current) {
+          const sym = queue.shift();
+          if (sym) await processOne(sym);
+        }
+      })
+    );
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    flushResults();
+    setFailedSymbols(newFailed);
+    setLastScanSymbols(scanSymbols);
+    // Auto-validate open trades using freshly fetched candle data (local map, not stale state)
+    if (trackedTradesRef.current.some(t => t.status === 'open')) {
+      setTrackedTrades(prev => {
+        let updated = [...prev];
+        for (let i = 0; i < updated.length; i++) {
+          const t = updated[i];
+          if (t.status !== 'open') continue;
+          const cached = freshCandleMap[t.symbol];
+          if (!cached || cached.length === 0) continue;
+          // Find candles since entry date
+          const entryTs = new Date(t.entryDate).getTime() / 1000 + 86400; // skip entry day — validate from next trading day
+          const sinceEntry = cached.filter(c => c.ts >= entryTs);
+          if (sinceEntry.length === 0) continue;
+          const result = validateTrade(t, sinceEntry);
+          updated[i] = applyValidation(t, result);
+        }
+        try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+    }
+
+    // Auto-save session
+    if (newResults.length > 0) {
+      saveSession(newResults, scanAll ? 'ALL4' : paramSetKey, scanSource);
+      setSessions(loadSessions());
+    }
+    } catch (err) {
+      console.error('Scan error:', err);
+    } finally {
+      setScanning(false); scanningRef.current = false;
+    }
+  }, [paramSetKey, scanAll, lookback, niftyCandles, scanSource]);
+
+  // Feature #5: Auto-refresh during market hours (every 15 min)
+  useEffect(() => {
+    if (!autoRefresh || scanning || lastScanSymbols.length === 0) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const istMins = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) % 1440;
+      const istHour = Math.floor(istMins / 60);
+      const istMin = istMins % 60;
+      const inMarketHours = (istHour > 9 || (istHour === 9 && istMin >= 15)) && (istHour < 15 || (istHour === 15 && istMin <= 30));
+      if (inMarketHours) runScan(lastScanSymbols);
+    }, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, scanning, lastScanSymbols, runScan]);
+
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const symbols = parseCSV(ev.target?.result as string);
+      if (symbols.length > 0) {
+        runScan(symbols);
+      } else {
+        setLastErr('No valid symbols found in CSV. Ensure it has a "Symbol" column.');
+        setErrCount(1);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [runScan]);
+
+  const setColFilter = useCallback((key: string, val: string) => {
+    setColFilters(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  const filteredResults = useMemo(() => {
+    let rows = stageFilter === 'ALL'
+      ? (multiStageFilter.size > 0 ? results.filter(r => multiStageFilter.has(r.stage)) : results)
+      : results.filter(r => r.stage === stageFilter);
+
+    // Quick filter (#8)
+    if (quickFilter !== 'all') {
+      const qf = QUICK_FILTERS.find(f => f.key === quickFilter);
+      if (qf) rows = rows.filter(qf.filter);
+    }
+
+    // Global search
+    if (globalSearch) {
+      const q = globalSearch.toUpperCase();
+      rows = rows.filter(r =>
+        r.symbol.toUpperCase().includes(q) ||
+        STAGE_CONFIG[r.stage].label.toUpperCase().includes(q)
+      );
+    }
+
+    // Per-column filters
+    for (const col of visibleColumns) {
+      const f = colFilters[col.key];
+      if (!f) continue;
+      rows = rows.filter(r => matchesFilter(col.fmt(r), f));
+    }
+
+    // Sort with optional secondary sort (Feature #8)
+    const sortDef = COLUMNS.find(c => c.key === sortCol);
+    const secDef = secondarySortCol ? COLUMNS.find(c => c.key === secondarySortCol) : null;
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      try {
+        if (sortDef?.numVal) cmp = (sortDef.numVal(a) ?? 0) - (sortDef.numVal(b) ?? 0);
+        else if (sortDef) cmp = safeColFmt(sortDef, a).localeCompare(safeColFmt(sortDef, b));
+      } catch { cmp = 0; }
+      cmp = sortDir === 'desc' ? -cmp : cmp;
+      if (cmp === 0 && secDef) {
+        let cmp2 = 0;
+        try {
+          if (secDef.numVal) cmp2 = (secDef.numVal(a) ?? 0) - (secDef.numVal(b) ?? 0);
+          else cmp2 = safeColFmt(secDef, a).localeCompare(safeColFmt(secDef, b));
+        } catch { cmp2 = 0; }
+        cmp = secondarySortDir === 'desc' ? -cmp2 : cmp2;
+      }
+      return cmp;
+    });
+  }, [results, stageFilter, multiStageFilter, globalSearch, colFilters, sortCol, sortDir, secondarySortCol, secondarySortDir, visibleColumns, quickFilter]);
+
+  const selectedResult = useMemo(
+    () => results.find(r => r.symbol === selectedSymbol) ?? null,
+    [results, selectedSymbol]
+  );
+
+  const stageCounts = useMemo(() => {
+    const c: Record<string, number> = { ALL: results.length };
+    for (const r of results) c[r.stage] = (c[r.stage] ?? 0) + 1;
+    return c;
+  }, [results]);
+
+  // #7: Scan statistics
+  const scanStats = useMemo(() => computeScanStats(results), [results]);
+
+  // Win rate stats (#2)
+  const winStats = useMemo(() => computeWinRateStats(trackedTrades), [trackedTrades]);
+
+  // Track a trade (#2)
+  function trackTrade(r: AnalysisResult) {
+    const trade: TrackedTrade = {
+      symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
+      entryDate: new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
+      target1: r.priceEngine.target5, target2: r.priceEngine.target7,
+      target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
+      paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
+      conviction: computeConviction(r), status: 'open',
+    };
+    setTrackedTrades(prev => [...prev.filter(t => t.symbol !== r.symbol), trade]);
+  }
+
+  function removeTrade(symbol: string) {
+    setTrackedTrades(prev => {
+      const updated = prev.filter(t => t.symbol !== symbol);
+      try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }
+
+  // Auto-fetch market regime on mount (ref guards against StrictMode double-fire)
+  const regimeFetchedRef = useRef(false);
+  useEffect(() => {
+    if (marketRegime || regimeFetchedRef.current) return;
+    regimeFetchedRef.current = true;
+    (async () => {
+      try {
+        const { candles } = await fetchOHLCVClient('^NSEI');
+        if (candles.length > 200) setMarketRegime(detectMarketRegime(candles));
+      } catch {}
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // #4: Keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === 'Escape') { setSelectedSymbol(null); setShowPasteBox(false); setShowCompare(false); }
+      if (e.key === 'ArrowDown' && filteredResults.length > 0) {
+        e.preventDefault();
+        setSelectedRowIdx(prev => { const next = Math.min(prev + 1, filteredResults.length - 1); setSelectedSymbol(filteredResults[next]?.symbol ?? null); return next; });
+      }
+      if (e.key === 'ArrowUp' && filteredResults.length > 0) {
+        e.preventDefault();
+        setSelectedRowIdx(prev => { const next = Math.max(prev - 1, 0); setSelectedSymbol(filteredResults[next]?.symbol ?? null); return next; });
+      }
+      if (e.key === 't' && selectedResult?.priceEngine.tradeValid) trackTrade(selectedResult);
+      if (e.key === 'w' && selectedResult) {
+        if (!watchlist.some(w => w.symbol === selectedResult.symbol)) {
+          const item: WatchlistItem = { symbol: selectedResult.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: selectedResult.stage, lastClose: selectedResult.lastClose };
+          const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated);
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [filteredResults, selectedRowIdx, selectedResult, watchlist]);
+
+  // Feature #12: Scan diff — what changed since last scan
+  const scanDiff = useMemo(() => {
+    if (previousResults.length === 0) return new Map<string, { prev: StageRating; curr: StageRating }>();
+    const prevMap = new Map(previousResults.map(r => [r.symbol, r.stage]));
+    const diff = new Map<string, { prev: StageRating; curr: StageRating }>();
+    for (const r of results) {
+      const prev = prevMap.get(r.symbol);
+      if (prev && prev !== r.stage) diff.set(r.symbol, { prev, curr: r.stage });
+    }
+    return diff;
+  }, [results, previousResults]);
+
+  // Feature #11: Near-breakout count
+  const nearBreakoutCount = useMemo(() => results.filter(r => r.nearBreakout).length, [results]);
+
+  // Feature #2: Sector heatmap data
+  const sectorHeatData = useMemo(() => {
+    const sectorMap: Record<string, Record<string, number>> = {};
+    const SECTOR_PRESETS_LOCAL = typeof SECTOR_PRESETS !== 'undefined' ? SECTOR_PRESETS : [];
+    for (const sp of SECTOR_PRESETS_LOCAL) {
+      const sectorStocks = new Set(sp.symbols);
+      const counts: Record<string, number> = {};
+      for (const r of results) {
+        if (sectorStocks.has(r.symbol.replace('.NS', '').replace('.BO', ''))) {
+          counts[r.stage] = (counts[r.stage] ?? 0) + 1;
+        }
+      }
+      const total = Object.values(counts).reduce((s, v) => s + v, 0);
+      if (total > 0) sectorMap[sp.label] = counts;
+    }
+    return sectorMap;
+  }, [results]);
+
+  // Feature #9: Data quality
+  const dataQuality = useMemo(() => {
+    if (results.length === 0) return null;
+    const dates = results.map(r => r.lastDate).filter(d => d);
+    const latestDate = dates.sort().pop() ?? '';
+    const today = new Date().toISOString().slice(0, 10);
+    const isStale = latestDate && latestDate < today;
+    return { latestDate, isStale, totalStocks: results.length, withZone: results.filter(r => r.zone).length };
+  }, [results]);
+
+  // Feature #8: Shift+click for secondary sort
+  function handleSort(key: string, shiftKey = false) {
+    if (shiftKey && sortCol !== key) {
+      if (secondarySortCol === key) setSecondarySortDir(d => d === 'desc' ? 'asc' : 'desc');
+      else { setSecondarySortCol(key); setSecondarySortDir('desc'); }
+    } else {
+      if (sortCol === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+      else { setSortCol(key); setSortDir('desc'); setSecondarySortCol(null); }
+    }
+  }
+
+  const hasColFilters = Object.values(colFilters).some(v => v);
+
+  const exportCSV = useCallback(() => {
+    exportGroupCSV(filteredResults, COLUMNS, 'quant_terminal_pro.csv');
+  }, [filteredResults]);
+
+  const exportXLSX = useCallback(async () => {
+    await exportGroupXLSX(filteredResults, COLUMNS, 'quant_terminal_pro.xlsx');
+  }, [filteredResults]);
+
+  const pasteSymbols = useMemo(() => parseSymbols(pasteText), [pasteText]);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <TrendingUp size={18} className="text-white" />
+    <main className={`h-screen flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-[#0a0c10] text-slate-100' : 'theme-light bg-white text-slate-900'}`}>
+
+      {/* ── Header ── */}
+      <header className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2.5 flex items-center gap-3">
+        <div className="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center text-xs font-bold text-white select-none">Q</div>
+        <span className="font-bold text-slate-100 text-sm">Quant Terminal Pro</span>
+        <span className="text-xs text-slate-600">v7.1</span>
+        <select
+          value={scanAll ? 'ALL4' : paramSetKey}
+          onChange={e => {
+            if (e.target.value === 'ALL4') { setScanAll(true); }
+            else { setScanAll(false); setParamSetKey(e.target.value as ParamSetKey); }
+          }}
+          className={`ml-2 border rounded text-xs px-2 py-1 focus:outline-none cursor-pointer ${scanAll ? 'bg-cyan-900/40 border-cyan-600 text-cyan-300 focus:border-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-200 focus:border-indigo-500'}`}
+        >
+          <option value="ALL4">★ All 4 Param Sets (Multi-Scan)</option>
+          {PARAM_SET_OPTIONS.map(o => (
+            <option key={o.key} value={o.key}>{o.name} [{o.tag}]</option>
+          ))}
+        </select>
+        {/* Feature #3: Lookback */}
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-slate-600">Lookback:</span>
+          <select value={lookback} onChange={e => setLookback(Number(e.target.value))}
+            className="bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 px-1 py-0.5 focus:outline-none cursor-pointer">
+            <option value={1}>1d</option>
+            <option value={3}>3d</option>
+            <option value={5}>5d</option>
+          </select>
+        </div>
+        {/* Feature #5: Auto-refresh */}
+        <button onClick={() => setAutoRefresh(v => !v)}
+          className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${autoRefresh ? 'bg-green-900/50 border-green-600 text-green-300' : 'bg-slate-800 border-slate-700 text-slate-600 hover:text-slate-400'}`}>
+          {autoRefresh ? '⟳ Auto 15m' : '⟳ Auto'}
+        </button>
+        {/* #9: Market Regime — always visible */}
+        {marketRegime ? (
+          <div className={`px-2.5 py-0.5 rounded text-xs font-bold border ${marketRegime.regime === 'bull' ? 'bg-green-900/40 border-green-600 text-green-300' : marketRegime.regime === 'bear' ? 'bg-red-900/40 border-red-600 text-red-300' : 'bg-yellow-900/40 border-yellow-600 text-yellow-300'}`}
+            title={`Nifty: ₹${marketRegime.niftyClose.toFixed(0)} | EMA50: ₹${marketRegime.ema50.toFixed(0)} | EMA200: ₹${marketRegime.ema200.toFixed(0)} | CMP ${marketRegime.aboveEma200 ? '>' : '<'} EMA200 | EMA50 ${marketRegime.ema50Above200 ? '>' : '<'} EMA200 | Position Size: ×${marketRegime.sizingMultiplier}`}>
+            {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}
           </div>
-          <div>
-            <h1 className="font-bold text-slate-100 leading-none">Momentum Screener</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Compression Breakout · 4 Cluster Model</p>
-          </div>
-          <div className="ml-auto text-xs text-slate-600 hidden sm:block">
-            Powered by Yahoo Finance · NSE / BSE / Global
-          </div>
+        ) : (
+          <button onClick={async () => {
+            try {
+              const { candles } = await fetchOHLCVClient('^NSEI');
+              if (candles.length > 200) setMarketRegime(detectMarketRegime(candles));
+            } catch {}
+          }}
+            className="px-2 py-0.5 rounded text-xs font-medium border bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300 transition-colors">
+            🔍 Check Market</button>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {results.length > 0 && (
+            <button onClick={() => setShowRiskSizer(v => !v)}
+              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showRiskSizer ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+              ₹ Risk</button>
+          )}
+          <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
+            placeholder="🔍 Search…"
+            className="w-28 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
         </div>
       </header>
 
-      <div className="max-w-screen-xl mx-auto px-6 py-8 space-y-8">
-        <section>
-          <h2 className="text-slate-300 font-semibold text-sm uppercase tracking-widest mb-3">
-            Step 1 · Upload symbol list
-          </h2>
-          <UploadZone onSymbols={handleSymbols} loading={loading} />
-        </section>
-
-        {loading && (
-          <ProgressBar processed={processed} total={total} status="running" />
+      {/* ── Controls bar ── */}
+      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 flex items-center gap-2 flex-wrap">
+        <button disabled={scanning} onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-medium text-slate-200 transition-colors">New Scan</button>
+        <button disabled={scanning} onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
+          className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-medium text-white transition-colors">Demo Mode</button>
+        <div className="h-4 w-px bg-slate-700" />
+        <button disabled={scanning} onClick={() => fileInputRef.current?.click()}
+          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">Upload CSV</button>
+        <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
+        <select
+          disabled={scanning}
+          value=""
+          onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+          className="px-2 py-1.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-700 rounded text-xs font-medium text-emerald-300 cursor-pointer focus:outline-none focus:border-emerald-500"
+        >
+          <option value="" disabled>Nifty Index ▾</option>
+          {NIFTY_PRESETS.map(p => (
+            <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
+          ))}
+        </select>
+        <select
+          disabled={scanning}
+          value=""
+          onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+          className="px-2 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-700 rounded text-xs font-medium text-amber-300 cursor-pointer focus:outline-none focus:border-amber-500"
+        >
+          <option value="" disabled>Sector Index ▾</option>
+          {SECTOR_PRESETS.map(p => (
+            <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
+          ))}
+        </select>
+        <select
+          disabled={scanning}
+          value=""
+          onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+          className="px-2 py-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-purple-700 rounded text-xs font-medium text-purple-300 cursor-pointer focus:outline-none focus:border-purple-500"
+        >
+          <option value="" disabled>Thematic / Strategy ▾</option>
+          <optgroup label="── Thematic ──">
+            {THEMATIC_PRESETS.filter(p => p.category === 'thematic').map(p => (
+              <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
+            ))}
+          </optgroup>
+          <optgroup label="── Strategy ──">
+            {THEMATIC_PRESETS.filter(p => p.category === 'strategy').map(p => (
+              <option key={p.key} value={p.key}>{p.label} ({p.count})</option>
+            ))}
+          </optgroup>
+        </select>
+        <button disabled={scanning} onClick={() => setShowPasteBox(p => !p)}
+          className={`px-3 py-1.5 border rounded text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${showPasteBox ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'}`}>
+          Paste Symbols</button>
+        <div className="h-4 w-px bg-slate-700" />
+        <button onClick={exportCSV} disabled={filteredResults.length === 0}
+          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">CSV</button>
+        <button onClick={exportXLSX} disabled={filteredResults.length === 0}
+          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 rounded text-xs font-medium text-slate-300 transition-colors">XLSX</button>
+        {hasColFilters && (
+          <button onClick={() => setColFilters({})}
+            className="px-3 py-1.5 bg-amber-900/50 hover:bg-amber-900 border border-amber-700 rounded text-xs font-medium text-amber-300 transition-colors">
+            Clear Filters ×</button>
         )}
-
+        <div className="h-4 w-px bg-slate-700" />
+        {/* #8: Quick filters */}
+        {results.length > 0 && QUICK_FILTERS.map(qf => (
+          <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
+            title={qf.description}
+            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${quickFilter === qf.key ? 'bg-indigo-900/50 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            {qf.emoji} {qf.label}</button>
+        ))}
+        <div className="h-4 w-px bg-slate-700" />
+        {/* #2: Win rate tracker */}
+        <button onClick={() => setShowTracker(v => !v)}
+          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+          📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% WR (${trackedTrades.length})` : 'Tracker'}</button>
+        {/* Sessions */}
+        <button onClick={() => setShowSessions(v => !v)}
+          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+          💾 {sessions.length > 0 ? sessions.length : 'Sessions'}</button>
+        {/* Watchlist */}
+        <button onClick={() => setShowWatchlist(v => !v)}
+          className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showWatchlist ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+          ⭐ {watchlist.length > 0 ? watchlist.length : 'Watch'}</button>
+        {/* #5: Zerodha export */}
+        {filteredResults.some(r => r.priceEngine.tradeValid) && (
+          <button onClick={() => {
+            const csv = exportZerodhaBasket(filteredResults, accountSize);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+            a.download = 'zerodha_basket.csv'; a.click(); URL.revokeObjectURL(a.href);
+          }}
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
+            📤 Zerodha</button>
+        )}
+        {/* #9: Journal export */}
         {results.length > 0 && (
-          <section>
-            <h2 className="text-slate-300 font-semibold text-sm uppercase tracking-widest mb-3">
-              Cluster summary
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {stats.map(({ label, Icon, color, count }) => (
-                <div key={label} className="bg-slate-900 border border-slate-700 rounded-2xl p-4">
-                  <Icon size={18} className={color} />
-                  <div className="text-3xl font-bold mt-2 text-slate-100">{count}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{label}</div>
+          <button onClick={() => {
+            const md = generateJournalMarkdown(results, scanStats, trackedTrades, marketRegime?.label ?? 'Unknown');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([md], {type:'text/markdown'}));
+            a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.md`; a.click(); URL.revokeObjectURL(a.href);
+          }}
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
+            📝 Journal</button>
+        )}
+        {/* #10: Theme toggle */}
+        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">
+          {theme === 'dark' ? '☀' : '🌙'}</button>
+        {/* Sub-tab buttons removed — now inline above table */}
+        {/* Feature #11: Near-breakout filter */}
+        {nearBreakoutCount > 0 && (
+          <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '>0' }))}
+            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
+            ⚡ {nearBreakoutCount} Near BRK</button>
+        )}
+        {/* Feature #2: Sector heatmap */}
+        {results.length > 0 && (
+          <button onClick={() => setShowHeatMap(v => !v)}
+            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${showHeatMap ? 'bg-purple-900/50 border-purple-600 text-purple-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+            ▦ Sectors</button>
+        )}
+        {/* Feature #6: Failed symbols */}
+        {failedSymbols.length > 0 && (
+          <button onClick={() => setShowFailedPanel(v => !v)}
+            className="px-2.5 py-1 bg-red-900/40 border border-red-700 rounded text-xs font-medium text-red-400 hover:text-red-300 transition-colors">
+            {failedSymbols.length} failed</button>
+        )}
+        {scanning && (
+          <button onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; }}
+            className="px-3 py-1.5 bg-red-900 hover:bg-red-800 border border-red-700 rounded text-xs font-medium text-red-200 transition-colors">Stop</button>
+        )}
+      </div>
+
+      {/* ── Paste box ── */}
+      {showPasteBox && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-3 flex gap-2 items-start">
+          <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+            placeholder="Paste symbols separated by commas, newlines, or semicolons (e.g. RELIANCE.NS, TCS.NS)..."
+            className="flex-1 h-20 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none font-mono placeholder:text-slate-600" />
+          <div className="flex flex-col gap-2">
+            <button onClick={() => { if (pasteSymbols.length > 0) { setShowPasteBox(false); setPasteText(''); runScan(pasteSymbols); } }}
+              disabled={pasteSymbols.length === 0}
+              className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-xs font-medium text-white transition-colors">
+              Scan ({pasteSymbols.length})</button>
+            <button onClick={() => { setShowPasteBox(false); setPasteText(''); }}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Win Rate Tracker (Professional) ── */}
+      {showTracker && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 max-h-72 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Performance Analytics</span>
+            <button onClick={() => setShowTracker(false)} className="text-slate-500 text-xs hover:text-slate-300">close ×</button>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-3">
+            {[
+              { label: 'Win Rate', value: `${winStats.winRate.toFixed(0)}%`, color: winStats.winRate >= 55 ? 'text-emerald-400' : winStats.winRate >= 40 ? 'text-amber-400' : 'text-red-400' },
+              { label: 'Wins', value: String(winStats.hitT1 + winStats.hitT2 + winStats.hitT3), color: 'text-emerald-400' },
+              { label: 'Losses', value: String(winStats.stopped), color: 'text-red-400' },
+              { label: 'Open', value: String(winStats.open), color: 'text-amber-400' },
+              { label: 'Profit Factor', value: winStats.profitFactor > 0 ? winStats.profitFactor.toFixed(1) : '—', color: winStats.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-slate-400' },
+              { label: 'Expectancy', value: winStats.expectancy !== 0 ? `${winStats.expectancy > 0 ? '+' : ''}${winStats.expectancy.toFixed(2)}%` : '—', color: winStats.expectancy > 0 ? 'text-emerald-400' : 'text-red-400' },
+              { label: 'Avg Win', value: winStats.avgWinPct !== 0 ? `+${winStats.avgWinPct.toFixed(1)}%` : '—', color: 'text-emerald-400' },
+              { label: 'Avg Loss', value: winStats.avgLossPct !== 0 ? `${winStats.avgLossPct.toFixed(1)}%` : '—', color: 'text-red-400' },
+              { label: 'Avg Days', value: winStats.avgDaysHeld > 0 ? `${winStats.avgDaysHeld}d` : '—', color: 'text-slate-300' },
+              { label: 'Streak', value: winStats.streakWins > 0 ? `🔥${winStats.streakWins}W` : winStats.streakLosses > 0 ? `❄${winStats.streakLosses}L` : '—', color: winStats.streakWins > 0 ? 'text-green-400' : 'text-red-400' },
+            ].map(kpi => (
+              <div key={kpi.label} className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                <div className="text-xs text-slate-600 leading-none mb-0.5">{kpi.label}</div>
+                <div className={`text-sm font-bold leading-none ${kpi.color}`}>{kpi.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Trade Log Table */}
+          {trackedTrades.length > 0 ? (
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-slate-700 text-slate-500">
+                <th className="px-2 py-1 text-left font-medium">Symbol</th>
+                <th className="px-2 py-1 text-center font-medium">Status</th>
+                <th className="px-2 py-1 text-right font-medium">Entry</th>
+                <th className="px-2 py-1 text-right font-medium">SL</th>
+                <th className="px-2 py-1 text-right font-medium">P&L</th>
+                <th className="px-2 py-1 text-right font-medium">R-Mult</th>
+                <th className="px-2 py-1 text-left font-medium">Date</th>
+                <th className="px-2 py-1 text-right font-medium">Days</th>
+                <th className="px-2 py-1 text-left font-medium">Sector</th>
+                <th className="px-2 py-1 text-center font-medium"></th>
+              </tr></thead>
+              <tbody>
+                {trackedTrades.slice().reverse().map((t, i) => (
+                  <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20">
+                    <td className="px-2 py-1 font-mono text-slate-200">{t.symbol}</td>
+                    <td className="px-2 py-1 text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : t.pnlPct && t.pnlPct > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+                        {t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : t.status === 'hit_t3' ? 'T3' : t.status === 'stopped' ? 'STOP' : t.status === 'expired' ? 'EXP' : 'CLOSE'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
+                    <td className="px-2 py-1 text-right text-red-500 font-mono">₹{t.stopLoss.toFixed(0)}</td>
+                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.pnlPct !== undefined ? (t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
+                      {t.pnlPct !== undefined ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
+                    </td>
+                    <td className={`px-2 py-1 text-right font-mono ${t.pnlR !== undefined ? (t.pnlR >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
+                      {t.pnlR !== undefined ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
+                    </td>
+                    <td className="px-2 py-1 text-slate-500">{t.entryDate}</td>
+                    <td className="px-2 py-1 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
+                    <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
+                    <td className="px-2 py-1 text-center">
+                      <button onClick={() => setTrackedTrades(prev => prev.filter(x => x.symbol !== t.symbol))}
+                        className="text-slate-700 hover:text-red-400">×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-xs text-slate-600 py-3 text-center">No tracked trades yet. Click "📌 Track Trade" on any BUY signal.</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Sessions Panel ── */}
+      {showSessions && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Saved Sessions ({sessions.length}/20)</span>
+            <div className="flex gap-2">
+              <button onClick={() => {
+                const json = exportSessions();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+                a.download = `qtp_sessions_${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+              }} className="text-xs text-slate-500 hover:text-blue-300">Export</button>
+              <button onClick={() => sessionImportRef.current?.click()} className="text-xs text-slate-500 hover:text-blue-300">Import</button>
+              <input ref={sessionImportRef} type="file" accept=".json" className="hidden" onChange={e => {
+                const file = e.target.files?.[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => { const count = importSessions(ev.target?.result as string); setSessions(loadSessions()); alert(`Imported ${count} sessions`); };
+                reader.readAsText(file); e.target.value = '';
+              }} />
+              {sessions.length > 0 && <button onClick={() => { if (confirm('Delete all sessions?')) { deleteAllSessions(); setSessions([]); } }} className="text-xs text-red-500 hover:text-red-300">Clear All</button>}
+              <button onClick={() => setShowSessions(false)} className="text-xs text-slate-500 hover:text-slate-300">close ×</button>
+            </div>
+          </div>
+          {sessions.length === 0 ? (
+            <div className="text-xs text-slate-600 py-2">No saved sessions. Sessions auto-save after each scan.</div>
+          ) : (
+            <div className="space-y-1">
+              {sessions.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2 text-xs bg-slate-800/40 rounded px-2 py-1.5 hover:bg-slate-800/70 transition-colors">
+                  <span className="text-slate-400 w-28 shrink-0">{formatSessionTime(s.timestamp)}</span>
+                  {editingSessionId === s.id ? (
+                    <input autoFocus defaultValue={s.label} className="w-24 px-1 bg-slate-700 border border-blue-600 rounded text-xs text-slate-200 focus:outline-none"
+                      onBlur={e => { renameSession(s.id, e.target.value); setSessions(loadSessions()); setEditingSessionId(null); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { renameSession(s.id, (e.target as HTMLInputElement).value); setSessions(loadSessions()); setEditingSessionId(null); } }} />
+                  ) : (
+                    <span className="text-blue-300 w-24 truncate cursor-pointer hover:text-blue-200 shrink-0" onClick={() => setEditingSessionId(s.id)}
+                      title="Click to rename">{s.label || s.source}</span>
+                  )}
+                  <span className="text-slate-500">{s.totalScanned} stocks</span>
+                  <span className="text-emerald-500 font-semibold">{s.actionableCount} BUY</span>
+                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '4-Set' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
+                  {/* Compare with previous session */}
+                  {i < sessions.length - 1 && (
+                    <button onClick={() => { setSessionDiff(compareSessions(sessions[i + 1], s)); }}
+                      className="text-slate-600 hover:text-cyan-400 transition-colors" title="Compare with previous">⇄</button>
+                  )}
+                  <div className="ml-auto flex gap-1.5">
+                    <button onClick={() => {
+                      // Restore session results — rebuild minimal AnalysisResult from compact
+                      const restored: AnalysisResult[] = s.results.map((c: any) => ({
+                        symbol: c.sym, stage: c.stg, inflectionScore: c.infl, confidence: c.conf, paramSetKey: c.pk,
+                        lastClose: c.cls, lastDate: c.dt, avgTurnover20: 0, atrPct14: 0, atrPct14Pctl120: 0,
+                        volRatio20: 0, rsi2: 50, rsi14: 50, zone: null,
+                        pre10AvgRangeATR: 0, pre10ExpansionCount: 0, pre10AvgVolRatio: 0, pre5AvgVolRatio: 0,
+                        pre10HighVolCount: 0, pre10RedVolBias: 0, exactRangeATR14: 0, exactVolRatio20: 0,
+                        exactVolVsPre5: 0, closeLoc: 0, upperWickPct: 0, bodyPct: 0,
+                        signalRangePct: 0, volatilityExpansionRatio: 0, ultraPrecisionScore: 0, candleQualityScore: 0,
+                        priceEngine: { breakoutLevel: 0, plannedEntry: c.en, gapPct: 0, gapATR: 0, entryMode: 'breakout' as const, entryStatus: 'normal' as const, entryBuffer: 0, efficiencyRatio: 0, tacticalStop: c.sl, tacticalRiskPct: c.rk, stopWeinstein: 0, stopKase: 0, stopElder: 0, stopSignalLow: 0, disasterStop: 0, disasterRiskPct: 0, riskPerShare: c.en - c.sl, target5: c.t1, target7: 0, target10: 0, target3R: 0, t1R: 2, t2R: 3, t3R_mult: 5, rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0, failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0, tradeValid: c.tv },
+                        conditionsMet: 0, totalConditions: 20, checklist: [],
+                        momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: c.ms, rsNifty20: 1.0 },
+                        nearBreakoutPct: c.nb ? 1 : 99, nearBreakout: c.nb,
+                        stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: c.ss },
+                        clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
+                      }));
+                      setResults(restored); setShowSessions(false);
+                    }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
+                    <button onClick={() => { deleteSession(s.id); setSessions(loadSessions()); }}
+                      className="px-1.5 py-0.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded text-red-400 text-xs">×</button>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-              <span className="text-slate-200 font-semibold">{results.length}</span> stocks scanned ·
-              <span className="text-emerald-300 font-semibold">{results.filter((r) => r.clusters_passed > 0).length}</span> with ≥1 cluster ·
-              <span className="text-yellow-300 font-semibold">{results.filter((r) => r.clusters_passed === 4).length}</span> hit all 4
+          )}
+          {/* Session Diff */}
+          {sessionDiff && (
+            <div className="mt-2 pt-2 border-t border-slate-700 text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-cyan-400 font-semibold">Session Comparison</span>
+                <button onClick={() => setSessionDiff(null)} className="text-slate-600 hover:text-slate-300">×</button>
+              </div>
+              <div className="flex gap-4 flex-wrap">
+                {sessionDiff.newSignals.length > 0 && <span className="text-emerald-400">🆕 New BUY: {sessionDiff.newSignals.join(', ')}</span>}
+                {sessionDiff.droppedSignals.length > 0 && <span className="text-red-400">❌ Dropped: {sessionDiff.droppedSignals.join(', ')}</span>}
+                {sessionDiff.upgraded.length > 0 && <span className="text-cyan-400">⬆ Upgraded: {sessionDiff.upgraded.map(u => `${u.sym}`).join(', ')}</span>}
+                {sessionDiff.downgraded.length > 0 && <span className="text-amber-400">⬇ Downgraded: {sessionDiff.downgraded.map(d => `${d.sym}`).join(', ')}</span>}
+                {sessionDiff.newSignals.length === 0 && sessionDiff.upgraded.length === 0 && sessionDiff.droppedSignals.length === 0 && sessionDiff.downgraded.length === 0 && <span className="text-slate-500">No changes between sessions</span>}
+              </div>
             </div>
-          </section>
-        )}
+          )}
+        </div>
+      )}
 
-        {results.length > 0 && (
-          <section>
-            <h2 className="text-slate-300 font-semibold text-sm uppercase tracking-widest mb-3">
-              Step 2 · Results
-            </h2>
-            <ScreenerTable results={results} />
-          </section>
-        )}
+      {/* ── Watchlist (#2) ── */}
+      {showWatchlist && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 max-h-48 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">Watchlist ({watchlist.length})</span>
+            <button onClick={() => setShowWatchlist(false)} className="text-slate-500 text-xs hover:text-slate-300">close ×</button>
+          </div>
+          {watchlist.length === 0 ? (
+            <div className="text-xs text-slate-600 py-1">Click ⭐ on a stock in the detail panel to add to watchlist</div>
+          ) : (
+            <div className="space-y-1">
+              {watchlist.map((w, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs bg-slate-800/40 rounded px-2 py-1">
+                  <span className="font-mono text-slate-200 w-28 truncate cursor-pointer hover:text-indigo-400" onClick={() => setSelectedSymbol(w.symbol)}>{w.symbol}</span>
+                  <span className="text-slate-500">₹{w.lastClose.toFixed(0)}</span>
+                  <span className={`${STAGE_CONFIG[w.stage]?.color ?? 'text-slate-500'}`}>{STAGE_CONFIG[w.stage]?.label ?? w.stage}</span>
+                  {(() => {
+                    const isTracked = trackedTrades.some(t => t.symbol === w.symbol);
+                    const matchedResult = results.find(r => r.symbol === w.symbol);
+                    return isTracked ? (
+                      <span className="text-emerald-400 text-[10px] px-1.5 py-0.5 bg-emerald-900/30 rounded">✓ Tracked</span>
+                    ) : matchedResult ? (
+                      <button onClick={() => trackTrade(matchedResult)}
+                        className="text-[10px] px-1.5 py-0.5 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-emerald-300 transition-colors">📌 Track</button>
+                    ) : (
+                      <span className="text-[10px] text-slate-600 px-1.5" title="Run a scan that includes this stock to enable tracking">scan first</span>
+                    );
+                  })()}
+                  <input value={w.note} onChange={e => {
+                    const updated = [...watchlist]; updated[i] = { ...w, note: e.target.value }; setWatchlist(updated); saveWatchlist(updated);
+                  }} placeholder="Add note..." className="flex-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-amber-600 min-w-0" />
+                  <button onClick={() => { const updated = watchlist.filter((_, j) => j !== i); setWatchlist(updated); saveWatchlist(updated); }}
+                    className="text-slate-700 hover:text-red-400">×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-        {!loading && results.length === 0 && total > 0 && (
-          <div className="text-center py-16 text-slate-500">
-            No results returned. Check that your symbols are valid Yahoo Finance tickers (e.g. RELIANCE.NS).
+      {/* ── Sector Heat Map (Feature #2) ── */}
+      {showHeatMap && Object.keys(sectorHeatData).length > 0 && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 max-h-48 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-purple-400 font-semibold uppercase tracking-wider">Sector Signal Density</span>
+            <button onClick={() => setShowHeatMap(false)} className="text-slate-500 text-xs hover:text-slate-300">close ×</button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
+            {Object.entries(sectorHeatData).sort((a, b) => {
+              const actionableA = (a[1]['BUY'] ?? 0) + (a[1]['STRONG_BUY'] ?? 0) + (a[1]['ULTRA_STRONG_BUY'] ?? 0) + (a[1]['PRE_BREAKOUT'] ?? 0);
+              const actionableB = (b[1]['BUY'] ?? 0) + (b[1]['STRONG_BUY'] ?? 0) + (b[1]['ULTRA_STRONG_BUY'] ?? 0) + (b[1]['PRE_BREAKOUT'] ?? 0);
+              return actionableB - actionableA;
+            }).map(([sector, counts]) => {
+              const buy = (counts['BUY'] ?? 0) + (counts['STRONG_BUY'] ?? 0) + (counts['ULTRA_STRONG_BUY'] ?? 0);
+              const pre = counts['PRE_BREAKOUT'] ?? 0;
+              const total = Object.values(counts).reduce((s, v) => s + v, 0);
+              const intensity = buy > 2 ? 'bg-emerald-900/40 border-emerald-700' : buy > 0 ? 'bg-emerald-900/20 border-emerald-800' : pre > 2 ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-800/40 border-slate-700';
+              return (
+                <div key={sector} className={`rounded border px-2 py-1.5 ${intensity}`}>
+                  <div className="text-xs text-slate-300 font-medium truncate">{sector}</div>
+                  <div className="flex gap-2 mt-0.5 text-xs">
+                    {buy > 0 && <span className="text-emerald-400">{buy} BUY</span>}
+                    {pre > 0 && <span className="text-blue-300">{pre} PRE</span>}
+                    <span className="text-slate-600 ml-auto">{total}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Risk Sizer (Feature #7) ── */}
+      {showRiskSizer && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Position Sizer</span>
+            <div className="flex items-center gap-1 text-xs">
+              <span className="text-slate-500">Account ₹:</span>
+              <input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)}
+                className="w-24 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-emerald-500" />
+            </div>
+            <span className="text-xs text-slate-600">Max risk per trade: 1%</span>
+            <button onClick={() => setShowRiskSizer(false)} className="ml-auto text-slate-500 text-xs hover:text-slate-300">close ×</button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+            {filteredResults.filter(r => r.priceEngine.tradeValid).map(r => {
+              const riskPerShare = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
+              const maxRisk = accountSize * 0.01;
+              const shares = riskPerShare > 0 ? Math.floor(maxRisk / riskPerShare) : 0;
+              const position = shares * r.priceEngine.plannedEntry;
+              return (
+                <div key={r.symbol} className="bg-slate-800/60 rounded px-2 py-1.5 text-xs flex items-center gap-2">
+                  <span className="text-slate-200 font-mono font-medium w-24 truncate">{r.symbol}</span>
+                  <span className="text-emerald-400">{shares} shares</span>
+                  <span className="text-slate-500">₹{(position/100000).toFixed(1)}L</span>
+                  <span className="text-red-400 ml-auto">risk ₹{maxRisk > riskPerShare * shares ? (riskPerShare * shares).toFixed(0) : maxRisk.toFixed(0)}</span>
+                </div>
+              );
+            })}
+            {filteredResults.filter(r => r.priceEngine.tradeValid).length === 0 && (
+              <div className="text-xs text-slate-600 col-span-full">No valid trades to size</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Failed symbols panel (Feature #6) ── */}
+      {showFailedPanel && failedSymbols.length > 0 && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-red-950/20 px-4 py-2 max-h-32 overflow-y-auto">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-red-400 font-semibold">{failedSymbols.length} symbols failed to fetch:</span>
+            <button onClick={() => setShowFailedPanel(false)} className="text-red-500 text-xs hover:text-red-300">close ×</button>
+          </div>
+          <div className="space-y-0.5">
+            {failedSymbols.map((f, i) => (
+              <div key={i} className="text-xs flex gap-2">
+                <span className="text-red-400 font-mono shrink-0">{f.sym}</span>
+                <span className="text-red-600 truncate">{f.err}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Progress ── */}
+      {scanning && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2">
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+            <span>Scanning {progress} / {total} stocks…{progress > 3 && (() => {
+              const elapsed = (Date.now() - scanStartTime) / 1000;
+              const perStock = elapsed / progress;
+              const remaining = Math.round(perStock * (total - progress));
+              return remaining > 5 ? ` ~${remaining < 60 ? `${remaining}s` : `${Math.round(remaining / 60)}m ${remaining % 60}s`} left` : '';
+            })()}</span>
+            {errCount > 0 && <span className="text-amber-400 truncate ml-4">{errCount} errors · {lastErr}</span>}
+          </div>
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-200"
+              style={{ width: total > 0 ? `${(progress / total) * 100}%` : '0%' }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Stage filter chips + per-stage exports ── */}
+      {results.length > 0 && (
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2 space-y-2">
+          {/* Filter chips row */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <button onClick={() => setStageFilter('ALL')}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${stageFilter === 'ALL' ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+              All ({stageCounts['ALL'] ?? 0})</button>
+            {ALL_STAGES.map(stage => {
+              const count = stageCounts[stage] ?? 0;
+              if (count === 0) return null;
+              const cfg = STAGE_CONFIG[stage];
+              const active = stageFilter === stage;
+              return (
+                <button key={stage} onClick={(e) => {
+                    if (e.shiftKey) {
+                      setStageFilter('ALL');
+                      setMultiStageFilter(prev => { const next = new Set(prev); if (next.has(stage)) next.delete(stage); else next.add(stage); return next; });
+                    } else { setStageFilter(stage); setMultiStageFilter(new Set()); }
+                  }}
+                  style={active ? { borderColor: cfg.textColor, color: cfg.textColor } : {}}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-slate-800' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                  {cfg.label} ({count})</button>
+              );
+            })}
+            {filteredResults.length !== results.length && (
+              <span className="ml-auto text-xs text-slate-500">{filteredResults.length} of {results.length} shown</span>
+            )}
+          </div>
+
+          {/* #7: Scan stats summary */}
+          {scanStats.actionable > 0 && (
+            <div className="flex gap-3 flex-wrap items-center text-xs text-slate-500 py-1 border-t border-slate-800/50 mt-1 pt-1">
+              <span>📊</span>
+              <span>Avg Conf: <b className="text-slate-300">{scanStats.avgConfidence.toFixed(0)}%</b></span>
+              {scanStats.avgRisk > 0 && <span>Avg Risk: <b className="text-slate-300">{scanStats.avgRisk.toFixed(1)}%</b></span>}
+              {scanStats.bestRR && <span>Best R:R: <b className="text-emerald-400">{scanStats.bestRR.symbol}</b> ({scanStats.bestRR.rr.toFixed(1)})</span>}
+              {scanStats.highestConviction && <span>Top Conv: <b className="text-yellow-300">{scanStats.highestConviction.symbol}</b> ({scanStats.highestConviction.conv})</span>}
+              {multiStageFilter.size > 0 && <span className="text-cyan-500">Multi-filter: {multiStageFilter.size} stages (Shift+click)</span>}
+            </div>
+          )}
+
+          {/* Per-stage export row */}
+          <div className="flex gap-x-4 gap-y-1.5 flex-wrap items-center">
+            <span className="text-xs text-slate-600 font-medium shrink-0">Export by stage:</span>
+            {ALL_STAGES.map(stage => {
+              const stageRows = results.filter(r => r.stage === stage);
+              if (stageRows.length === 0) return null;
+              const cfg = STAGE_CONFIG[stage];
+              const shortName = stage.replace(/_/g, '-').toLowerCase();
+              const paramName = PARAM_SETS[paramSetKey].name.replace(/\s+/g, '_');
+              return (
+                <div key={stage} className="flex items-center gap-1">
+                  <span className="text-xs shrink-0" style={{ color: cfg.textColor }}>
+                    {cfg.label} ({stageRows.length})
+                  </span>
+                  <button
+                    onClick={() => exportGroupCSV(stageRows, COLUMNS, `QTP_${paramName}_${shortName}.csv`)}
+                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">CSV</button>
+                  <button
+                    onClick={() => exportGroupXLSX(stageRows, COLUMNS, `QTP_${paramName}_${shortName}.xlsx`)}
+                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">XLSX</button>
+                  <button
+                    onClick={() => exportGroupPDF(stageRows, COLUMNS, `${cfg.label} — ${PARAM_SETS[paramSetKey].name}`, `QTP_${paramName}_${shortName}.pdf`)}
+                    className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors">PDF</button>
+                </div>
+              );
+            })}
+            {/* Also export full results */}
+            <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-700">
+              <span className="text-xs text-slate-500 shrink-0">All results:</span>
+              <button onClick={() => exportGroupCSV(results, COLUMNS, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.csv`)}
+                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">CSV</button>
+              <button onClick={() => exportGroupXLSX(results, COLUMNS, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.xlsx`)}
+                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">XLSX</button>
+              <button onClick={() => exportGroupPDF(results, COLUMNS, `All Results — ${PARAM_SETS[paramSetKey].name}`, `QTP_${PARAM_SETS[paramSetKey].name.replace(/\s+/g,'_')}_all.pdf`)}
+                className="px-1.5 py-0.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">PDF</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab Bar ── */}
+      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 flex gap-0">
+        {([
+          ['scanner', '📊 Scanner'],
+          ['performance', '📈 Performance'],
+          ['tradedesk', '🎯 Trade Desk'],
+          ['journal', '📝 Journal'],
+          ['focus', '⚡ Focus'],
+          ['validation', '🔬 Validation'],
+        ] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === key ? 'border-indigo-400 text-indigo-300 bg-slate-800/30' : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'}`}>
+            {label}
+          </button>
+        ))}
+        {/* Scan favorites */}
+        {favorites.length > 0 && activeTab === 'scanner' && (
+          <div className="ml-auto flex gap-1 items-center">
+            {favorites.map(f => (
+              <button key={f.id} onClick={() => { setScanSource(f.source); runScan([...f.symbols]); }}
+                className="px-2 py-1 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors"
+                title={`${f.symbols.length} stocks · ${f.paramSet}`}>▶ {f.name}</button>
+            ))}
           </div>
         )}
+        {/* Save current scan as favorite */}
+        {activeTab === 'scanner' && lastScanSymbols.length > 0 && (
+          <button onClick={() => {
+            const name = prompt('Name this scan favorite:', scanSource);
+            if (name) {
+              const fav: ScanFavorite = { id: Date.now().toString(36), name, source: scanSource, symbols: lastScanSymbols, paramSet: scanAll ? 'ALL4' : paramSetKey };
+              const updated = [...favorites, fav]; setFavorites(updated); saveFavorites(updated);
+            }
+          }}
+            className="ml-2 px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-500 hover:text-slate-300 transition-colors">
+            + Save Favorite</button>
+        )}
       </div>
+
+      {/* ── Main content ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── Performance Tab ── */}
+        {activeTab === 'performance' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">📈 Performance Dashboard</h2>
+
+            {/* Equity Curve */}
+            {trackedTrades.length > 0 ? (() => {
+              const curve = buildEquityCurve(trackedTrades);
+              const reports = generateMonthlyReports(trackedTrades);
+              if (curve.length < 2) return <div className="text-xs text-slate-600">Need at least 2 closed trades to show equity curve</div>;
+              const maxEq = Math.max(...curve.map(p => p.equity));
+              const minEq = Math.min(...curve.map(p => p.equity));
+              const range = maxEq - minEq || 1;
+              return (
+                <>
+                  <div className="bg-slate-800/40 rounded-lg p-3">
+                    <div className="text-xs text-slate-500 font-semibold mb-2">Equity Curve ({curve.length - 1} trades)</div>
+                    <svg viewBox={`0 0 600 120`} className="w-full h-28">
+                      <rect width="600" height="120" fill="#0d1117" rx="4" />
+                      {/* Grid */}
+                      <line x1="0" y1="60" x2="600" y2="60" stroke="#1e293b" strokeWidth="0.5" />
+                      {/* Curve */}
+                      <polyline fill="none" stroke="#34d399" strokeWidth="2" points={
+                        curve.map((p, i) => `${(i / (curve.length - 1)) * 580 + 10},${110 - ((p.equity - minEq) / range) * 100}`).join(' ')
+                      } />
+                      {/* Starting capital line */}
+                      <line x1="0" y1={110 - ((curve[0].equity - minEq) / range) * 100} x2="600" y2={110 - ((curve[0].equity - minEq) / range) * 100} stroke="#64748b" strokeWidth="0.5" strokeDasharray="4,4" />
+                      <text x="590" y="15" textAnchor="end" fill="#34d399" fontSize="10">₹{(curve[curve.length - 1].equity / 100000).toFixed(1)}L</text>
+                      <text x="10" y="15" fill="#64748b" fontSize="10">Start: ₹{(curve[0].equity / 100000).toFixed(1)}L</text>
+                    </svg>
+                  </div>
+
+                  {/* Monthly Reports */}
+                  {reports.length > 0 && (
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-xs text-slate-500 font-semibold mb-2">Monthly Report Card</div>
+                      <div className="space-y-1">
+                        {reports.map(r => (
+                          <div key={r.month} className="flex items-center gap-3 text-xs bg-slate-900/40 rounded px-2 py-1.5">
+                            <span className="text-slate-300 font-medium w-16">{r.month}</span>
+                            <span className="text-slate-400">{r.trades} trades</span>
+                            <span className={r.winRate >= 60 ? 'text-emerald-400 font-semibold' : r.winRate >= 45 ? 'text-slate-300' : 'text-red-400'}>{r.winRate.toFixed(0)}% WR</span>
+                            <span className={r.grossPnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{r.grossPnlPct >= 0 ? '+' : ''}{r.grossPnlPct.toFixed(1)}%</span>
+                            {r.bestTrade && <span className="text-slate-500">Best: {r.bestTrade.symbol} +{r.bestTrade.pnl.toFixed(1)}%</span>}
+                            {r.maxDrawdown > 0 && <span className="text-red-500 ml-auto">DD: -{r.maxDrawdown.toFixed(1)}%</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })() : (
+              <div className="text-sm text-slate-600 py-8 text-center">
+                <div className="text-3xl mb-2">📈</div>
+                Track trades to see your equity curve and monthly performance.
+                <br />Click "📌 Track Trade" on any BUY signal to start.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Trade Desk Tab ── */}
+        {activeTab === 'tradedesk' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+
+            {/* Quick Entry Calculator — proper table */}
+            <div className="bg-slate-800/30 rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-slate-800/50 flex items-center justify-between">
+                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Quick Entry Calculator</span>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-slate-500">Account:</span>
+                  <input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)}
+                    className="w-24 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-indigo-500 text-right" />
+                  {marketRegime && <span className={marketRegime.regime === 'bull' ? 'text-green-400' : marketRegime.regime === 'bear' ? 'text-red-400' : 'text-yellow-400'}>{marketRegime.emoji} ×{marketRegime.sizingMultiplier}</span>}
+                </div>
+              </div>
+              {filteredResults.filter(r => r.priceEngine.tradeValid).length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-500">
+                      <th className="px-3 py-1.5 text-left font-medium">Symbol</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Stage</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Entry ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Stop ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Risk/Sh</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Qty</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Capital ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Max Risk ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium">T1 ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium">R:R</th>
+                      <th className="px-2 py-1.5 text-left font-medium">Verdict</th>
+                      <th className="px-2 py-1.5 text-center font-medium">Conv</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredResults.filter(r => r.priceEngine.tradeValid).map(r => {
+                      const risk = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
+                      const regimeMult = marketRegime?.sizingMultiplier ?? 1;
+                      const qty = risk > 0 ? Math.floor((accountSize * regimeMult * 0.01) / risk) : 0;
+                      const capital = qty * r.priceEngine.plannedEntry;
+                      const maxRisk = qty * risk;
+                      return (
+                        <tr key={r.symbol} className="border-b border-slate-800/40 hover:bg-slate-800/30">
+                          <td className="px-3 py-1.5 font-mono text-slate-200 font-medium">{r.symbol}</td>
+                          <td className={`px-2 py-1.5 font-semibold ${STAGE_CONFIG[r.stage].color}`}>{STAGE_CONFIG[r.stage].label}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-200 font-mono">₹{r.priceEngine.plannedEntry.toFixed(2)}</td>
+                          <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{r.priceEngine.tacticalStop.toFixed(2)}</td>
+                          <td className="px-2 py-1.5 text-right text-amber-400 font-mono">₹{risk.toFixed(2)}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-400 font-mono font-bold">{qty}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{(capital / 1000).toFixed(0)}K</td>
+                          <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{maxRisk.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-300 font-mono">₹{r.priceEngine.target5.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 2.0 ? 'text-yellow-300' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300/70' : 'text-red-500'}`}>{r.priceEngine.rewardRisk >= 3.5 ? 'Elite' : r.priceEngine.rewardRisk >= 2.5 ? 'Very Good' : r.priceEngine.rewardRisk >= 2.0 ? 'Good' : r.priceEngine.rewardRisk >= 1.5 ? 'Acceptable' : 'Rejected'}</td>
+                          <td className={`px-2 py-1.5 text-center font-semibold ${computeConviction(r) >= 60 ? 'text-yellow-300' : 'text-slate-400'}`}>{computeConviction(r)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-xs text-slate-600 py-6 text-center">No valid trades. Run a scan first.</div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Trade Rules Checklist */}
+              <div className="bg-slate-800/30 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-slate-800/50">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Pre-Trade Checklist</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {DEFAULT_RULES.map(rule => {
+                    const checked = rulesChecked.has(rule.id);
+                    return (
+                      <label key={rule.id} className="flex items-center gap-2.5 text-xs cursor-pointer py-0.5">
+                        <input type="checkbox" checked={checked} onChange={() => {
+                          setRulesChecked(prev => { const next = new Set(prev); if (next.has(rule.id)) next.delete(rule.id); else next.add(rule.id); return next; });
+                        }} className="rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-0 w-3.5 h-3.5" />
+                        <span className={checked ? 'text-emerald-400' : 'text-slate-400'}>{rule.label}</span>
+                      </label>
+                    );
+                  })}
+                  <div className="pt-2 border-t border-slate-700">
+                    {rulesChecked.size === DEFAULT_RULES.length ? (
+                      <span className="text-emerald-400 font-semibold text-xs">✓ All rules passed — clear to trade</span>
+                    ) : (
+                      <span className="text-amber-400 text-xs">{rulesChecked.size}/{DEFAULT_RULES.length} checked</span>
+                    )}
+                    {rulesChecked.size > 0 && <button onClick={() => setRulesChecked(new Set())} className="ml-3 text-slate-600 hover:text-slate-400 text-xs">Reset</button>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Open Positions */}
+              <div className="bg-slate-800/30 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-slate-800/50">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Open Positions ({trackedTrades.filter(t => t.status === 'open').length})</span>
+                  {trackedTrades.length > 0 && (
+                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); } catch {} } }}
+                      className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
+                  )}
+                </div>
+                {trackedTrades.filter(t => t.status === 'open').length > 0 ? (
+                  <table className="w-full text-xs">
+                    <thead><tr className="border-b border-slate-700 text-slate-500">
+                      <th className="px-3 py-1 text-left font-medium">Symbol</th>
+                      <th className="px-2 py-1 text-right font-medium">Entry</th>
+                      <th className="px-2 py-1 text-right font-medium">SL</th>
+                      <th className="px-2 py-1 text-right font-medium">T1</th>
+                      <th className="px-2 py-1 text-left font-medium">Date</th>
+                      <th className="px-2 py-1 text-left font-medium">Sector</th>
+                      <th className="px-2 py-1 text-right font-medium" title="Maximum Favorable Excursion %">MFE%</th>
+                      <th className="px-2 py-1 text-right font-medium" title="MFE in R-multiples">MFE-R</th>
+                      <th className="px-2 py-1 text-right font-medium" title="Maximum Adverse Excursion %">MAE%</th>
+                      <th className="px-2 py-1 text-right font-medium" title="MAE in R-multiples">MAE-R</th>
+                      <th className="px-2 py-1 text-right font-medium">Days</th>
+                      <th className="px-2 py-1 text-right font-medium">CMP</th>
+                      <th className="px-2 py-1 text-right font-medium">P&L%</th>
+                      <th className="px-2 py-1 text-center font-medium">Status</th>
+                      <th className="px-1 py-1 text-center font-medium w-8"></th>
+                    </tr></thead>
+                    <tbody>
+                      {trackedTrades.filter(t => t.status === 'open').map((t, i) => {
+                        const riskPerShare = t.entryPrice - t.stopLoss;
+                        const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
+                        const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
+                        const maePct = t.currentPrice && t.entryPrice > 0 ? Math.min(0, ((Math.min(t.currentPrice, t.entryPrice) - t.entryPrice) / t.entryPrice) * 100) : 0;
+                        const maeR = riskPerShare > 0 ? maePct / 100 * t.entryPrice / riskPerShare : 0;
+                        const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
+                        const daysLeft = 10 - (t.daysHeld ?? 0);
+                        return (
+                        <tr key={i} className="border-b border-slate-800/40 group">
+                          <td className="px-3 py-1.5 font-mono text-slate-200">{t.symbol}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{t.stopLoss.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-400 font-mono">₹{t.target1.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
+                          <td className="px-2 py-1.5 text-slate-600">{t.sector || '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(1)}R` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`} title={daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 8 ? ' ⏳' : ''}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.currentPrice ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(1)}%` : '—'}</td>
+                          <td className="px-2 py-1.5 text-center"><span className="bg-blue-900/40 text-blue-300 text-[10px] px-1.5 py-0.5 rounded font-medium">OPEN</span></td>
+                          <td className="px-1 py-1.5 text-center">
+                            <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-xs text-slate-600 py-4 text-center">No open positions</div>
+                )}
+              </div>
+            </div>
+
+            {/* Closed / Auto-Validated Trades */}
+            {trackedTrades.filter(t => t.status !== 'open').length > 0 && (
+              <div className="bg-slate-800/40 rounded-lg p-3">
+                <div className="flex items-center mb-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Closed Trades ({trackedTrades.filter(t => t.status !== 'open').length})</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead><tr className="border-b border-slate-700 text-slate-500">
+                      <th className="px-3 py-1 text-left font-medium">Symbol</th>
+                      <th className="px-2 py-1 text-right font-medium">Entry</th>
+                      <th className="px-2 py-1 text-right font-medium">Exit</th>
+                      <th className="px-2 py-1 text-right font-medium">P&L%</th>
+                      <th className="px-2 py-1 text-right font-medium">P&L R</th>
+                      <th className="px-2 py-1 text-right font-medium">MFE%</th>
+                      <th className="px-2 py-1 text-right font-medium">MFE-R</th>
+                      <th className="px-2 py-1 text-right font-medium">MAE%</th>
+                      <th className="px-2 py-1 text-right font-medium">MAE-R</th>
+                      <th className="px-2 py-1 text-right font-medium">Days</th>
+                      <th className="px-2 py-1 text-center font-medium">Outcome</th>
+                      <th className="px-1 py-1 text-center font-medium w-8"></th>
+                    </tr></thead>
+                    <tbody>
+                      {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
+                        const riskPerShare = t.entryPrice - t.stopLoss;
+                        const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
+                        const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
+                        const maePct = t.pnlPct && t.pnlPct < 0 ? t.pnlPct : 0;
+                        const maeR = riskPerShare > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / riskPerShare : 0;
+                        const statusCfg: Record<string, { label: string; color: string }> = {
+                          hit_t1: { label: '✓ T1 Hit', color: 'bg-emerald-900/40 text-emerald-300' },
+                          hit_t2: { label: '✓ T2 Hit', color: 'bg-emerald-900/40 text-emerald-200' },
+                          hit_t3: { label: '✓ T3 Hit', color: 'bg-yellow-900/40 text-yellow-300' },
+                          stopped: { label: '✗ Stopped', color: 'bg-red-900/40 text-red-300' },
+                          expired: { label: '⏳ Expired', color: 'bg-amber-900/40 text-amber-300' },
+                          manual_close: { label: '◉ Manual', color: 'bg-slate-700/40 text-slate-300' },
+                        };
+                        const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
+                        return (
+                          <tr key={i} className="border-b border-slate-800/40 group">
+                            <td className="px-3 py-1.5 font-mono text-slate-300">{t.symbol}</td>
+                            <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
+                            <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono font-semibold ${(t.pnlPct ?? 0) > 0 ? 'text-emerald-400' : (t.pnlPct ?? 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.pnlPct != null ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono ${(t.pnlR ?? 0) > 0 ? 'text-emerald-300' : (t.pnlR ?? 0) < 0 ? 'text-red-300' : 'text-slate-500'}`}>{t.pnlR != null ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(1)}R` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
+                            <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span></td>
+                            <td className="px-1 py-1.5 text-center">
+                              <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Desktop Notifications */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold mb-2">Desktop Notifications</div>
+              <button onClick={() => {
+                if ('Notification' in window) {
+                  Notification.requestPermission().then(p => { if (p === 'granted') new Notification('QTP Notifications Enabled', { body: 'You will be alerted on new BUY signals' }); });
+                }
+              }} className="px-3 py-1.5 bg-indigo-900/40 hover:bg-indigo-900/60 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors">
+                Enable Push Notifications</button>
+              <span className="text-xs text-slate-600 ml-2">Alerts on new BUY signals during auto-refresh</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Journal Tab ── */}
+        {activeTab === 'journal' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">📝 Trade Journal</h2>
+
+            {/* Add Review */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold mb-2">Post-Trade Review</div>
+              {trackedTrades.filter(t => t.status !== 'open').slice(-5).reverse().map((t, i) => {
+                const existing = reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate);
+                return (
+                  <div key={i} className="flex items-start gap-2 text-xs bg-slate-900/40 rounded px-2 py-1.5 mb-1">
+                    <span className="font-mono text-slate-200 w-24 shrink-0">{t.symbol}</span>
+                    <span className={t.pnlPct && t.pnlPct >= 0 ? 'text-emerald-400 w-14 shrink-0' : 'text-red-400 w-14 shrink-0'}>{t.pnlPct ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}</span>
+                    <span className="text-slate-500 w-20 shrink-0">{t.closedDate ?? ''}</span>
+                    {existing ? (
+                      <span className="text-slate-400 flex-1 truncate" title={existing.lessons}>{existing.lessons || existing.notes}</span>
+                    ) : (
+                      <button onClick={() => {
+                        const notes = prompt(`What happened with ${t.symbol}? What did you learn?`);
+                        if (notes) {
+                          const review: TradeReview = { symbol: t.symbol, date: t.closedDate ?? '', outcome: t.status, pnlPct: t.pnlPct ?? 0, notes: '', lessons: notes };
+                          const updated = [...reviews, review]; setReviews(updated); saveReviews(updated);
+                        }
+                      }} className="text-amber-500 hover:text-amber-300">+ Add review</button>
+                    )}
+                  </div>
+                );
+              })}
+              {trackedTrades.filter(t => t.status !== 'open').length === 0 && (
+                <div className="text-xs text-slate-600 py-2">No closed trades to review yet</div>
+              )}
+            </div>
+
+            {/* Review History */}
+            {reviews.length > 0 && (
+              <div className="bg-slate-800/40 rounded-lg p-3">
+                <div className="text-xs text-slate-500 font-semibold mb-2">Lessons Learned ({reviews.length})</div>
+                <div className="space-y-1.5">
+                  {reviews.slice().reverse().map((r, i) => (
+                    <div key={i} className="text-xs bg-slate-900/40 rounded px-2 py-1.5">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-mono text-slate-300">{r.symbol}</span>
+                        <span className={r.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct.toFixed(1)}%</span>
+                        <span className="text-slate-600">{r.date}</span>
+                      </div>
+                      <div className="text-slate-400 leading-relaxed">{r.lessons}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trade Timeline */}
+            <div className="bg-slate-800/40 rounded-lg p-3">
+              <div className="text-xs text-slate-500 font-semibold mb-2">Trade History Timeline</div>
+              <div className="space-y-1">
+                {trackedTrades.slice().reverse().map((t, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${t.status === 'open' ? 'bg-amber-400' : t.pnlPct && t.pnlPct > 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                    <span className="text-slate-500 w-20">{t.entryDate}</span>
+                    <span className="font-mono text-slate-300 w-24 truncate">{t.symbol}</span>
+                    <span className="text-slate-600">{t.status}</span>
+                    {t.pnlPct !== undefined && <span className={t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span>}
+                    {t.daysHeld !== undefined && <span className="text-slate-600">{t.daysHeld}d</span>}
+                  </div>
+                ))}
+                {trackedTrades.length === 0 && <div className="text-xs text-slate-600 py-2">No trades tracked yet</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Trade Auto Validation Tab ── */}
+        {activeTab === 'validation' && (
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* Summary Cards */}
+            {(() => {
+              const all = trackedTrades;
+              const open = all.filter(t => t.status === 'open');
+              const closed = all.filter(t => t.status !== 'open');
+              const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
+              const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+              const hitT1 = closed.filter(t => t.status === 'hit_t1');
+              const hitT2 = closed.filter(t => t.status === 'hit_t2');
+              const hitT3 = closed.filter(t => t.status === 'hit_t3');
+              const stopped = closed.filter(t => t.status === 'stopped');
+              const expired = closed.filter(t => t.status === 'expired');
+
+              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + (t.pnlR ?? 0), 0) / wins.length : 0;
+              const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlR ?? 0), 0) / losses.length : 0;
+              const avgDays = closed.length > 0 ? closed.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / closed.length : 0;
+              const avgDaysWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / wins.length : 0;
+
+              const riskTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0);
+              const avgMfeR = riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).length > 0
+                ? riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).reduce((s, t) => s + (t.highestPrice! - t.entryPrice) / (t.entryPrice - t.stopLoss), 0) / riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).length : 0;
+              const avgMaeR = losses.filter(t => t.entryPrice - t.stopLoss > 0).length > 0
+                ? losses.filter(t => t.entryPrice - t.stopLoss > 0).reduce((s, t) => s + ((t.pnlPct ?? 0) / 100 * t.entryPrice) / (t.entryPrice - t.stopLoss), 0) / losses.filter(t => t.entryPrice - t.stopLoss > 0).length : 0;
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🔬 Trade Auto Validation</h2>
+                    <span className="text-xs text-slate-600">Level 3: Bar-by-bar sequential · Stop checked before target · 10-day expiry</span>
+                  </div>
+
+                  {/* KPI Row */}
+                  <div className="grid grid-cols-6 gap-2">
+                    {[
+                      { label: 'Total Trades', value: String(all.length), sub: `${open.length} open · ${closed.length} closed`, color: 'text-slate-200' },
+                      { label: 'Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length}W / ${losses.length}L`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
+                      { label: 'Avg Win R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `Avg Loss: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
+                      { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Best price in R', color: 'text-emerald-300' },
+                      { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Worst drawdown in R', color: 'text-red-300' },
+                      { label: 'Avg Days', value: avgDays > 0 ? `${avgDays.toFixed(1)}d` : '—', sub: avgDaysWin > 0 ? `Winners: ${avgDaysWin.toFixed(1)}d` : '', color: 'text-slate-300' },
+                    ].map((kpi, i) => (
+                      <div key={i} className="bg-slate-800/40 rounded-lg px-3 py-2 text-center">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">{kpi.label}</div>
+                        <div className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</div>
+                        <div className="text-[10px] text-slate-600">{kpi.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Outcome Breakdown */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {[
+                      { label: 'T1 Hit', count: hitT1.length, color: 'bg-emerald-900/30 border-emerald-800 text-emerald-400' },
+                      { label: 'T2 Hit', count: hitT2.length, color: 'bg-emerald-900/30 border-emerald-800 text-emerald-300' },
+                      { label: 'T3 Hit', count: hitT3.length, color: 'bg-yellow-900/30 border-yellow-800 text-yellow-300' },
+                      { label: 'Stopped', count: stopped.length, color: 'bg-red-900/30 border-red-800 text-red-400' },
+                      { label: 'Expired', count: expired.length, color: 'bg-amber-900/30 border-amber-800 text-amber-400' },
+                    ].map((o, i) => (
+                      <div key={i} className={`rounded-lg border px-3 py-2 text-center ${o.color}`}>
+                        <div className="text-2xl font-bold">{o.count}</div>
+                        <div className="text-[10px] uppercase tracking-wider opacity-70">{o.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Rolling Stats Comparison */}
+                  <div className="bg-slate-800/40 rounded-lg p-3">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Rolling Performance</div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        computeRollingStats(trackedTrades, 10, 'Last 10'),
+                        computeRollingStats(trackedTrades, 20, 'Last 20'),
+                        computeRollingStats(trackedTrades, 999, 'All Time'),
+                      ].filter(s => s.total > 0).map(s => {
+                        const slicedTrades = trackedTrades.filter(tt => tt.status !== 'open').slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
+                        const rt = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0);
+                        const sMfeR = rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length > 0 ? rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length : 0;
+                        const sLosers = slicedTrades.filter(tt => (tt.pnlPct ?? 0) < 0 && tt.entryPrice - tt.stopLoss > 0);
+                        const sMaeR = sLosers.length > 0 ? sLosers.reduce((sum, tt) => sum + ((tt.pnlPct ?? 0) / 100 * tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / sLosers.length : 0;
+                        return (
+                          <div key={s.period} className="bg-slate-900/40 rounded px-3 py-2 text-xs">
+                            <div className="text-slate-400 font-semibold mb-1.5">{s.period}</div>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                              <span className="text-slate-500">Win Rate</span>
+                              <span className={`text-right font-mono font-semibold ${s.winRate >= 55 ? 'text-emerald-400' : s.winRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{s.winRate.toFixed(0)}%</span>
+                              <span className="text-slate-500">Record</span>
+                              <span className="text-right text-slate-300">{s.wins}W / {s.losses}L</span>
+                              <span className="text-slate-500">Avg Days</span>
+                              <span className="text-right text-slate-300">{s.avgTimeToTarget > 0 ? `${s.avgTimeToTarget.toFixed(1)}d` : '—'}</span>
+                              <span className="text-slate-500">MFE%</span>
+                              <span className="text-right text-emerald-400">{s.avgMFE > 0 ? `+${s.avgMFE.toFixed(1)}%` : '—'}</span>
+                              <span className="text-slate-500">MFE-R</span>
+                              <span className="text-right text-emerald-300 font-mono">{sMfeR > 0 ? `+${sMfeR.toFixed(1)}R` : '—'}</span>
+                              <span className="text-slate-500">MAE%</span>
+                              <span className="text-right text-red-400">{s.avgMAE > 0 ? `-${s.avgMAE.toFixed(1)}%` : '—'}</span>
+                              <span className="text-slate-500">MAE-R</span>
+                              <span className="text-right text-red-300 font-mono">{sMaeR < 0 ? `${sMaeR.toFixed(1)}R` : '—'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Full Trade Log */}
+                  <div className="bg-slate-800/40 rounded-lg p-3">
+                    <div className="flex items-center mb-2">
+                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Complete Trade Log ({all.length} trades)</span>
+                      {all.length > 0 && (
+                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); } catch {} } }}
+                          className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
+                      )}
+                    </div>
+                    {all.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs whitespace-nowrap">
+                          <thead><tr className="border-b border-slate-700 text-slate-500">
+                            <th className="px-2 py-1 text-left font-medium">Symbol</th>
+                            <th className="px-2 py-1 text-left font-medium">Stage</th>
+                            <th className="px-2 py-1 text-right font-medium">Entry</th>
+                            <th className="px-2 py-1 text-right font-medium">SL</th>
+                            <th className="px-2 py-1 text-right font-medium">T1</th>
+                            <th className="px-2 py-1 text-right font-medium">T2</th>
+                            <th className="px-2 py-1 text-right font-medium">T3</th>
+                            <th className="px-2 py-1 text-right font-medium">Risk/sh</th>
+                            <th className="px-2 py-1 text-left font-medium">Entry Dt</th>
+                            <th className="px-2 py-1 text-right font-medium">CMP/Exit</th>
+                            <th className="px-2 py-1 text-right font-medium">P&L%</th>
+                            <th className="px-2 py-1 text-right font-medium">P&L R</th>
+                            <th className="px-2 py-1 text-right font-medium">MFE%</th>
+                            <th className="px-2 py-1 text-right font-medium">MFE-R</th>
+                            <th className="px-2 py-1 text-right font-medium">MAE%</th>
+                            <th className="px-2 py-1 text-right font-medium">MAE-R</th>
+                            <th className="px-2 py-1 text-right font-medium">Days</th>
+                            <th className="px-2 py-1 text-center font-medium">Outcome</th>
+                            <th className="px-2 py-1 text-left font-medium">Sector</th>
+                            <th className="px-2 py-1 text-right font-medium">Conv</th>
+                            <th className="px-2 py-1 text-left font-medium">Closed Dt</th>
+                            <th className="px-1 py-1 w-6"></th>
+                          </tr></thead>
+                          <tbody>
+                            {[...all].sort((a, b) => {
+                              if (a.status === 'open' && b.status !== 'open') return -1;
+                              if (a.status !== 'open' && b.status === 'open') return 1;
+                              return 0;
+                            }).map((t, i) => {
+                              const rps = t.entryPrice - t.stopLoss;
+                              const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
+                              const mfeR = t.highestPrice && rps > 0 ? (t.highestPrice - t.entryPrice) / rps : 0;
+                              const curPrice = t.closedPrice ?? t.currentPrice ?? 0;
+                              const curPnl = curPrice > 0 && t.entryPrice > 0 ? ((curPrice - t.entryPrice) / t.entryPrice) * 100 : (t.pnlPct ?? 0);
+                              const curR = rps > 0 && curPrice > 0 ? (curPrice - t.entryPrice) / rps : (t.pnlR ?? 0);
+                              const maePct = t.status !== 'open' && (t.pnlPct ?? 0) < 0 ? (t.pnlPct ?? 0) : (t.status === 'open' && curPnl < 0 ? curPnl : 0);
+                              const maeR = rps > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / rps : 0;
+                              const daysLeft = 10 - (t.daysHeld ?? 0);
+
+                              const statusCfg: Record<string, { label: string; color: string }> = {
+                                open: { label: 'OPEN', color: 'bg-blue-900/40 text-blue-300' },
+                                hit_t1: { label: '✓ T1', color: 'bg-emerald-900/40 text-emerald-300' },
+                                hit_t2: { label: '✓ T2', color: 'bg-emerald-900/40 text-emerald-200' },
+                                hit_t3: { label: '✓ T3', color: 'bg-yellow-900/40 text-yellow-300' },
+                                stopped: { label: '✗ SL', color: 'bg-red-900/40 text-red-300' },
+                                expired: { label: '⏳ EXP', color: 'bg-amber-900/40 text-amber-300' },
+                                manual_close: { label: '◉ MAN', color: 'bg-slate-700/40 text-slate-300' },
+                              };
+                              const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
+                              const stgCfg = STAGE_CONFIG[t.stage];
+
+                              return (
+                                <tr key={i} className={`border-b border-slate-800/30 group ${t.status === 'open' ? 'bg-slate-800/20' : ''}`}>
+                                  <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol}</td>
+                                  <td className={`px-2 py-1.5 ${stgCfg?.color ?? 'text-slate-500'}`}>{stgCfg?.label ?? t.stage}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-slate-300">₹{t.entryPrice.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-red-400">₹{t.stopLoss.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-emerald-400">₹{t.target1.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-emerald-500">{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-yellow-400">{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{rps.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${t.status === 'open' ? 'text-slate-300' : 'text-slate-400'}`}>{curPrice > 0 ? `₹${curPrice.toFixed(2)}` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{curPrice > 0 ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(2)}%` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(2)}%` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(2)}R` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(2)}%` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(2)}R` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right ${t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
+                                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span></td>
+                                  <td className="px-2 py-1.5 text-slate-600 truncate max-w-[80px]">{t.sector || '—'}</td>
+                                  <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
+                                  <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>
+                                  <td className="px-1 py-1.5 text-center">
+                                    <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-600 py-8 text-center">No tracked trades yet. Track a trade from Scanner or Focus tab to see validation here.</div>
+                    )}
+                  </div>
+
+                  {/* Engine Info */}
+                  <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
+                    <div><span className="text-slate-500 font-semibold">Validation Engine:</span> Level 3 bar-by-bar sequential — checks if LOW hits stop BEFORE HIGH hits target on each candle (conservative, worst-case assumption)</div>
+                    <div><span className="text-slate-500 font-semibold">Auto-Runs:</span> After every scan on all open tracked trades using freshly fetched OHLCV data</div>
+                    <div><span className="text-slate-500 font-semibold">MFE (Maximum Favorable Excursion):</span> Highest % / R-multiple the price reached above entry — shows profit left on the table</div>
+                    <div><span className="text-slate-500 font-semibold">MAE (Maximum Adverse Excursion):</span> Deepest % / R-multiple drawdown below entry — shows how close to getting stopped</div>
+                    <div><span className="text-slate-500 font-semibold">Auto-Expiry:</span> Trades open &gt;10 trading days without hitting T1 or stop are auto-expired at last closing price</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── Focus Tab ── */}
+        {activeTab === 'focus' && (
+          <div className="flex-1 overflow-auto p-4">
+            {/* Context bar */}
+            <div className="flex items-center gap-4 mb-4 text-xs">
+              {marketRegime && (
+                <span className={`px-2 py-1 rounded font-medium ${marketRegime.regime === 'bull' ? 'bg-green-900/40 text-green-300' : marketRegime.regime === 'bear' ? 'bg-red-900/40 text-red-300' : 'bg-yellow-900/40 text-yellow-300'}`}>
+                  {marketRegime.emoji} {marketRegime.label} · Size: ×{marketRegime.sizingMultiplier}
+                </span>
+              )}
+              <span className="text-slate-500">Open: {trackedTrades.filter(t => t.status === 'open').length} positions</span>
+              {winStats.total >= 5 && (
+                <span className={winStats.winRate >= 55 ? 'text-emerald-400' : 'text-amber-400'}>
+                  Win Rate: {winStats.winRate.toFixed(0)}% ({winStats.total} trades)
+                </span>
+              )}
+              {dataQuality && (
+                <span className={dataQuality.isStale ? 'text-red-400' : 'text-slate-500'}>
+                  Data: {dataQuality.latestDate}{dataQuality.isStale ? ' ⚠' : ' ✓'}
+                </span>
+              )}
+              <span className="text-slate-600 ml-auto">{results.length > 0 ? `${results.length} scanned` : 'No scan yet'}</span>
+            </div>
+
+            {/* Top signals */}
+            {(() => {
+              const topSignals = filteredResults
+                .filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid)
+                .sort((a, b) => computeConviction(b) - computeConviction(a))
+                .slice(0, 5);
+
+              if (topSignals.length === 0 && results.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-600">
+                    <div className="text-5xl mb-4">⚡</div>
+                    <div className="text-lg font-medium mb-1">Focus Mode</div>
+                    <div className="text-sm">Run a scan to see your top signals here</div>
+                  </div>
+                );
+              }
+
+              if (topSignals.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-600">
+                    <div className="text-4xl mb-3">✓</div>
+                    <div className="text-sm">No actionable BUY signals in this scan</div>
+                    <div className="text-xs text-slate-700 mt-1">This is normal — patience is an edge</div>
+                  </div>
+                );
+              }
+
+              const regimeMult = marketRegime?.sizingMultiplier ?? 1;
+
+              return (
+                <div className="space-y-3">
+                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                    Today's Top {topSignals.length} Signal{topSignals.length > 1 ? 's' : ''}
+                  </div>
+                  {topSignals.map((r, idx) => {
+                    const conv = computeConviction(r);
+                    const risk = r.priceEngine.riskPerShare;
+                    const qty = risk > 0 ? Math.floor((accountSize * regimeMult * 0.01) / risk) : 0;
+                    const capital = qty * r.priceEngine.plannedEntry;
+                    const maxRisk = qty * risk;
+                    const isTracked = trackedTrades.some(t => t.symbol === r.symbol);
+                    const sector = getSectorTag(r.symbol);
+
+                    return (
+                      <div key={r.symbol} className="bg-slate-800/40 rounded-lg overflow-hidden border border-slate-700/50">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/30">
+                          <span className="text-lg font-bold text-slate-100 font-mono">{idx + 1}.</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-slate-100 text-base">{r.symbol}</span>
+                              {sector && <span className="text-xs text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">{sector}</span>}
+                              <span className={`text-xs font-semibold ${STAGE_CONFIG[r.stage].color}`}>{STAGE_CONFIG[r.stage].label}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
+                              <span>CMP ₹{r.lastClose.toFixed(2)}</span>
+                              <span>Candle: <span className={r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{r.stats.candlePatternFull}</span></span>
+                              {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
+                              {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-2xl font-bold ${conv >= 70 ? 'text-yellow-300' : conv >= 50 ? 'text-emerald-400' : 'text-slate-300'}`}>{conv}</div>
+                            <div className="text-xs text-slate-500">Conviction</div>
+                          </div>
+                        </div>
+
+                        {/* Trade details */}
+                        <div className="grid grid-cols-4 gap-0 text-xs">
+                          <div className="px-3 py-2 border-r border-slate-700/30">
+                            <div className="text-slate-500">Entry</div>
+                            <div className="text-slate-200 font-mono font-semibold">₹{r.priceEngine.plannedEntry.toFixed(2)}</div>
+                          </div>
+                          <div className="px-3 py-2 border-r border-slate-700/30">
+                            <div className="text-slate-500">Stop</div>
+                            <div className="text-red-400 font-mono font-semibold">₹{r.priceEngine.tacticalStop.toFixed(2)}</div>
+                          </div>
+                          <div className="px-3 py-2 border-r border-slate-700/30">
+                            <div className="text-slate-500">T1 ({r.priceEngine.t1R.toFixed(1)}R)</div>
+                            <div className="text-emerald-400 font-mono font-semibold">₹{r.priceEngine.target5.toFixed(2)}</div>
+                          </div>
+                          <div className="px-3 py-2">
+                            <div className="text-slate-500">R:R</div>
+                            <div className={`font-mono font-bold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</div>
+                            <div className={`text-[10px] ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-400' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-300' : r.priceEngine.rewardRisk >= 2.0 ? 'text-yellow-200' : 'text-slate-500'}`}>{r.priceEngine.rewardRisk >= 3.5 ? 'Elite' : r.priceEngine.rewardRisk >= 2.5 ? 'Very Good' : r.priceEngine.rewardRisk >= 2.0 ? 'Good' : r.priceEngine.rewardRisk >= 1.5 ? 'Acceptable' : 'Weak'}</div>
+                          </div>
+                        </div>
+
+                        {/* Position sizing */}
+                        <div className="flex items-center gap-4 px-4 py-2 bg-slate-900/40 text-xs border-t border-slate-700/30">
+                          <span className="text-emerald-400 font-semibold">Buy {qty} shares</span>
+                          <span className="text-slate-400">@ ₹{r.priceEngine.plannedEntry.toFixed(2)}</span>
+                          <span className="text-slate-500">Capital: ₹{(capital / 1000).toFixed(0)}K</span>
+                          <span className="text-red-400">Risk: ₹{maxRisk.toFixed(0)}</span>
+                          <span className="text-slate-500">({(accountSize > 0 ? maxRisk / accountSize * 100 : 0).toFixed(2)}% of account)</span>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 px-4 py-2.5 border-t border-slate-700/30">
+                          <button onClick={() => { trackTrade(r); }}
+                            disabled={isTracked}
+                            className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isTracked ? 'bg-emerald-900/30 border border-emerald-700 text-emerald-400 cursor-default' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
+                            {isTracked ? '✓ Tracked' : '✓ Trade'}
+                          </button>
+                          {isTracked && (
+                            <button onClick={() => removeTrade(r.symbol)}
+                              className="px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded text-xs font-medium text-red-400 transition-colors">
+                              ✕ Remove</button>
+                          )}
+                          <button onClick={() => setSelectedSymbol(r.symbol)}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">
+                            Details</button>
+                          <button onClick={() => {
+                            const exists = watchlist.some(w => w.symbol === r.symbol);
+                            if (!exists) { const item = { symbol: r.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                          }}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-amber-400 transition-colors">
+                            ⭐ Watch</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Rolling validation stats */}
+                  {trackedTrades.length >= 3 && (
+                    <div className="bg-slate-800/30 rounded-lg p-3 mt-4">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Signal Validation</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          computeRollingStats(trackedTrades, 10, 'Last 10'),
+                          computeRollingStats(trackedTrades, 20, 'Last 20'),
+                          computeRollingStats(trackedTrades, 999, 'All Time'),
+                        ].filter(s => s.total > 0).map(s => (
+                          <div key={s.period} className="bg-slate-900/40 rounded px-3 py-2 text-xs text-center">
+                            <div className="text-slate-500 mb-1">{s.period}</div>
+                            <div className={`text-lg font-bold ${s.winRate >= 55 ? 'text-emerald-400' : s.winRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{s.winRate.toFixed(0)}%</div>
+                            <div className="text-slate-600">{s.wins}W / {s.losses}L of {s.total}</div>
+                            {s.avgTimeToTarget > 0 && <div className="text-slate-600 mt-0.5">Avg {s.avgTimeToTarget.toFixed(1)}d to T1</div>}
+                            {s.avgMFE > 0 && <div className="text-emerald-600 mt-0.5" title="Avg best price on winners">MFE +{s.avgMFE.toFixed(1)}%</div>}
+                            {s.avgMAE > 0 && <div className="text-red-600" title="Avg worst drawdown on losers">MAE -{s.avgMAE.toFixed(1)}%</div>}
+                            {(() => {
+                              const closed = trackedTrades.filter(tt => tt.status !== 'open').slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
+                              const riskTrades = closed.filter(tt => tt.entryPrice - tt.stopLoss > 0);
+                              if (riskTrades.length === 0) return null;
+                              const mfeTrades = riskTrades.filter(tt => tt.highestPrice != null && tt.highestPrice > 0);
+                              const avgMfeR = mfeTrades.length > 0 ? mfeTrades.reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / mfeTrades.length : 0;
+                              const avgMaeR = riskTrades.filter(tt => (tt.pnlPct ?? 0) < 0).reduce((sum, tt) => sum + ((tt.pnlPct ?? 0) / 100 * tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / (riskTrades.filter(tt => (tt.pnlPct ?? 0) < 0).length || 1);
+                              return <>
+                                {avgMfeR > 0 && <div className="text-emerald-500 text-[10px]">MFE-R +{avgMfeR.toFixed(1)}R</div>}
+                                {avgMaeR < 0 && <div className="text-red-500 text-[10px]">MAE-R {avgMaeR.toFixed(1)}R</div>}
+                              </>;
+                            })()}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── Scanner Tab (existing table) ── */}
+        {activeTab === 'scanner' && <>
+
+        {/* Table area — full width, no sidebar */}
+        <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+
+          {/* Scanner sub-tab bar (horizontal) */}
+          {results.length > 0 && (
+            <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1.5 flex items-center gap-1 border-b border-slate-800/50">
+              {SUBTAB_META.map(st => (
+                <button key={st.key} onClick={() => setScannerSubTab(st.key)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${scannerSubTab === st.key ? 'bg-indigo-900/50 border border-indigo-600 text-indigo-300' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}>
+                  {st.emoji} {st.label}
+                </button>
+              ))}
+              <span className="ml-auto text-xs text-slate-600">{visibleColumns.length} cols</span>
+            </div>
+          )}
+
+          {results.length === 0 && !scanning && (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-600 gap-3">
+              <div className="text-5xl select-none">&#x1F4CA;</div>
+              <div className="text-sm">Upload a CSV or paste symbols to scan</div>
+              <div className="text-xs text-slate-700">
+                Click{' '}
+                <span className="text-indigo-500 cursor-pointer"
+                  onClick={() => setResults(generateDemoData(paramSetKey))}>Demo Mode</span>
+                {' '}to see sample results
+              </div>
+              {lastErr && errCount > 0 && (
+                <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800 rounded px-4 py-2 max-w-md text-center">
+                  {lastErr}
+                </div>
+              )}
+            </div>
+          )}
+
+          {filteredResults.length > 0 && (
+            <>
+              {/* ── Top scrollbar ── */}
+              <div
+                ref={topScrollRef}
+                className="flex-shrink-0 overflow-x-scroll border-b border-slate-700 bg-slate-900"
+                style={{ height: '16px' }}
+              >
+                <div style={{ width: `${tableWidth}px`, height: '1px' }} />
+              </div>
+
+              {/* ── Table ── */}
+              <div ref={botScrollRef} className="flex-1 overflow-auto">
+                <table className="text-xs border-collapse"
+                  style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}>
+
+                  <thead className="sticky top-0 z-10 bg-[#0d1117]">
+                    {/* Sort row */}
+                    <tr>
+                      {visibleColumns.map(col => (
+                        <th key={col.key}
+                          onClick={(e) => handleSort(col.key, e.shiftKey)}
+                          style={{ width: col.width, minWidth: col.width }}
+                          className={[
+                            'px-2 py-2 font-medium border-b border-slate-700 whitespace-nowrap select-none cursor-pointer hover:bg-slate-800/60 transition-colors',
+                            col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+                            sortCol === col.key ? 'text-indigo-400 bg-slate-800/40' : secondarySortCol === col.key ? 'text-cyan-500 bg-slate-800/20' : 'text-slate-500',
+                          ].join(' ')}>
+                          {col.label}
+                          {sortCol === col.key
+                            ? <span className="ml-1 text-indigo-400">{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>
+                            : secondarySortCol === col.key
+                            ? <span className="ml-1 text-cyan-500">{secondarySortDir === 'desc' ? ' ²↓' : ' ²↑'}</span>
+                            : null}
+                        </th>
+                      ))}
+                    </tr>
+
+                    {/* Filter row */}
+                    <tr className="bg-[#0d1117]">
+                      {visibleColumns.map(col => (
+                        <th key={col.key}
+                          style={{ width: col.width, minWidth: col.width }}
+                          className="px-1 py-1 border-b border-slate-800">
+                          <input
+                            value={colFilters[col.key] ?? ''}
+                            onChange={e => setColFilter(col.key, e.target.value)}
+                            placeholder={col.numVal ? '>50' : '…'}
+                            title={col.numVal ? 'Supports: >50  <80  >=60  <=70  =75  or text' : 'Contains match'}
+                            className={[
+                              'w-full px-1.5 py-0.5 bg-slate-800/80 border rounded text-xs text-slate-300 placeholder:text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors',
+                              colFilters[col.key] ? 'border-indigo-600 bg-indigo-950/30' : 'border-slate-700',
+                            ].join(' ')}
+                          />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredResults.map((row, i) => {
+                      const isSelected = selectedSymbol === row.symbol;
+                      const diff = scanDiff.get(row.symbol);
+                      return (
+                        <tr key={row.symbol + i}
+                          onClick={() => setSelectedSymbol(isSelected ? null : row.symbol)}
+                          className={`cursor-pointer border-b border-slate-800/40 transition-colors ${isSelected ? 'bg-indigo-900/25' : diff ? 'bg-cyan-900/10' : 'hover:bg-slate-800/40'}`}>
+                          {visibleColumns.map(col => (
+                            <td key={col.key}
+                              style={{ width: col.width, minWidth: col.width }}
+                              className={[
+                                'px-2 py-1.5 whitespace-nowrap',
+                                col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+                                col.cellClass ? col.cellClass(row) : 'text-slate-300',
+                              ].join(' ')}>
+                              {col.key === 'track_btn' ? (
+                                <button onClick={(e) => { e.stopPropagation(); trackTrade(row); }}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${trackedTrades.some(t => t.symbol === row.symbol) ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 hover:bg-emerald-900/40 text-slate-500 hover:text-emerald-300'}`}>
+                                  {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}
+                                </button>
+                              ) : col.fmt(row)}
+                              {col.key === 'symbol' && diff && (
+                                <span className="ml-1 text-cyan-400 text-xs" title={`Was: ${STAGE_CONFIG[diff.prev].label}`}>↑</span>
+                              )}
+                              {col.key === 'symbol' && row.nearBreakout && !diff && (
+                                <span className="ml-1 text-yellow-400 text-xs" title="Near breakout">⚡</span>
+                              )}
+                              {col.key === 'symbol' && (() => {
+                                const age = getSignalAge(row.symbol, row.stage, signalHistory);
+                                if (age === 1) return <span className="ml-1 text-green-400 text-xs font-bold" title="New signal today">●</span>;
+                                if (age >= 2) return <span className="ml-1 text-amber-500 text-xs" title={`Signal Day ${age}`}>{age}d</span>;
+                                return null;
+                              })()}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+
+        </>}
+
+        {/* ── Detail panel (shared across tabs) ── */}
+        {selectedResult && (activeTab === 'scanner' || activeTab === 'focus' || activeTab === 'validation') && (
+          <div className="w-72 flex-shrink-0 border-l border-slate-800 bg-[#0d1117] overflow-y-auto">
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="font-mono font-bold text-slate-100 text-base">{selectedResult.symbol}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{selectedResult.lastDate} · ₹{selectedResult.lastClose.toFixed(2)}</div>
+                </div>
+                <button onClick={() => setSelectedSymbol(null)}
+                  className="text-slate-600 hover:text-slate-300 text-xl leading-none ml-2 mt-0.5">×</button>
+              </div>
+
+              <div style={{ borderColor: STAGE_CONFIG[selectedResult.stage].textColor, color: STAGE_CONFIG[selectedResult.stage].textColor }}
+                className="border rounded px-2 py-1 text-xs font-bold mb-4 inline-block">
+                {STAGE_CONFIG[selectedResult.stage].label}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {([
+                  ['Infl. Score', selectedResult.inflectionScore.toFixed(0)],
+                  ['Prec. Score', selectedResult.ultraPrecisionScore.toFixed(0)],
+                  ['Confidence',  selectedResult.confidence.toFixed(0) + '%'],
+                  ['Conditions',  `${selectedResult.conditionsMet} / ${selectedResult.totalConditions}`],
+                ] as [string, string][]).map(([label, val]) => (
+                  <div key={label} className="bg-slate-800/60 rounded px-2.5 py-2">
+                    <div className="text-xs text-slate-500">{label}</div>
+                    <div className="text-sm font-semibold text-slate-200 mt-0.5">{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Watchlist star + Signal Age */}
+              <div className="flex items-center gap-2 mb-3">
+                <button onClick={() => {
+                  const exists = watchlist.some(w => w.symbol === selectedResult.symbol);
+                  if (exists) { const updated = watchlist.filter(w => w.symbol !== selectedResult.symbol); setWatchlist(updated); saveWatchlist(updated); }
+                  else { const item: WatchlistItem = { symbol: selectedResult.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: selectedResult.stage, lastClose: selectedResult.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                }}
+                  className={`px-2 py-1 rounded text-xs border transition-colors ${watchlist.some(w => w.symbol === selectedResult.symbol) ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-amber-300'}`}>
+                  {watchlist.some(w => w.symbol === selectedResult.symbol) ? '⭐ Watched' : '☆ Watch'}
+                </button>
+                {(() => {
+                  const age = getSignalAge(selectedResult.symbol, selectedResult.stage, signalHistory);
+                  if (age > 0) return <span className={`px-2 py-0.5 rounded text-xs font-medium ${age === 1 ? 'bg-green-900/40 text-green-300' : age <= 3 ? 'bg-amber-900/40 text-amber-300' : 'bg-red-900/40 text-red-300'}`}>{age === 1 ? 'NEW' : `Day ${age}`}</span>;
+                  return null;
+                })()}
+              </div>
+
+              {/* #1: Inline sparkline chart */}
+              {candleCache[selectedResult.symbol] && (
+                <div className="mb-3" dangerouslySetInnerHTML={{ __html: generateSparklineSVG(
+                  candleCache[selectedResult.symbol],
+                  selectedResult.zone?.zoneHigh,
+                  selectedResult.zone?.zoneLow,
+                  selectedResult.priceEngine.tradeValid ? selectedResult.priceEngine.plannedEntry : undefined,
+                  selectedResult.priceEngine.tradeValid ? selectedResult.priceEngine.tacticalStop : undefined,
+                ) }} />
+              )}
+
+              {/* #1 Trade Sheet + #2 Track buttons — always visible */}
+              <div className="flex gap-2 mb-3">
+                <button onClick={() => { trackTrade(selectedResult); }}
+                  className={`flex-1 px-2 py-1.5 border rounded text-xs font-medium transition-colors ${selectedResult.priceEngine.tradeValid ? 'bg-emerald-900/40 hover:bg-emerald-900/60 border-emerald-700 text-emerald-300' : 'bg-amber-900/30 hover:bg-amber-900/50 border-amber-700 text-amber-400'}`}>
+                  {trackedTrades.some(t => t.symbol === selectedResult.symbol) ? '✓ Tracked' : selectedResult.priceEngine.tradeValid ? '📌 Track Trade' : '⚠ Track (R:R low)'}
+                </button>
+                  <button onClick={() => {
+                    const regimeMult = marketRegime?.sizingMultiplier ?? 1;
+                    const ts = generateTradeSheet(selectedResult, accountSize * regimeMult);
+                    if (ts) {
+                      navigator.clipboard.writeText(tradeSheetToClipboard(ts)).catch(() => {});
+                      setShowTradeSheet(selectedResult.symbol);
+                      setTimeout(() => setShowTradeSheet(null), 2000);
+                    } else {
+                      setShowTradeSheet('no_data');
+                      setTimeout(() => setShowTradeSheet(null), 2000);
+                    }
+                  }}
+                    className="flex-1 px-2 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-xs font-medium text-blue-300 transition-colors">
+                    {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
+                  </button>
+                </div>
+
+              {selectedResult.priceEngine.tradeValid && (
+                <div className="mb-4">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Trade Engine</div>
+                  <div className="space-y-1.5 text-xs">
+                    {([
+                      ['Entry',         '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2)],
+                      ['Breakout Level','₹' + selectedResult.priceEngine.breakoutLevel.toFixed(2)],
+                      ['SL:2ndLow',     '₹' + (() => { const stops = [selectedResult.priceEngine.stopWeinstein, selectedResult.priceEngine.stopKase, selectedResult.priceEngine.stopElder, selectedResult.priceEngine.stopSignalLow].filter(s => s > 0).sort((a, b) => a - b); return stops.length >= 2 ? stops[1].toFixed(2) : stops.length === 1 ? stops[0].toFixed(2) : '—'; })() + ' (consensus)'],
+                      ['Tactical Stop', '₹' + selectedResult.priceEngine.tacticalStop.toFixed(2) + ' (−' + selectedResult.priceEngine.tacticalRiskPct.toFixed(2) + '%)'],
+                      ['Disaster Stop', '₹' + selectedResult.priceEngine.disasterStop.toFixed(2) + ' (−' + selectedResult.priceEngine.disasterRiskPct.toFixed(2) + '%)'],
+                      ['T1 (Hybrid)',   '₹' + selectedResult.priceEngine.target5.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; return rps > 0 ? ` (${((r.target5 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['T2 (Stretch)',  '₹' + selectedResult.priceEngine.target7.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; return rps > 0 ? ` (${((r.target7 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['T3 (Runner)',   '₹' + selectedResult.priceEngine.target10.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; return rps > 0 ? ` (${((r.target10 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['T3R (3×risk)',  '₹' + selectedResult.priceEngine.target3R.toFixed(2)],
+                      ['Reward:Risk',   selectedResult.priceEngine.rewardRisk.toFixed(2) + ':1'],
+                      ['Trail @T1',     '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2) + ' (breakeven)'],
+                      ['Trail @T2',     '₹' + (selectedResult.priceEngine.target7 > 0 ? (Math.round((selectedResult.priceEngine.target7 - 1.5 * ((Number.isFinite(selectedResult.atrPct14) ? selectedResult.atrPct14 : 0) / 100 * selectedResult.lastClose)) * 20) / 20).toFixed(2) : '—')],
+                      ['Gap',          selectedResult.priceEngine.gapPct.toFixed(2) + '% → ' + selectedResult.priceEngine.entryStatus],
+                    ] as [string, string][]).map(([label, val]) => (
+                      <div key={label} className="flex justify-between gap-2">
+                        <span className="text-slate-500 flex-shrink-0">{label}</span>
+                        <span className="text-slate-200 font-mono text-right">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* v7.2 Momentum */}
+              {selectedResult.momentum && <div className="mb-4">
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
+                  Momentum Quality ({selectedResult.momentum?.momentumScore ?? 0}/100)
+                </div>
+                <div className="space-y-1 text-xs">
+                  {([
+                    ['EMA Aligned',    selectedResult.momentum.emaAligned ? '✓ Yes' : '✗ No',    selectedResult.momentum.emaAligned],
+                    ['Higher Low',     selectedResult.momentum.higherLowConfirmed ? '✓ Yes' : '✗ No', selectedResult.momentum.higherLowConfirmed],
+                    ['Vol Dry-Up',     `${selectedResult.momentum.volDryUpScore}/4`, selectedResult.momentum.volDryUpScore >= 3],
+                    ['OBV Slope',      selectedResult.momentum.obvSlope10.toFixed(2), selectedResult.momentum.obvSlope10 >= 0.5],
+                    ['ADX (15-35)',    selectedResult.momentum.adx14.toFixed(0), selectedResult.momentum.adxInRange],
+                    ['Gap-Adj R:R',   selectedResult.momentum.gapAdjustedRR > 0 ? selectedResult.momentum.gapAdjustedRR.toFixed(1) + ':1' : '—', selectedResult.momentum.gapAdjustedRR >= 2],
+                    ['RS vs Nifty50', selectedResult.momentum.rsNifty20.toFixed(2), selectedResult.momentum.rsNifty20 >= 1.0],
+                  ] as [string, string, boolean][]).map(([label, val, pass]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className={`flex-shrink-0 ${pass ? 'text-emerald-400' : 'text-red-500'}`}>{pass ? '✓' : '✗'}</span>
+                      <span className={pass ? 'text-slate-300 flex-1' : 'text-slate-600 flex-1'}>{label}</span>
+                      <span className="text-slate-500 font-mono">{val}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 mt-1 pt-1 border-t border-slate-800">
+                    <span className="text-slate-400 flex-1">EMA20 / EMA50</span>
+                    <span className="text-slate-500 font-mono">₹{(selectedResult.momentum?.ema20 ?? 0).toFixed(1)} / ₹{(selectedResult.momentum?.ema50 ?? 0).toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>}
+
+              {/* v9.0 Statistical Features */}
+              {selectedResult.stats && <div className="mb-4">
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
+                  Statistical Edge ({selectedResult.stats?.statsScore ?? 0}/100)
+                </div>
+                <div className="space-y-1 text-xs">
+                  {([
+                    ['Vol Z-Score',    selectedResult.stats.volZScore.toFixed(1) + 'σ', selectedResult.stats.volZSignificant],
+                    ['BB Squeeze',     selectedResult.stats.bbWidthPctl.toFixed(0) + '% pctl', selectedResult.stats.bbSqueeze],
+                    ['Keltner Squeeze', selectedResult.stats.keltnerSqueeze ? 'Active' : 'No', selectedResult.stats.keltnerSqueeze],
+                    ['LR Slope (flat)', selectedResult.stats.lrSlope10.toFixed(3), selectedResult.stats.lrSlopeFlat],
+                    ['Auto-Corr',      selectedResult.stats.autoCorr5.toFixed(2), selectedResult.stats.momentumRegime],
+                    ['Hurst Exp',      selectedResult.stats.hurst.toFixed(2), selectedResult.stats.hurstTrending],
+                    ['Skewness',       selectedResult.stats.skewness20.toFixed(2), selectedResult.stats.positiveSkew],
+                    ['52W High DD',    selectedResult.stats.drawdownFrom52WH.toFixed(1) + '%', selectedResult.stats.drawdownFrom52WH <= 10],
+                    ['52W Low Up',     selectedResult.stats.pctFrom52WL.toFixed(0) + '%', selectedResult.stats.pctFrom52WL >= 30],
+                    ['Sharpe (20d)',    selectedResult.stats.sharpe20.toFixed(2), selectedResult.stats.sharpe20 >= 1.0],
+                    ['Entropy',        selectedResult.stats.entropy10.toFixed(2), selectedResult.stats.entropy10 < 1.5],
+                    ['CUSUM Shift',    selectedResult.stats.cusumSignal ? 'Yes' : 'No', selectedResult.stats.cusumSignal],
+                    ['Inside Bars',    String(selectedResult.stats.insideBars), selectedResult.stats.insideBars >= 2],
+                    ['Vol Skew',       selectedResult.stats.volProfileSkew.toFixed(2), selectedResult.stats.volProfileSkew > 0.2],
+                    ['Guppy GMMA',     selectedResult.stats.guppySpreadPct.toFixed(2) + '%', selectedResult.stats.guppyCompressed],
+                    ['GARCH Vol',      selectedResult.stats.garchForecast.toFixed(2) + '×', selectedResult.stats.garchForecast > 1.3],
+                    ['TTM Squeeze',    selectedResult.stats.ttmSqueezeFired ? '🟢 FIRED' : selectedResult.stats.ttmSqueezeOn ? '🔴 ON' : '⚫ OFF', selectedResult.stats.ttmSqueezeFired],
+                    ['TTM Momentum',   selectedResult.stats.ttmMomentum.toFixed(1) + (selectedResult.stats.ttmMomentumRising ? ' ↑' : ' ↓'), selectedResult.stats.ttmMomentum > 0 && selectedResult.stats.ttmMomentumRising],
+                    ['RSI(14)',        selectedResult.stats.rsi14.toFixed(1), selectedResult.stats.rsi14 >= 50 && selectedResult.stats.rsi14 <= 70],
+                    ['CCI(34)',        selectedResult.stats.cci34.toFixed(0), selectedResult.stats.cci34 >= 0 && selectedResult.stats.cci34 <= 200],
+                  ] as [string, string, boolean][]).map(([label, val, pass]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className={`flex-shrink-0 ${pass ? 'text-emerald-400' : 'text-slate-600'}`}>{pass ? '✓' : '○'}</span>
+                      <span className={pass ? 'text-slate-300 flex-1' : 'text-slate-600 flex-1'}>{label}</span>
+                      <span className="text-slate-500 font-mono">{val}</span>
+                    </div>
+                  ))}
+                  {selectedResult.stats.bbSqueeze && selectedResult.stats.keltnerSqueeze && (
+                    <div className="text-yellow-300 text-xs font-semibold mt-1 pt-1 border-t border-slate-800">⚡ Double Squeeze Active — high probability breakout</div>
+                  )}
+                </div>
+              </div>}
+
+              {selectedResult.zone && (
+                <div className="mb-4">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Compression Zone</div>
+                  <div className="space-y-1 text-xs">
+                    {([
+                      ['High',      '₹' + selectedResult.zone.zoneHigh.toFixed(2)],
+                      ['Low',       '₹' + selectedResult.zone.zoneLow.toFixed(2)],
+                      ['Tightness', selectedResult.zone.zoneTightnessPct.toFixed(2) + '%'],
+                      ['Length',    selectedResult.zone.windowLength + ' candles'],
+                      ['ATR ratio', selectedResult.zone.zoneATRRatio.toFixed(2)],
+                    ] as [string, string][]).map(([label, val]) => (
+                      <div key={label} className="flex justify-between gap-2">
+                        <span className="text-slate-500">{label}</span>
+                        <span className="text-slate-200 font-mono">{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
+                  Conditions ({selectedResult.conditionsMet}/{selectedResult.totalConditions})
+                </div>
+                <div className="space-y-1">
+                  {selectedResult.checklist.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs">
+                      <span className={`flex-shrink-0 mt-0.5 ${item.pass ? 'text-emerald-400' : 'text-red-500'}`}>
+                        {item.pass ? '✓' : '✗'}
+                      </span>
+                      <span className={`flex-1 leading-tight ${item.pass ? 'text-slate-300' : 'text-slate-600'}`}>{item.label}</span>
+                      <span className="text-slate-500 font-mono flex-shrink-0 text-right">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* #12: Parameter Sensitivity */}
+              {selectedResult.priceEngine.tradeValid && (
+                <div className="mt-3">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Signal Strength</div>
+                  <div className="space-y-1">
+                    {computeParamSensitivity(selectedResult).slice(0, 8).map((p, i) => (
+                      <div key={i} className="flex items-center gap-1 text-xs">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.strength === 'strong' ? 'bg-emerald-400' : p.strength === 'moderate' ? 'bg-blue-400' : p.strength === 'marginal' ? 'bg-amber-400' : 'bg-red-500'}`} />
+                        <span className={`flex-1 truncate ${p.strength === 'fail' ? 'text-slate-600' : 'text-slate-400'}`}>{p.label}</span>
+                        <span className={`font-mono flex-shrink-0 ${p.strength === 'marginal' ? 'text-amber-400' : p.strength === 'fail' ? 'text-red-500' : 'text-slate-500'}`}>
+                          {p.marginPct > 0 ? '+' : ''}{p.marginPct.toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* ── Footer ── */}
+      <footer className="flex-shrink-0 border-t border-slate-800 bg-[#0d1117] px-4 py-1.5 flex items-center gap-3 text-xs text-slate-600">
+        <span>{results.length} scanned</span>
+        <span>·</span>
+        <span className="text-emerald-700">
+          {results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).length} actionable
+        </span>
+        {nearBreakoutCount > 0 && <><span>·</span><span className="text-yellow-600">⚡ {nearBreakoutCount} near breakout</span></>}
+        {scanDiff.size > 0 && <><span>·</span><span className="text-cyan-600">↑ {scanDiff.size} changed</span></>}
+        <span>·</span>
+        <span>{filteredResults.length} shown</span>
+        {hasColFilters && <span className="text-amber-600">· filters active</span>}
+        {dataQuality && (
+          dataQuality.isStale ? (
+            <span className="text-red-500 cursor-pointer relative group">
+              · Data: {dataQuality.latestDate} ⚠ STALE
+              <div className="absolute bottom-full left-0 mb-2 w-72 p-3 bg-slate-800 border border-red-700 rounded-lg shadow-xl text-xs text-slate-300 hidden group-hover:block z-50">
+                <div className="font-semibold text-red-400 mb-1.5">⚠ Data is stale — last candle is from {dataQuality.latestDate}</div>
+                <div className="text-slate-400 mb-2">
+                  Today is {new Date().toISOString().slice(0, 10)}. The OHLCV data hasn't updated to today's trading session yet.
+                </div>
+                <div className="font-semibold text-slate-300 mb-1">Common reasons:</div>
+                <ul className="list-disc list-inside text-slate-400 space-y-0.5 mb-2">
+                  <li>Market is closed (weekend/holiday)</li>
+                  <li>Yahoo Finance hasn't updated yet (updates ~4-6 PM IST)</li>
+                  <li>Scan was run before market close (3:30 PM IST)</li>
+                  <li>Yahoo Finance API delay or outage</li>
+                </ul>
+                <div className="font-semibold text-slate-300 mb-1">How to fix:</div>
+                <ul className="list-disc list-inside text-slate-400 space-y-0.5">
+                  <li>Wait until after 4:30 PM IST and rescan</li>
+                  <li>Enable ⟳ Auto-refresh to rescan automatically</li>
+                  <li>Click "New Scan" to force a fresh data fetch</li>
+                  <li>If persistent, Yahoo Finance may be temporarily down</li>
+                </ul>
+                <div className="mt-2 pt-1.5 border-t border-slate-700 text-slate-500">
+                  Note: Signals from yesterday's close are still valid for next-day entry
+                </div>
+              </div>
+            </span>
+          ) : (
+            <span className="text-slate-600">· Data: {dataQuality.latestDate} ✓</span>
+          )
+        )}
+        {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
+        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Quant Terminal Pro v7.3</span>
+      </footer>
     </main>
   );
 }
+
+export default function HomePage() { return <ErrorBoundary><HomePageInner /></ErrorBoundary>; }

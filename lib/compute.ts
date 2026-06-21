@@ -7,27 +7,62 @@ export interface Candle {
   v: number;
 }
 
-export async function fetchOHLCV(symbol: string): Promise<Candle[]> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2y`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!res.ok) throw new Error(`Yahoo Finance HTTP ${res.status} for ${symbol}`);
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
-  if (!result) throw new Error(`No data returned for ${symbol}`);
+const YF_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Referer': 'https://finance.yahoo.com/',
+  'Origin': 'https://finance.yahoo.com',
+};
 
-  const quotes = result.indicators.quote[0];
-  const timestamps: number[] = result.timestamp;
-  const candles: Candle[] = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    const c = quotes.close[i], h = quotes.high[i], l = quotes.low[i], v = quotes.volume[i];
-    if (c != null && h != null && l != null && v != null && h > 0) {
-      candles.push({ ts: timestamps[i], o: quotes.open[i] ?? c, h, l, c, v });
+async function yfFetchOne(sym: string): Promise<{ ok: boolean; res?: Response; err?: string }> {
+  const path = `/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false`;
+  for (const host of ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
+    try {
+      const r = await fetch(`https://${host}${path}`, {
+        headers: YF_HEADERS,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.status === 200) return { ok: true, res: r };
+      if (r.status === 404) return { ok: false, err: `Symbol not found: ${sym}` };
+      // 429/503 → try next host
+    } catch {
+      // network error → try next host
     }
   }
-  return candles;
+  return { ok: false, err: `Yahoo Finance unreachable for ${sym}` };
+}
+
+export async function fetchOHLCV(rawSymbol: string): Promise<{ candles: Candle[]; resolvedSymbol: string }> {
+  // Try the symbol as-is first, then with .NS suffix for bare NSE tickers
+  const candidates = rawSymbol.includes('.')
+    ? [rawSymbol]
+    : [rawSymbol, `${rawSymbol}.NS`, `${rawSymbol}.BO`];
+
+  let lastErr = '';
+  for (const sym of candidates) {
+    const { ok, res, err } = await yfFetchOne(sym);
+    if (!ok) { lastErr = err!; continue; }
+    const json = await res!.json();
+    const result = json?.chart?.result?.[0];
+    if (!result) {
+      lastErr = json?.chart?.error?.description ?? `No data for ${sym}`;
+      continue;
+    }
+
+    const quotes = result.indicators.quote[0];
+    const timestamps: number[] = result.timestamp;
+    const candles: Candle[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const c = quotes.close[i], h = quotes.high[i], l = quotes.low[i], v = quotes.volume[i];
+      if (c != null && h != null && l != null && v != null && h > 0) {
+        candles.push({ ts: timestamps[i], o: quotes.open[i] ?? c, h, l, c, v });
+      }
+    }
+    return { candles, resolvedSymbol: sym };
+  }
+  throw new Error(lastErr || `No data for ${rawSymbol}`);
 }
 
 function computeATR14(candles: Candle[]): number[] {

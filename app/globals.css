@@ -24,3 +24,198 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Light theme overrides ── */
+/* When .theme-light is on <main>, remap all dark-palette Tailwind colors */
+
+.theme-light {
+  --tw-bg-opacity: 1;
+}
+
+/* Backgrounds */
+.theme-light,
+.theme-light .bg-\[\#0a0c10\],
+.theme-light .bg-\[\#0d1117\] {
+  background-color: #ffffff !important;
+}
+
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-800\/40,
+.theme-light .bg-slate-800\/30,
+.theme-light .bg-slate-800\/20 {
+  background-color: #f1f5f9 !important;
+}
+
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-900\/40,
+.theme-light .bg-slate-900\/30 {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .bg-slate-700 {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .hover\:bg-slate-800\/30:hover,
+.theme-light .hover\:bg-slate-800:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .hover\:bg-slate-700:hover,
+.theme-light .hover\:bg-slate-600:hover {
+  background-color: #cbd5e1 !important;
+}
+
+/* Text colors */
+.theme-light .text-slate-100,
+.theme-light .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.theme-light .text-slate-300 {
+  color: #1e293b !important;
+}
+
+.theme-light .text-slate-400 {
+  color: #334155 !important;
+}
+
+.theme-light .text-slate-500 {
+  color: #475569 !important;
+}
+
+.theme-light .text-slate-600 {
+  color: #64748b !important;
+}
+
+.theme-light .text-slate-700 {
+  color: #334155 !important;
+}
+
+/* Borders */
+.theme-light .border-slate-700,
+.theme-light .border-slate-700\/50,
+.theme-light .border-slate-700\/30 {
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light .border-slate-800,
+.theme-light .border-slate-800\/40,
+.theme-light .border-slate-800\/30 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Signal colors — make bolder for light bg */
+.theme-light .text-emerald-400 { color: #059669 !important; }
+.theme-light .text-emerald-300 { color: #047857 !important; }
+.theme-light .text-emerald-500 { color: #047857 !important; }
+.theme-light .text-emerald-600 { color: #065f46 !important; }
+.theme-light .text-red-400 { color: #dc2626 !important; }
+.theme-light .text-red-300 { color: #b91c1c !important; }
+.theme-light .text-red-500 { color: #b91c1c !important; }
+.theme-light .text-red-600 { color: #991b1b !important; }
+.theme-light .text-amber-400 { color: #d97706 !important; }
+.theme-light .text-amber-500 { color: #b45309 !important; }
+.theme-light .text-yellow-300 { color: #a16207 !important; }
+.theme-light .text-yellow-200 { color: #a16207 !important; }
+.theme-light .text-yellow-400 { color: #92400e !important; }
+.theme-light .text-orange-400 { color: #c2410c !important; }
+.theme-light .text-orange-300 { color: #c2410c !important; }
+.theme-light .text-green-300 { color: #15803d !important; }
+.theme-light .text-green-400 { color: #15803d !important; }
+.theme-light .text-blue-300 { color: #1d4ed8 !important; }
+.theme-light .text-blue-400 { color: #1d4ed8 !important; }
+.theme-light .text-indigo-300 { color: #4338ca !important; }
+.theme-light .text-indigo-400 { color: #4338ca !important; }
+.theme-light .text-cyan-400 { color: #0e7490 !important; }
+.theme-light .text-cyan-600 { color: #0e7490 !important; }
+.theme-light .text-purple-300 { color: #7c3aed !important; }
+.theme-light .text-purple-400 { color: #7c3aed !important; }
+
+/* Colored backgrounds — make lighter */
+.theme-light .bg-emerald-900\/40,
+.theme-light .bg-emerald-900\/30 { background-color: #d1fae5 !important; }
+.theme-light .bg-red-900\/40,
+.theme-light .bg-red-900\/30 { background-color: #fee2e2 !important; }
+.theme-light .bg-yellow-900\/40,
+.theme-light .bg-yellow-900\/30 { background-color: #fef3c7 !important; }
+.theme-light .bg-amber-900\/40,
+.theme-light .bg-amber-900\/30 { background-color: #fef3c7 !important; }
+.theme-light .bg-blue-900\/40,
+.theme-light .bg-blue-900\/30 { background-color: #dbeafe !important; }
+.theme-light .bg-green-900\/40,
+.theme-light .bg-green-900\/30 { background-color: #d1fae5 !important; }
+.theme-light .bg-indigo-900\/40,
+.theme-light .bg-indigo-900\/60 { background-color: #e0e7ff !important; }
+.theme-light .bg-purple-900\/50 { background-color: #ede9fe !important; }
+
+/* Colored borders — make lighter */
+.theme-light .border-emerald-700,
+.theme-light .border-emerald-600 { border-color: #6ee7b7 !important; }
+.theme-light .border-red-700,
+.theme-light .border-red-600,
+.theme-light .border-red-800 { border-color: #fca5a5 !important; }
+.theme-light .border-yellow-700,
+.theme-light .border-yellow-600,
+.theme-light .border-yellow-800 { border-color: #fcd34d !important; }
+.theme-light .border-amber-700,
+.theme-light .border-amber-800 { border-color: #fbbf24 !important; }
+.theme-light .border-green-700,
+.theme-light .border-green-600 { border-color: #6ee7b7 !important; }
+.theme-light .border-blue-700 { border-color: #93c5fd !important; }
+.theme-light .border-indigo-700,
+.theme-light .border-indigo-500 { border-color: #a5b4fc !important; }
+.theme-light .border-purple-600 { border-color: #c4b5fd !important; }
+
+/* Buttons */
+.theme-light .bg-indigo-700 { background-color: #4338ca !important; }
+.theme-light .bg-indigo-700:hover { background-color: #3730a3 !important; }
+.theme-light .bg-emerald-600 { background-color: #059669 !important; }
+.theme-light .bg-emerald-600:hover { background-color: #047857 !important; }
+
+/* Inputs */
+.theme-light input,
+.theme-light select {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.theme-light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Table header */
+.theme-light th {
+  color: #475569 !important;
+}
+
+/* Table row hover */
+.theme-light tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Selected row */
+.theme-light .bg-indigo-950\/30 {
+  background-color: #e0e7ff !important;
+}
+
+/* Scrollbar */
+.theme-light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.theme-light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+/* Footer */
+.theme-light footer {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Header */
+.theme-light header {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
