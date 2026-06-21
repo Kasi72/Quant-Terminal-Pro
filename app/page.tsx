@@ -1321,6 +1321,37 @@ function HomePageInner() {
           <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
+          {trackedTrades.filter(t => t.status === 'open').length > 0 && (
+            <button disabled={scanning}
+              data-tip="Fetch latest prices for tracked trades only — validates stops, targets, MFE/MAE without running a full scan"
+              data-tip-color="cyan"
+              onClick={async () => {
+                if (scanningRef.current) return;
+                setScanning(true); scanningRef.current = true;
+                try {
+                  const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
+                  let updated = [...trackedTradesRef.current];
+                  for (const t of openTrades) {
+                    try {
+                      const { candles } = await fetchOHLCVClient(t.symbol);
+                      if (candles.length < 2) continue;
+                      const entryTs = new Date(t.entryDate).getTime() / 1000 + 86400;
+                      const sinceEntry = candles.filter(c => c.ts >= entryTs);
+                      if (sinceEntry.length === 0) continue;
+                      const result = validateTrade(t, sinceEntry);
+                      const idx = updated.findIndex(u => u.symbol === t.symbol);
+                      if (idx >= 0) updated[idx] = applyValidation(updated[idx], result);
+                    } catch {}
+                  }
+                  setTrackedTrades(updated);
+                  try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
+                } catch {} finally {
+                  setScanning(false); scanningRef.current = false;
+                }
+              }}
+              className="h-7 px-2.5 bg-cyan-900/40 hover:bg-cyan-900/60 disabled:opacity-40 border border-cyan-600 rounded text-[11px] font-semibold text-cyan-300 transition-colors">
+              🔬 Validate</button>
+          )}
         </div>
 
         <div className="w-px h-5 bg-slate-700 shrink-0" />
