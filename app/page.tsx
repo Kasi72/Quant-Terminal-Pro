@@ -957,9 +957,10 @@ function HomePageInner() {
           if (t.status !== 'open') continue;
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;
-          // Find candles since entry date
-          const entryTs = new Date(t.entryDate).getTime() / 1000; // include entry day (stop skip handled in validator)
-          const sinceEntry = cached.filter(c => c.ts >= entryTs);
+          // Find candles since entry date (fallback: use last 10 candles if entry date is in the future)
+          const entryTs = new Date(t.entryDate).getTime() / 1000;
+          let sinceEntry = cached.filter(c => c.ts >= entryTs);
+          if (sinceEntry.length === 0) sinceEntry = cached.slice(-10); // fallback for stale entry dates
           if (sinceEntry.length === 0) continue;
           const result = validateTrade(t, sinceEntry);
           updated[i] = applyValidation(t, result);
@@ -1202,7 +1203,7 @@ function HomePageInner() {
 
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
-      entryDate: new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
+      entryDate: r.lastDate || new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
       target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
@@ -1481,7 +1482,8 @@ function HomePageInner() {
                       const { candles } = await fetchOHLCVClient(t.symbol);
                       if (!candles || candles.length < 2) { setProgress(p => p + 1); continue; }
                       const entryTs = new Date(t.entryDate).getTime() / 1000;
-                      const sinceEntry = candles.filter(c => c.ts >= entryTs);
+                      let sinceEntry = candles.filter(c => c.ts >= entryTs);
+                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10); // fallback for stale entry dates
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(t, sinceEntry);
                       const idx = updated.findIndex(u => u.symbol === t.symbol);
