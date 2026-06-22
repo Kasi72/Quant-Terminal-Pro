@@ -958,7 +958,7 @@ function HomePageInner() {
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;
           // Find candles since entry date
-          const entryTs = new Date(t.entryDate).getTime() / 1000 + 86400; // skip entry day — validate from next trading day
+          const entryTs = new Date(t.entryDate).getTime() / 1000; // include entry day (stop skip handled in validator)
           const sinceEntry = cached.filter(c => c.ts >= entryTs);
           if (sinceEntry.length === 0) continue;
           const result = validateTrade(t, sinceEntry);
@@ -1480,7 +1480,7 @@ function HomePageInner() {
                     try {
                       const { candles } = await fetchOHLCVClient(t.symbol);
                       if (!candles || candles.length < 2) { setProgress(p => p + 1); continue; }
-                      const entryTs = new Date(t.entryDate).getTime() / 1000 + 86400;
+                      const entryTs = new Date(t.entryDate).getTime() / 1000;
                       const sinceEntry = candles.filter(c => c.ts >= entryTs);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(t, sinceEntry);

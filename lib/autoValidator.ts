@@ -49,14 +49,14 @@ export function validateTrade(
     if (candle.l < maePrice) maePrice = candle.l;
 
     // Bar-by-bar check: stop checked first (conservative — assume worst case)
-    // For a long trade, if the low touches stop, we're out regardless of high
-    if (candle.l <= trade.stopLoss) {
+    // Skip stop check on first candle (entry day) to prevent false same-day stop-outs
+    if (i > 0 && candle.l <= trade.stopLoss) {
       status = 'stopped';
       closedPrice = trade.stopLoss;
       break;
     }
 
-    // Check targets in order: T3 first (if price gaps through multiple)
+    // Check targets on ALL candles including entry day
     if (trade.target3 > 0 && candle.h >= trade.target3) {
       status = 'hit_t3';
       closedPrice = trade.target3;
