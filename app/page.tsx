@@ -1697,6 +1697,10 @@ function HomePageInner() {
                 <th className="px-2 py-1 text-center font-medium">Status</th>
                 <th className="px-2 py-1 text-right font-medium">Entry</th>
                 <th className="px-2 py-1 text-right font-medium">SL</th>
+                <th className="px-2 py-1 text-right font-medium">T1</th>
+                <th className="px-2 py-1 text-right font-medium">T2</th>
+                <th className="px-2 py-1 text-right font-medium">T3R</th>
+                <th className="px-2 py-1 text-right font-medium">Exit ₹</th>
                 <th className="px-2 py-1 text-right font-medium">P&L</th>
                 <th className="px-2 py-1 text-right font-medium">R-Mult</th>
                 <th className="px-2 py-1 text-left font-medium">Date</th>
@@ -1715,6 +1719,10 @@ function HomePageInner() {
                     </td>
                     <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
                     <td className="px-2 py-1 text-right text-red-500 font-mono">₹{t.stopLoss.toFixed(0)}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t1' ? 'text-emerald-400 font-bold' : 'text-emerald-700'}`}>₹{t.target1 > 0 ? t.target1.toFixed(2) : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t2' ? 'text-emerald-400 font-bold' : 'text-emerald-800'}`}>{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t3' ? 'text-yellow-300 font-bold' : 'text-yellow-900'}`}>{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.closedPrice ? (t.pnlPct && t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400') : t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.closedPrice ? `₹${t.closedPrice.toFixed(2)}` : t.currentPrice ? `₹${t.currentPrice.toFixed(2)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono font-semibold ${t.pnlPct !== undefined ? (t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
                       {t.pnlPct !== undefined ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
                     </td>
