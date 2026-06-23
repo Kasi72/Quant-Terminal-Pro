@@ -74,6 +74,17 @@ export function generateNarrative(
     if (onsetTier === 'BEST') setupParts.push('This is a Volume-Thrust Close-High candle — the highest-probability onset pattern (81.8% backtest hit rate for >5% moves)');
     else if (onsetTier === 'STRONG') setupParts.push('This is a Strong Onset candle — volume-confirmed expansion breakout');
 
+    // Zone explosion profile
+    if (zone) {
+      const cazp = zone.zoneHigh > 0 ? ((r.lastClose - zone.zoneHigh) / zone.zoneHigh) * 100 : 0;
+      const adrPct = r.atrPct14 ?? 0;
+      if (r.pre10AvgRangeATR <= 0.75 && cazp >= 0.50 && cazp <= 4.00 && adrPct >= 4.0 && adrPct <= 7.5) {
+        setupParts.push(`HIGH CONVICTION ZONE EXPLOSION — price closed ${cazp.toFixed(1)}% above a narrow ${zone.zoneTightnessPct.toFixed(1)}% zone with avg range ${(r.pre10AvgRangeATR * 100).toFixed(0)}% of ATR. ADR at ${adrPct.toFixed(1)}% is in the optimal momentum zone (94.74% backtest hit rate)`);
+      } else if (zone.zoneTightnessPct <= 15 && cazp <= 4.0 && adrPct >= 4.0) {
+        setupParts.push(`Zone breakout confirmed — ${cazp.toFixed(1)}% above ${zone.windowLength}-candle zone`);
+      }
+    }
+
     // ATR Compression state
     const atrPctl = r.atrPct14Pctl120;
     if (atrPctl >= 65 && atrPctl <= 95) {

@@ -151,6 +151,36 @@ function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolea
   return { state, explosion };
 }
 
+// Narrow Zone Explosion Badge (backtested on 29 OHLCV files)
+// High-conviction: 94.74% hit rate | Practical: 80.56% hit rate
+type ZoneExplosionTier = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
+function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
+  if (!r.zone) return null;
+  const zt = r.zone.zoneTightnessPct;
+  const zl = r.zone.windowLength;
+  const zatr = r.pre10AvgRangeATR;
+  const ra = r.exactRangeATR14;
+  const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct;
+  // close_above_zone_pct
+  const cazp = r.zone.zoneHigh > 0 ? ((r.lastClose - r.zone.zoneHigh) / r.zone.zoneHigh) * 100 : 0;
+  // ADR20% approximation: atrPct14 is ATR as % of close
+  const adrPct = r.atrPct14 ?? 0;
+
+  // High Conviction: 94.74% hit rate (19 candles, Wilson LB 75.36%)
+  if (zatr <= 0.75 && cazp >= 0.50 && cazp <= 4.00
+    && ra >= 1.00 && ra <= 5.00 && cl >= 65 && bp >= 35 && uw <= 35
+    && adrPct >= 4.00 && adrPct <= 7.50 && zt <= 20 && zl >= 5 && zl <= 25)
+    return 'HIGH_CONVICTION';
+
+  // Practical: 80.56% hit rate (108 candles, Wilson LB 72.10%)
+  if (zt <= 15 && zl >= 5 && zl <= 25 && zatr <= 1.00
+    && cazp >= 0.00 && cazp <= 4.00 && ra >= 0.75 && ra <= 5.00
+    && adrPct >= 4.00 && adrPct <= 7.50)
+    return 'CONFIRMED';
+
+  return null;
+}
+
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
   try { return col.fmt(r); } catch { return '—'; }
 }
@@ -530,6 +560,16 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'zone_exp', label: 'Zone', width: 40, align: 'center',
+    fmt: r => {
+      const ze = detectZoneExplosion(r);
+      return ze === 'HIGH_CONVICTION' ? '💎' : ze === 'CONFIRMED' ? '🎯' : '—';
+    },
+    numVal: r => detectZoneExplosion(r) === 'HIGH_CONVICTION' ? 2 : detectZoneExplosion(r) === 'CONFIRMED' ? 1 : 0,
+    cellClass: r => {
+      const ze = detectZoneExplosion(r);
+      return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold' : ze === 'CONFIRMED' ? 'text-blue-400' : 'text-slate-700';
+    } },
   { key: 'atr_state', label: 'ATR', width: 45, align: 'center',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
@@ -595,7 +635,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -3865,6 +3905,8 @@ function HomePageInner() {
                               {detectVolumeBadge(r) === 'CONFIRMED' && <span className="text-emerald-500">✓ Vol</span>}
                               {detectATRState(r).explosion && <span className="text-[#39FF14] font-bold">💥 ATR+Vol Explosion</span>}
                               {!detectATRState(r).explosion && detectATRState(r).state === 'SWEET_SPOT' && <span className="text-orange-300">🎯 ATR Sweet Spot</span>}
+                              {detectZoneExplosion(r) === 'HIGH_CONVICTION' && <span className="text-cyan-300 font-bold">💎 Zone Explosion</span>}
+                              {detectZoneExplosion(r) === 'CONFIRMED' && !detectZoneExplosion(r) && <span className="text-blue-400">🎯 Zone Confirmed</span>}
                               {(() => { const age = getSignalAge(r.symbol, r.stage, signalHistory); return age > 0 ? <span className={age <= 1 ? 'text-emerald-400' : age <= 3 ? 'text-slate-400' : 'text-amber-400'}>{age <= 1 ? 'NEW today' : `${age}d old`}</span> : null; })()}
                             </div>
                           </div>
