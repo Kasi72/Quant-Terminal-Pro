@@ -166,9 +166,9 @@ function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
   // ADR20% approximation: atrPct14 is ATR as % of close
   const adrPct = r.atrPct14 ?? 0;
 
-  // High Conviction: 94.74% hit rate (19 candles, Wilson LB 75.36%)
-  if (zatr <= 0.75 && cazp >= 0.50 && cazp <= 4.00
-    && ra >= 1.00 && ra <= 5.00 && cl >= 65 && bp >= 35 && uw <= 35
+  // High Conviction v2: 100% hit rate (14 trades, Wilson LB 78.47%)
+  if (zatr <= 0.75 && cazp >= 0.75 && cazp <= 4.00
+    && ra >= 1.00 && ra <= 4.00 && cl >= 65 && bp >= 35 && uw <= 35
     && adrPct >= 4.00 && adrPct <= 7.50 && zt <= 20 && zl >= 5 && zl <= 25)
     return 'HIGH_CONVICTION';
 
