@@ -85,7 +85,7 @@ export function runBacktest(
   holdingPeriod = 10,
   accountSize = 1000000,
   riskPct = 1.0,
-  targetATRMult = 2.0,
+  _targetATRMult = 2.0, // deprecated — now uses hybrid clamp model
 ): BacktestTrade[] {
   if (candles.length < 60) return [];
   const trades: BacktestTrade[] = [];
@@ -154,8 +154,10 @@ export function runBacktest(
     const shares = Math.floor(riskAmount / riskPerShare);
     if (shares <= 0) continue;
 
-    // Target: configurable ATR multiple
-    const target1 = entryPrice + targetATRMult * atr;
+    // Target: backtested hybrid — clamp(2.15 × ATR%, 3%, 5%)
+    const atrPctAtEntry = entryPrice > 0 ? (atr / entryPrice) * 100 : 2.5;
+    const t1Pct = Math.max(3.0, Math.min(5.0, 2.15 * atrPctAtEntry));
+    const target1 = entryPrice * (1 + t1Pct / 100);
 
     // Simulate trade
     let exitPrice = 0, exitType: BacktestTrade['exitType'] = 'expired';
@@ -388,17 +390,16 @@ export interface SensitivityRow {
 
 export function parameterSensitivity(candles: Candle[], symbol: string): SensitivityRow[] {
   const results: SensitivityRow[] = [];
-  // Test different target ATR multiples
-  for (const mult of [1.0, 1.5, 2.0, 2.5, 3.0, 4.0]) {
-    const trades = runBacktest(candles, symbol, 200, 10, 1000000, 1.0, mult);
-    if (trades.length < 3) continue;
+  // Current model uses hybrid clamp — run single backtest and report
+  const trades = runBacktest(candles, symbol, 200, 10, 1000000, 1.0);
+  if (trades.length >= 3) {
     const wins = trades.filter(t => t.pnlR > 0);
     const losses = trades.filter(t => t.pnlR <= 0);
     const totalWin = wins.reduce((s, t) => s + t.pnlR, 0);
     const totalLoss = losses.reduce((s, t) => s + Math.abs(t.pnlR), 0);
     results.push({
-      param: 'T1 ATR',
-      value: mult,
+      param: 'Hybrid T1',
+      value: 2.15,
       trades: trades.length,
       winRate: safe(wins.length / trades.length * 100),
       expectancy: safe(trades.reduce((s, t) => s + t.pnlR, 0) / trades.length),
