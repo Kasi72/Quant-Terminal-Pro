@@ -560,24 +560,24 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
-  { key: 'zone_exp', label: 'Zone', width: 40, align: 'center',
+  { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     fmt: r => {
       const ze = detectZoneExplosion(r);
-      return ze === 'HIGH_CONVICTION' ? '💎' : ze === 'CONFIRMED' ? '🎯' : '—';
+      return ze === 'HIGH_CONVICTION' ? '💎 Explode' : ze === 'CONFIRMED' ? '🎯 Ready' : '—';
     },
     numVal: r => detectZoneExplosion(r) === 'HIGH_CONVICTION' ? 2 : detectZoneExplosion(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
       const ze = detectZoneExplosion(r);
       return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold' : ze === 'CONFIRMED' ? 'text-blue-400' : 'text-slate-700';
     } },
-  { key: 'atr_state', label: 'ATR', width: 45, align: 'center',
+  { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
-      if (explosion) return '💥';
-      if (state === 'SWEET_SPOT') return '🎯';
-      if (state === 'BUILDING') return '⚡';
-      if (state === 'DEEP_COMPRESSION') return '💤';
-      if (state === 'HIGH_VOL') return '🔥';
+      if (explosion) return '💥 Explode';
+      if (state === 'SWEET_SPOT') return '🎯 Sweet';
+      if (state === 'BUILDING') return '⚡ Build';
+      if (state === 'DEEP_COMPRESSION') return '💤 Sleep';
+      if (state === 'HIGH_VOL') return '🔥 Hot';
       return '—';
     },
     numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
@@ -590,10 +590,10 @@ const COLUMNS: ColDef[] = [
       if (state === 'HIGH_VOL') return 'text-red-400';
       return 'text-slate-700';
     } },
-  { key: 'vol_badge', label: 'Vol', width: 40, align: 'center',
+  { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     fmt: r => {
       const vb = detectVolumeBadge(r);
-      return vb === 'HIGH_CONVICTION' ? '🔥' : vb === 'CONFIRMED' ? '✓' : '—';
+      return vb === 'HIGH_CONVICTION' ? '🔥 Thrust' : vb === 'CONFIRMED' ? '✓ Conf' : '—';
     },
     numVal: r => detectVolumeBadge(r) === 'HIGH_CONVICTION' ? 2 : detectVolumeBadge(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
