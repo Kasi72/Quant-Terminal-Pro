@@ -119,6 +119,20 @@ function detectOnsetCandle(r: AnalysisResult): OnsetTier {
   return null;
 }
 
+// Volume Thrust Badge (backtested on 29 OHLCV files — 66.28% hit rate for +5% moves)
+type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
+function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
+  const vr20 = r.volRatio20, vp5 = r.exactVolVsPre5, rvb = r.pre10RedVolBias;
+  const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct;
+  // High Conviction Volume Thrust: 66.28% hit rate for +5% (vs 45.43% baseline)
+  if (vr20 >= 2.00 && vp5 >= 2.00 && rvb <= 0.80 && cl >= 65 && bp >= 35 && uw <= 35)
+    return 'HIGH_CONVICTION';
+  // Volume Confirmed: softer version for compression-breakout context
+  if (vp5 >= 2.00 && vr20 >= 1.20 && rvb <= 1.10)
+    return 'CONFIRMED';
+  return null;
+}
+
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
   try { return col.fmt(r); } catch { return '—'; }
 }
@@ -498,6 +512,16 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'vol_badge', label: 'Vol', width: 40, align: 'center',
+    fmt: r => {
+      const vb = detectVolumeBadge(r);
+      return vb === 'HIGH_CONVICTION' ? '🔥' : vb === 'CONFIRMED' ? '✓' : '—';
+    },
+    numVal: r => detectVolumeBadge(r) === 'HIGH_CONVICTION' ? 2 : detectVolumeBadge(r) === 'CONFIRMED' ? 1 : 0,
+    cellClass: r => {
+      const vb = detectVolumeBadge(r);
+      return vb === 'HIGH_CONVICTION' ? 'text-orange-400 font-bold' : vb === 'CONFIRMED' ? 'text-emerald-500' : 'text-slate-700';
+    } },
   { key: 'missing', label: 'Missing', width: 110, align: 'left',
     fmt: r => {
       if (['BUY','STRONG_BUY','ULTRA_STRONG_BUY','NO_SIGNAL','COMPRESSION_WATCH'].includes(r.stage)) return '—';
@@ -533,7 +557,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -3799,6 +3823,8 @@ function HomePageInner() {
                               <span>Candle: <span className={detectOnsetCandle(r) ? 'text-[#39FF14] font-bold' : r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{detectOnsetCandle(r) ? `★ ${r.stats.candlePatternFull}` : r.stats.candlePatternFull}</span></span>
                               {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
+                              {detectVolumeBadge(r) === 'HIGH_CONVICTION' && <span className="text-orange-400 font-bold">🔥 Vol Thrust</span>}
+                              {detectVolumeBadge(r) === 'CONFIRMED' && <span className="text-emerald-500">✓ Vol</span>}
                               {(() => { const age = getSignalAge(r.symbol, r.stage, signalHistory); return age > 0 ? <span className={age <= 1 ? 'text-emerald-400' : age <= 3 ? 'text-slate-400' : 'text-amber-400'}>{age <= 1 ? 'NEW today' : `${age}d old`}</span> : null; })()}
                             </div>
                           </div>

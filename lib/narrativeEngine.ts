@@ -74,6 +74,14 @@ export function generateNarrative(
     if (onsetTier === 'BEST') setupParts.push('This is a Volume-Thrust Close-High candle — the highest-probability onset pattern (81.8% backtest hit rate for >5% moves)');
     else if (onsetTier === 'STRONG') setupParts.push('This is a Strong Onset candle — volume-confirmed expansion breakout');
 
+    // Volume thrust badge
+    const vr20 = r.volRatio20, vp5 = r.exactVolVsPre5, rvb = r.pre10RedVolBias;
+    if (vr20 >= 2.00 && vp5 >= 2.00 && rvb <= 0.80 && r.closeLoc >= 65 && r.bodyPct >= 35 && r.upperWickPct <= 35) {
+      setupParts.push('HIGH CONVICTION VOLUME THRUST — 2x+ volume surge with low red-volume pressure and accepted candle (66% backtest hit rate for +5% moves)');
+    } else if (vp5 >= 2.00 && vr20 >= 1.20 && rvb <= 1.10) {
+      setupParts.push('Volume confirmed — thrust above 20-day and 5-day baselines');
+    }
+
     // Momentum quality
     if (mom) {
       const momParts: string[] = [];
