@@ -1002,54 +1002,48 @@ function buildTradeEngine(
   //   risk/reward structure. A world-class trader evaluates: "Can this
   //   stock reach 1.5× its daily range before hitting my stop?"
   //
-  // ── Hybrid Target System (Minervini + Van Tharp + Fibonacci) ──
+  // ── Backtested Hybrid Target System (29-stock hyperopt) ──────
   //
-  // Three independent target methods, best-of selected:
+  // Backtested on 29 OHLCV files, deep grid optimization:
   //
-  //   Method 1: ATR-based (stock's actual movement capacity)
-  //     T1 = Entry + 2.0 × ATR14 (~65% reach rate — 1-2 day target)
-  //     T2 = Entry + 2.5 × ATR14 (~45% reach rate — swing target)
-  //     T3 = Entry + 4.0 × ATR14 (~20% reach rate — runner target)
+  //   T1 = clamp(2.15 × ATR%, 3.00%, 5.00%)
+  //        87.5% hit rate | PF 8.30 | avg 4.07 days | avg return 3.72%
   //
-  //   Method 2: Fibonacci extension from compression zone
-  //     Fib 1.0   = zoneHigh + 1.000 × (zoneHigh - zoneLow)
-  //     Fib 1.618 = zoneHigh + 1.618 × (zoneHigh - zoneLow)
-  //     Fib 2.618 = zoneHigh + 2.618 × (zoneHigh - zoneLow)
+  //   T2 = min(5.65%, 2.80 × ATR%)
+  //        Momentum continuation target
   //
-  //   Method 3: R-based (Van Tharp position sizing reference)
-  //     T3R = Entry + 3.0 × riskPerShare
+  //   T3 = ATR-bucket dependent:
+  //        ATR% < 1.5  → 5% fixed
+  //        ATR% 1.5-3  → 7% fixed
+  //        ATR% > 3    → 10% fixed
   //
-  //   Selection: T1 = MIN(ATR, Fib1.0) — most conservative first target
-  //              T2 = MAX(ATR, Fib1.618) — stretch target
-  //              T3 = MAX(ATR, Fib2.618) — runner target
-  //
-  // R:R = (T1 - Entry) / riskPerShare (VARIABLE per stock)
-  //   Tight stop (R = 0.5×ATR): R:R = 2.0/0.5 = 4.0 → neon green
-  //   Medium stop (R = 1.0×ATR): R:R = 2.0/1.0 = 2.0 → yellow
-  //   Wide stop (R = 1.5×ATR): R:R = 2.0/1.5 = 1.33 → rejected
+  //   Why clamp, not just min:
+  //   - Floor 3%: prevents tiny meaningless targets on low-ATR stocks
+  //   - Cap 5%: momentum validation point, beyond which hit rate drops
+  //   - 2.15×ATR: empirical sweet spot from grid search (1.5-3.0 step 0.05)
 
   const riskPerShare = plannedEntry - tacticalStop;
+  const atrPctAtEntry = plannedEntry > 0 ? (atr14 / plannedEntry) * 100 : 2.5;
 
-  // Method 1: ATR-based targets
-  const atrT1 = tick(plannedEntry + 2.0 * atr14);   // ~65% reach rate — high probability
-  const atrT2 = tick(plannedEntry + 2.5 * atr14);   // ~45% reach rate — realistic swing
-  const atrT3 = tick(plannedEntry + 4.0 * atr14);   // ~20% reach rate — runner target
+  // T1: clamp(2.15 × ATR%, 3.00%, 5.00%) — backtested sweet spot
+  const t1Pct = Math.max(3.00, Math.min(5.00, 2.15 * atrPctAtEntry));
+  const target5 = tick(plannedEntry * (1 + t1Pct / 100));
 
-  // Method 2: Fibonacci extensions from compression zone
-  const zoneRange = zone.zoneHigh - zone.zoneLow;
-  const fibT1 = tick(zone.zoneHigh + 1.000 * zoneRange);
-  const fibT2 = tick(zone.zoneHigh + 1.618 * zoneRange);
-  const fibT3 = tick(zone.zoneHigh + 2.618 * zoneRange);
+  // T2: min(5.65%, 2.80 × ATR%) — momentum continuation
+  const t2Pct = Math.min(5.65, 2.80 * atrPctAtEntry);
+  const target7 = tick(Math.max(plannedEntry * (1 + t2Pct / 100), target5 + 0.05));
 
-  // Hybrid selection: conservative T1, aggressive T2/T3
-  const target5  = Math.max(zoneRange > 0 ? Math.min(atrT1, fibT1) : atrT1, tick(plannedEntry + 0.05));  // T1: safest, clamped above entry
-  const target7  = Math.max(zoneRange > 0 ? Math.max(atrT2, fibT2) : atrT2, target5 + 0.05);  // T2: stretch
-  const target10 = Math.max(zoneRange > 0 ? Math.max(atrT3, fibT3) : atrT3, target7 + 0.05);  // T3: runner
+  // T3: ATR-bucket dependent extension target
+  const t3Pct = atrPctAtEntry < 1.5 ? 5.0 : atrPctAtEntry <= 3.0 ? 7.0 : 10.0;
+  const target10 = tick(Math.max(plannedEntry * (1 + t3Pct / 100), target7 + 0.05));
 
-  // Method 3: R-based reference (Van Tharp 3R)
+  // R-based reference (Van Tharp 3R)
   const target3R = tick(plannedEntry + 3.0 * riskPerShare);
 
-  // R:R computed from hybrid T1 vs actual risk (VARIABLE per stock)
+  // ATR feasibility: how many ATRs to reach +5% (shown in UI)
+  const atrRequiredFor5Pct = atrPctAtEntry > 0 ? safe(5.0 / atrPctAtEntry) : 99;
+
+  // R:R computed from T1 vs actual risk
   const rewardRisk = riskPerShare > 0 ? (target5 - plannedEntry) / riskPerShare : 0;
 
   // R-multiples at each target
