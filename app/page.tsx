@@ -3122,21 +3122,71 @@ function HomePageInner() {
                     ))}
                   </div>
 
-                  {/* Outcome Breakdown */}
+                  {/* #1: Open positions unrealized P&L summary */}
+                  {open.length > 0 && (
+                    <div className="bg-slate-800/40 rounded-lg px-3 py-2 flex items-center gap-4 text-xs">
+                      <span className="text-slate-500 font-semibold">Open Positions ({open.length}):</span>
+                      {(() => {
+                        const unrealPnls = open.filter(t => t.currentPrice && t.entryPrice > 0).map(t => ((t.currentPrice! - t.entryPrice) / t.entryPrice) * 100);
+                        const avgUnreal = unrealPnls.length > 0 ? unrealPnls.reduce((s, v) => s + v, 0) / unrealPnls.length : 0;
+                        const totalRisk = open.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
+                        return <>
+                          <span className={`font-mono font-semibold ${avgUnreal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Avg P&L: {avgUnreal >= 0 ? '+' : ''}{avgUnreal.toFixed(2)}%</span>
+                          <span className="text-red-400 font-mono">At risk: ₹{totalRisk.toFixed(0)}</span>
+                          {unrealPnls.length > 0 && <span className="text-slate-500">Range: {Math.min(...unrealPnls).toFixed(1)}% to {Math.max(...unrealPnls) >= 0 ? '+' : ''}{Math.max(...unrealPnls).toFixed(1)}%</span>}
+                        </>;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Outcome Breakdown — #4: with profit from each hit */}
                   <div className="grid grid-cols-5 gap-2">
                     {[
-                      { label: 'T1 Hit', count: hitT1.length, color: 'bg-emerald-900/30 border-emerald-800 text-emerald-400' },
-                      { label: 'T2 Hit', count: hitT2.length, color: 'bg-emerald-900/30 border-emerald-800 text-emerald-300' },
-                      { label: 'T3 Hit', count: hitT3.length, color: 'bg-yellow-900/30 border-yellow-800 text-yellow-300' },
-                      { label: 'Stopped', count: stopped.length, color: 'bg-red-900/30 border-red-800 text-red-400' },
-                      { label: 'Expired', count: expired.length, color: 'bg-amber-900/30 border-amber-800 text-amber-400' },
+                      { label: 'T1 Hit', count: hitT1.length, profit: hitT1.reduce((s, t) => s + (t.pnlPct ?? 0), 0), color: 'bg-emerald-900/30 border-emerald-800 text-emerald-400' },
+                      { label: 'T2 Hit', count: hitT2.length, profit: hitT2.reduce((s, t) => s + (t.pnlPct ?? 0), 0), color: 'bg-emerald-900/30 border-emerald-800 text-emerald-300' },
+                      { label: 'T3 Hit', count: hitT3.length, profit: hitT3.reduce((s, t) => s + (t.pnlPct ?? 0), 0), color: 'bg-yellow-900/30 border-yellow-800 text-yellow-300' },
+                      { label: 'Stopped', count: stopped.length, profit: stopped.reduce((s, t) => s + (t.pnlPct ?? 0), 0), color: 'bg-red-900/30 border-red-800 text-red-400' },
+                      { label: 'Expired', count: expired.length, profit: expired.reduce((s, t) => s + (t.pnlPct ?? 0), 0), color: 'bg-amber-900/30 border-amber-800 text-amber-400' },
                     ].map((o, i) => (
                       <div key={i} className={`rounded-lg border px-3 py-2 text-center ${o.color}`}>
                         <div className="text-2xl font-bold">{o.count}</div>
                         <div className="text-[10px] uppercase tracking-wider opacity-70">{o.label}</div>
+                        {o.count > 0 && <div className="text-[10px] font-mono mt-0.5">{o.profit >= 0 ? '+' : ''}{o.profit.toFixed(1)}%</div>}
                       </div>
                     ))}
                   </div>
+
+                  {/* #5: Best / Worst trade highlight */}
+                  {closed.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {(() => {
+                        const best = closed.reduce((b, t) => (t.pnlPct ?? 0) > (b.pnlPct ?? 0) ? t : b, closed[0]);
+                        const worst = closed.reduce((w, t) => (t.pnlPct ?? 0) < (w.pnlPct ?? 0) ? t : w, closed[0]);
+                        return <>
+                          <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-lg px-3 py-2 text-xs">
+                            <div className="text-[10px] text-emerald-500 font-semibold uppercase">Best Trade</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="font-mono text-emerald-400 font-bold">{best.symbol.replace('.NS','').replace('.BO','')}</span>
+                              <span className="text-emerald-300 font-mono">+{(best.pnlPct ?? 0).toFixed(2)}%</span>
+                              <span className="text-emerald-400/60 font-mono">+{(best.pnlR ?? 0).toFixed(1)}R</span>
+                              <span className="text-slate-500 ml-auto">{best.daysHeld ?? 0}d</span>
+                            </div>
+                          </div>
+                          {worst !== best && (
+                            <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2 text-xs">
+                              <div className="text-[10px] text-red-500 font-semibold uppercase">Worst Trade</div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="font-mono text-red-400 font-bold">{worst.symbol.replace('.NS','').replace('.BO','')}</span>
+                                <span className="text-red-300 font-mono">{(worst.pnlPct ?? 0).toFixed(2)}%</span>
+                                <span className="text-red-400/60 font-mono">{(worst.pnlR ?? 0).toFixed(1)}R</span>
+                                <span className="text-slate-500 ml-auto">{worst.daysHeld ?? 0}d</span>
+                              </div>
+                            </div>
+                          )}
+                        </>;
+                      })()}
+                    </div>
+                  )}
 
                   {/* Rolling Stats Comparison */}
                   <div className="bg-slate-800/40 rounded-lg p-3">
@@ -3207,7 +3257,9 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">MAE%</th>
                             <th className="px-2 py-1 text-right font-medium">MAE-R</th>
                             <th className="px-2 py-1 text-right font-medium">Days</th>
+                            <th className="px-2 py-1 text-center font-medium">Expiry</th>
                             <th className="px-2 py-1 text-center font-medium">Outcome</th>
+                            <th className="px-2 py-1 text-left font-medium">Exit Model</th>
                             <th className="px-2 py-1 text-left font-medium">Sector</th>
                             <th className="px-2 py-1 text-right font-medium">Conv</th>
                             <th className="px-2 py-1 text-left font-medium">Closed Dt</th>
@@ -3260,7 +3312,20 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right ${t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
-                                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span></td>
+                                  {/* #3/#7: Days to expiry countdown */}
+                                  <td className="px-2 py-1.5 text-center">{t.status === 'open' ? (() => {
+                                    const dl = 10 - (t.daysHeld ?? 0);
+                                    const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / 10) * 100));
+                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of 10 — expires in ${dl} days`}>
+                                      <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className={`h-full rounded-full ${pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width:`${pct}%`}} /></div>
+                                      <span className={`text-[9px] font-mono ${dl <= 2 ? 'text-red-400' : dl <= 5 ? 'text-amber-400' : 'text-slate-500'}`}>{dl}d</span>
+                                    </div>;
+                                  })() : <span className="text-slate-700">—</span>}</td>
+                                  {/* #2: Outcome with tooltip */}
+                                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
+                                    title={t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 10 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
+                                  {/* #6: Exit model */}
+                                  <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% BE' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? '—' : 'Market'}</td>
                                   <td className="px-2 py-1.5 text-slate-600 truncate max-w-[80px]">{t.sector || '—'}</td>
                                   <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>
