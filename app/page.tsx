@@ -1703,7 +1703,8 @@ function HomePageInner() {
                 <th className="px-2 py-1 text-right font-medium">Exit ₹</th>
                 <th className="px-2 py-1 text-right font-medium">P&L</th>
                 <th className="px-2 py-1 text-right font-medium">R-Mult</th>
-                <th className="px-2 py-1 text-left font-medium">Date</th>
+                <th className="px-2 py-1 text-left font-medium">Entry Date</th>
+                <th className="px-2 py-1 text-left font-medium">Hit Date</th>
                 <th className="px-2 py-1 text-right font-medium">Days</th>
                 <th className="px-2 py-1 text-left font-medium">Sector</th>
                 <th className="px-2 py-1 text-center font-medium"></th>
@@ -1730,6 +1731,7 @@ function HomePageInner() {
                       {t.pnlR !== undefined ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
                     </td>
                     <td className="px-2 py-1 text-slate-500">{t.entryDate}</td>
+                    <td className={`px-2 py-1 ${t.closedDate ? 'text-emerald-400' : 'text-slate-700'}`}>{t.closedDate || '—'}</td>
                     <td className="px-2 py-1 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
                     <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
                     <td className="px-2 py-1 text-center">
