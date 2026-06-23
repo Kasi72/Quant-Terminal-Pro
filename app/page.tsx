@@ -1601,7 +1601,7 @@ function HomePageInner() {
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => setShowTracker(v => !v)} data-tip="Win rate tracker — shows open positions, P&L, and trading statistics" data-tip-color="green"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-            📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}%` : 'WR'}</button>
+            📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% (${winStats.hitT1 + winStats.hitT2 + winStats.hitT3}W/${winStats.stopped}L · ${trackedTrades.filter(t => t.status === 'open').length} open)` : 'WR'}</button>
           <button onClick={() => setShowSessions(v => !v)} data-tip="Saved scan sessions — compare, export, import historical scans" data-tip-color="blue"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             💾 {sessions.length || '—'}</button>
