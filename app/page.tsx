@@ -66,6 +66,7 @@ import {
   computeEdgeDecay, computeDayOfWeek, computeRegimePerformance,
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
+import { buildTearSheetData, exportTearSheetPDF, exportTearSheetXLSX } from '@/lib/tearSheet';
 import { runBacktest, aggregateBacktest, type BacktestResult } from '@/lib/backtestEngine';
 import { generateNarrative, type SignalNarrative } from '@/lib/narrativeEngine';
 import { optimizePortfolio, type PortfolioResult } from '@/lib/portfolioOptimizer';
@@ -159,7 +160,7 @@ async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: str
   doc.text(title, 14, 12);
   doc.setFontSize(8);
   doc.setTextColor(120, 130, 150);
-  doc.text(`Dr KKR Quant Terminal Pro v8.1  ·  ${rows.length} stocks  ·  ${new Date().toLocaleDateString('en-IN')}  ·  Param: ${rows[0]?.paramSetKey ?? 'N/A'}`, 14, 18);
+  doc.text(`Dr KKR Quant Terminal Pro v8.2  ·  ${rows.length} stocks  ·  ${new Date().toLocaleDateString('en-IN')}  ·  Param: ${rows[0]?.paramSetKey ?? 'N/A'}`, 14, 18);
 
   const stageColors: Record<string, [number, number, number]> = {
     'ULTRA STRONG BUY': [253, 224, 71], 'STRONG BUY': [134, 239, 172], 'BUY': [52, 211, 153],
@@ -408,7 +409,7 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.volatilityExpansionRatio.toFixed(2) + '×',
     numVal: r => r.volatilityExpansionRatio,
     cellClass: () => 'text-slate-300' },
-  // v8.1 momentum columns
+  // v8.2 momentum columns
   { key: 'momentumScore', label: 'MomScore', width: 82, align: 'right',
     fmt: r => r.momentum.momentumScore.toFixed(0),
     numVal: r => r.momentum.momentumScore,
@@ -1371,7 +1372,7 @@ function HomePageInner() {
       <header className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2.5 flex items-center gap-3">
         <div className="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center text-xs font-bold text-white select-none">Q</div>
         <span className="font-bold text-slate-100 text-sm">Dr KKR Quant Terminal Pro</span>
-        <span className="text-xs text-slate-600">v8.1</span>
+        <span className="text-xs text-slate-600">v8.2</span>
         <select
           value={scanAll ? 'ALL4' : paramSetKey}
           onChange={e => {
@@ -3054,7 +3055,7 @@ function HomePageInner() {
                             <div className={`text-[10px] font-semibold flex-1 ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-500'}`}>{nar.verdict}</div>
                             <button onClick={(e) => {
                               e.stopPropagation();
-                              const text = `${nar.headline}\n\n${nar.setup}\n\n${nar.entry}\n${nar.caution !== 'No specific risk flags identified.' ? '\n⚠ ' + nar.caution : ''}\n\n${nar.verdict}\n\n— Dr KKR Quant Terminal Pro v8.1`;
+                              const text = `${nar.headline}\n\n${nar.setup}\n\n${nar.entry}\n${nar.caution !== 'No specific risk flags identified.' ? '\n⚠ ' + nar.caution : ''}\n\n${nar.verdict}\n\n— Dr KKR Quant Terminal Pro v8.2`;
                               const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                               const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
                             }}
@@ -3111,6 +3112,17 @@ function HomePageInner() {
                         <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
                         {/* #1: Last validated timestamp */}
                         <div className="text-[10px] text-slate-500">Last validated: <span className="text-slate-400 font-mono">{scanEndTime || '—'}</span></div>
+                        {/* Tear Sheet Export buttons */}
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => { const d = buildTearSheetData(trackedTrades, accountSize); exportTearSheetPDF(d); }}
+                            disabled={trackedTrades.length === 0}
+                            data-tip="Export trade tear sheet as PDF — full summary + trade log" data-tip-color="red"
+                            className="h-5 px-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded text-[9px] font-semibold text-red-300 disabled:opacity-40 transition-colors">📄 Tear Sheet PDF</button>
+                          <button onClick={() => { const d = buildTearSheetData(trackedTrades, accountSize); exportTearSheetXLSX(d); }}
+                            disabled={trackedTrades.length === 0}
+                            data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
+                            className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
+                        </div>
                       </div>
                     </div>
                     {/* #2: Traffic light + #6: Portfolio heat + #4: P&L in rupees */}
@@ -4246,7 +4258,7 @@ function HomePageInner() {
                     const pe = selectedResult.priceEngine;
                     const conv = computeConviction(selectedResult);
                     const verdict = pe.rewardRisk >= 3.5 ? 'Elite' : pe.rewardRisk >= 2.5 ? 'Very Good' : pe.rewardRisk >= 2.0 ? 'Good' : 'Acceptable';
-                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v8.1`;
+                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v8.2`;
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
                     className="flex-1 px-2 py-1.5 bg-cyan-900/40 hover:bg-cyan-900/60 border border-cyan-700 rounded text-xs font-medium text-cyan-300 transition-colors">📤 Share</button>
@@ -4361,7 +4373,7 @@ function HomePageInner() {
                 </div>
               )}
 
-              {/* v8.1 Momentum */}
+              {/* v8.2 Momentum */}
               {selectedResult.momentum && <div className="mb-4">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
                   Momentum Quality ({selectedResult.momentum?.momentumScore ?? 0}/100)
@@ -4535,7 +4547,7 @@ function HomePageInner() {
           )
         )}
         {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
-        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v8.1</span>
+        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v8.2</span>
       </footer>
     </main>
   );
