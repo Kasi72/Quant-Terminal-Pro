@@ -1705,41 +1705,65 @@ function HomePageInner() {
                 <th className="px-2 py-1 text-right font-medium">R-Mult</th>
                 <th className="px-2 py-1 text-left font-medium">Entry Date</th>
                 <th className="px-2 py-1 text-left font-medium">Hit Date</th>
+                <th className="px-2 py-1 text-right font-medium">To T1</th>
                 <th className="px-2 py-1 text-right font-medium">Days</th>
                 <th className="px-2 py-1 text-left font-medium">Sector</th>
+                <th className="px-2 py-1 text-center font-medium">Seq</th>
                 <th className="px-2 py-1 text-center font-medium"></th>
               </tr></thead>
               <tbody>
-                {trackedTrades.slice().reverse().map((t, i) => (
-                  <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20">
-                    <td className="px-2 py-1 font-mono text-slate-200">{t.symbol}</td>
+                {[...trackedTrades].sort((a, b) => {
+                  if (a.status !== 'open' && b.status === 'open') return -1;
+                  if (a.status === 'open' && b.status !== 'open') return 1;
+                  if (a.status !== 'open' && b.status !== 'open') return (b.closedDate ?? '').localeCompare(a.closedDate ?? '');
+                  return 0;
+                }).map((t, i, arr) => {
+                  const rps = t.entryPrice - t.stopLoss;
+                  const riskPct = t.entryPrice > 0 ? (rps / t.entryPrice * 100) : 0;
+                  const unrealPnl = t.status === 'open' && t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice * 100) : null;
+                  const unrealR = t.status === 'open' && t.currentPrice && rps > 0 ? ((t.currentPrice - t.entryPrice) / rps) : null;
+                  const toT1Pct = t.status === 'open' && t.currentPrice && t.target1 > 0 ? ((t.target1 - t.currentPrice) / t.currentPrice * 100) : null;
+                  const displayPnl = t.pnlPct ?? unrealPnl;
+                  const displayR = t.pnlR ?? unrealR;
+                  // Sequence: W/L markers for closed trades
+                  const closedUpToHere = arr.slice(0, i + 1).filter(x => x.status !== 'open');
+                  const seqMark = t.status !== 'open' ? ((t.pnlPct ?? 0) >= 0 ? 'W' : 'L') : '·';
+                  return (
+                  <tr key={i} className={`border-b border-slate-800/30 hover:bg-slate-800/20 ${t.status !== 'open' ? '' : 'opacity-80'}`}>
+                    <td className="px-2 py-1 font-mono text-slate-200">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                     <td className="px-2 py-1 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : t.pnlPct && t.pnlPct > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : (t.pnlPct ?? 0) > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
                         {t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : t.status === 'hit_t3' ? 'T3' : t.status === 'stopped' ? 'STOP' : t.status === 'expired' ? 'EXP' : 'CLOSE'}
                       </span>
                     </td>
                     <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
-                    <td className="px-2 py-1 text-right text-red-500 font-mono">₹{t.stopLoss.toFixed(0)}</td>
-                    <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t1' ? 'text-emerald-400 font-bold' : 'text-emerald-700'}`}>₹{t.target1 > 0 ? t.target1.toFixed(2) : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${riskPct <= 2 ? 'text-emerald-500' : riskPct <= 3 ? 'text-amber-500' : 'text-red-500'}`} title={`Risk: ${riskPct.toFixed(1)}%`}>₹{t.stopLoss.toFixed(0)}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t1' ? 'text-emerald-400 font-bold' : 'text-emerald-700'}`}>{t.target1 > 0 ? `₹${t.target1.toFixed(2)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t2' ? 'text-emerald-400 font-bold' : 'text-emerald-800'}`}>{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t3' ? 'text-yellow-300 font-bold' : 'text-yellow-900'}`}>{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
-                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.closedPrice ? (t.pnlPct && t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400') : t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.closedPrice ? `₹${t.closedPrice.toFixed(2)}` : t.currentPrice ? `₹${t.currentPrice.toFixed(2)}` : '—'}</td>
-                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.pnlPct !== undefined ? (t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
-                      {t.pnlPct !== undefined ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
+                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.closedPrice ? ((t.pnlPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400') : t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.closedPrice ? `₹${t.closedPrice.toFixed(2)}` : t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono font-semibold ${displayPnl !== null && displayPnl !== undefined ? (displayPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
+                      {displayPnl !== null && displayPnl !== undefined ? `${displayPnl >= 0 ? '+' : ''}${displayPnl.toFixed(1)}%` : '—'}
+                      {t.status === 'open' && unrealPnl !== null ? ' *' : ''}
                     </td>
-                    <td className={`px-2 py-1 text-right font-mono ${t.pnlR !== undefined ? (t.pnlR >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
-                      {t.pnlR !== undefined ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
+                    <td className={`px-2 py-1 text-right font-mono ${displayR !== null && displayR !== undefined ? (displayR >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
+                      {displayR !== null && displayR !== undefined ? `${displayR >= 0 ? '+' : ''}${displayR.toFixed(1)}R` : '—'}
                     </td>
                     <td className="px-2 py-1 text-slate-500">{t.entryDate}</td>
                     <td className={`px-2 py-1 ${t.closedDate ? 'text-emerald-400' : 'text-slate-700'}`}>{t.closedDate || '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${toT1Pct !== null ? (toT1Pct <= 2 ? 'text-yellow-300 font-semibold' : 'text-slate-500') : 'text-slate-700'}`}>
+                      {toT1Pct !== null ? `${toT1Pct.toFixed(1)}%` : t.status !== 'open' ? '✓' : '—'}
+                    </td>
                     <td className="px-2 py-1 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
                     <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
+                    <td className={`px-2 py-1 text-center text-[10px] font-bold ${seqMark === 'W' ? 'text-emerald-400' : seqMark === 'L' ? 'text-red-400' : 'text-slate-700'}`}>{seqMark}</td>
                     <td className="px-2 py-1 text-center">
                       <button onClick={() => setTrackedTrades(prev => prev.filter(x => x.symbol !== t.symbol))}
                         className="text-slate-700 hover:text-red-400">×</button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           ) : (
