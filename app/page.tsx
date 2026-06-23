@@ -3101,16 +3101,84 @@ function HomePageInner() {
 
               return (
                 <>
-                  <div className="flex items-center justify-between bg-slate-800/30 rounded-lg px-4 py-2.5 -mx-1">
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} open · {closed.length} closed · Partial exit model (50/30/20)</div>
+                  <div className="bg-slate-800/30 rounded-lg px-4 py-2.5 -mx-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} open · {closed.length} closed · Partial exit (50/30/20)</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
+                        {/* #1: Last validated timestamp */}
+                        <div className="text-[10px] text-slate-500">Last validated: <span className="text-slate-400 font-mono">{scanEndTime || '—'}</span></div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
-                      <div className="text-[10px] text-slate-600">10-day expiry · Entry-day target check</div>
-                    </div>
+                    {/* #2: Traffic light + #6: Portfolio heat + #4: P&L in rupees */}
+                    {open.length > 0 && (
+                      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-700/30 text-[10px]">
+                        {/* Traffic light */}
+                        {(() => {
+                          const openWithPrice = open.filter(t => t.currentPrice && t.entryPrice > 0);
+                          const profitable = openWithPrice.filter(t => (t.currentPrice ?? 0) >= t.entryPrice).length;
+                          const losing = openWithPrice.length - profitable;
+                          const light = openWithPrice.length === 0 ? '⚪' : losing === 0 ? '🟢' : profitable === 0 ? '🔴' : '🟡';
+                          const label = openWithPrice.length === 0 ? 'No CMP data' : losing === 0 ? 'All profitable' : profitable === 0 ? 'All losing' : `${profitable} green, ${losing} red`;
+                          return <span className={`font-semibold ${losing === 0 ? 'text-emerald-400' : profitable === 0 ? 'text-red-400' : 'text-yellow-300'}`}>{light} {label}</span>;
+                        })()}
+                        <span className="text-slate-700">|</span>
+                        {/* Portfolio heat */}
+                        {(() => {
+                          const deployed = open.reduce((s, t) => s + t.entryPrice, 0);
+                          const deployedPct = accountSize > 0 ? (deployed / accountSize * 100) : 0;
+                          const maxPos = 5;
+                          const room = maxPos - open.length;
+                          return <span className="text-slate-500">Deployed: ₹{(deployed/1000).toFixed(0)}K ({deployedPct.toFixed(1)}% of ₹{(accountSize/100000).toFixed(0)}L) · Room for {room > 0 ? room : 0} more</span>;
+                        })()}
+                        <span className="text-slate-700">|</span>
+                        {/* Total realized P&L in rupees */}
+                        {(() => {
+                          const realizedPnl = closed.reduce((s, t) => {
+                            const rps = t.entryPrice - t.stopLoss;
+                            const riskAmt = accountSize * 0.01;
+                            return s + (rps > 0 ? riskAmt * (t.pnlR ?? 0) : 0);
+                          }, 0);
+                          return <span className={`font-mono font-semibold ${realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Realized: {realizedPnl >= 0 ? '+' : ''}₹{Math.abs(realizedPnl).toFixed(0)}</span>;
+                        })()}
+                      </div>
+                    )}
                   </div>
+
+                  {/* #7: Alerts for trades near stop */}
+                  {(() => {
+                    const alerts: Array<{symbol: string; msg: string; severity: 'danger' | 'warning'}> = [];
+                    for (const t of open) {
+                      if (!t.currentPrice || t.entryPrice <= 0) continue;
+                      const rps = t.entryPrice - t.stopLoss;
+                      if (rps <= 0) continue;
+                      const distToStop = t.currentPrice - t.stopLoss;
+                      const distPct = (distToStop / t.currentPrice) * 100;
+                      if (distPct <= 1.0) alerts.push({ symbol: t.symbol, msg: `within ${distPct.toFixed(1)}% of stop (₹${t.stopLoss.toFixed(0)})`, severity: 'danger' });
+                      else if (distPct <= 2.0) alerts.push({ symbol: t.symbol, msg: `${distPct.toFixed(1)}% above stop — approaching danger zone`, severity: 'warning' });
+
+                      // #3: Near T1 alert
+                      if (t.target1 > 0 && t.currentPrice > 0) {
+                        const toT1 = ((t.target1 - t.currentPrice) / t.currentPrice) * 100;
+                        if (toT1 > 0 && toT1 <= 1.5) alerts.push({ symbol: t.symbol, msg: `only ${toT1.toFixed(1)}% from T1 (₹${t.target1.toFixed(0)}) — watch closely`, severity: 'warning' });
+                      }
+                    }
+                    if (alerts.length === 0) return null;
+                    return (
+                      <div className="space-y-1">
+                        {alerts.map((a, i) => (
+                          <div key={i} className={`text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-2 ${a.severity === 'danger' ? 'bg-red-900/30 border border-red-800/50 text-red-300' : 'bg-amber-900/20 border border-amber-800/30 text-amber-300'}`}>
+                            <span className="font-bold">{a.severity === 'danger' ? '🚨' : '⚠'}</span>
+                            <span className="font-mono font-semibold">{a.symbol.replace('.NS','').replace('.BO','')}</span>
+                            <span>{a.msg}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* KPI Row */}
                   <div className="grid grid-cols-6 gap-2">
