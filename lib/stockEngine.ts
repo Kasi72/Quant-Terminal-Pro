@@ -1007,9 +1007,9 @@ function buildTradeEngine(
   // Three independent target methods, best-of selected:
   //
   //   Method 1: ATR-based (stock's actual movement capacity)
-  //     T1 = Entry + 2.0 × ATR14 (Minervini: 2-3 day realistic target)
-  //     T2 = Entry + 3.5 × ATR14 (5-7 day swing target)
-  //     T3 = Entry + 5.5 × ATR14 (trend runner target)
+  //     T1 = Entry + 2.0 × ATR14 (~65% reach rate — 1-2 day target)
+  //     T2 = Entry + 2.5 × ATR14 (~45% reach rate — swing target)
+  //     T3 = Entry + 4.0 × ATR14 (~20% reach rate — runner target)
   //
   //   Method 2: Fibonacci extension from compression zone
   //     Fib 1.0   = zoneHigh + 1.000 × (zoneHigh - zoneLow)
@@ -1031,9 +1031,9 @@ function buildTradeEngine(
   const riskPerShare = plannedEntry - tacticalStop;
 
   // Method 1: ATR-based targets
-  const atrT1 = tick(plannedEntry + 2.0 * atr14);
-  const atrT2 = tick(plannedEntry + 3.5 * atr14);
-  const atrT3 = tick(plannedEntry + 5.5 * atr14);
+  const atrT1 = tick(plannedEntry + 2.0 * atr14);   // ~65% reach rate — high probability
+  const atrT2 = tick(plannedEntry + 2.5 * atr14);   // ~45% reach rate — realistic swing
+  const atrT3 = tick(plannedEntry + 4.0 * atr14);   // ~20% reach rate — runner target
 
   // Method 2: Fibonacci extensions from compression zone
   const zoneRange = zone.zoneHigh - zone.zoneLow;

@@ -40,6 +40,14 @@ export function validateTrade(
   let closedPrice = 0;
   let closedDate = '';
 
+  // Partial exit model: continue tracking after T1 to find highest target reached
+  // T1 hit → sell 50%, move SL to breakeven, keep checking T2/T3
+  // T2 hit → sell 30% more, trail with Chandelier, keep checking T3
+  // T3 hit → sell final 20%, trade fully closed
+  // Stop hit (after T1) → breakeven (no loss on remaining), use T1 as exit
+  let t1Hit = false, t2Hit = false;
+  let stopAfterT1 = false;
+
   for (let i = 0; i < candlesSinceEntry.length; i++) {
     const candle = candlesSinceEntry[i];
     if (!candle || !Number.isFinite(candle.h) || !Number.isFinite(candle.l)) continue;
@@ -48,29 +56,46 @@ export function validateTrade(
     if (candle.h > mfePrice) mfePrice = candle.h;
     if (candle.l < maePrice) maePrice = candle.l;
 
-    // Bar-by-bar check: stop checked first (conservative — assume worst case)
-    // Skip stop check on first candle (entry day) to prevent false same-day stop-outs
-    if (i > 0 && candle.l <= trade.stopLoss) {
-      status = 'stopped';
-      closedPrice = trade.stopLoss;
-      break;
+    // Stop check: skip on entry day (i=0), and after T1 use breakeven stop
+    if (i > 0) {
+      if (!t1Hit && candle.l <= trade.stopLoss) {
+        status = 'stopped';
+        closedPrice = trade.stopLoss;
+        break;
+      }
+      // After T1: trailing stop = breakeven (entry price)
+      if (t1Hit && !t2Hit && candle.l <= trade.entryPrice) {
+        // Stopped at breakeven after T1 — use T1 as the exit (partial profit captured)
+        status = 'hit_t1';
+        closedPrice = trade.target1;
+        stopAfterT1 = true;
+        break;
+      }
+      // After T2: trailing stop = T1 level
+      if (t2Hit && candle.l <= trade.target1) {
+        status = 'hit_t2';
+        closedPrice = trade.target2;
+        break;
+      }
     }
 
-    // Check targets on ALL candles including entry day
-    if (trade.target3 > 0 && candle.h >= trade.target3) {
-      status = 'hit_t3';
-      closedPrice = trade.target3;
-      break;
-    }
-    if (trade.target2 > 0 && candle.h >= trade.target2) {
-      status = 'hit_t2';
-      closedPrice = trade.target2;
-      break;
-    }
-    if (trade.target1 > 0 && candle.h >= trade.target1) {
+    // Target checks — DON'T break on T1/T2, continue to find highest
+    if (!t1Hit && trade.target1 > 0 && candle.h >= trade.target1) {
+      t1Hit = true;
       status = 'hit_t1';
       closedPrice = trade.target1;
-      break;
+      // Don't break — continue checking T2/T3
+    }
+    if (t1Hit && !t2Hit && trade.target2 > 0 && candle.h >= trade.target2) {
+      t2Hit = true;
+      status = 'hit_t2';
+      closedPrice = trade.target2;
+      // Don't break — continue checking T3
+    }
+    if (t2Hit && trade.target3 > 0 && candle.h >= trade.target3) {
+      status = 'hit_t3';
+      closedPrice = trade.target3;
+      break; // T3 is final — fully closed
     }
   }
 
@@ -81,8 +106,20 @@ export function validateTrade(
     closedPrice = candlesSinceEntry.length > 0 ? candlesSinceEntry[candlesSinceEntry.length - 1].c : trade.entryPrice;
   }
 
-  const pnlPct = closedPrice > 0 ? ((closedPrice - trade.entryPrice) / trade.entryPrice) * 100 : 0;
-  const pnlR = riskPerShare > 0 && closedPrice > 0 ? (closedPrice - trade.entryPrice) / riskPerShare : 0;
+  // Weighted P&L for partial exits:
+  // T1 only: 50% at T1 + 50% at breakeven (conservative) = avg of T1 and entry
+  // T2: 50% at T1 + 30% at T2 + 20% at breakeven = weighted avg
+  // T3: 50% at T1 + 30% at T2 + 20% at T3 = full capture
+  let weightedExitPrice = closedPrice;
+  if (status === 'hit_t1' && !stopAfterT1) {
+    weightedExitPrice = trade.target1 * 0.5 + trade.entryPrice * 0.5; // 50% booked, 50% breakeven
+  } else if (status === 'hit_t2') {
+    weightedExitPrice = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.entryPrice * 0.2;
+  } else if (status === 'hit_t3') {
+    weightedExitPrice = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
+  }
+  const pnlPct = weightedExitPrice > 0 ? ((weightedExitPrice - trade.entryPrice) / trade.entryPrice) * 100 : 0;
+  const pnlR = riskPerShare > 0 && weightedExitPrice > 0 ? (weightedExitPrice - trade.entryPrice) / riskPerShare : 0;
   const mfe = ((mfePrice - trade.entryPrice) / trade.entryPrice) * 100;
   const mae = ((maePrice - trade.entryPrice) / trade.entryPrice) * 100;
   const mfeR = riskPerShare > 0 ? (mfePrice - trade.entryPrice) / riskPerShare : 0;
