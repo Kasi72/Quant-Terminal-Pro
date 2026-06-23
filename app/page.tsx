@@ -133,6 +133,24 @@ function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
   return null;
 }
 
+// ATR Compression State (backtested on 29 OHLCV files)
+type ATRState = 'DEEP_COMPRESSION' | 'BUILDING' | 'SWEET_SPOT' | 'HIGH_VOL' | null;
+function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolean } {
+  const pctl = r.atrPct14Pctl120;
+  if (!Number.isFinite(pctl)) return { state: null, explosion: false };
+  let state: ATRState;
+  if (pctl < 20) state = 'DEEP_COMPRESSION';
+  else if (pctl < 65) state = 'BUILDING';
+  else if (pctl <= 95) state = 'SWEET_SPOT';
+  else state = 'HIGH_VOL';
+  // ATR + Volume Explosion overlay: 82.28% hit rate for +5% (Wilson LB 72.42%)
+  const explosion = state === 'SWEET_SPOT'
+    && r.volRatio20 >= 2.00 && r.exactVolVsPre5 >= 2.00
+    && r.pre10RedVolBias <= 0.80
+    && r.closeLoc >= 65 && r.bodyPct >= 35 && r.upperWickPct <= 35;
+  return { state, explosion };
+}
+
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
   try { return col.fmt(r); } catch { return '—'; }
 }
@@ -512,6 +530,26 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'atr_state', label: 'ATR', width: 45, align: 'center',
+    fmt: r => {
+      const { state, explosion } = detectATRState(r);
+      if (explosion) return '💥';
+      if (state === 'SWEET_SPOT') return '🎯';
+      if (state === 'BUILDING') return '⚡';
+      if (state === 'DEEP_COMPRESSION') return '💤';
+      if (state === 'HIGH_VOL') return '🔥';
+      return '—';
+    },
+    numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
+    cellClass: r => {
+      const { state, explosion } = detectATRState(r);
+      if (explosion) return 'text-[#39FF14] font-bold';
+      if (state === 'SWEET_SPOT') return 'text-orange-400';
+      if (state === 'BUILDING') return 'text-yellow-400';
+      if (state === 'DEEP_COMPRESSION') return 'text-slate-600';
+      if (state === 'HIGH_VOL') return 'text-red-400';
+      return 'text-slate-700';
+    } },
   { key: 'vol_badge', label: 'Vol', width: 40, align: 'center',
     fmt: r => {
       const vb = detectVolumeBadge(r);
@@ -557,7 +595,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_cons','pe_risk','pe_rr','pe_rr_verdict','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_cons','pe_tact','pe_dis','pe_risk','pe_disrisk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_sW','pe_sK','pe_sE','pe_sSL','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -3825,6 +3863,8 @@ function HomePageInner() {
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
                               {detectVolumeBadge(r) === 'HIGH_CONVICTION' && <span className="text-orange-400 font-bold">🔥 Vol Thrust</span>}
                               {detectVolumeBadge(r) === 'CONFIRMED' && <span className="text-emerald-500">✓ Vol</span>}
+                              {detectATRState(r).explosion && <span className="text-[#39FF14] font-bold">💥 ATR+Vol Explosion</span>}
+                              {!detectATRState(r).explosion && detectATRState(r).state === 'SWEET_SPOT' && <span className="text-orange-300">🎯 ATR Sweet Spot</span>}
                               {(() => { const age = getSignalAge(r.symbol, r.stage, signalHistory); return age > 0 ? <span className={age <= 1 ? 'text-emerald-400' : age <= 3 ? 'text-slate-400' : 'text-amber-400'}>{age <= 1 ? 'NEW today' : `${age}d old`}</span> : null; })()}
                             </div>
                           </div>

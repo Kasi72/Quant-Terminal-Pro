@@ -74,6 +74,14 @@ export function generateNarrative(
     if (onsetTier === 'BEST') setupParts.push('This is a Volume-Thrust Close-High candle — the highest-probability onset pattern (81.8% backtest hit rate for >5% moves)');
     else if (onsetTier === 'STRONG') setupParts.push('This is a Strong Onset candle — volume-confirmed expansion breakout');
 
+    // ATR Compression state
+    const atrPctl = r.atrPct14Pctl120;
+    if (atrPctl >= 65 && atrPctl <= 95) {
+      setupParts.push(`ATR percentile at ${atrPctl.toFixed(0)} — in the explosion sweet spot (65-95). Volatility is waking up from compression.`);
+    } else if (atrPctl < 20) {
+      setupParts.push(`ATR percentile at ${atrPctl.toFixed(0)} — deep compression. Setup is early, may need more time.`);
+    }
+
     // Volume thrust badge
     const vr20 = r.volRatio20, vp5 = r.exactVolVsPre5, rvb = r.pre10RedVolBias;
     if (vr20 >= 2.00 && vp5 >= 2.00 && rvb <= 0.80 && r.closeLoc >= 65 && r.bodyPct >= 35 && r.upperWickPct <= 35) {
