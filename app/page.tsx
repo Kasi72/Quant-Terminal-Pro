@@ -3072,8 +3072,10 @@ function HomePageInner() {
 
         {/* ── Trade Auto Validation Tab (Scientific Dashboard) ── */}
         {activeTab === 'validation' && (
-          <div className="flex-1 overflow-auto p-4 space-y-3">
-            {/* Summary Cards — same as before but compact */}
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* ═══════════════════════════════════════════ */}
+            {/* SECTION 1: DASHBOARD HEADER                */}
+            {/* ═══════════════════════════════════════════ */}
             {(() => {
               const all = trackedTrades;
               const open = all.filter(t => t.status === 'open');
@@ -3099,9 +3101,15 @@ function HomePageInner() {
 
               return (
                 <>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🔬 Trade Auto Validation</h2>
-                    <span className="text-xs text-slate-600">Level 3: Bar-by-bar sequential · Stop checked before target · 10-day expiry</span>
+                  <div className="flex items-center justify-between bg-slate-800/30 rounded-lg px-4 py-2.5 -mx-1">
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} open · {closed.length} closed · Partial exit model (50/30/20)</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
+                      <div className="text-[10px] text-slate-600">10-day expiry · Entry-day target check</div>
+                    </div>
                   </div>
 
                   {/* KPI Row */}
@@ -3188,9 +3196,11 @@ function HomePageInner() {
                     </div>
                   )}
 
-                  {/* Rolling Stats Comparison */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 2: ROLLING PERFORMANCE            */}
+                  {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/40 rounded-lg p-3">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Rolling Performance</div>
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2"><span className="w-1 h-4 bg-cyan-500 rounded-full"></span>Rolling Performance</div>
                     <div className="grid grid-cols-3 gap-3">
                       {[
                         computeRollingStats(trackedTrades, 10, 'Last 10'),
@@ -3228,9 +3238,12 @@ function HomePageInner() {
                   </div>
 
                   {/* Full Trade Log */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 3: TRADE LOG                      */}
+                  {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/40 rounded-lg p-3">
                     <div className="flex items-center mb-2">
-                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Complete Trade Log ({all.length} trades)</span>
+                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2"><span className="w-1 h-4 bg-emerald-500 rounded-full"></span>Trade Log ({all.length} trades)</span>
                       {all.length > 0 && (
                         <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); } catch {} } }}
                           className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
@@ -3344,8 +3357,10 @@ function HomePageInner() {
                   </div>
 
                   {/* ══════════════════════════════════════════════════════ */}
-                  {/* SCIENTIFIC ANALYTICS (10 features)                   */}
-                  {/* ══════════════════════════════════════════════════════ */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 4: SCIENTIFIC ANALYTICS            */}
+                  {/* ═══════════════════════════════════════════ */}
+                  <div className="flex items-center gap-2 mt-2"><span className="w-1 h-4 bg-indigo-500 rounded-full"></span><span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Scientific Analytics</span><span className="flex-1 border-t border-slate-700/50"></span></div>
 
                   {closed.length >= 3 && (<>
 
@@ -3604,8 +3619,10 @@ function HomePageInner() {
 
                   </>)}
 
-                  {/* Engine Info */}
-                  <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 5: ENGINE REFERENCE                */}
+                  {/* ═══════════════════════════════════════════ */}
+                  <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5 border border-slate-700/30">
                     <div><b className="text-slate-500">Engine:</b> Level 3 bar-by-bar sequential (stop checked before target)</div>
                     <div><b className="text-slate-500">Auto-Runs:</b> After every scan on all open tracked trades</div>
                     <div><b className="text-slate-500">MFE:</b> Highest R-multiple above entry — profit left on the table</div>
