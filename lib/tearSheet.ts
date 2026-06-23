@@ -190,10 +190,10 @@ export async function exportTearSheetPDF(data: TearSheetData) {
   // Header
   doc.setFontSize(16);
   doc.setTextColor(100, 160, 255);
-  doc.text('DR KKR QUANT TERMINAL PRO — TRADE TEAR SHEET', 14, 14);
+  doc.text('DR KKR QUANT TERMINAL PRO - TRADE TEAR SHEET', 14, 14);
   doc.setFontSize(9);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Generated: ${data.generatedDate} | Account: ₹${data.accountSize.toLocaleString('en-IN')} | Risk/Trade: ${data.riskPerTrade}%`, 14, 20);
+  doc.text(`Generated: ${data.generatedDate} | Account: Rs.${data.accountSize.toLocaleString('en-IN')} | Risk/Trade: ${data.riskPerTrade}%`, 14, 20);
 
   // Summary KPIs
   doc.setFontSize(10);
@@ -204,7 +204,7 @@ export async function exportTearSheetPDF(data: TearSheetData) {
   doc.text(`PF: ${data.profitFactor.toFixed(2)}`, 180, y);
   doc.text(`Exp: ${data.expectancy.toFixed(2)}%`, 210, y);
   doc.setTextColor(80, 220, 130);
-  doc.text(`Realized: ₹${data.realizedPnlRupees.toFixed(0)} (${data.realizedPnlPct.toFixed(2)}%)`, 250, y);
+  doc.text(`Realized: Rs.${data.realizedPnlRupees.toFixed(0)} (${data.realizedPnlPct.toFixed(2)}%)`, 250, y);
 
   // Outcome row
   doc.setTextColor(150, 150, 150);
@@ -217,10 +217,10 @@ export async function exportTearSheetPDF(data: TearSheetData) {
     head: [['#', 'Symbol', 'Stage', 'Entry', 'Entry Dt', 'SL', 'Risk%', 'T1', 'T1 Date', 'T1%', 'T2', 'T2 Date', 'T2%', 'Exit', 'Exit Dt', 'P&L%', 'R-Mult', 'MFE%', 'Days', 'Exit Model', 'Outcome', 'Conv']],
     body: data.trades.map(t => [
       t.num, t.symbol, t.stage.slice(0, 12),
-      `₹${t.entryPrice.toFixed(0)}`, t.entryDate, `₹${t.stopLoss.toFixed(0)}`, `${t.riskPct.toFixed(1)}%`,
-      `₹${t.t1Price.toFixed(0)}`, t.t1HitDate, `${t.t1PnlPct.toFixed(1)}%`,
-      `₹${t.t2Price.toFixed(0)}`, t.t2HitDate, `${t.t2PnlPct.toFixed(1)}%`,
-      t.exitPrice > 0 ? `₹${t.exitPrice.toFixed(0)}` : '—', t.exitDate,
+      `Rs.${t.entryPrice.toFixed(0)}`, t.entryDate, `Rs.${t.stopLoss.toFixed(0)}`, `${t.riskPct.toFixed(1)}%`,
+      `Rs.${t.t1Price.toFixed(0)}`, t.t1HitDate, `${t.t1PnlPct.toFixed(1)}%`,
+      `Rs.${t.t2Price.toFixed(0)}`, t.t2HitDate, `${t.t2PnlPct.toFixed(1)}%`,
+      t.exitPrice > 0 ? `Rs.${t.exitPrice.toFixed(0)}` : '-', t.exitDate,
       `${t.weightedPnlPct >= 0 ? '+' : ''}${t.weightedPnlPct.toFixed(2)}%`,
       `${t.rMult >= 0 ? '+' : ''}${t.rMult.toFixed(1)}R`,
       `${t.mfePct.toFixed(1)}%`, String(t.daysHeld), t.exitModel, t.outcome, String(t.conviction),
