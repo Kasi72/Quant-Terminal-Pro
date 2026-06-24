@@ -287,10 +287,10 @@ const COLUMNS: ColDef[] = [
   { key: 'sector',    label: 'Sector',     width: 50, align: 'center',
     fmt: r => getSectorTag(r.symbol),
     cellClass: () => 'text-slate-500 text-xs' },
-  { key: 'conviction', label: 'Conv', width: 55, align: 'right',
-    fmt: r => String(computeConviction(r)),
+  { key: 'conviction', label: 'Conv', width: 60, align: 'right',
+    fmt: r => '',  // rendered custom in cell
     numVal: r => computeConviction(r),
-    cellClass: r => { const c = computeConviction(r); return c >= 70 ? 'text-yellow-300 font-bold' : c >= 50 ? 'text-emerald-400 font-semibold' : c >= 30 ? 'text-slate-300' : 'text-slate-600'; } },
+    cellClass: () => '' },
   { key: 'stage',     label: 'Stage',       width: 155, align: 'left',
     fmt: r => STAGE_CONFIG[r.stage].label,
     cellClass: r => STAGE_CONFIG[r.stage].color + ' font-semibold' },
@@ -576,42 +576,42 @@ const COLUMNS: ColDef[] = [
   { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     fmt: r => {
       const ze = detectZoneExplosion(r);
-      return ze === 'HIGH_CONVICTION' ? '💎 Explode' : ze === 'CONFIRMED' ? '🎯 Ready' : '—';
+      return ze === 'HIGH_CONVICTION' ? 'EXPLODE' : ze === 'CONFIRMED' ? 'READY' : '—';
     },
     numVal: r => detectZoneExplosion(r) === 'HIGH_CONVICTION' ? 2 : detectZoneExplosion(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
       const ze = detectZoneExplosion(r);
-      return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold' : ze === 'CONFIRMED' ? 'text-blue-400' : 'text-slate-700';
+      return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded' : ze === 'CONFIRMED' ? 'text-blue-400 bg-blue-900/20 px-1 rounded' : 'text-slate-700';
     } },
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
-      if (explosion) return '💥 Explode';
-      if (state === 'SWEET_SPOT') return '🎯 Sweet';
-      if (state === 'BUILDING') return '⚡ Build';
-      if (state === 'DEEP_COMPRESSION') return '💤 Sleep';
-      if (state === 'HIGH_VOL') return '🔥 Hot';
+      if (explosion) return 'EXPLODE';
+      if (state === 'SWEET_SPOT') return 'SWEET';
+      if (state === 'BUILDING') return 'BUILD';
+      if (state === 'DEEP_COMPRESSION') return 'SLEEP';
+      if (state === 'HIGH_VOL') return 'HOT';
       return '—';
     },
     numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
     cellClass: r => {
       const { state, explosion } = detectATRState(r);
-      if (explosion) return 'text-[#39FF14] font-bold';
-      if (state === 'SWEET_SPOT') return 'text-orange-400';
-      if (state === 'BUILDING') return 'text-yellow-400';
+      if (explosion) return 'text-[#39FF14] font-bold bg-green-900/30 px-1 rounded';
+      if (state === 'SWEET_SPOT') return 'text-orange-400 bg-orange-900/20 px-1 rounded';
+      if (state === 'BUILDING') return 'text-yellow-400 bg-yellow-900/20 px-1 rounded';
       if (state === 'DEEP_COMPRESSION') return 'text-slate-600';
-      if (state === 'HIGH_VOL') return 'text-red-400';
+      if (state === 'HIGH_VOL') return 'text-red-400 bg-red-900/20 px-1 rounded';
       return 'text-slate-700';
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     fmt: r => {
       const vb = detectVolumeBadge(r);
-      return vb === 'HIGH_CONVICTION' ? '🔥 Thrust' : vb === 'CONFIRMED' ? '✓ Conf' : '—';
+      return vb === 'HIGH_CONVICTION' ? 'THRUST' : vb === 'CONFIRMED' ? 'CONF' : '—';
     },
     numVal: r => detectVolumeBadge(r) === 'HIGH_CONVICTION' ? 2 : detectVolumeBadge(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
       const vb = detectVolumeBadge(r);
-      return vb === 'HIGH_CONVICTION' ? 'text-orange-400 font-bold' : vb === 'CONFIRMED' ? 'text-emerald-500' : 'text-slate-700';
+      return vb === 'HIGH_CONVICTION' ? 'text-orange-400 font-bold bg-orange-900/20 px-1 rounded' : vb === 'CONFIRMED' ? 'text-emerald-500 bg-emerald-900/20 px-1 rounded' : 'text-slate-700';
     } },
   { key: 'missing', label: 'Missing', width: 110, align: 'left',
     fmt: r => {
@@ -4031,6 +4031,27 @@ function HomePageInner() {
         {/* Table area — full width, no sidebar */}
         <div className="flex flex-col overflow-hidden flex-1 min-w-0">
 
+          {/* Fix #9: Scan summary card */}
+          {results.length > 0 && (() => {
+            const buys = results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+            const best = buys.sort((a, b) => computeConviction(b) - computeConviction(a))[0];
+            if (buys.length === 0) return <div className="flex-shrink-0 bg-slate-800/20 px-4 py-1.5 text-[11px] text-slate-500 border-b border-slate-800/30">No actionable signals in this scan · {results.length} stocks screened</div>;
+            const ze = best ? detectZoneExplosion(best) : null;
+            const ae = best ? detectATRState(best) : { explosion: false };
+            const vb = best ? detectVolumeBadge(best) : null;
+            const onset = best ? detectOnsetCandle(best) : null;
+            const badges = [ze === 'HIGH_CONVICTION' ? '💎Zone' : '', ae.explosion ? '💥ATR' : '', vb === 'HIGH_CONVICTION' ? '🔥Vol' : '', onset === 'BEST' ? '★Onset' : ''].filter(Boolean).join(' ');
+            return <div className="flex-shrink-0 bg-gradient-to-r from-emerald-900/20 to-slate-900/10 px-4 py-2 border-b border-emerald-800/20 flex items-center gap-3 text-[11px]">
+              <span className="text-emerald-400 font-bold">{buys.length} BUY signal{buys.length > 1 ? 's' : ''}</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-400">Best: <span className="text-slate-200 font-semibold">{best.symbol.replace('.NS','').replace('.BO','')}</span></span>
+              <span className="text-slate-400">Conv <span className="text-yellow-300 font-bold">{computeConviction(best)}</span></span>
+              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
+              {badges && <span className="text-[10px] text-emerald-500">{badges}</span>}
+              <span className="text-slate-600 ml-auto">{results.length} scanned</span>
+            </div>;
+          })()}
+
           {/* Scanner sub-tab bar (horizontal) */}
           {results.length > 0 && (
             <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1 flex items-center gap-1 border-b border-slate-800/50">
@@ -4130,6 +4151,7 @@ function HomePageInner() {
                       return (
                         <tr key={row.symbol + i}
                           onClick={() => { setSelectedSymbol(isSelected ? null : row.symbol); if (!isSelected) setReviewedSymbols(prev => new Set(prev).add(row.symbol)); }}
+                          style={{ borderLeft: `3px solid ${STAGE_CONFIG[row.stage].textColor}` }}
                           className={`cursor-pointer border-b border-slate-800/40 transition-colors group ${isSelected ? 'bg-indigo-900/25' : diff ? 'bg-cyan-900/10' : 'hover:bg-slate-800/40'} ${reviewedSymbols.has(row.symbol) && !isSelected ? 'opacity-70' : ''}`}>
                           {visibleColumns.map(col => (
                             <td key={col.key}
@@ -4139,7 +4161,14 @@ function HomePageInner() {
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
                                 col.cellClass ? col.cellClass(row) : 'text-slate-300',
                               ].join(' ')}>
-                              {(col.key === 'pivot_pp' || col.key === 'pivot_r1' || col.key === 'pivot_s1') ? (() => {
+                              {col.key === 'conviction' ? (() => {
+                                const c = computeConviction(row);
+                                const color = c >= 70 ? '#facc15' : c >= 50 ? '#34d399' : c >= 30 ? '#94a3b8' : '#475569';
+                                return <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold text-[11px]" style={{color}}>{c}</span>
+                                  <div className="w-8 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{width:`${c}%`, backgroundColor:color}} /></div>
+                                </div>;
+                              })() : (col.key === 'pivot_pp' || col.key === 'pivot_r1' || col.key === 'pivot_s1') ? (() => {
                                 const piv = pivotData.get(row.symbol);
                                 if (!piv) return <span className="text-slate-700">—</span>;
                                 const val = col.key === 'pivot_pp' ? piv.classic.pp : col.key === 'pivot_r1' ? piv.classic.r1 : piv.classic.s1;
