@@ -172,12 +172,15 @@ function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
   // ADR20% approximation: atrPct14 is ATR as % of close
   const adrPct = r.atrPct14 ?? 0;
 
-  // High Conviction v3: 93.33% hit rate (15 trades, Wilson LB 70.18%, avg 1.93d to +5%)
-  // Tight consolidation + volume dry-up-to-burst + clean expansion candle
-  if (zatr <= 0.85 && cazp >= 1.00 && cazp <= 6.00
-    && ra >= 1.25 && ra <= 4.00 && cl >= 70 && bp >= 35 && uw <= 30
-    && adrPct >= 3.00 && adrPct <= 7.50 && zt <= 17.5 && zl >= 5 && zl <= 30
-    && r.exactVolVsPre5 >= 2.50 && r.pre10RedVolBias <= 1.00)
+  // v4 Precision Max: 100% hit rate (17/17 trades, Wilson LB 81.57%, MFE 12.97%)
+  const volExpRatio = r.volatilityExpansionRatio ?? 0;
+  const pre10VolR = r.pre10AvgVolRatio ?? 0;
+  const isGreen = r.lastClose > 0 && r.closeLoc > 50;
+  if (zatr <= 0.75 && cazp >= 0.75 && cazp <= 4.00
+    && ra >= 1.00 && ra <= 4.00 && cl >= 75 && bp >= 25 && uw <= 35
+    && volExpRatio >= 1.25 && pre10VolR <= 1.10
+    && adrPct >= 3.50 && adrPct <= 7.50 && zt <= 20 && zl >= 5 && zl <= 25
+    && isGreen)
     return 'HIGH_CONVICTION';
 
   // Deployable: 75.86% hit rate (29 trades, Wilson LB 57.89%, MFE 14.48%)
