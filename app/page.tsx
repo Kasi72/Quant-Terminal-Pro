@@ -143,11 +143,15 @@ function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolea
   else if (pctl < 65) state = 'BUILDING';
   else if (pctl <= 95) state = 'SWEET_SPOT';
   else state = 'HIGH_VOL';
-  // ATR + Volume Explosion overlay: 82.28% hit rate for +5% (Wilson LB 72.42%)
-  const explosion = state === 'SWEET_SPOT'
+  // ATR Quantile Explosion Reversal: 91-94% hit rate (Wilson LB 79-82%)
+  // Wider ATR range (40-95) + signal candle expansion (1.5-6 ATR) + volume thrust
+  const explosion = (state === 'SWEET_SPOT' || state === 'BUILDING')
+    && pctl >= 40 && pctl <= 95
+    && r.exactRangeATR14 >= 1.50 && r.exactRangeATR14 <= 6.00
     && r.volRatio20 >= 2.00 && r.exactVolVsPre5 >= 2.00
     && r.pre10RedVolBias <= 0.80
-    && r.closeLoc >= 65 && r.bodyPct >= 35 && r.upperWickPct <= 35;
+    && r.closeLoc >= 65 && r.bodyPct >= 35 && r.upperWickPct <= 35
+    && (r.atrPct14 ?? 0) >= 4.00 && (r.atrPct14 ?? 0) <= 7.50;
   return { state, explosion };
 }
 
