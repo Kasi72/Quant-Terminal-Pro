@@ -961,21 +961,18 @@ function buildTradeEngine(
 
   const atrBasedStop = tick(plannedEntry - 0.75 * atr14);
   const structuralStop = tick(zone.zoneLow - 0.25 * atr14);
-  const primaryStop = Math.min(atrBasedStop, structuralStop); // wider of the two
 
-  // Use the primary if it's better than consensus, otherwise keep consensus
-  if (primaryStop < tacticalStop && primaryStop > 0) {
-    tacticalStop = primaryStop;
+  // Choose the HIGHEST stop (closest to entry = tightest risk) among all candidates
+  const allCandidates = [tacticalStop, atrBasedStop, structuralStop].filter(s => s > 0 && s < plannedEntry);
+  if (allCandidates.length > 0) {
+    tacticalStop = Math.max(...allCandidates); // highest = tightest
   }
 
-  // Clamp: floor 2.0%, cap 3.5%
-  const stopPctFromEntry = plannedEntry > 0 ? ((plannedEntry - tacticalStop) / plannedEntry) * 100 : 0;
-  if (stopPctFromEntry < 2.0) {
-    tacticalStop = tick(plannedEntry * (1 - 2.0 / 100));
-  }
-  if (stopPctFromEntry > 3.5) {
-    tacticalStop = tick(plannedEntry * (1 - 3.5 / 100));
-  }
+  // HARD clamp: floor 2.0%, cap 3.5% — always enforced
+  const floorStop = tick(plannedEntry * (1 - 2.0 / 100));
+  const capStop = tick(plannedEntry * (1 - 3.5 / 100));
+  if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 2%
+  if (tacticalStop < capStop) tacticalStop = capStop;       // too wide → tighten to 3.5%
 
   tacticalStop = protectRoundNumber(tacticalStop);
   tacticalStop = tick(tacticalStop);
