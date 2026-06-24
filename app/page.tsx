@@ -3919,7 +3919,7 @@ function HomePageInner() {
                               {detectATRState(r).explosion && <span className="text-[#39FF14] font-bold">💥 ATR+Vol Explosion</span>}
                               {!detectATRState(r).explosion && detectATRState(r).state === 'SWEET_SPOT' && <span className="text-orange-300">🎯 ATR Sweet Spot</span>}
                               {detectZoneExplosion(r) === 'HIGH_CONVICTION' && <span className="text-cyan-300 font-bold">💎 Zone Explosion</span>}
-                              {detectZoneExplosion(r) === 'CONFIRMED' && !detectZoneExplosion(r) && <span className="text-blue-400">🎯 Zone Confirmed</span>}
+                              {detectZoneExplosion(r) === 'CONFIRMED' && <span className="text-blue-400">🎯 Zone Ready</span>}
                               {(() => { const age = getSignalAge(r.symbol, r.stage, signalHistory); return age > 0 ? <span className={age <= 1 ? 'text-emerald-400' : age <= 3 ? 'text-slate-400' : 'text-amber-400'}>{age <= 1 ? 'NEW today' : `${age}d old`}</span> : null; })()}
                             </div>
                           </div>
