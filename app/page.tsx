@@ -140,8 +140,9 @@ function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolea
   if (!Number.isFinite(pctl)) return { state: null, explosion: false };
   let state: ATRState;
   if (pctl < 20) state = 'DEEP_COMPRESSION';
-  else if (pctl < 65) state = 'BUILDING';
-  else if (pctl <= 95) state = 'SWEET_SPOT';
+  else if (pctl < 40) state = 'BUILDING';
+  else if (pctl <= 60) state = 'SWEET_SPOT';    // 40-60: inflection zone (65% hit, MFE 11.7%)
+  else if (pctl <= 95) state = 'HIGH_VOL';       // 65-95: momentum zone
   else state = 'HIGH_VOL';
   // ULTRA ATR+Volume+ADR Explosion: 97.62% hit rate (Wilson LB 87.68%)
   // Hyper-optimized from 29-OHLCV grid search
@@ -587,20 +588,20 @@ const COLUMNS: ColDef[] = [
     fmt: r => {
       const { state, explosion } = detectATRState(r);
       if (explosion) return '💥 EXPLODE';
-      if (state === 'SWEET_SPOT') return '🎯 SWEET';
+      if (state === 'SWEET_SPOT') return '🎯 INFLECT';
       if (state === 'BUILDING') return '⚡ BUILD';
       if (state === 'DEEP_COMPRESSION') return '💤 SLEEP';
-      if (state === 'HIGH_VOL') return '🔥 HOT';
+      if (state === 'HIGH_VOL') return '🔥 MOMEN';
       return '—';
     },
     numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
     cellClass: r => {
       const { state, explosion } = detectATRState(r);
       if (explosion) return 'text-[#39FF14] font-bold bg-green-900/30 px-1 rounded';
-      if (state === 'SWEET_SPOT') return 'text-orange-400 bg-orange-900/20 px-1 rounded';
+      if (state === 'SWEET_SPOT') return 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded';
       if (state === 'BUILDING') return 'text-yellow-400 bg-yellow-900/20 px-1 rounded';
       if (state === 'DEEP_COMPRESSION') return 'text-slate-600';
-      if (state === 'HIGH_VOL') return 'text-red-400 bg-red-900/20 px-1 rounded';
+      if (state === 'HIGH_VOL') return 'text-orange-400 bg-orange-900/20 px-1 rounded';
       return 'text-slate-700';
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
