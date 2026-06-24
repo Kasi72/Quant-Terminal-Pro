@@ -576,7 +576,7 @@ const COLUMNS: ColDef[] = [
   { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     fmt: r => {
       const ze = detectZoneExplosion(r);
-      return ze === 'HIGH_CONVICTION' ? 'EXPLODE' : ze === 'CONFIRMED' ? 'READY' : '—';
+      return ze === 'HIGH_CONVICTION' ? '💎 EXPLODE' : ze === 'CONFIRMED' ? '🎯 READY' : '—';
     },
     numVal: r => detectZoneExplosion(r) === 'HIGH_CONVICTION' ? 2 : detectZoneExplosion(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
@@ -586,11 +586,11 @@ const COLUMNS: ColDef[] = [
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
-      if (explosion) return 'EXPLODE';
-      if (state === 'SWEET_SPOT') return 'SWEET';
-      if (state === 'BUILDING') return 'BUILD';
-      if (state === 'DEEP_COMPRESSION') return 'SLEEP';
-      if (state === 'HIGH_VOL') return 'HOT';
+      if (explosion) return '💥 EXPLODE';
+      if (state === 'SWEET_SPOT') return '🎯 SWEET';
+      if (state === 'BUILDING') return '⚡ BUILD';
+      if (state === 'DEEP_COMPRESSION') return '💤 SLEEP';
+      if (state === 'HIGH_VOL') return '🔥 HOT';
       return '—';
     },
     numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
@@ -606,7 +606,7 @@ const COLUMNS: ColDef[] = [
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     fmt: r => {
       const vb = detectVolumeBadge(r);
-      return vb === 'HIGH_CONVICTION' ? 'THRUST' : vb === 'CONFIRMED' ? 'CONF' : '—';
+      return vb === 'HIGH_CONVICTION' ? '🔥 THRUST' : vb === 'CONFIRMED' ? '✓ CONF' : '—';
     },
     numVal: r => detectVolumeBadge(r) === 'HIGH_CONVICTION' ? 2 : detectVolumeBadge(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
