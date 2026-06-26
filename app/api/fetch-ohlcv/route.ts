@@ -23,7 +23,7 @@ async function tryFetch(sym: string): Promise<{ ok: boolean; data?: unknown; sta
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false`;
       const r = await fetch(url, {
         headers: HEADERS,
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
       });
       if (r.status === 404) return { ok: false, status: 404 };
       if (r.status === 429) return { ok: false, status: 429, rateLimited: true };
@@ -42,11 +42,11 @@ async function tryFetchWithRetry(sym: string, maxRetries = 2): Promise<{ ok: boo
     const result = await tryFetch(sym);
     if (result.ok || result.status === 404) return result;
     if (result.rateLimited && attempt < maxRetries) {
-      await sleep(1000 * (attempt + 1));
+      await sleep(500 * (attempt + 1));
       continue;
     }
     if (!result.ok && attempt < maxRetries) {
-      await sleep(500);
+      await sleep(300);
       continue;
     }
     return result;

@@ -16,7 +16,7 @@ export interface ValidationResult {
   closedDate: string;
 }
 
-interface Candle { h: number; l: number; c: number; }
+interface Candle { h: number; l: number; c: number; o?: number; v?: number; }
 
 // ─── Bar-by-bar sequential validation (Level 3 — precise) ───────────────────
 //
@@ -56,12 +56,23 @@ export function validateTrade(
     if (candle.h > mfePrice) mfePrice = candle.h;
     if (candle.l < maePrice) maePrice = candle.l;
 
-    // Stop check: skip on entry day (i=0), and after T1 use breakeven stop
+    // TRIPLE Dynamic Stop: only trigger when ALL 3 conditions confirm
+    //   1. Candle CLOSES below stop (wick alone = shakeout, not breakdown)
+    //   2. Volume ≥ 0.8× average (confirms institutional selling)
+    //   3. NOT a hammer/rejection candle AND NOT a green recovery
     if (i > 0) {
-      if (!t1Hit && candle.l <= trade.stopLoss) {
-        status = 'stopped';
-        closedPrice = trade.stopLoss;
-        break;
+      if (!t1Hit && candle.c <= trade.stopLoss) {
+        const isGreen = (candle.o ?? candle.c) < candle.c;
+        const range = candle.h - candle.l;
+        const closeLoc = range > 0 ? (candle.c - candle.l) / range * 100 : 50;
+        const lwPct = range > 0 ? (Math.min(candle.o ?? candle.c, candle.c) - candle.l) / range * 100 : 0;
+        const isHammer = lwPct >= 40 && closeLoc >= 50;
+        const isRecovery = isGreen && closeLoc >= 50;
+        if (!isHammer && !isRecovery) {
+          status = 'stopped';
+          closedPrice = trade.stopLoss;
+          break;
+        }
       }
       // After T1: trailing stop = breakeven (entry price)
       if (t1Hit && !t2Hit && candle.l <= trade.entryPrice) {

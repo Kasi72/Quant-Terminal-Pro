@@ -98,6 +98,73 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 12px rgba(249,115,22,0.2);
 }
 #qtp-tooltip.tip-orange::after { border-bottom-color: #f97316; }
+
+/* ── Rich Header Tooltip ── */
+#qtp-tooltip.rich-tip {
+  max-width: 340px;
+  padding: 0;
+  text-align: left;
+  font-weight: 400;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+#qtp-tooltip.rich-tip::after { border-bottom-color: #30363d; }
+#qtp-tooltip.rich-tip .rt-hdr {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #21262d;
+  color: #8b949e;
+  background: #161b22;
+}
+#qtp-tooltip.rich-tip .rt-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 0;
+  padding: 7px 14px;
+  border-bottom: 1px solid #161b22;
+  align-items: start;
+}
+#qtp-tooltip.rich-tip .rt-row:last-child { border-bottom: none; }
+#qtp-tooltip.rich-tip .rt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+#qtp-tooltip.rich-tip .rt-desc {
+  font-size: 10.5px;
+  color: #8b949e;
+  line-height: 1.45;
+}
+#qtp-tooltip.rich-tip .rt-hit {
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+#qtp-tooltip.rich-tip .bg-cyan { background: #083344; color: #67e8f9; }
+#qtp-tooltip.rich-tip .bg-blue { background: #172554; color: #93c5fd; }
+#qtp-tooltip.rich-tip .bg-neon { background: #052e16; color: #39ff14; }
+#qtp-tooltip.rich-tip .bg-teal { background: #042f2e; color: #5eead4; }
+#qtp-tooltip.rich-tip .bg-yellow { background: #422006; color: #fde047; }
+#qtp-tooltip.rich-tip .bg-slate { background: #1e293b; color: #94a3b8; }
+#qtp-tooltip.rich-tip .bg-orange { background: #431407; color: #fdba74; }
+#qtp-tooltip.rich-tip .bg-emerald { background: #022c22; color: #6ee7b7; }
+#qtp-tooltip.rich-tip .bg-dim { background: #1e293b; color: #64748b; }
+#qtp-tooltip.rich-tip .hit-green { color: #4ade80; }
+#qtp-tooltip.rich-tip .hit-cyan { color: #22d3ee; }
+#qtp-tooltip.rich-tip .hit-amber { color: #fbbf24; }
+#qtp-tooltip.rich-tip .hit-slate { color: #64748b; }
 /* Color variants */
 [data-tip-color="green"]::after { border-color: #166534; background: linear-gradient(135deg, #14532d 0%, #052e16 100%); }
 [data-tip-color="green"]::before { border-top-color: #166534; }

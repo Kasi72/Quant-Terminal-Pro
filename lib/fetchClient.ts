@@ -32,7 +32,7 @@ export async function fetchOHLCVClient(rawSymbol: string): Promise<{ candles: Ca
   const sym = rawSymbol.trim().toUpperCase();
 
   const res = await fetch(`/api/fetch-ohlcv?symbol=${encodeURIComponent(sym)}`, {
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {
