@@ -770,6 +770,7 @@ function HomePageInner() {
   const [secondarySortCol, setSecondarySortCol] = useState<string | null>(null);
   const [secondarySortDir, setSecondarySortDir] = useState<'asc' | 'desc'>('desc');
   const [niftyCandles, setNiftyCandles] = useState<Candle[] | null>(null);
+  const [vixCandles, setVixCandles] = useState<Candle[] | null>(null);
   const [previousResults, setPreviousResults] = useState<AnalysisResult[]>([]);
   const [accountSize, setAccountSize] = useState(1000000);
   const [showRiskSizer, setShowRiskSizer] = useState(false);
@@ -876,10 +877,10 @@ function HomePageInner() {
 
   // Compute market regime from nifty candles
   useEffect(() => {
-    if (niftyCandles && niftyCandles.length > 200) {
-      setMarketRegime(detectMarketRegime(niftyCandles));
+    if (niftyCandles && niftyCandles.length > 50) {
+      setMarketRegime(detectMarketRegime(niftyCandles, vixCandles ?? undefined));
     }
-  }, [niftyCandles]);
+  }, [niftyCandles, vixCandles]);
 
   // Keyboard shortcuts moved after filteredResults declaration
 
@@ -1376,8 +1377,17 @@ function HomePageInner() {
     regimeFetchedRef.current = true;
     (async () => {
       try {
-        const { candles } = await fetchOHLCVClient('^NSEI');
-        if (candles.length > 200) setMarketRegime(detectMarketRegime(candles));
+        const [niftyRes, vixRes] = await Promise.allSettled([
+          fetchOHLCVClient('^NSEI'),
+          fetchOHLCVClient('^INDIAVIX'),
+        ]);
+        const nc = niftyRes.status === 'fulfilled' ? niftyRes.value.candles : null;
+        const vc = vixRes.status === 'fulfilled' ? vixRes.value.candles : null;
+        if (nc && nc.length > 50) {
+          setNiftyCandles(nc);
+          if (vc && vc.length > 20) setVixCandles(vc);
+          setMarketRegime(detectMarketRegime(nc, vc ?? undefined));
+        }
       } catch {}
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1509,17 +1519,38 @@ function HomePageInner() {
           className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${autoRefresh ? 'bg-green-900/50 border-green-600 text-green-300' : 'bg-slate-800 border-slate-700 text-slate-600 hover:text-slate-400'}`}>
           {autoRefresh ? '⟳ Auto 15m' : '⟳ Auto'}
         </button>
-        {/* #9: Market Regime — always visible */}
-        {marketRegime ? (
-          <div className={`px-2.5 py-0.5 rounded text-xs font-bold border ${marketRegime.regime === 'bull' ? 'bg-green-900/40 border-green-600 text-green-300' : marketRegime.regime === 'bear' ? 'bg-red-900/40 border-red-600 text-red-300' : 'bg-yellow-900/40 border-yellow-600 text-yellow-300'}`}
-            title={`Nifty: ₹${marketRegime.niftyClose.toFixed(0)} | EMA50: ₹${marketRegime.ema50.toFixed(0)} | EMA200: ₹${marketRegime.ema200.toFixed(0)} | CMP ${marketRegime.aboveEma200 ? '>' : '<'} EMA200 | EMA50 ${marketRegime.ema50Above200 ? '>' : '<'} EMA200 | Position Size: ×${marketRegime.sizingMultiplier}`}>
-            {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}
+        {/* #9: Market Regime — 8-factor + VIX + CUSUM */}
+        {marketRegime ? (<>
+          <div className={`px-2.5 py-0.5 rounded text-xs font-bold border cursor-help ${
+            marketRegime.regime === 'strong_bull' ? 'bg-green-900/50 border-green-500 text-green-300' :
+            marketRegime.regime === 'bull' ? 'bg-green-900/40 border-green-600 text-green-300' :
+            marketRegime.regime === 'neutral' ? 'bg-yellow-900/40 border-yellow-600 text-yellow-300' :
+            marketRegime.regime === 'bear' ? 'bg-red-900/40 border-red-600 text-red-300' :
+            'bg-red-900/60 border-red-500 text-red-300 animate-pulse'}`}
+            data-tip-html={`<div class="rt-hdr">8-Factor Regime · Score ${marketRegime.score >= 0 ? '+' : ''}${marketRegime.score}</div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.momentum >= 0 ? 'bg-emerald' : 'bg-orange'}">Momentum</span></div><div><div class="rt-desc">20d return: ${marketRegime.factors.momentum >= 0 ? '+' : ''}${marketRegime.factors.momentum.toFixed(2)}%</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.breadth > 50 ? 'bg-emerald' : 'bg-orange'}">Breadth</span></div><div><div class="rt-desc">${marketRegime.factors.breadth.toFixed(0)}% green days</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.volatility < 1.5 ? 'bg-teal' : 'bg-orange'}">Volatility</span></div><div><div class="rt-desc">${marketRegime.factors.volatility.toFixed(2)}% realized vol</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.acceleration >= 0 ? 'bg-cyan' : 'bg-orange'}">Accel</span></div><div><div class="rt-desc">${marketRegime.factors.acceleration >= 0 ? '+' : ''}${marketRegime.factors.acceleration.toFixed(2)}%</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.distEma200 >= 0 ? 'bg-blue' : 'bg-orange'}">EMA200</span></div><div><div class="rt-desc">${marketRegime.factors.distEma200 >= 0 ? '+' : ''}${marketRegime.factors.distEma200.toFixed(1)}% from EMA200</div></div></div>`
+              + (marketRegime.vix > 0 ? `<div class="rt-row"><div><span class="rt-badge ${marketRegime.vix < 20 ? 'bg-emerald' : 'bg-orange'}">VIX</span></div><div><div class="rt-desc">${marketRegime.vix.toFixed(1)} ${marketRegime.vix < 12 ? '(complacent)' : marketRegime.vix < 16 ? '(low fear)' : marketRegime.vix < 22 ? '(moderate)' : marketRegime.vix < 30 ? '(elevated)' : marketRegime.vix < 45 ? '(high fear)' : '(PANIC)'}</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.vixROC < 0 ? 'bg-emerald' : 'bg-orange'}">VIX ROC</span></div><div><div class="rt-desc">5d change: ${marketRegime.factors.vixROC >= 0 ? '+' : ''}${marketRegime.factors.vixROC.toFixed(1)}%</div></div></div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.vixVsSma < 0 ? 'bg-teal' : 'bg-orange'}">VIX/SMA</span></div><div><div class="rt-desc">${marketRegime.factors.vixVsSma >= 0 ? '+' : ''}${marketRegime.factors.vixVsSma.toFixed(1)}% vs 20d avg</div></div></div>` : '')
+              + `<div class="rt-row"><div><span class="rt-badge bg-neon">Sizing</span></div><div><div class="rt-desc">Position: ×${marketRegime.sizingMultiplier}</div></div></div>`}>
+            {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}{marketRegime.vix > 0 ? ` · VIX ${marketRegime.vix.toFixed(1)}` : ''} · ×{marketRegime.sizingMultiplier}
           </div>
-        ) : (
+          {marketRegime.cusumAlert && (
+            <div className={`px-2 py-0.5 rounded text-xs font-bold border ${marketRegime.cusumAlert === 'bearish_shift' ? 'bg-red-900/60 border-red-500 text-red-300 animate-pulse' : 'bg-green-900/50 border-green-500 text-green-300'}`}>
+              {marketRegime.cusumAlert === 'bearish_shift' ? '⚠️ CUSUM: Bearish shift detected' : '✅ CUSUM: Bullish shift detected'}
+            </div>
+          )}
+        </>) : (
           <button onClick={async () => {
             try {
-              const { candles } = await fetchOHLCVClient('^NSEI');
-              if (candles.length > 200) setMarketRegime(detectMarketRegime(candles));
+              const [nR, vR] = await Promise.allSettled([fetchOHLCVClient('^NSEI'), fetchOHLCVClient('^INDIAVIX')]);
+              const nc = nR.status === 'fulfilled' ? nR.value.candles : null;
+              const vc = vR.status === 'fulfilled' ? vR.value.candles : null;
+              if (nc && nc.length > 50) { setNiftyCandles(nc); if (vc) setVixCandles(vc); setMarketRegime(detectMarketRegime(nc, vc ?? undefined)); }
             } catch {}
           }}
             className="px-2 py-0.5 rounded text-xs font-medium border bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300 transition-colors">
@@ -2368,7 +2399,7 @@ function HomePageInner() {
                   <span className="text-slate-500">Account:</span>
                   <input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)}
                     className="w-24 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-indigo-500 text-right" />
-                  {marketRegime && <span className={marketRegime.regime === 'bull' ? 'text-green-400' : marketRegime.regime === 'bear' ? 'text-red-400' : 'text-yellow-400'}>{marketRegime.emoji} ×{marketRegime.sizingMultiplier}</span>}
+                  {marketRegime && <span className={marketRegime.regime.includes('bull') ? 'text-green-400' : marketRegime.regime.includes('bear') ? 'text-red-400' : 'text-yellow-400'}>{marketRegime.emoji} ×{marketRegime.sizingMultiplier}</span>}
                 </div>
               </div>
               {filteredResults.filter(r => r.priceEngine.tradeValid).length > 0 ? (
@@ -3830,7 +3861,7 @@ function HomePageInner() {
             {/* Context bar */}
             <div className="flex items-center gap-4 mb-4 text-xs">
               {marketRegime && (
-                <span className={`px-2 py-1 rounded font-medium ${marketRegime.regime === 'bull' ? 'bg-green-900/40 text-green-300' : marketRegime.regime === 'bear' ? 'bg-red-900/40 text-red-300' : 'bg-yellow-900/40 text-yellow-300'}`}>
+                <span className={`px-2 py-1 rounded font-medium ${marketRegime.regime.includes('bull') ? 'bg-green-900/40 text-green-300' : marketRegime.regime.includes('bear') ? 'bg-red-900/40 text-red-300' : 'bg-yellow-900/40 text-yellow-300'}`}>
                   {marketRegime.emoji} {marketRegime.label} · Size: ×{marketRegime.sizingMultiplier}
                 </span>
               )}

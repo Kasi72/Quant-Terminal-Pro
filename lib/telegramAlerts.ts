@@ -140,14 +140,15 @@ export function formatRegimeChangeAlert(
   niftyClose: number, ema50: number, ema200: number, sizingMult: number
 ): string {
   try {
-    const emoji = newRegime === 'bull' ? '🟢' : newRegime === 'bear' ? '🔴' : '🟡';
-    const label = newRegime === 'bull' ? 'Bull Market' : newRegime === 'bear' ? 'Bear Market' : 'Neutral';
-    const prevLabel = prevRegime === 'bull' ? 'Bull' : prevRegime === 'bear' ? 'Bear' : 'Neutral';
+    const emoji = newRegime.includes('bull') ? '🟢' : newRegime.includes('bear') ? '🔴' : '🟡';
+    const labels: Record<string, string> = { strong_bull: 'Strong Bull', bull: 'Bull Market', neutral: 'Neutral', bear: 'Bear Market', strong_bear: 'Strong Bear' };
+    const label = labels[newRegime] || newRegime;
+    const prevLabel = labels[prevRegime] || prevRegime;
     let msg = `⚠ <b>MARKET REGIME CHANGE</b>\n\n`;
     msg += `${prevLabel} → ${emoji} ${label}\n`;
     msg += `Nifty: ₹${Number.isFinite(niftyClose) ? niftyClose.toFixed(0) : '—'} | EMA50: ₹${Number.isFinite(ema50) ? ema50.toFixed(0) : '—'} | EMA200: ₹${Number.isFinite(ema200) ? ema200.toFixed(0) : '—'}\n`;
     msg += `Position sizing: ×${Number.isFinite(sizingMult) ? sizingMult : '—'}\n`;
-    if (newRegime === 'bear') msg += `\n🛑 No new trades recommended`;
+    if (newRegime.includes('bear')) msg += `\n🛑 Reduce exposure — ${newRegime === 'strong_bear' ? 'STOP trading' : 'quarter size only'}`;
     return msg;
   } catch {
     return `⚠ <b>MARKET REGIME CHANGE</b>\n\nFormatting error\n`;
