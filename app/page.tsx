@@ -1089,21 +1089,31 @@ function HomePageInner() {
       setSortCol('stage'); setSortDir('desc');
     }
     // Auto-validate open trades using freshly fetched candle data (local map, not stale state)
+    // Also sync stop/target from latest scan results (ensures formula changes propagate)
     if (trackedTradesRef.current.some(t => t.status === 'open')) {
       setTrackedTrades(prev => {
         let updated = [...prev];
         for (let i = 0; i < updated.length; i++) {
           const t = updated[i];
           if (t.status !== 'open') continue;
+          // Sync stop/targets from fresh scan results (fixes formula changes)
+          const freshResult = newResults.find(r => r.symbol === t.symbol);
+          if (freshResult && freshResult.priceEngine.tacticalStop > 0) {
+            updated[i] = { ...updated[i],
+              stopLoss: freshResult.priceEngine.tacticalStop,
+              target1: freshResult.priceEngine.target5,
+              target2: freshResult.priceEngine.target7,
+              target3: freshResult.priceEngine.target10,
+            };
+          }
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;
-          // Find candles since entry date (fallback: use last 10 candles if entry date is in the future)
           const entryTs = new Date(t.entryDate).getTime() / 1000;
           let sinceEntry = cached.filter(c => c.ts >= entryTs);
-          if (sinceEntry.length === 0) sinceEntry = cached.slice(-10); // fallback for stale entry dates
+          if (sinceEntry.length === 0) sinceEntry = cached.slice(-10);
           if (sinceEntry.length === 0) continue;
-          const result = validateTrade(t, sinceEntry);
-          updated[i] = applyValidation(t, result);
+          const result = validateTrade(updated[i], sinceEntry);
+          updated[i] = applyValidation(updated[i], result);
         }
         try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
         return updated;
@@ -1784,12 +1794,26 @@ function HomePageInner() {
                     try {
                       const { candles } = await fetchOHLCVClient(t.symbol);
                       if (!candles || candles.length < 2) { setProgress(p => p + 1); continue; }
+                      // Sync stop/targets from fresh analysis (ensures formula changes propagate)
+                      const idx = updated.findIndex(u => u.symbol === t.symbol);
+                      if (idx >= 0) {
+                        try {
+                          const freshR = analyzeStock(candles, (t.paramSetKey || 'optimized_deployable_20plus') as ParamSetKey);
+                          if (freshR.priceEngine.tacticalStop > 0) {
+                            updated[idx] = { ...updated[idx],
+                              stopLoss: freshR.priceEngine.tacticalStop,
+                              target1: freshR.priceEngine.target5,
+                              target2: freshR.priceEngine.target7,
+                              target3: freshR.priceEngine.target10,
+                            };
+                          }
+                        } catch { /* analysis failed — keep existing values */ }
+                      }
                       const entryTs = new Date(t.entryDate).getTime() / 1000;
                       let sinceEntry = candles.filter(c => c.ts >= entryTs);
-                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10); // fallback for stale entry dates
+                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
-                      const result = validateTrade(t, sinceEntry);
-                      const idx = updated.findIndex(u => u.symbol === t.symbol);
+                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                       if (idx >= 0) {
                         updated[idx] = applyValidation(updated[idx], result);
                         const lastCandle = candles[candles.length - 1];
