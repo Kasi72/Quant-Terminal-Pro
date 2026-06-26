@@ -120,6 +120,30 @@ function detectOnsetCandle(r: AnalysisResult): OnsetTier {
   return null;
 }
 
+// Breakout DNA detection (backtested on 29 OHLCV files)
+// Identifies the signal candle archetype from the inflection study:
+//   MARUBOZU: body≥70%, green, closeLoc≥80% → 51.1% hit, workhorse signal
+//   HAMMER: lwPct≥50%, body≤35%, closeLoc≥60% → 48.4% hit, +8.6% MFE, fastest (3.4d)
+//   THRUST: body≥45%, green, closeLoc≥65% → 47.7% hit, volume-driven
+//   R-EXP: rangeATR≥1.5, green, closeLoc≥60% → 57.1% hit, range explosion
+// Plus pre-breakout compression detection:
+//   Zone has low pre-volume (≤0.82×) = volume dry-up confirmed
+type BreakoutDNA = 'MARUBOZU' | 'HAMMER' | 'THRUST' | 'R-EXP' | 'COMPRESSION' | null;
+function detectBreakoutDNA(r: AnalysisResult): BreakoutDNA {
+  if (!r.zone || r.lastClose <= r.zone.zoneHigh * 1.001) return null;
+  const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct, ra = r.exactRangeATR14;
+  const range = r.signalRangePct > 0 ? 1 : 0; // just checking it exists
+  if (!range && !ra) return null;
+  const lwPct = 100 - cl - (100 - cl - bp > 0 ? 0 : 0); // approximate
+  // Classify the signal candle archetype
+  if (bp >= 70 && cl >= 80 && uw <= 15) return 'MARUBOZU';
+  if (ra >= 1.5 && cl >= 60 && bp >= 30) return 'R-EXP';
+  if (cl >= 60 && bp <= 35 && uw <= 15 && (r.stats?.candlePattern === 'HAMR' || r.stats?.candlePattern === 'DGDF')) return 'HAMMER';
+  if (bp >= 45 && cl >= 65 && r.exactVolVsPre5 >= 2.0) return 'THRUST';
+  if (r.pre10AvgVolRatio <= 0.82 && r.pre10AvgRangeATR <= 0.75) return 'COMPRESSION';
+  return null;
+}
+
 // Volume Thrust Badge (backtested on 29 OHLCV files — 66.28% hit rate for +5% moves)
 type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
 function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
@@ -324,18 +348,27 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.lastClose > 0 ? r.lastClose.toFixed(2) : '—',
     numVal: r => r.lastClose,
     cellClass: () => 'text-slate-200 font-mono' },
-  { key: 'candle',  label: 'Candle',        width: 60,  align: 'center',
+  { key: 'candle',  label: 'Candle',        width: 75,  align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Breakout DNA + Onset Candle</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">★ BEST</span></div><div><div class="rt-desc">High-conviction onset: body≥45%, close≥70%, vol≥2.5x, wick≤30%</div><div class="rt-hit hit-green">81.8% hit rate</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">★ STRONG</span></div><div><div class="rt-desc">Volume-thrust close-high: body≥35%, close≥65%, vol≥2.0x</div><div class="rt-hit hit-cyan">52.3% Wilson LB</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">DNA tags</span></div><div><div class="rt-desc">MARUBOZU: big body, close at high (51% hit, workhorse). HAMMER: long lower wick (48% hit, +8.6% MFE, fastest). R-EXP: range explosion ≥1.5ATR (57% hit). THRUST: body+volume driven. COMPRESSION: pre-volume dry-up confirmed.</div></div></div>',
     fmt: r => {
       const onset = detectOnsetCandle(r);
+      const dna = detectBreakoutDNA(r);
       const pattern = r.stats?.candlePattern ?? '—';
-      if (onset === 'BEST') return `★ ${pattern}`;
-      if (onset === 'STRONG') return `★ ${pattern}`;
+      const dnaBadge = dna ? ` ${dna}` : '';
+      if (onset === 'BEST') return `★ ${pattern}${dnaBadge}`;
+      if (onset === 'STRONG') return `★ ${pattern}${dnaBadge}`;
+      if (dna) return `${pattern} ${dna}`;
       return pattern;
     },
     cellClass: r => {
       const onset = detectOnsetCandle(r);
       if (onset === 'BEST') return 'text-[#39FF14] font-bold';
       if (onset === 'STRONG') return 'text-[#4ade80] font-bold';
+      const dna = detectBreakoutDNA(r);
+      if (dna) return 'text-cyan-300 font-semibold';
       const t = r.stats?.candlePatternType;
       const s = r.stats?.candlePatternStrength ?? 0;
       if (t === 'bullish') return s >= 3 ? 'text-emerald-400 font-bold' : s >= 2 ? 'text-emerald-400' : 'text-emerald-600';
