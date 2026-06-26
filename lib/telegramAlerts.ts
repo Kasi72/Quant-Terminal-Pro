@@ -69,7 +69,7 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
     msg += `Entry: ₹${Number.isFinite(pe.plannedEntry) ? pe.plannedEntry.toFixed(2) : '—'} | SL: ₹${Number.isFinite(pe.tacticalStop) ? pe.tacticalStop.toFixed(2) : '—'}\n`;
     msg += `T1: ₹${Number.isFinite(pe.target5) ? pe.target5.toFixed(2) : '—'} (${t1R}R) | R:R: ${Number.isFinite(pe.rewardRisk) ? pe.rewardRisk.toFixed(2) : '—'}\n`;
 
-    const verdict = pe.rewardRisk >= 3.5 ? 'Elite' : pe.rewardRisk >= 2.5 ? 'Very Good' : pe.rewardRisk >= 2.0 ? 'Good' : pe.rewardRisk >= 1.5 ? 'Acceptable' : 'Weak';
+    const verdict = pe.rewardRisk >= 1.2 ? 'Elite' : pe.rewardRisk >= 0.9 ? 'Very Good' : pe.rewardRisk >= 0.7 ? 'Good' : pe.rewardRisk >= 0.5 ? 'Acceptable' : 'Weak';
     msg += `Verdict: ${verdict}`;
     if (extras?.conviction) msg += ` | Conv: ${extras.conviction}`;
     msg += '\n';

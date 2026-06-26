@@ -389,11 +389,11 @@ const COLUMNS: ColDef[] = [
   { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'text-green-300 font-bold' : rr >= 2.5 ? 'text-orange-400 font-semibold' : rr >= 1.5 ? 'text-yellow-300' : rr >= 1.2 ? 'text-slate-400' : 'text-red-500'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.2 ? 'text-green-300 font-bold' : rr >= 0.9 ? 'text-emerald-400 font-semibold' : rr >= 0.7 ? 'text-yellow-300' : rr >= 0.5 ? 'text-orange-400' : 'text-red-500'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
-    fmt: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'Elite' : rr >= 2.5 ? 'Very Good' : rr >= 2.0 ? 'Good' : rr >= 1.5 ? 'Acceptable' : rr > 0 ? 'Rejected' : '—'; },
+    fmt: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.2 ? 'Elite' : rr >= 0.9 ? 'Very Good' : rr >= 0.7 ? 'Good' : rr >= 0.5 ? 'Acceptable' : rr > 0 ? 'Rejected' : '—'; },
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 3.5 ? 'text-green-300 font-bold' : rr >= 2.5 ? 'text-orange-400 font-semibold' : rr >= 2.0 ? 'text-yellow-300' : rr >= 1.5 ? 'text-yellow-300/70' : 'text-red-500'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.2 ? 'text-green-300 font-bold' : rr >= 0.9 ? 'text-emerald-400 font-semibold' : rr >= 0.7 ? 'text-yellow-300' : rr >= 0.5 ? 'text-orange-400' : 'text-red-500'; } },
   { key: 'pe_t1',     label: 'T1 ₹',         width: 85,  align: 'right',
     fmt: r => r.priceEngine.target5 > 0 ? r.priceEngine.target5.toFixed(2) : '—',
     numVal: r => r.priceEngine.target5,
@@ -2407,8 +2407,8 @@ function HomePageInner() {
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{(capital / 1000).toFixed(0)}K</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{maxRisk.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-300 font-mono">₹{r.priceEngine.target5.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 2.0 ? 'text-yellow-300' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300/70' : 'text-red-500'}`}>{r.priceEngine.rewardRisk >= 3.5 ? 'Elite' : r.priceEngine.rewardRisk >= 2.5 ? 'Very Good' : r.priceEngine.rewardRisk >= 2.0 ? 'Good' : r.priceEngine.rewardRisk >= 1.5 ? 'Acceptable' : 'Rejected'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.priceEngine.rewardRisk >= 1.2 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${r.priceEngine.rewardRisk >= 1.2 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.7 ? 'text-yellow-300' : r.priceEngine.rewardRisk >= 0.5 ? 'text-orange-400' : 'text-red-500'}`}>{r.priceEngine.rewardRisk >= 1.2 ? 'Elite' : r.priceEngine.rewardRisk >= 0.9 ? 'Very Good' : r.priceEngine.rewardRisk >= 0.7 ? 'Good' : r.priceEngine.rewardRisk >= 0.5 ? 'Acceptable' : 'Rejected'}</td>
                           <td className={`px-2 py-1.5 text-center font-semibold ${computeConviction(r) >= 60 ? 'text-yellow-300' : 'text-slate-400'}`}>{computeConviction(r)}</td>
                         </tr>
                       );
@@ -3095,7 +3095,7 @@ function HomePageInner() {
                         <span className="font-mono text-slate-200 font-semibold w-24">{s.symbol.replace('.NS', '').replace('.BO', '')}</span>
                         <span className="text-slate-500 w-10">{s.sector || '—'}</span>
                         <span className="text-slate-400">Conv {s.conviction}</span>
-                        <span className={`${s.rewardRisk >= 2.5 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
+                        <span className={`${s.rewardRisk >= 0.9 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
                         <span className="text-slate-500">RS {s.rsRank}</span>
                         <span className="ml-auto text-slate-400 font-mono">{s.weight.toFixed(0)}%</span>
                       </div>
@@ -3938,8 +3938,8 @@ function HomePageInner() {
                           </div>
                           <div className="px-3 py-2">
                             <div className="text-slate-500">R:R</div>
-                            <div className={`font-mono font-bold ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-300' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</div>
-                            <div className={`text-[10px] ${r.priceEngine.rewardRisk >= 3.5 ? 'text-green-400' : r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-300' : r.priceEngine.rewardRisk >= 2.0 ? 'text-yellow-200' : 'text-slate-500'}`}>{r.priceEngine.rewardRisk >= 3.5 ? 'Elite' : r.priceEngine.rewardRisk >= 2.5 ? 'Very Good' : r.priceEngine.rewardRisk >= 2.0 ? 'Good' : r.priceEngine.rewardRisk >= 1.5 ? 'Acceptable' : 'Weak'}</div>
+                            <div className={`font-mono font-bold ${r.priceEngine.rewardRisk >= 1.2 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.5 ? 'text-yellow-300' : 'text-slate-400'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</div>
+                            <div className={`text-[10px] ${r.priceEngine.rewardRisk >= 1.2 ? 'text-green-400' : r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-300' : r.priceEngine.rewardRisk >= 0.7 ? 'text-yellow-200' : 'text-slate-500'}`}>{r.priceEngine.rewardRisk >= 1.2 ? 'Elite' : r.priceEngine.rewardRisk >= 0.9 ? 'Very Good' : r.priceEngine.rewardRisk >= 0.7 ? 'Good' : r.priceEngine.rewardRisk >= 0.5 ? 'Acceptable' : 'Weak'}</div>
                           </div>
                         </div>
 
@@ -4039,7 +4039,7 @@ function HomePageInner() {
               <span className="text-slate-600">·</span>
               <span className="text-slate-400">Best: <span className="text-slate-200 font-semibold">{best.symbol.replace('.NS','').replace('.BO','')}</span></span>
               <span className="text-slate-400">Conv <span className="text-yellow-300 font-bold">{computeConviction(best)}</span></span>
-              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
+              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
               {badges && <span className="text-[10px] text-emerald-500">{badges}</span>}
               <span className="text-slate-600 ml-auto">{results.length} scanned</span>
             </div>;
@@ -4239,7 +4239,7 @@ function HomePageInner() {
                     { label: 'Entry ₹', fn: (r: AnalysisResult) => r.priceEngine.plannedEntry.toFixed(2), color: () => 'text-slate-200' },
                     { label: 'Stop ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-red-400' },
                     { label: 'T1 ₹', fn: (r: AnalysisResult) => r.priceEngine.target5.toFixed(2), color: () => 'text-emerald-400' },
-                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 2.5 ? 'text-orange-400' : r.priceEngine.rewardRisk >= 1.5 ? 'text-yellow-300' : 'text-slate-400' },
+                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.5 ? 'text-yellow-300' : 'text-slate-400' },
                     { label: 'Risk%', fn: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct.toFixed(1) + '%', color: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct <= 2 ? 'text-emerald-400' : 'text-amber-400' },
                     { label: 'RS Rank', fn: (r: AnalysisResult) => String(rsData.get(r.symbol)?.rsRank ?? '—'), color: (r: AnalysisResult) => (rsData.get(r.symbol)?.rsRank ?? 0) >= 70 ? 'text-emerald-400' : 'text-slate-400' },
                     { label: 'Candle', fn: (r: AnalysisResult) => r.stats?.candlePatternFull ?? '—', color: (r: AnalysisResult) => r.stats?.candlePatternType === 'bullish' ? 'text-emerald-400' : 'text-slate-400' },
@@ -4402,7 +4402,7 @@ function HomePageInner() {
                     const stage = STAGE_CONFIG[selectedResult.stage].label;
                     const pe = selectedResult.priceEngine;
                     const conv = computeConviction(selectedResult);
-                    const verdict = pe.rewardRisk >= 3.5 ? 'Elite' : pe.rewardRisk >= 2.5 ? 'Very Good' : pe.rewardRisk >= 2.0 ? 'Good' : 'Acceptable';
+                    const verdict = pe.rewardRisk >= 1.2 ? 'Elite' : pe.rewardRisk >= 0.9 ? 'Very Good' : pe.rewardRisk >= 0.7 ? 'Good' : 'Acceptable';
                     const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v8.2`;
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"

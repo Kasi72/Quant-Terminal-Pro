@@ -387,7 +387,7 @@ export const QUICK_FILTERS: QuickFilter[] = [
     filter: r => r.momentum.momentumScore >= 70 && r.momentum.rsNifty20 >= 1.05 && r.volatilityExpansionRatio >= 2,
   },
   {
-    key: 'safe', label: 'Safe Entries', emoji: '🛡', description: 'Risk≤4%, R:R≥2.5',
-    filter: r => r.priceEngine.tradeValid && r.priceEngine.tacticalRiskPct > 0 && r.priceEngine.tacticalRiskPct <= 4 && r.priceEngine.rewardRisk >= 2.5,
+    key: 'safe', label: 'Safe Entries', emoji: '🛡', description: 'Risk≤5%, R:R≥0.9',
+    filter: r => r.priceEngine.tradeValid && r.priceEngine.tacticalRiskPct > 0 && r.priceEngine.tacticalRiskPct <= 5 && r.priceEngine.rewardRisk >= 0.9,
   },
 ];

@@ -128,7 +128,7 @@ export function optimizePortfolio(
     const avgCorr = selected.length > 1
       ? selected.filter(x => x.symbol !== s.symbol).reduce((sum, x) => sum + Math.abs(corrMatrix.get(s.symbol)?.get(x.symbol) ?? 0), 0) / (selected.length - 1)
       : 0;
-    const grade = s.rewardRisk >= 2.5 && s.rsRank >= 60 ? 'A' : s.rewardRisk >= 1.5 ? 'B' : 'C';
+    const grade = s.rewardRisk >= 0.9 && s.rsRank >= 60 ? 'A' : s.rewardRisk >= 0.5 ? 'B' : 'C';
     const reasons: string[] = [];
     if (grade === 'A') reasons.push('Strong R:R + RS leader');
     if (grade === 'B') reasons.push('Acceptable setup');
