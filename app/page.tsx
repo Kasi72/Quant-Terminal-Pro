@@ -1544,6 +1544,63 @@ function HomePageInner() {
               {marketRegime.cusumAlert === 'bearish_shift' ? '⚠️ CUSUM: Bearish shift detected' : '✅ CUSUM: Bullish shift detected'}
             </div>
           )}
+          <button
+            data-tip="Download regime tear sheet PDF" data-tip-color="cyan"
+            onClick={async () => {
+              try {
+                const jsPDF = (await import('jspdf')).default;
+                const autoTable = (await import('jspdf-autotable')).default;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                const mr = marketRegime;
+                const f = mr.factors;
+                const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                // Header
+                doc.setFillColor(13, 17, 23); doc.rect(0, 0, 297, 30, 'F');
+                doc.setTextColor(200, 200, 200); doc.setFontSize(18); doc.text('Dr KKR Quant Terminal Pro — Market Regime Tear Sheet', 15, 15);
+                doc.setFontSize(10); doc.text(now, 15, 22);
+                doc.setTextColor(mr.regime.includes('bull') ? 34 : mr.regime.includes('bear') ? 239 : 234, mr.regime.includes('bull') ? 197 : mr.regime.includes('bear') ? 68 : 179, mr.regime.includes('bull') ? 94 : mr.regime.includes('bear') ? 68 : 8);
+                doc.setFontSize(14); doc.text(`${mr.label} (Score: ${mr.score >= 0 ? '+' : ''}${mr.score}) — Position Sizing: x${mr.sizingMultiplier}`, 150, 15);
+                // Nifty + VIX summary
+                doc.setTextColor(60, 60, 60); doc.setFontSize(11);
+                doc.text(`Nifty 50: Rs.${mr.niftyClose.toFixed(0)} | EMA50: Rs.${mr.ema50.toFixed(0)} | EMA200: Rs.${mr.ema200.toFixed(0)} | India VIX: ${mr.vix > 0 ? mr.vix.toFixed(2) : 'N/A'}`, 15, 38);
+                if (mr.cusumAlert) { doc.setTextColor(239, 68, 68); doc.text(`CUSUM ALERT: ${mr.cusumAlert === 'bearish_shift' ? 'Bearish regime shift detected' : 'Bullish regime shift detected'}`, 15, 44); }
+                // 8-Factor table
+                const factorRows = [
+                  ['1. Momentum (20d)', `${f.momentum >= 0 ? '+' : ''}${f.momentum.toFixed(2)}%`, f.momentum > 2 ? 'Bullish' : f.momentum > 0 ? 'Mildly Bullish' : f.momentum > -2 ? 'Mildly Bearish' : 'Bearish'],
+                  ['2. Breadth (% green)', `${f.breadth.toFixed(0)}%`, f.breadth > 55 ? 'Strong participation' : f.breadth > 45 ? 'Mixed' : 'Weak participation'],
+                  ['3. Volatility (realized)', `${f.volatility.toFixed(2)}%`, f.volatility < 1.0 ? 'Low — safe' : f.volatility < 1.8 ? 'Moderate' : 'High — caution'],
+                  ['4. Acceleration', `${f.acceleration >= 0 ? '+' : ''}${f.acceleration.toFixed(2)}%`, f.acceleration > 1 ? 'Accelerating' : f.acceleration > -1 ? 'Stable' : 'Decelerating'],
+                  ['5. EMA200 Distance', `${f.distEma200 >= 0 ? '+' : ''}${f.distEma200.toFixed(1)}%`, f.distEma200 > 3 ? 'Well above — bullish' : f.distEma200 > 0 ? 'Above — healthy' : 'Below — watch'],
+                  ['6. VIX Level', `${f.vixLevel > 0 ? f.vixLevel.toFixed(1) : 'N/A'}`, f.vixLevel < 16 ? 'Low fear — bullish' : f.vixLevel < 22 ? 'Moderate' : f.vixLevel < 30 ? 'Elevated' : 'High fear'],
+                  ['7. VIX 5d ROC', `${f.vixROC >= 0 ? '+' : ''}${f.vixROC.toFixed(1)}%`, f.vixROC < -5 ? 'Fear subsiding' : f.vixROC < 5 ? 'Stable' : 'Fear rising'],
+                  ['8. VIX vs 20d SMA', `${f.vixVsSma >= 0 ? '+' : ''}${f.vixVsSma.toFixed(1)}%`, f.vixVsSma < -5 ? 'Below avg — calm' : f.vixVsSma < 5 ? 'At average' : 'Above avg — stress'],
+                ];
+                autoTable(doc, { startY: mr.cusumAlert ? 48 : 42, head: [['Factor', 'Value', 'Interpretation']], body: factorRows, theme: 'grid', headStyles: { fillColor: [30, 41, 59], textColor: [200, 200, 200], fontSize: 9 }, bodyStyles: { fontSize: 9 }, columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 80 } } });
+                // Regime scale
+                const scaleY = ((doc as unknown as Record<string, Record<string, number>>).lastAutoTable?.finalY ?? 112) + 8;
+                doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+                doc.text('Regime Scale:', 15, scaleY);
+                const scales = [
+                  ['Strong Bull (>=+40)', 'x1.25', '34,197,94'], ['Bull (+15 to +39)', 'x1.00', '34,197,94'],
+                  ['Neutral (-15 to +14)', 'x0.75', '234,179,8'], ['Bear (-16 to -40)', 'x0.25', '239,68,68'],
+                  ['Strong Bear (<-40)', 'x0.00', '239,68,68']
+                ];
+                let sx = 15;
+                for (const [label, size, rgb] of scales) {
+                  const [r2, g, b] = rgb.split(',').map(Number);
+                  doc.setFillColor(r2, g, b); doc.roundedRect(sx, scaleY + 3, 50, 10, 2, 2, 'F');
+                  doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.text(`${label} ${size}`, sx + 2, scaleY + 9);
+                  sx += 53;
+                }
+                // Footer
+                doc.setTextColor(120, 120, 120); doc.setFontSize(8);
+                doc.text('Backtested on 10yr Nifty+VIX data: +2,101% return, 7.8% max DD. Not investment advice.', 15, 200);
+                doc.save(`RegimeTearSheet_${new Date().toISOString().slice(0, 10)}.pdf`);
+              } catch (e) { console.error('PDF export error:', e); }
+            }}
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-800 border-slate-700 text-slate-500 hover:text-cyan-300 hover:border-cyan-700 transition-colors">
+            📋
+          </button>
         </>) : (
           <button onClick={async () => {
             try {
