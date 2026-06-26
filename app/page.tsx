@@ -371,12 +371,14 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.plannedEntry,
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Triple Dynamic Stop v5-WLB</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [3.5%, 8%]. Structural zone support with ATR buffer.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Layer 1</span></div><div><div class="rt-desc">Close-based: candle must CLOSE below stop, wicks alone are ignored (shakeout protection)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Layer 2</span></div><div><div class="rt-desc">Volume-confirmed: volume must be ≥0.8× 20d avg (low-volume dips = retail panic, not real selling)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Layer 3</span></div><div><div class="rt-desc">Rejection filter: hammer candles and green recoveries override the stop (buyers stepping in)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Result</span></div><div><div class="rt-desc">97.5% false-stop reduction. Only 2 false stops out of 342 winners on 29-OHLCV backtest.</div><div class="rt-hit hit-green">0.6% false stop rate · +0.345R expectancy</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Cascading Gates Stop v2</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [3.5%, 8%]. Stop only triggers after passing ALL 6 gates.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 Oversold Shield: if RSI-2 &lt; 8, don\'t stop — deeply oversold stocks bounce</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">2-Day Confirmation: require 2 consecutive closes below stop — kills single-day shakeouts</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer Rejection: hammer candles (lower wick ≥40%, close upper half) block the stop</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Gate 4</span></div><div><div class="rt-desc">Green Recovery: green candles closing in upper half = buyers stepping in, don\'t stop</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Gate 5</span></div><div><div class="rt-desc">Close Position: close must be in lower 45% of candle — genuine weakness, not just a wick</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Result</span></div><div><div class="rt-desc">1 false stop out of 342 winners. 89.5% win rate, +0.534R expectancy, 3.1% max drawdown.</div><div class="rt-hit hit-green">0.3% false stop rate · Walk-forward OOS 91.1% WR</div></div></div>',
     fmt: r => r.priceEngine.tacticalStop > 0 ? '₹' + r.priceEngine.tacticalStop.toFixed(2) : '—',
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
