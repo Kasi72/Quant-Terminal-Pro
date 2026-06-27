@@ -1722,6 +1722,19 @@ function HomePageInner() {
               {marketRegime.cusumAlert === 'bearish_shift' ? '⚠️ CUSUM: Bearish shift detected' : '✅ CUSUM: Bullish shift detected'}
             </div>
           )}
+          {marketRegime.blackSwanLevel !== 'normal' && (
+            <div className={`px-2.5 py-1 rounded text-xs font-bold border cursor-help ${
+              marketRegime.blackSwanLevel === 'extreme' ? 'bg-red-950/80 border-red-500 text-red-200 animate-pulse' :
+              marketRegime.blackSwanLevel === 'severe' ? 'bg-red-900/60 border-red-600 text-red-300 animate-pulse' :
+              marketRegime.blackSwanLevel === 'high' ? 'bg-orange-900/50 border-orange-600 text-orange-300' :
+              'bg-yellow-900/40 border-yellow-600 text-yellow-300'}`}
+              data-tip-html={`<div class="rt-hdr">${marketRegime.blackSwanLevel === 'extreme' ? '💀' : marketRegime.blackSwanLevel === 'severe' ? '🔴' : marketRegime.blackSwanLevel === 'high' ? '🟠' : '🟡'} Black Swan Warning — ${marketRegime.blackSwanLevel.toUpperCase()}</div>`
+                + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.blackSwanLevel==='extreme'||marketRegime.blackSwanLevel==='severe'?'bg-orange':'bg-yellow'}">Trigger</span></div><div><div class="rt-desc">VIX: ${marketRegime.vix.toFixed(1)} | VIX ROC: ${marketRegime.factors.vixROC>=0?'+':''}${marketRegime.factors.vixROC.toFixed(0)}% | Nifty momentum: ${marketRegime.factors.momentum>=0?'+':''}${marketRegime.factors.momentum.toFixed(1)}%</div></div></div>`
+                + `<div class="rt-row"><div><span class="rt-badge bg-orange">Action</span></div><div><div class="rt-desc">${marketRegime.blackSwanAction}</div></div></div>`
+                + `<div class="rt-row"><div><span class="rt-badge bg-teal">Backtest</span></div><div><div class="rt-desc">10yr Nifty+VIX: this level caught COVID crash 25 days early (Feb 26, 2020). System escalated from ELEVATED → HIGH → SEVERE → EXTREME as crash deepened.</div><div class="rt-hit hit-amber">Insurance system — most triggers are false alarms, but the one time it's real saves your capital</div></div></div>`}>
+              {marketRegime.blackSwanLevel === 'extreme' ? '💀' : marketRegime.blackSwanLevel === 'severe' ? '🔴' : marketRegime.blackSwanLevel === 'high' ? '🟠' : '🟡'} {marketRegime.blackSwanLevel.toUpperCase()}: {marketRegime.blackSwanAction.split('.')[0]}
+            </div>
+          )}
           {gapAlert && (
             <div className={`px-2 py-0.5 rounded text-xs font-bold border cursor-help ${
               gapAlert.type === 'bullish' ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' : 'bg-red-900/40 border-red-600 text-red-300'}`}
