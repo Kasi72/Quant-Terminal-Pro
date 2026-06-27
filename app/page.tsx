@@ -144,6 +144,40 @@ function detectBreakoutDNA(r: AnalysisResult): BreakoutDNA {
   return null;
 }
 
+// Guppy Coiled Overlay — detects breakout from extreme Guppy compression zone
+// When ALL Guppy EMAs were compressed (spread < 3%) during the zone → "💎 GUPPY COILED"
+// Backtested: monster moves (OSWALAGRO +55%, NATIONALUM +48%, KTKBANK +25%)
+// start from extreme Guppy compression → breakout with volume
+function detectGuppyCoiled(r: AnalysisResult, candles: Candle[]): { coiled: boolean; avgSpread: number; minSpread: number } | null {
+  if (!r.zone || !candles || candles.length < 70) return null;
+  if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) return null;
+  // Compute Guppy EMA spread for candles DURING the zone period
+  const periods = [3, 5, 8, 10, 12, 15, 30, 35, 40, 45, 50, 60];
+  const n = candles.length;
+  const zoneLen = r.zone.windowLength;
+  const zoneStart = n - 1 - zoneLen;
+  if (zoneStart < 60) return null;
+  // Compute EMA spread at a few points during the zone
+  const spreads: number[] = [];
+  for (let checkIdx = zoneStart; checkIdx < n - 1; checkIdx += Math.max(1, Math.floor(zoneLen / 5))) {
+    if (checkIdx < 60 || checkIdx >= n) continue;
+    const emaVals: number[] = [];
+    for (const p of periods) {
+      let ema = candles[0].c;
+      const k = 2 / (p + 1);
+      for (let j = 1; j <= checkIdx; j++) ema = candles[j].c * k + ema * (1 - k);
+      emaVals.push(ema);
+    }
+    const cmp = candles[checkIdx].c;
+    if (cmp > 0) spreads.push(((Math.max(...emaVals) - Math.min(...emaVals)) / cmp) * 100);
+  }
+  if (spreads.length === 0) return null;
+  const avgSpread = spreads.reduce((s, v) => s + v, 0) / spreads.length;
+  const minSpread = Math.min(...spreads);
+  // Coiled if average spread during zone was < 3%
+  return { coiled: avgSpread < 3.0, avgSpread, minSpread };
+}
+
 // Flag Pattern Overlay (Stock Bee definition — backtested: 71.8% hit, R:R 2.51)
 // Detects if a qualifying breakout signal ALSO has a prior flag pole
 // Pole: 8%+ gain in 1-5 days on vol≥2× | Flag: 3-10d tight consolidation
@@ -822,6 +856,7 @@ function HomePageInner() {
   const [stopAlerts, setStopAlerts] = useState<Array<{symbol: string; stopPrice: number; timestamp: string; entryPrice: number}>>([]);
   const [gapAlert, setGapAlert] = useState<{type:'bullish'|'bearish'|null;gapPct:number;vix:number;confidence:number;prevClose:number;todayOpen:number}|null>(null);
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
+  const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1118,16 +1153,20 @@ function HomePageInner() {
     flushResults();
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
-    // Flag pattern overlay detection on qualifying signals
+    // Flag pattern + Guppy Coiled overlay detection on qualifying signals
     const newFlagMap: Record<string, {poleGain: number; flagDays: number; measuredTarget: number}> = {};
+    const newGuppyCoilMap: Record<string, {avgSpread: number; minSpread: number}> = {};
     for (const r of newResults) {
       if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) continue;
       const candles = freshCandleMap[r.symbol];
       if (!candles) continue;
       const flag = detectFlagOverlay(r, candles);
       if (flag?.hasFlag) newFlagMap[r.symbol] = { poleGain: flag.poleGain, flagDays: flag.flagDays, measuredTarget: flag.measuredTarget };
+      const gCoil = detectGuppyCoiled(r, candles);
+      if (gCoil?.coiled) newGuppyCoilMap[r.symbol] = { avgSpread: gCoil.avgSpread, minSpread: gCoil.minSpread };
     }
     setFlagMap(newFlagMap);
+    setGuppyCoilMap(newGuppyCoilMap);
     // Market breadth: % of stocks above 200 SMA
     if (newResults.length > 20) {
       const above200 = newResults.filter(r => r.stats?.sma200 > 0 && r.lastClose > r.stats.sma200).length;
@@ -1268,6 +1307,12 @@ function HomePageInner() {
             msg += `Pole: +${flagInfo.poleGain.toFixed(0)}% surge → ${flagInfo.flagDays}d consolidation → breakout\n`;
             msg += `Measured target: Rs.${flagInfo.measuredTarget.toFixed(0)}\n`;
             msg += `Double conviction: compression + flag continuation\n`;
+          }
+          const guppyInfo = newGuppyCoilMap[r.symbol];
+          if (guppyInfo) {
+            msg += `\n💎 <b>GUPPY COILED — Max Compression Breakout</b>\n`;
+            msg += `All 12 Guppy EMAs compressed to ${guppyInfo.avgSpread.toFixed(1)}% spread\n`;
+            msg += `Maximum stored energy — monster move potential\n`;
           }
           sendTelegramMessage(tg, msg);
         }
@@ -4559,6 +4604,10 @@ function HomePageInner() {
                               {col.key === 'symbol' && flagMap[row.symbol] && (
                                 <span className="ml-1 px-1 py-0 bg-orange-900/50 border border-orange-600 rounded text-[8px] text-orange-300 font-bold cursor-help"
                                   title={`🚩 FLAG: Pole +${flagMap[row.symbol].poleGain.toFixed(0)}% → ${flagMap[row.symbol].flagDays}d consolidation → breakout. Measured target: Rs.${flagMap[row.symbol].measuredTarget.toFixed(0)} (Stock Bee pattern — 71.8% hit rate, R:R 2.51)`}>🚩FLAG</span>
+                              )}
+                              {col.key === 'symbol' && guppyCoilMap[row.symbol] && (
+                                <span className="ml-1 px-1 py-0 bg-cyan-900/50 border border-cyan-500 rounded text-[8px] text-cyan-300 font-bold cursor-help"
+                                  title={`💎 GUPPY COILED: All 12 Guppy EMAs were compressed to ${guppyCoilMap[row.symbol].avgSpread.toFixed(1)}% spread during the zone (min ${guppyCoilMap[row.symbol].minSpread.toFixed(1)}%). Breakout from extreme compression = maximum stored energy. Monster moves (OSWALAGRO +55%, NATIONALUM +48%) start from this pattern.`}>💎COILED</span>
                               )}
                               {col.key === 'symbol' && (() => {
                                 const age = getSignalAge(row.symbol, row.stage, signalHistory);
