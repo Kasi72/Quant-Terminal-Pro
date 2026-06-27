@@ -904,7 +904,7 @@ function HomePageInner() {
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
-  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string}>>({});
+  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1229,12 +1229,12 @@ function HomePageInner() {
     try {
       const bi = computeBrainInsights(trackedTradesRef.current);
       setBrainInsights(bi);
-      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string}> = {};
+      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number}> = {};
       for (const r of newResults) {
         if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) continue;
         const cl = newClenowMap[r.symbol];
         const adj = bi.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: cl?.score, hasFlag: !!newFlagMap[r.symbol], hasCoiled: !!newGuppyCoilMap[r.symbol] });
-        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label };
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100 };
       }
       setBrainScores(newBrainScores);
     } catch { /* brain computation failed — non-critical */ }
@@ -4653,7 +4653,7 @@ function HomePageInner() {
                                 const tipParts = bs.adjustments.map((a: {factor: string; adj: number; reason: string}) =>
                                   `<div class="rt-row"><div><span class="rt-badge ${a.adj>0?'bg-emerald':'bg-orange'}">${a.adj>=0?'+':''}${a.adj}</span></div><div><div class="rt-desc">${a.factor}: ${a.reason}</div></div></div>`).join('');
                                 return <div className="flex items-center gap-1 cursor-help"
-                                  data-tip-html={`<div class="rt-hdr">🧠 Brain Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Backtest conviction: ${bs.original}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Adjusted</span></div><div><div class="rt-desc">Brain score: ${bs.brain} (${delta>=0?'+':''}${delta})</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div>`}>
+                                  data-tip-html={`<div class="rt-hdr">🧠 Brain Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Backtest conviction: ${bs.original}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Adjusted</span></div><div><div class="rt-desc">Brain score: ${bs.brain} (${delta>=0?'+':''}${delta}) · Range: ${bs.ciLow}-${bs.ciHigh}</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">Confidence</span></div><div><div class="rt-desc">Range ${bs.ciLow}-${bs.ciHigh} · ${bs.ciHigh-bs.ciLow<=20?'Narrow (reliable)':bs.ciHigh-bs.ciLow<=35?'Moderate (reasonable)':'Wide (uncertain — need more trades)'}</div></div></div>`}>
                                   <span className="font-mono font-bold text-[11px]" style={{color}}>{bs.brain}</span>
                                   <span className="text-[9px]" style={{color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8'}}>{arrow}</span>
                                 </div>;
