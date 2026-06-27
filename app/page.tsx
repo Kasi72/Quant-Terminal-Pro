@@ -144,6 +144,43 @@ function detectBreakoutDNA(r: AnalysisResult): BreakoutDNA {
   return null;
 }
 
+// Flag Pattern Overlay (Stock Bee definition — backtested: 71.8% hit, R:R 2.51)
+// Detects if a qualifying breakout signal ALSO has a prior flag pole
+// Pole: 8%+ gain in 1-5 days on vol≥2× | Flag: 3-10d tight consolidation
+function detectFlagOverlay(r: AnalysisResult, candles: Candle[]): { hasFlag: boolean; poleGain: number; flagDays: number; measuredTarget: number } | null {
+  if (!r.zone || !candles || candles.length < 25) return null;
+  if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) return null;
+  const n = candles.length;
+  const entry = r.lastClose;
+  // The zone IS the flag. Check if there was a strong pole BEFORE the zone.
+  const zoneLen = r.zone.windowLength;
+  const poleEndIdx = n - 1 - zoneLen; // candle just before zone started
+  if (poleEndIdx < 6) return null;
+  // Check for pole: 8%+ gain in 1-5 days before the zone
+  for (let pLen = 1; pLen <= 5; pLen++) {
+    const pStart = poleEndIdx - pLen;
+    if (pStart < 1) continue;
+    const poleGain = ((candles[poleEndIdx].c - candles[pStart].c) / candles[pStart].c) * 100;
+    if (poleGain < 8) continue;
+    // Pole volume: avg during pole must be ≥ 2× prior 20d average
+    let v20 = 0; for (let j = Math.max(0, pStart - 20); j < pStart; j++) v20 += candles[j].v; v20 /= 20;
+    let poleVol = 0; for (let j = pStart; j <= poleEndIdx; j++) poleVol += candles[j].v;
+    const poleAvgVol = poleVol / pLen;
+    if (v20 > 0 && poleAvgVol < v20 * 1.5) continue; // relaxed to 1.5× for overlay
+    // Zone retracement: zone low should not retrace more than 60% of pole
+    const poleHigh = Math.max(...candles.slice(pStart, poleEndIdx + 1).map(c => c.h));
+    const poleLow = candles[pStart].l;
+    const poleRange = poleHigh - poleLow;
+    if (poleRange <= 0) continue;
+    const retrace = (poleHigh - r.zone.zoneLow) / poleRange * 100;
+    if (retrace > 60) continue;
+    // Measured move target
+    const measuredTarget = entry + poleRange;
+    return { hasFlag: true, poleGain, flagDays: zoneLen, measuredTarget };
+  }
+  return null;
+}
+
 // Volume Thrust Badge (backtested on 29 OHLCV files — 66.28% hit rate for +5% moves)
 type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
 function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
@@ -784,6 +821,7 @@ function HomePageInner() {
   const [multiResults, setMultiResults] = useState<MultiAnalysisResult[]>([]);
   const [stopAlerts, setStopAlerts] = useState<Array<{symbol: string; stopPrice: number; timestamp: string; entryPrice: number}>>([]);
   const [gapAlert, setGapAlert] = useState<{type:'bullish'|'bearish'|null;gapPct:number;vix:number;confidence:number;prevClose:number;todayOpen:number}|null>(null);
+  const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1080,6 +1118,16 @@ function HomePageInner() {
     flushResults();
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
+    // Flag pattern overlay detection on qualifying signals
+    const newFlagMap: Record<string, {poleGain: number; flagDays: number; measuredTarget: number}> = {};
+    for (const r of newResults) {
+      if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) continue;
+      const candles = freshCandleMap[r.symbol];
+      if (!candles) continue;
+      const flag = detectFlagOverlay(r, candles);
+      if (flag?.hasFlag) newFlagMap[r.symbol] = { poleGain: flag.poleGain, flagDays: flag.flagDays, measuredTarget: flag.measuredTarget };
+    }
+    setFlagMap(newFlagMap);
     // Market breadth: % of stocks above 200 SMA
     if (newResults.length > 20) {
       const above200 = newResults.filter(r => r.stats?.sma200 > 0 && r.lastClose > r.stats.sma200).length;
@@ -1210,10 +1258,17 @@ function HomePageInner() {
           const rs = localRsMap.get(r.symbol);
           const tf = localTfMap.get(r.symbol);
           const piv = localPivMap.get(r.symbol);
-          const msg = formatNewSignalAlert(r, {
+          const flagInfo = newFlagMap[r.symbol];
+          let msg = formatNewSignalAlert(r, {
             conviction: computeConviction(r), rsRank: rs?.rsRank, tfAlign: tf?.alignment,
             pivotPosition: piv?.position, pivotR1: piv?.classic.r1, pivotS1: piv?.classic.s1,
           });
+          if (flagInfo) {
+            msg += `\n🚩 <b>FLAG PATTERN DETECTED</b>\n`;
+            msg += `Pole: +${flagInfo.poleGain.toFixed(0)}% surge → ${flagInfo.flagDays}d consolidation → breakout\n`;
+            msg += `Measured target: Rs.${flagInfo.measuredTarget.toFixed(0)}\n`;
+            msg += `Double conviction: compression + flag continuation\n`;
+          }
           sendTelegramMessage(tg, msg);
         }
       }
@@ -4500,6 +4555,10 @@ function HomePageInner() {
                               )}
                               {col.key === 'symbol' && row.nearBreakout && !diff && (
                                 <span className="ml-0.5 text-yellow-400 text-xs" title="Near breakout">⚡</span>
+                              )}
+                              {col.key === 'symbol' && flagMap[row.symbol] && (
+                                <span className="ml-1 px-1 py-0 bg-orange-900/50 border border-orange-600 rounded text-[8px] text-orange-300 font-bold cursor-help"
+                                  title={`🚩 FLAG: Pole +${flagMap[row.symbol].poleGain.toFixed(0)}% → ${flagMap[row.symbol].flagDays}d consolidation → breakout. Measured target: Rs.${flagMap[row.symbol].measuredTarget.toFixed(0)} (Stock Bee pattern — 71.8% hit rate, R:R 2.51)`}>🚩FLAG</span>
                               )}
                               {col.key === 'symbol' && (() => {
                                 const age = getSignalAge(row.symbol, row.stage, signalHistory);
