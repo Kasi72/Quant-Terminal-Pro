@@ -1394,33 +1394,46 @@ function HomePageInner() {
             msg += `All 12 Guppy EMAs compressed to ${guppyInfo.avgSpread.toFixed(1)}% spread\n`;
             msg += `Maximum stored energy — monster move potential\n`;
           }
-          // Brain insights in Telegram
-          let brainData: {original:number;brain:number;adjustments:Array<{factor:string;adj:number;reason:string}>;riskPct:number;riskLabel:string;ciLow:number;ciHigh:number}|null = null;
+          // Brain v3 — 5-Engine Intelligence in Telegram
           try {
             const brainTg = computeBrainInsights(trackedTradesRef.current);
             const brainAdj = brainTg.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: newClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo });
-            brainData = { original: brainAdj.originalScore, brain: brainAdj.brainScore, adjustments: brainAdj.adjustments, riskPct: brainAdj.sizing.risk, riskLabel: brainAdj.sizing.label, ciLow: brainAdj.confidenceInterval?.low ?? 0, ciHigh: brainAdj.confidenceInterval?.high ?? 100 };
-          } catch { /* brain failed — non-critical */ }
-          if (brainData) {
-            msg += `\n🧠 <b>ADAPTIVE BRAIN</b>\n`;
-            msg += `Score: ${brainData.original} → ${brainData.brain} (${brainData.brain >= brainData.original ? '+' : ''}${brainData.brain - brainData.original})\n`;
-            msg += `Range: ${brainData.ciLow}-${brainData.ciHigh}\n`;
-            for (const a of brainData.adjustments.slice(0, 4)) {
-              msg += `${a.adj >= 0 ? '🟢' : '🟠'} ${a.adj >= 0 ? '+' : ''}${a.adj}: ${a.factor}\n`;
+            const delta = brainAdj.brainScore - brainAdj.originalScore;
+            msg += `\n🧠 <b>ADAPTIVE BRAIN v3</b>\n`;
+            msg += `Score: ${brainAdj.originalScore} → <b>${brainAdj.brainScore}</b> (${delta >= 0 ? '+' : ''}${delta})\n`;
+            msg += `Range: ${brainAdj.confidenceInterval?.low ?? 0}-${brainAdj.confidenceInterval?.high ?? 100} | ${brainTg.confidence}\n`;
+            for (const a of brainAdj.adjustments.slice(0, 6)) {
+              msg += `${a.adj >= 0 ? '🟢' : '🟠'} ${a.adj >= 0 ? '+' : ''}${a.adj}: ${a.factor}${a.engine && a.engine !== 'Bayesian' ? ` [${a.engine}]` : ''}\n`;
             }
-            msg += `Sizing: ${brainData.riskLabel} (${brainData.riskPct}% risk)\n`;
-            try {
-              const brainTg2 = computeBrainInsights(trackedTradesRef.current);
-              if (brainTg2.emotionalAlert && brainTg2.streakType === 'L' && brainTg2.currentStreak >= 2) {
-                msg += `\n⚠ <b>CAUTION:</b> ${brainTg2.emotionalAlert.message}\n`;
-              }
-              if (brainTg2.decayAlerts?.length > 0) {
-                for (const da of brainTg2.decayAlerts) {
-                  msg += `⚠ Decay: ${da.name} ${da.oldWR}% → ${da.newWR}%\n`;
-                }
-              }
-            } catch { /* non-critical */ }
-          }
+            msg += `💰 Sizing: ${brainAdj.sizing.label} (${brainAdj.sizing.risk}% risk)\n`;
+            // Engine 4: Performance EMA
+            msg += `📊 Form: ${brainAdj.form?.label || 'NEUTRAL'} (EMA ${(brainAdj.form?.ema ?? 0.5).toFixed(2)}) · ${brainAdj.form?.trend || 'STABLE'}\n`;
+            // Engine 3: Anomaly detection
+            if (brainAdj.anomalies?.anomalyCount > 0) {
+              msg += `⚠ ${brainAdj.anomalies.anomalyCount} anomal${brainAdj.anomalies.anomalyCount > 1 ? 'ies' : 'y'}: ${brainAdj.anomalies.anomalies.map((a) => `${a.feature} (${a.note})`).join(', ')}\n`;
+            }
+            // Engine 2: Thompson priority (if multiple signals)
+            const otherBuys = newResults.filter(x => x.symbol !== r.symbol && ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(x.stage));
+            if (otherBuys.length > 0) {
+              const allBuys = [r, ...otherBuys];
+              const extraMap: Record<string, {sector: string}> = {};
+              for (const b of allBuys) extraMap[b.symbol] = { sector: getSectorTag(b.symbol) };
+              const ranked = brainTg.thompsonRank(allBuys, extraMap);
+              const myRank = ranked.find((x: {symbol: string; badge: string}) => x.symbol === r.symbol);
+              if (myRank) msg += `🏆 Thompson Priority: <b>${myRank.badge}</b> of ${ranked.length} signals\n`;
+            }
+            // Engine 5: Param set bandit
+            if (brainTg.bestParamSet) {
+              msg += `🎰 Best param set for you: ${brainTg.bestParamSet.name} (${brainTg.bestParamSet.wr}% WR)\n`;
+            }
+            // Emotional + Decay warnings
+            if (brainTg.emotionalAlert && brainTg.streakType === 'L' && brainTg.currentStreak >= 2) {
+              msg += `\n⚠ <b>CAUTION:</b> ${brainTg.emotionalAlert.message}\n`;
+            }
+            for (const da of (brainTg.decayAlerts || [])) {
+              msg += `⚠ Decay: ${da.name} ${da.oldWR}% → ${da.newWR}%\n`;
+            }
+          } catch { /* brain failed — non-critical */ }
           sendTelegramMessage(tg, msg);
         }
       }
