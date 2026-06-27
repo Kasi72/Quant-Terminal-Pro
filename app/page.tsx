@@ -1870,6 +1870,9 @@ function HomePageInner() {
             onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
             className="h-7 px-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-700 rounded text-[11px] font-medium text-purple-300 cursor-pointer focus:outline-none">
             <option value="" disabled>Thematic ▾</option>
+            <optgroup label="── My Portfolio ──">
+              {THEMATIC_PRESETS.filter(p => p.category === 'portfolio').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
+            </optgroup>
             <optgroup label="── Thematic ──">
               {THEMATIC_PRESETS.filter(p => p.category === 'thematic').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
             </optgroup>
