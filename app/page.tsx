@@ -782,6 +782,7 @@ function HomePageInner() {
   const [scanAll, setScanAll] = useState(false);
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [multiResults, setMultiResults] = useState<MultiAnalysisResult[]>([]);
+  const [stopAlerts, setStopAlerts] = useState<Array<{symbol: string; stopPrice: number; timestamp: string; entryPrice: number}>>([]);
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1115,7 +1116,14 @@ function HomePageInner() {
           if (sinceEntry.length === 0) sinceEntry = cached.slice(-10);
           if (sinceEntry.length === 0) continue;
           const result = validateTrade(updated[i], sinceEntry);
+          const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
+          // FAIL-SAFE: Detect STOPPED status change → trigger alert
+          if (prevStatus === 'open' && updated[i].status === 'stopped') {
+            const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'medium' });
+            setStopAlerts(prev => [...prev, { symbol: updated[i].symbol, stopPrice: updated[i].stopLoss, timestamp: now, entryPrice: updated[i].entryPrice }]);
+            try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1sbJObi4BvUl5zjJuTi3tlWm+Ij5eLgHVcYHWIkpKKe2pcanmGjo6IeGhbZ3mFjI2Jdmhba3eEi4yJeGldaXmFjY2LfG1gcX+KkJONgHFjcH+MlJaShXZpcIKPlpiWjoF3coCQmJyalIiBe4OSmJ2cmJOLhIaQl5ydnJeTjIiIkJaanJuZlI+KiI+Ul5qamJWRjIuNk5eZmpiVkY6LjJGVl5eXlJGOi4yQk5aWlpSRjoyLj5KUlZWUko+NjI6RkpSUlJKQjoyNj5GTk5OSkI6MjY+RkpKSkZCOjY2Oj5GRkZGQj42NjY+QkJCQj46NjY2Oj4+Pj4+OjY2Njo+Pj4+Pjo2NjY6Ojo6Ojo2NjY2Ojo6Ojo6NjY2NjY6Ojo6OjY2NjY2Njo6Ojo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjQ==').play().catch(() => {}); } catch {}
+          }
         }
         try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
         return updated;
@@ -1827,14 +1835,20 @@ function HomePageInner() {
                     } catch {}
                     setProgress(p => p + 1);
                   }
-                  // Telegram alerts #2/#3: target hit / stopped
-                  if (tgConfig.enabled) {
-                    const prev = trackedTradesRef.current;
-                    for (const u of updated) {
-                      const p = prev.find(x => x.symbol === u.symbol);
-                      if (!p || p.status !== 'open') continue;
+                  // Telegram alerts #2/#3: target hit / stopped + FAIL-SAFE stop alert
+                  const prev = trackedTradesRef.current;
+                  for (const u of updated) {
+                    const p = prev.find(x => x.symbol === u.symbol);
+                    if (!p || p.status !== 'open') continue;
+                    if (tgConfig.enabled) {
                       if ((u.status === 'hit_t1' || u.status === 'hit_t2' || u.status === 'hit_t3') && tgConfig.alerts.targetHit) sendTelegramMessage(tgConfig, formatTargetHitAlert(u));
                       if (u.status === 'stopped' && tgConfig.alerts.stopped) sendTelegramMessage(tgConfig, formatStoppedAlert(u));
+                    }
+                    // FAIL-SAFE: Detect STOPPED → banner + sound
+                    if (u.status === 'stopped') {
+                      const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'medium' });
+                      setStopAlerts(prev => [...prev, { symbol: u.symbol, stopPrice: u.stopLoss, timestamp: now, entryPrice: u.entryPrice }]);
+                      try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1sbJObi4BvUl5zjJuTi3tlWm+Ij5eLgHVcYHWIkpKKe2pcanmGjo6IeGhbZ3mFjI2Jdmhba3eEi4yJeGldaXmFjY2LfG1gcX+KkJONgHFjcH+MlJaShXZpcIKPlpiWjoF3coCQmJyalIiBe4OSmJ2cmJOLhIaQl5ydnJeTjIiIkJaanJuZlI+KiI+Ul5qamJWRjIuNk5eZmpiVkY6LjJGVl5eXlJGOi4yQk5aWlpSRjoyLj5KUlZWUko+NjI6RkpSUlJKQjoyNj5GTk5OSkI6MjY+RkpKSkZCOjY2Oj5GRkZGQj42NjY+QkJCQj46NjY2Oj4+Pj4+OjY2Njo+Pj4+Pjo2NjY6Ojo6Ojo2NjY2Ojo6Ojo6NjY2NjY6Ojo6OjY2NjY2Njo6Ojo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjQ==').play().catch(() => {}); } catch {}
                     }
                   }
                   setTrackedTrades(updated);
@@ -1989,6 +2003,38 @@ function HomePageInner() {
             <button onClick={() => { setShowPasteBox(false); setPasteText(''); }}
               className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* ── FAIL-SAFE STOP ALERT BANNER ── */}
+      {stopAlerts.length > 0 && (
+        <div className="flex-shrink-0 border-b-2 border-red-500 bg-red-950/80 px-4 py-3 animate-pulse">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">🚨</span>
+            <span className="text-red-300 font-bold text-sm uppercase tracking-wider">STOP LOSS TRIGGERED — EXIT REQUIRED</span>
+          </div>
+          {stopAlerts.map((a, i) => (
+            <div key={i} className="bg-red-900/50 border border-red-700 rounded-lg px-4 py-3 mb-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-red-200 font-bold text-lg font-mono">{a.symbol.replace('.NS','').replace('.BO','')}</span>
+                <span className="text-red-400 text-xs font-mono">{a.timestamp}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+                <div><span className="text-red-400">Entry:</span> <span className="text-red-200 font-mono font-bold">Rs.{a.entryPrice.toFixed(2)}</span></div>
+                <div><span className="text-red-400">Stop Price:</span> <span className="text-red-200 font-mono font-bold">Rs.{a.stopPrice.toFixed(2)}</span></div>
+                <div><span className="text-red-400">Loss:</span> <span className="text-red-200 font-mono font-bold">-{((a.entryPrice - a.stopPrice) / a.entryPrice * 100).toFixed(1)}%</span></div>
+              </div>
+              <div className="bg-red-900/70 rounded px-3 py-2 text-xs text-red-200 space-y-1">
+                <div className="font-bold text-red-300">ACTION REQUIRED:</div>
+                <div>1. EXIT at market open tomorrow morning</div>
+                <div>2. Place SELL order for ALL shares of {a.symbol.replace('.NS','').replace('.BO','')}</div>
+                <div>3. Do NOT hold hoping for recovery — 9 gates confirmed genuine breakdown</div>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setStopAlerts([])} className="text-red-500 text-xs hover:text-red-300 mt-1">
+            Dismiss alerts ×
+          </button>
         </div>
       )}
 
