@@ -875,27 +875,42 @@ function parseCSV(text: string): string[] {
     return cols;
   }
 
-  const headers = splitLine(lines[0]).map(h => h.replace(/^["']|["']$/g, '').trim().toUpperCase());
   const SYMBOL_EXACT = ['SYMBOL','SYMBOLS','TICKER','TICKERS','SCRIP','SCRIPS','STOCK','STOCKS','SCRIPT','SCRIPTS','NSE_SYMBOL','BSE_SYMBOL','CODE','NAME','COMPANY','SCRIP_NAME','SCRIP_CODE','STOCK_NAME','STOCK_CODE','TRADING_SYMBOL','TRADINGSYMBOL','ISIN','NSESYMBOL','BSESYMBOL','INSTRUMENT','SECURITY'];
-  let symCol = headers.findIndex(h => SYMBOL_EXACT.includes(h));
-  // Fuzzy: partial match (e.g. "Stock Name", "Scrip Code", "NSE Symbol")
-  if (symCol < 0) symCol = headers.findIndex(h => /SYMBOL|STOCK|SCRIP|TICKER|SECURITY|INSTRUMENT/.test(h));
-  // Auto-detect: find column with most stock-like values (uppercase, short, alphanumeric)
+  // Scan first 5 lines for the actual header row (skip title/label rows like "Stock Index,,,,")
+  let headerRow = 0, symCol = -1;
+  for (let r = 0; r < Math.min(5, lines.length); r++) {
+    const cols = splitLine(lines[r]).map(h => h.replace(/^["']|["']$/g, '').trim().toUpperCase());
+    // Skip rows with mostly empty columns (title rows)
+    const nonEmpty = cols.filter(c => c.length > 0).length;
+    if (nonEmpty < 2) continue;
+    // Exact match first
+    const exact = cols.findIndex(h => SYMBOL_EXACT.includes(h));
+    if (exact >= 0) { headerRow = r; symCol = exact; break; }
+    // Fuzzy match
+    const fuzzy = cols.findIndex(h => /SYMBOL|STOCK|SCRIP|TICKER|SECURITY|INSTRUMENT/.test(h) && h !== 'STOCK INDEX');
+    if (fuzzy >= 0) { headerRow = r; symCol = fuzzy; break; }
+  }
+  // Auto-detect: find column with most stock-like values
   if (symCol < 0 && lines.length >= 3) {
     let bestCol = -1, bestScore = 0;
-    const sampleRows = lines.slice(1, Math.min(11, lines.length));
-    const colCount = splitLine(lines[0]).length;
+    const startRow = headerRow + 1;
+    const sampleRows = lines.slice(startRow, Math.min(startRow + 10, lines.length));
+    const colCount = splitLine(lines[Math.min(headerRow, lines.length - 1)]).length;
     for (let c = 0; c < colCount; c++) {
       let score = 0;
+      const seen = new Set();
       for (const row of sampleRows) {
         const val = (splitLine(row)[c] ?? '').replace(/^["']|["']$/g, '').trim();
-        if (val.length >= 2 && val.length <= 20 && /^[A-Za-z][A-Za-z0-9.&-]*$/.test(val) && !/^\d+(\.\d+)?$/.test(val)) score++;
+        if (val.length >= 2 && val.length <= 20 && /^[A-Za-z0-9][A-Za-z0-9.&-]*$/.test(val) && !/^\d+(\.\d+)?$/.test(val) && /[A-Za-z]/.test(val)) { score++; seen.add(val); }
       }
+      // Penalize columns with low uniqueness (EQ, POS, NEG repeat = not stock names)
+      const uniqueRatio = sampleRows.length > 0 ? seen.size / sampleRows.length : 0;
+      if (uniqueRatio < 0.5) score = Math.floor(score * 0.3);
       if (score > bestScore) { bestScore = score; bestCol = c; }
     }
     if (bestScore >= Math.min(3, sampleRows.length * 0.5)) symCol = bestCol;
   }
-  const dataStart = symCol >= 0 && !SYMBOL_EXACT.includes(headers[symCol]) && !/SYMBOL|STOCK|SCRIP|TICKER|SECURITY|INSTRUMENT/.test(headers[symCol]) ? 0 : symCol >= 0 ? 1 : 0;
+  const dataStart = symCol >= 0 ? headerRow + 1 : 0;
   if (symCol < 0) symCol = 0;
 
   const syms: string[] = [];
