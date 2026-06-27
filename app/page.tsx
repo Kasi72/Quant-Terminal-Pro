@@ -876,9 +876,26 @@ function parseCSV(text: string): string[] {
   }
 
   const headers = splitLine(lines[0]).map(h => h.replace(/^["']|["']$/g, '').trim().toUpperCase());
-  const SYMBOL_HEADERS = ['SYMBOL','TICKER','SCRIP','STOCK','SCRIPT','NSE_SYMBOL','BSE_SYMBOL','CODE'];
-  let symCol = headers.findIndex(h => SYMBOL_HEADERS.includes(h));
-  const dataStart = symCol >= 0 ? 1 : 0;
+  const SYMBOL_EXACT = ['SYMBOL','SYMBOLS','TICKER','TICKERS','SCRIP','SCRIPS','STOCK','STOCKS','SCRIPT','SCRIPTS','NSE_SYMBOL','BSE_SYMBOL','CODE','NAME','COMPANY','SCRIP_NAME','SCRIP_CODE','STOCK_NAME','STOCK_CODE','TRADING_SYMBOL','TRADINGSYMBOL','ISIN','NSESYMBOL','BSESYMBOL','INSTRUMENT','SECURITY'];
+  let symCol = headers.findIndex(h => SYMBOL_EXACT.includes(h));
+  // Fuzzy: partial match (e.g. "Stock Name", "Scrip Code", "NSE Symbol")
+  if (symCol < 0) symCol = headers.findIndex(h => /SYMBOL|STOCK|SCRIP|TICKER|SECURITY|INSTRUMENT/.test(h));
+  // Auto-detect: find column with most stock-like values (uppercase, short, alphanumeric)
+  if (symCol < 0 && lines.length >= 3) {
+    let bestCol = -1, bestScore = 0;
+    const sampleRows = lines.slice(1, Math.min(11, lines.length));
+    const colCount = splitLine(lines[0]).length;
+    for (let c = 0; c < colCount; c++) {
+      let score = 0;
+      for (const row of sampleRows) {
+        const val = (splitLine(row)[c] ?? '').replace(/^["']|["']$/g, '').trim();
+        if (val.length >= 2 && val.length <= 20 && /^[A-Za-z][A-Za-z0-9.&-]*$/.test(val) && !/^\d+(\.\d+)?$/.test(val)) score++;
+      }
+      if (score > bestScore) { bestScore = score; bestCol = c; }
+    }
+    if (bestScore >= Math.min(3, sampleRows.length * 0.5)) symCol = bestCol;
+  }
+  const dataStart = symCol >= 0 && !SYMBOL_EXACT.includes(headers[symCol]) && !/SYMBOL|STOCK|SCRIP|TICKER|SECURITY|INSTRUMENT/.test(headers[symCol]) ? 0 : symCol >= 0 ? 1 : 0;
   if (symCol < 0) symCol = 0;
 
   const syms: string[] = [];
@@ -1502,7 +1519,7 @@ function HomePageInner() {
       if (symbols.length > 0) {
         runScan(symbols);
       } else {
-        setLastErr('No valid symbols found in CSV. Ensure it has a "Symbol" column.');
+        setLastErr('No valid symbols found in CSV. Use a column named Symbol/Stock/Scrip/Ticker or any column with stock codes.');
         setErrCount(1);
       }
     };
