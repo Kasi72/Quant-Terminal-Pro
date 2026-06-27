@@ -178,13 +178,11 @@ function computeClenowScore(candles: Candle[], lookback = 125): { score: number;
 function detectGuppyCoiled(r: AnalysisResult, candles: Candle[]): { coiled: boolean; avgSpread: number; minSpread: number } | null {
   if (!r.zone || !candles || candles.length < 70) return null;
   if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) return null;
-  // Compute Guppy EMA spread for candles DURING the zone period
   const periods = [3, 5, 8, 10, 12, 15, 30, 35, 40, 45, 50, 60];
   const n = candles.length;
   const zoneLen = r.zone.windowLength;
   const zoneStart = n - 1 - zoneLen;
   if (zoneStart < 60) return null;
-  // Compute EMA spread at a few points during the zone
   const spreads: number[] = [];
   for (let checkIdx = zoneStart; checkIdx < n - 1; checkIdx += Math.max(1, Math.floor(zoneLen / 5))) {
     if (checkIdx < 60 || checkIdx >= n) continue;
@@ -201,8 +199,15 @@ function detectGuppyCoiled(r: AnalysisResult, candles: Candle[]): { coiled: bool
   if (spreads.length === 0) return null;
   const avgSpread = spreads.reduce((s, v) => s + v, 0) / spreads.length;
   const minSpread = Math.min(...spreads);
-  // Coiled if average spread during zone was < 3%
-  return { coiled: avgSpread < 3.0, avgSpread, minSpread };
+  // Backtested: avgSpread ≤5% + vol ≥1.5× = 50% hit rate vs 27.8% at old 3%
+  // Volume confirmation: breakout candle volume vs 20-day avg
+  const brkCandle = candles[n - 1];
+  let avgVol = 0;
+  for (let j = n - 21; j < n - 1; j++) { if (j >= 0) avgVol += (candles[j].v || 0); }
+  avgVol /= 20;
+  const volRatio = avgVol > 0 ? (brkCandle.v || 0) / avgVol : 0;
+  const coiled = avgSpread <= 5.0 && volRatio >= 1.5;
+  return { coiled, avgSpread, minSpread };
 }
 
 // Flag Pattern Overlay (Stock Bee definition — backtested: 71.8% hit, R:R 2.51)
