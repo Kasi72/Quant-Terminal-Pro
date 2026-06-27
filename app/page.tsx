@@ -1194,10 +1194,17 @@ function HomePageInner() {
     // ── Telegram Alerts ──
     if (tgConfig.enabled && newResults.length > 0) {
       const tg = tgConfig;
-      // #1: New BUY signals
+      // #1: New or upgraded BUY signals
       if (tg.alerts.newSignal) {
-        const prevSyms = new Set(resultsRef.current.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).map(r => r.symbol));
-        const newBuys = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage) && !prevSyms.has(r.symbol));
+        const stageRank: Record<string, number> = { NO_SIGNAL: 0, COMPRESSION_WATCH: 1, EARLY_INFLECTION: 2, PRE_BREAKOUT: 3, BUY: 4, STRONG_BUY: 5, ULTRA_STRONG_BUY: 6 };
+        const prevMap = new Map(resultsRef.current.map(r => [r.symbol, r.stage]));
+        const newBuys = newResults.filter(r => {
+          if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) return false;
+          const prevStage = prevMap.get(r.symbol);
+          if (!prevStage) return true; // brand new — alert
+          if ((stageRank[r.stage] || 0) > (stageRank[prevStage] || 0)) return true; // upgraded — alert
+          return false;
+        });
         for (const r of newBuys.slice(0, 5)) {
           const rs = localRsMap.get(r.symbol);
           const tf = localTfMap.get(r.symbol);
