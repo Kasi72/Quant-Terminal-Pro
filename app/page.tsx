@@ -34,6 +34,8 @@ import {
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { SECTOR_PRESETS } from '@/lib/sectorPresets';
 import { THEMATIC_PRESETS } from '@/lib/thematicPresets';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import { computeBrainInsights } from '@/lib/adaptiveBrain';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
@@ -624,6 +626,13 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.momentum.rsNifty20.toFixed(2),
     numVal: r => r.momentum.rsNifty20,
     cellClass: r => r.momentum.rsNifty20 >= 1.05 ? 'text-emerald-400 font-semibold' : r.momentum.rsNifty20 >= 1.0 ? 'text-slate-300' : 'text-red-400' },
+  { key: 'brain', label: '🧠 Brain', width: 80, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">🧠 Adaptive Brain v2</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain-adjusted conviction score. Learns from YOUR closed trades using Bayesian inference.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Factors</span></div><div><div class="rt-desc">Adjusts for: sector performance, stock memory, streak, conviction threshold, Clenow, overlays</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Sizing</span></div><div><div class="rt-desc">90+: A+ (1.5% risk) · 75+: Good (1%) · 60+: Avg (0.75%) · 45+: Weak (0.5%) · &lt;45: Skip</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
+    fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Clenow Momentum Score (125d)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Formula</span></div><div><div class="rt-desc">Annualized exp. regression slope × R² (trend smoothness). Higher = stronger AND smoother momentum.</div></div></div>'
@@ -779,10 +788,10 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
-  momentum: new Set(['symbol','stage','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  momentum: new Set(['symbol','stage','brain','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
   all: new Set(/* all keys — handled below */),
 };
@@ -893,6 +902,9 @@ function HomePageInner() {
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
   const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [brainInsights, setBrainInsights] = useState<any>(null);
+  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1213,6 +1225,19 @@ function HomePageInner() {
       newClenowMap[r.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
     }
     setClenowMap(newClenowMap);
+    // Adaptive Brain — compute insights + per-signal adjusted scores
+    try {
+      const bi = computeBrainInsights(trackedTradesRef.current);
+      setBrainInsights(bi);
+      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string}> = {};
+      for (const r of newResults) {
+        if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) continue;
+        const cl = newClenowMap[r.symbol];
+        const adj = bi.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: cl?.score, hasFlag: !!newFlagMap[r.symbol], hasCoiled: !!newGuppyCoilMap[r.symbol] });
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label };
+      }
+      setBrainScores(newBrainScores);
+    } catch { /* brain computation failed — non-critical */ }
     // Market breadth: % of stocks above 200 SMA
     if (newResults.length > 20) {
       const above200 = newResults.filter(r => r.stats?.sma200 > 0 && r.lastClose > r.stats.sma200).length;
@@ -4619,7 +4644,20 @@ function HomePageInner() {
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
                                 col.cellClass ? col.cellClass(row) : 'text-slate-300',
                               ].join(' ')}>
-                              {col.key === 'clenow' ? (() => {
+                              {col.key === 'brain' ? (() => {
+                                const bs = brainScores[row.symbol];
+                                if (!bs) return <span className="text-slate-700">—</span>;
+                                const delta = bs.brain - bs.original;
+                                const color = bs.brain >= 85 ? '#39FF14' : bs.brain >= 70 ? '#22d3ee' : bs.brain >= 55 ? '#facc15' : bs.brain >= 40 ? '#fb923c' : '#ef4444';
+                                const arrow = delta > 3 ? '↑' : delta < -3 ? '↓' : '→';
+                                const tipParts = bs.adjustments.map((a: {factor: string; adj: number; reason: string}) =>
+                                  `<div class="rt-row"><div><span class="rt-badge ${a.adj>0?'bg-emerald':'bg-orange'}">${a.adj>=0?'+':''}${a.adj}</span></div><div><div class="rt-desc">${a.factor}: ${a.reason}</div></div></div>`).join('');
+                                return <div className="flex items-center gap-1 cursor-help"
+                                  data-tip-html={`<div class="rt-hdr">🧠 Brain Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Backtest conviction: ${bs.original}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Adjusted</span></div><div><div class="rt-desc">Brain score: ${bs.brain} (${delta>=0?'+':''}${delta})</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div>`}>
+                                  <span className="font-mono font-bold text-[11px]" style={{color}}>{bs.brain}</span>
+                                  <span className="text-[9px]" style={{color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8'}}>{arrow}</span>
+                                </div>;
+                              })() : col.key === 'clenow' ? (() => {
                                 const cl = clenowMap[row.symbol];
                                 if (!cl) return <span className="text-slate-700">—</span>;
                                 const color = cl.r2 >= 0.7 ? '#22d3ee' : cl.r2 >= 0.4 ? '#facc15' : '#64748b';
