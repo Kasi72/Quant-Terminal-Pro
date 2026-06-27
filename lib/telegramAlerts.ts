@@ -63,29 +63,74 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
     const rps = pe.plannedEntry - pe.tacticalStop;
     const t1RVal = rps > 0 ? (pe.target5 - pe.plannedEntry) / rps : NaN;
     const t1R = Number.isFinite(t1RVal) ? t1RVal.toFixed(1) : '—';
+    const t2RVal = rps > 0 ? (pe.target7 - pe.plannedEntry) / rps : NaN;
+    const t3RVal = rps > 0 ? (pe.target10 - pe.plannedEntry) / rps : NaN;
+    const riskPct = pe.plannedEntry > 0 ? ((pe.plannedEntry - pe.tacticalStop) / pe.plannedEntry * 100) : 0;
+    const t1Pct = pe.plannedEntry > 0 ? ((pe.target5 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+    const t2Pct = pe.plannedEntry > 0 ? ((pe.target7 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+    const t3Pct = pe.plannedEntry > 0 ? ((pe.target10 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+
+    const verdict = pe.rewardRisk >= 1.2 ? 'Elite' : pe.rewardRisk >= 0.9 ? 'Very Good' : pe.rewardRisk >= 0.7 ? 'Good' : pe.rewardRisk >= 0.5 ? 'Acceptable' : 'Weak';
 
     let msg = `🟢 <b>NEW BUY SIGNAL</b>\n\n`;
     msg += `<b>${sym}</b> — ${stageLabel}\n`;
-    msg += `Entry: ₹${Number.isFinite(pe.plannedEntry) ? pe.plannedEntry.toFixed(2) : '—'} | SL: ₹${Number.isFinite(pe.tacticalStop) ? pe.tacticalStop.toFixed(2) : '—'}\n`;
-    msg += `T1: ₹${Number.isFinite(pe.target5) ? pe.target5.toFixed(2) : '—'} (${t1R}R) | R:R: ${Number.isFinite(pe.rewardRisk) ? pe.rewardRisk.toFixed(2) : '—'}\n`;
+    msg += `Conv: ${extras?.conviction ?? '—'} | Verdict: ${verdict}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
 
-    const verdict = pe.rewardRisk >= 1.2 ? 'Elite' : pe.rewardRisk >= 0.9 ? 'Very Good' : pe.rewardRisk >= 0.7 ? 'Good' : pe.rewardRisk >= 0.5 ? 'Acceptable' : 'Weak';
-    msg += `Verdict: ${verdict}`;
-    if (extras?.conviction) msg += ` | Conv: ${extras.conviction}`;
-    msg += '\n';
+    // Trade Sheet
+    msg += `<b>📋 TRADE SHEET</b>\n`;
+    msg += `CMP:   Rs.${r.lastClose.toFixed(2)}\n`;
+    msg += `Entry: Rs.${Number.isFinite(pe.plannedEntry) ? pe.plannedEntry.toFixed(2) : '—'}`;
+    if (pe.gapPct > 1) msg += ` (gap ${pe.gapPct.toFixed(1)}% — ${pe.entryStatus})`;
+    msg += `\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
 
-    if (extras?.onset) msg += `★ ${extras.onset}\n`;
-    if (extras?.rsRank) msg += `RS Rank: ${extras.rsRank}`;
-    if (extras?.tfAlign) msg += ` | TF: ${extras.tfAlign}`;
-    if (extras?.rsRank || extras?.tfAlign) msg += '\n';
+    // Stop Loss
+    msg += `<b>🛑 STOP LOSS</b>\n`;
+    msg += `SL:    Rs.${Number.isFinite(pe.tacticalStop) ? pe.tacticalStop.toFixed(2) : '—'} (-${riskPct.toFixed(1)}%)\n`;
+    msg += `Risk:  Rs.${rps > 0 ? rps.toFixed(2) : '—'}/share\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Targets
+    msg += `<b>🎯 TARGETS (partial exit)</b>\n`;
+    msg += `T1 (sell 50%): Rs.${Number.isFinite(pe.target5) ? pe.target5.toFixed(2) : '—'} (+${t1Pct.toFixed(1)}% · ${t1R}R)\n`;
+    msg += `T2 (sell 30%): Rs.${Number.isFinite(pe.target7) ? pe.target7.toFixed(2) : '—'} (+${t2Pct.toFixed(1)}% · ${Number.isFinite(t2RVal) ? t2RVal.toFixed(1) : '—'}R)\n`;
+    msg += `T3 (sell 20%): Rs.${Number.isFinite(pe.target10) ? pe.target10.toFixed(2) : '—'} (+${t3Pct.toFixed(1)}% · ${Number.isFinite(t3RVal) ? t3RVal.toFixed(1) : '—'}R)\n`;
+    msg += `R:R: ${Number.isFinite(pe.rewardRisk) ? pe.rewardRisk.toFixed(2) : '—'}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Position sizing (for Rs.10L account, 1% risk)
+    const accountSize = 1000000;
+    const riskAmount = accountSize * 0.01;
+    const shares = rps > 0 ? Math.floor(riskAmount / rps) : 0;
+    const capital = shares * pe.plannedEntry;
+    msg += `<b>💰 POSITION SIZE (1% risk on 10L)</b>\n`;
+    msg += `Shares: ${shares} | Capital: Rs.${Math.round(capital).toLocaleString()}\n`;
+    msg += `Max loss: Rs.${Math.round(riskAmount)} (1% of capital)\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Signal quality
+    msg += `<b>📊 SIGNAL QUALITY</b>\n`;
+    if (extras?.onset) msg += `Candle: ★ ${extras.onset}\n`;
+    if (extras?.rsRank) msg += `RS Rank: ${extras.rsRank}/100\n`;
+    if (extras?.tfAlign) msg += `Timeframe: ${extras.tfAlign === 'DW' ? 'Daily+Weekly aligned' : extras.tfAlign === 'D' ? 'Daily only' : extras.tfAlign}\n`;
+    msg += `ATR%: ${r.atrPct14.toFixed(2)}% | Vol: ${r.volRatio20.toFixed(1)}x\n`;
 
     if (extras?.pivotPosition) {
-      msg += `\nPivot: ${extras.pivotPosition}\n`;
-      if (extras.pivotR1 && Number.isFinite(extras.pivotR1)) msg += `R1: ₹${extras.pivotR1.toFixed(0)} `;
-      if (extras.pivotS1 && Number.isFinite(extras.pivotS1)) msg += `S1: ₹${extras.pivotS1.toFixed(0)}`;
+      msg += `Pivot: ${extras.pivotPosition}`;
+      if (extras.pivotR1 && Number.isFinite(extras.pivotR1)) msg += ` | R1: Rs.${extras.pivotR1.toFixed(0)}`;
+      if (extras.pivotS1 && Number.isFinite(extras.pivotS1)) msg += ` | S1: Rs.${extras.pivotS1.toFixed(0)}`;
       msg += '\n';
     }
-    if (extras?.pivotWarning) msg += `\n⚠ ${extras.pivotWarning}\n`;
+    if (extras?.pivotWarning) msg += `⚠ ${extras.pivotWarning}\n`;
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `<b>📝 ACTION PLAN</b>\n`;
+    msg += `1. BUY ${shares} shares at Rs.${pe.plannedEntry.toFixed(2)}\n`;
+    msg += `2. Set SL-M at Rs.${pe.tacticalStop.toFixed(2)}\n`;
+    msg += `3. At T1 → sell ${Math.round(shares*0.5)} (50%), move SL to entry\n`;
+    msg += `4. At T2 → sell ${Math.round(shares*0.3)} (30%), trail SL to T1\n`;
+    msg += `5. At T3 → sell remaining ${Math.round(shares*0.2)} (20%)\n`;
 
     return msg;
   } catch {
