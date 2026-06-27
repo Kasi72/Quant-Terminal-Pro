@@ -215,18 +215,18 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
 
 export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   optimized_deployable_20plus: {
-    name: 'Deployable v5-WLB 20+', tag: '★ Recommended',
+    name: 'Deployable v8-DT 20+', tag: '★ Recommended',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
-    maxPre10AvgRangeATR: 1.00, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 6, maxZoneLen: 20, maxZoneTightnessPct: 15.0,
+    maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 6, maxZoneLen: 25, maxZoneTightnessPct: 18.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 2.00,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.00, minExactVolVsPre5: 2.00,
-    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 35, maxCandleRisk: 8.5,
+    minExactRangeATR14: 1.1, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 0.80, minExactVolVsPre5: 2.00,
+    minCloseLoc: 75, maxUpperWickPct: 45, minBodyPct: 25, maxCandleRisk: 8.5,
     minUltraPrecisionScore: 60, minRSI2: 50,
-    minVolatilityExpansionRatio: 1.75, minCandleQualityScore: 3,
+    minVolatilityExpansionRatio: 1.75, minCandleQualityScore: 2,
     maxCloseAboveZonePct: null,
   },
   optimized_highprecision_15plus: {
