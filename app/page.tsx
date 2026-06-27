@@ -904,7 +904,7 @@ function HomePageInner() {
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
-  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number}>>({});
+  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1229,12 +1229,21 @@ function HomePageInner() {
     try {
       const bi = computeBrainInsights(trackedTradesRef.current);
       setBrainInsights(bi);
-      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number}> = {};
-      for (const r of newResults) {
-        if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) continue;
+      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}> = {};
+      const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+      for (const r of buySignals) {
         const cl = newClenowMap[r.symbol];
         const adj = bi.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: cl?.score, hasFlag: !!newFlagMap[r.symbol], hasCoiled: !!newGuppyCoilMap[r.symbol] });
-        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100 };
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '' };
+      }
+      // Engine 2: Thompson ranking for priority order
+      if (buySignals.length > 1) {
+        const extraMap: Record<string, {sector: string}> = {};
+        for (const r of buySignals) extraMap[r.symbol] = { sector: getSectorTag(r.symbol) };
+        const ranked = bi.thompsonRank(buySignals, extraMap);
+        for (const r of ranked) {
+          if (newBrainScores[r.symbol]) newBrainScores[r.symbol].priority = r.priority;
+        }
       }
       setBrainScores(newBrainScores);
     } catch { /* brain computation failed — non-critical */ }
@@ -4677,12 +4686,13 @@ function HomePageInner() {
                                 const delta = bs.brain - bs.original;
                                 const color = bs.brain >= 85 ? '#39FF14' : bs.brain >= 70 ? '#22d3ee' : bs.brain >= 55 ? '#facc15' : bs.brain >= 40 ? '#fb923c' : '#ef4444';
                                 const arrow = delta > 3 ? '↑' : delta < -3 ? '↓' : '→';
-                                const tipParts = bs.adjustments.map((a: {factor: string; adj: number; reason: string}) =>
-                                  `<div class="rt-row"><div><span class="rt-badge ${a.adj>0?'bg-emerald':'bg-orange'}">${a.adj>=0?'+':''}${a.adj}</span></div><div><div class="rt-desc">${a.factor}: ${a.reason}</div></div></div>`).join('');
+                                const tipParts = bs.adjustments.map((a: {factor: string; adj: number; reason: string; engine?: string}) =>
+                                  `<div class="rt-row"><div><span class="rt-badge ${a.adj>0?'bg-emerald':'bg-orange'}">${a.adj>=0?'+':''}${a.adj}</span></div><div><div class="rt-desc">${a.factor}: ${a.reason}${a.engine && a.engine !== 'Bayesian' ? ` <span style="opacity:0.6;font-size:9px">[${a.engine}]</span>` : ''}</div></div></div>`).join('');
                                 return <div className="flex items-center gap-1 cursor-help"
-                                  data-tip-html={`<div class="rt-hdr">🧠 Brain Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Backtest conviction: ${bs.original}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Adjusted</span></div><div><div class="rt-desc">Brain score: ${bs.brain} (${delta>=0?'+':''}${delta}) · Range: ${bs.ciLow}-${bs.ciHigh}</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">Confidence</span></div><div><div class="rt-desc">Range ${bs.ciLow}-${bs.ciHigh} · ${bs.ciHigh-bs.ciLow<=20?'Narrow (reliable)':bs.ciHigh-bs.ciLow<=35?'Moderate (reasonable)':'Wide (uncertain — need more trades)'}</div></div></div>`}>
+                                  data-tip-html={`<div class="rt-hdr">🧠 Brain v3 — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Conviction: ${bs.original} → Brain: ${bs.brain} (${delta>=0?'+':''}${delta})</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-purple">Form</span></div><div><div class="rt-desc">${bs.formLabel} (EMA ${bs.formEMA}) · Trend: ${bs.formTrend}</div></div></div>${bs.anomalyCount > 0 ? `<div class="rt-row"><div><span class="rt-badge bg-orange">⚠ ${bs.anomalyCount} anomaly</span></div><div><div class="rt-desc">${bs.anomalyNote}</div></div></div>` : ''}<div class="rt-row"><div><span class="rt-badge bg-slate">CI</span></div><div><div class="rt-desc">Range ${bs.ciLow}-${bs.ciHigh} · ${bs.ciHigh-bs.ciLow<=20?'Narrow (reliable)':bs.ciHigh-bs.ciLow<=35?'Moderate':'Wide (need more trades)'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Engines</span></div><div><div class="rt-desc">Bayesian + Thompson + Anomaly + Form EMA + Bandit</div></div></div>`}>
                                   <span className="font-mono font-bold text-[11px]" style={{color}}>{bs.brain}</span>
                                   <span className="text-[9px]" style={{color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8'}}>{arrow}</span>
+                                  {bs.priority === 1 && <span className="ml-0.5 px-0.5 bg-yellow-500/30 border border-yellow-500 rounded text-[7px] text-yellow-300 font-bold">#1</span>}
                                 </div>;
                               })() : col.key === 'clenow' ? (() => {
                                 const cl = clenowMap[row.symbol];
