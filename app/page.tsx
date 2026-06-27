@@ -1385,6 +1385,33 @@ function HomePageInner() {
             msg += `All 12 Guppy EMAs compressed to ${guppyInfo.avgSpread.toFixed(1)}% spread\n`;
             msg += `Maximum stored energy — monster move potential\n`;
           }
+          // Brain insights in Telegram
+          let brainData: {original:number;brain:number;adjustments:Array<{factor:string;adj:number;reason:string}>;riskPct:number;riskLabel:string;ciLow:number;ciHigh:number}|null = null;
+          try {
+            const brainTg = computeBrainInsights(trackedTradesRef.current);
+            const brainAdj = brainTg.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: newClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo });
+            brainData = { original: brainAdj.originalScore, brain: brainAdj.brainScore, adjustments: brainAdj.adjustments, riskPct: brainAdj.sizing.risk, riskLabel: brainAdj.sizing.label, ciLow: brainAdj.confidenceInterval?.low ?? 0, ciHigh: brainAdj.confidenceInterval?.high ?? 100 };
+          } catch { /* brain failed — non-critical */ }
+          if (brainData) {
+            msg += `\n🧠 <b>ADAPTIVE BRAIN</b>\n`;
+            msg += `Score: ${brainData.original} → ${brainData.brain} (${brainData.brain >= brainData.original ? '+' : ''}${brainData.brain - brainData.original})\n`;
+            msg += `Range: ${brainData.ciLow}-${brainData.ciHigh}\n`;
+            for (const a of brainData.adjustments.slice(0, 4)) {
+              msg += `${a.adj >= 0 ? '🟢' : '🟠'} ${a.adj >= 0 ? '+' : ''}${a.adj}: ${a.factor}\n`;
+            }
+            msg += `Sizing: ${brainData.riskLabel} (${brainData.riskPct}% risk)\n`;
+            try {
+              const brainTg2 = computeBrainInsights(trackedTradesRef.current);
+              if (brainTg2.emotionalAlert && brainTg2.streakType === 'L' && brainTg2.currentStreak >= 2) {
+                msg += `\n⚠ <b>CAUTION:</b> ${brainTg2.emotionalAlert.message}\n`;
+              }
+              if (brainTg2.decayAlerts?.length > 0) {
+                for (const da of brainTg2.decayAlerts) {
+                  msg += `⚠ Decay: ${da.name} ${da.oldWR}% → ${da.newWR}%\n`;
+                }
+              }
+            } catch { /* non-critical */ }
+          }
           sendTelegramMessage(tg, msg);
         }
       }
