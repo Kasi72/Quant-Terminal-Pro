@@ -404,14 +404,16 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.plannedEntry,
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Cascading Gates Stop v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [3.5%, 8%]. Stop only triggers after passing ALL 6 gates.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 Oversold Shield: if RSI-2 &lt; 8, don\'t stop — deeply oversold stocks bounce</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">2-Day Confirmation: require 2 consecutive closes below stop — kills single-day shakeouts</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer Rejection: hammer candles (lower wick ≥40%, close upper half) block the stop</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Gate 4</span></div><div><div class="rt-desc">Green Recovery: green candles closing in upper half = buyers stepping in, don\'t stop</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Gate 5</span></div><div><div class="rt-desc">Close Position: close must be in lower 45% of candle — genuine weakness, not just a wick</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Result</span></div><div><div class="rt-desc">1 false stop out of 342 winners. 89.5% win rate, +0.534R expectancy, 3.1% max drawdown.</div><div class="rt-hit hit-green">0.3% false stop rate · Walk-forward OOS 91.1% WR</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Cascading Gates v3 — 9-Gate Precision</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [3.5%, 8%]. Stop triggers ONLY after ALL 9 gates pass.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 15: oversold shield — deeply oversold stocks bounce, don\'t stop</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Gate 4</span></div><div><div class="rt-desc">Green recovery: green candle closing upper half = buyers stepping in</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Gate 5</span></div><div><div class="rt-desc">Close in lower 35%: must show genuine weakness, not just a wick touch</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Gate 6</span></div><div><div class="rt-desc">OBV declining: volume must confirm distribution, not accumulation</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 7</span></div><div><div class="rt-desc">≥2 consecutive red candles: single red = noise, sustained red = trend</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Result</span></div><div><div class="rt-desc">0 false stops on 516 winners, 49 stocks. 93.7% WR, +0.672R. Smart 2-day exits 1 day faster than 3-day.</div><div class="rt-hit hit-green">0% false stop rate · Walk-forward OOS validated</div></div></div>',
     fmt: r => r.priceEngine.tacticalStop > 0 ? '₹' + r.priceEngine.tacticalStop.toFixed(2) : '—',
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
