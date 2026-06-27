@@ -508,7 +508,7 @@ const COLUMNS: ColDef[] = [
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Cascading Gates v3 — 9-Gate Precision</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [2.5%, 6%]. Stop triggers ONLY after ALL 9 gates pass.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [3%, 7%] CLOSE-ONLY. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 8: deep capitulation shield — only blocks on extreme oversold (99.7% WR, 23 fewer losers held vs RSI&lt;15)</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'

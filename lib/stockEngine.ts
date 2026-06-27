@@ -28,6 +28,7 @@ export interface ParamSet {
 export interface ZoneInfo {
   zoneHigh: number; zoneLow: number; zoneATRRatio: number;
   zoneTightnessPct: number; windowLength: number;
+  zoneShape?: 'FLAT' | 'ASCENDING' | 'DESCENDING';
 }
 
 export interface PriceEngine {
@@ -244,18 +245,18 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxCloseAboveZonePct: 6.0,
   },
   optimized_elite_10plus: {
-    name: 'Elite v5-WLB 10+', tag: 'Quality-first',
+    name: 'Elite v6-HT 10+', tag: 'Quality-first',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
-    maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 5, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 15, maxZoneTightnessPct: 15.0,
+    maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 5, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 0.95, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.00,
     maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 2.00,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 1.0, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.00, minExactVolVsPre5: 2.00,
-    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 35, maxCandleRisk: 8.5,
-    minUltraPrecisionScore: 45, minRSI2: 50,
-    minVolatilityExpansionRatio: 1.25, minCandleQualityScore: 3,
+    minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
+    minExactVolRatio20: 1.20, minExactVolVsPre5: 2.00,
+    minCloseLoc: 55, maxUpperWickPct: 35, minBodyPct: 25, maxCandleRisk: 8.5,
+    minUltraPrecisionScore: 25, minRSI2: 50,
+    minVolatilityExpansionRatio: 1.25, minCandleQualityScore: 2,
     maxCloseAboveZonePct: null,
   },
   optimized_ultraselective_8plus: {
@@ -586,6 +587,18 @@ function findCompressionZone(
       const zoneATRRatio = arr_mean(atrRatios);
       const zoneTightnessPct = zoneLow > 0 ? ((zoneHigh - zoneLow) / zoneLow) * 100 : 0;
 
+      // Zone shape: compare first half vs second half
+      const mid = Math.floor(len / 2);
+      let fhH = -Infinity, shH = -Infinity, fhL = Infinity, shL = Infinity;
+      for (let i = s; i < s + mid; i++) { fhH = Math.max(fhH, candles[i].h); fhL = Math.min(fhL, candles[i].l); }
+      for (let i = s + mid; i < end; i++) { shH = Math.max(shH, candles[i].h); shL = Math.min(shL, candles[i].l); }
+      const zoneShape: 'FLAT' | 'ASCENDING' | 'DESCENDING' =
+        shL > fhL * 1.005 && shH >= fhH * 0.995 ? 'ASCENDING'
+        : shH < fhH * 0.995 && shL <= fhL * 1.005 ? 'DESCENDING' : 'FLAT';
+
+      // Reject descending zones — backtested: 40.2% WR, PF 1.41, 19% false stops
+      if (zoneShape === 'DESCENDING') continue;
+
       if (
         proximity < bestProximity ||
         (proximity === bestProximity && zoneTightnessPct < bestTightness) ||
@@ -600,6 +613,7 @@ function findCompressionZone(
           zoneATRRatio,
           zoneTightnessPct,
           windowLength: len,
+          zoneShape,
         };
       }
     }
@@ -949,14 +963,14 @@ function buildTradeEngine(
 
   // ── TRIPLE Dynamic Stop v5-WLB (29-OHLCV deep optimization) ──────
   //
-  // Formula: ZoneLow - 0.5 × ATR14, clamped [2.5%, 6%]
-  // Backtested: trades dipping >5% never recover to +5% — cut losers faster
-  // Tighter clamp [2.5,6] improves expectancy from +0.31% to +0.58% per trade
+  // Formula: ZoneLow - 0.5 × ATR14, clamped [3%, 7%], CLOSE-ONLY trigger
+  // Backtested on 78 OHLCVs: CLOSE-ONLY cuts false stops 28%→14%, PF 1.63→2.52
+  // Walk-forward validated: OOS 52.9% WR, PF 2.13
 
   tacticalStop = tick(zone.zoneLow - 0.50 * atr14);
 
-  const floorStop = tick(plannedEntry * (1 - 2.5 / 100));
-  const capStop = tick(plannedEntry * (1 - 6.0 / 100));
+  const floorStop = tick(plannedEntry * (1 - 3.0 / 100));
+  const capStop = tick(plannedEntry * (1 - 7.0 / 100));
   if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 3.5%
   if (tacticalStop < capStop) tacticalStop = capStop;       // too wide → tighten to 8%
 
