@@ -1491,17 +1491,40 @@ function HomePageInner() {
             conviction: computeConviction(r), rsRank: rs?.rsRank, tfAlign: tf?.alignment,
             pivotPosition: piv?.position, pivotR1: piv?.classic.r1, pivotS1: piv?.classic.s1,
           });
+          // ATR / Zone / Vol badges
+          const atrInfo = detectATRState(r);
+          const zoneInfo = detectZoneExplosion(r);
+          const volInfo = detectVolumeBadge(r);
+          const dnaInfo = detectBreakoutDNA(r);
+          msg += `\n<b>📈 BREAKOUT QUALITY</b>\n`;
+          msg += `ATR: ${atrInfo.explosion ? '💥 EXPLODE (91.8% HR)' : atrInfo.state === 'SWEET_SPOT' ? '🎯 INFLECT' : atrInfo.state === 'BUILDING' ? '⚡ BUILD' : atrInfo.state === 'DEEP_COMPRESSION' ? '💤 SLEEP' : '🔥 MOMEN'}\n`;
+          msg += `Zone: ${zoneInfo === 'HIGH_CONVICTION' ? '💎 EXPLODE (63.4% HR)' : zoneInfo === 'CONFIRMED' ? '🎯 READY (63.5% HR)' : '— None'}`;
+          if (r.zone) msg += ` | Tight: ${r.zone.zoneTightnessPct.toFixed(1)}% | Len: ${r.zone.windowLength}d`;
+          msg += `\n`;
+          msg += `Vol: ${volInfo === 'HIGH_CONVICTION' ? '🔥 THRUST (67% HR)' : volInfo === 'CONFIRMED' ? '✓ CONF (49.3% HR)' : '— None'} | ${r.volRatio20.toFixed(1)}× 20d | ${r.exactVolVsPre5.toFixed(1)}× pre5\n`;
+          if (dnaInfo) msg += `DNA: ★ ${dnaInfo}\n`;
+          // PCA + Clenow
+          const pcaInfo = newPcaMap[r.symbol];
+          const clInfo = newClenowMap[r.symbol];
+          if (pcaInfo || clInfo) {
+            msg += `\n<b>📊 SCORING</b>\n`;
+            if (pcaInfo) msg += `PCA: ${pcaInfo.score.toFixed(1)} [${pcaInfo.rank}] ${pcaInfo.speciesEmoji} ${pcaInfo.species} (P${pcaInfo.pctl})\n`;
+            if (clInfo) msg += `Clenow: ${clInfo.score.toFixed(0)} [${clInfo.quality}] | Ann: ${clInfo.annReturn >= 0 ? '+' : ''}${clInfo.annReturn.toFixed(0)}% | R²: ${clInfo.r2.toFixed(2)}\n`;
+          }
+          // Sniper status
+          if (r.clusterBreakdown?.sniper) {
+            const sn = r.clusterBreakdown.sniper;
+            if (sn.met === sn.total) msg += `\n🎯 <b>SNIPER 95+ TRIGGERED!</b> ${sn.met}/${sn.total} — MAX SIZE\n`;
+            else if (sn.met >= sn.total - 2) msg += `🎯 Sniper: ${sn.met}/${sn.total} (${sn.total - sn.met} away)\n`;
+          }
+          msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
           if (flagInfo) {
-            msg += `\n🚩 <b>FLAG PATTERN DETECTED</b>\n`;
-            msg += `Pole: +${flagInfo.poleGain.toFixed(0)}% surge → ${flagInfo.flagDays}d consolidation → breakout\n`;
-            msg += `Measured target: Rs.${flagInfo.measuredTarget.toFixed(0)}\n`;
-            msg += `Double conviction: compression + flag continuation\n`;
+            msg += `🚩 <b>FLAG PATTERN</b>\n`;
+            msg += `Pole: +${flagInfo.poleGain.toFixed(0)}% → ${flagInfo.flagDays}d flag → breakout | Target: Rs.${flagInfo.measuredTarget.toFixed(0)}\n`;
           }
           const guppyInfo = newGuppyCoilMap[r.symbol];
           if (guppyInfo) {
-            msg += `\n💎 <b>GUPPY COILED — Max Compression Breakout</b>\n`;
-            msg += `All 12 Guppy EMAs compressed to ${guppyInfo.avgSpread.toFixed(1)}% spread\n`;
-            msg += `Maximum stored energy — monster move potential\n`;
+            msg += `💎 <b>GUPPY COILED</b> — ${guppyInfo.avgSpread.toFixed(1)}% spread — max stored energy\n`;
           }
           // Brain v3 — 5-Engine Intelligence in Telegram
           try {
