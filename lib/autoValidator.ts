@@ -91,21 +91,23 @@ export function validateTrade(
         const entry: GateLogEntry = { day: i, close: candle.c, stopLevel: trade.stopLoss, dipPct: dipBelowStop, gatesTested: [], result: 'NOT_TRIGGERED' };
         let blocked = false;
 
-        // GATE 0: Wyckoff Spring Shield
-        entry.gatesTested.push({ gate: 'G0 Spring Shield', passed: dipBelowStop >= 2.0, reason: dipBelowStop < 2.0 ? `Dip only ${dipBelowStop.toFixed(1)}% — spring likely` : `Deep dip ${dipBelowStop.toFixed(1)}%` });
-        if (dipBelowStop < 2.0) { blocked = true; entry.result = 'SHIELDED'; }
+        // GATE 0: Wyckoff Spring Shield — grid-searched: 1.5% optimal (was 2.0%)
+        entry.gatesTested.push({ gate: 'G0 Spring Shield', passed: dipBelowStop >= 1.5, reason: dipBelowStop < 1.5 ? `Dip only ${dipBelowStop.toFixed(1)}% — spring likely` : `Deep dip ${dipBelowStop.toFixed(1)}%` });
+        if (dipBelowStop < 1.5) { blocked = true; entry.result = 'SHIELDED'; }
 
         // GATE 1: RSI-2 Oversold
         if (!blocked) {
-          entry.gatesTested.push({ gate: 'G1 RSI Oversold', passed: rsi2 >= 8, reason: rsi2 < 8 ? `RSI-2 = ${rsi2.toFixed(0)} — deep capitulation` : `RSI-2 = ${rsi2.toFixed(0)}` });
-          if (rsi2 < 8) { blocked = true; entry.result = 'SHIELDED'; }
+          // G1 RSI threshold: 5 optimal (was 8) — stricter, only deepest oversold
+          entry.gatesTested.push({ gate: 'G1 RSI Oversold', passed: rsi2 >= 5, reason: rsi2 < 5 ? `RSI-2 = ${rsi2.toFixed(0)} — deep capitulation` : `RSI-2 = ${rsi2.toFixed(0)}` });
+          if (rsi2 < 5) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
         // GATE 2: Smart 2-Day Confirmation
         if (!blocked) {
           const prevAbove = !prevCandle || prevCandle.c > trade.stopLoss;
           const stabilizing = prevCandle ? candle.c >= prevCandle.c : false;
-          const lowVol = candle.v != null && prevCandle?.v != null && candle.v < (prevCandle.v ?? 0) * 0.8;
+          // G2 volume mult: 0.6 optimal (was 0.8) — stricter, only very low volume blocks
+          const lowVol = candle.v != null && prevCandle?.v != null && candle.v < (prevCandle.v ?? 0) * 0.6;
           if (prevAbove) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'First day below — wait' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (stabilizing) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (lowVol) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Low volume — retail noise' }); blocked = true; entry.result = 'SHIELDED'; }
@@ -126,10 +128,10 @@ export function validateTrade(
           if (greenRecov) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
-        // GATE 5: Close Position
+        // GATE 5: Close Position — grid-searched: 45% optimal (was 35%)
         if (!blocked) {
-          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 35, reason: closeLoc >= 35 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 35% — not low enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
-          if (closeLoc >= 35) { blocked = true; entry.result = 'SHIELDED'; }
+          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 45, reason: closeLoc >= 45 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 45% — not weak enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
+          if (closeLoc >= 45) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
         // GATE 6: OBV Declining
