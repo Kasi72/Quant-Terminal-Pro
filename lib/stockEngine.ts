@@ -7,7 +7,7 @@ export interface Candle { ts: number; o: number; h: number; l: number; c: number
 
 export type StageRating = 'NO_SIGNAL' | 'COMPRESSION_WATCH' | 'EARLY_INFLECTION' | 'PRE_BREAKOUT' | 'BUY' | 'STRONG_BUY' | 'ULTRA_STRONG_BUY';
 
-export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus';
+export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus' | 'sniper_95plus';
 
 export interface ParamSet {
   name: string; tag: string;
@@ -88,6 +88,7 @@ export interface ClusterBreakdown {
   highPrecision: { met: number; total: number };
   elite: { met: number; total: number };
   ultraSelective: { met: number; total: number };
+  sniper?: { met: number; total: number };
 }
 
 export interface ScanMeta {
@@ -274,6 +275,21 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.50, minCandleQualityScore: 4,
     maxCloseAboveZonePct: null,
   },
+  sniper_95plus: {
+    name: 'Sniper 95+ v1', tag: '🎯 95% WR',
+    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
+    maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 3.0,
+    maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
+    maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 2.00,
+    breakoutMultiplier: 1.001,
+    minExactRangeATR14: 1.6, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 1.40, minExactVolVsPre5: 1.50,
+    minCloseLoc: 65, maxUpperWickPct: 45, minBodyPct: 30, maxCandleRisk: 6.0,
+    minUltraPrecisionScore: 20, minRSI2: 50,
+    minVolatilityExpansionRatio: 2.50, minCandleQualityScore: 2,
+    maxCloseAboveZonePct: null,
+  },
 };
 
 export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: string }> = [
@@ -281,6 +297,7 @@ export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: str
   { key: 'optimized_highprecision_15plus', name: PARAM_SETS.optimized_highprecision_15plus.name, tag: PARAM_SETS.optimized_highprecision_15plus.tag },
   { key: 'optimized_elite_10plus', name: PARAM_SETS.optimized_elite_10plus.name, tag: PARAM_SETS.optimized_elite_10plus.tag },
   { key: 'optimized_ultraselective_8plus', name: PARAM_SETS.optimized_ultraselective_8plus.name, tag: PARAM_SETS.optimized_ultraselective_8plus.tag },
+  { key: 'sniper_95plus', name: PARAM_SETS.sniper_95plus.name, tag: PARAM_SETS.sniper_95plus.tag },
 ];
 
 // ─── CORE HELPERS ─────────────────────────────────────────────────────────────
@@ -1345,7 +1362,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     },
     nearBreakoutPct: 99, nearBreakout: false,
     stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
-    clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 } },
+    clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
   });
 
   // 1. Guard — early return if insufficient data
@@ -1649,6 +1666,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
       highPrecision: paramSetKey === 'optimized_highprecision_15plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
       elite: paramSetKey === 'optimized_elite_10plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
       ultraSelective: paramSetKey === 'optimized_ultraselective_8plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
+      sniper: paramSetKey === 'sniper_95plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
     },
   };
 }
@@ -1950,6 +1968,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         highPrecision: { met: Math.round(rnd(seed + 61, isActionable ? 16 : 7, 19)), total: 19 },
         elite: { met: Math.round(rnd(seed + 62, isActionable ? 17 : 8, 21)), total: 21 },
         ultraSelective: { met: Math.round(rnd(seed + 63, isActionable ? 16 : 7, 20)), total: 20 },
+        sniper: { met: Math.round(rnd(seed + 64, isActionable ? 17 : 5, 21)), total: 21 },
       },
     });
   }
