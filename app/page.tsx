@@ -4242,6 +4242,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">Days</th>
                             <th className="px-2 py-1 text-center font-medium">Expiry</th>
                             <th className="px-2 py-1 text-center font-medium">Outcome</th>
+                            <th className="px-2 py-1 text-center font-medium">Gate Status</th>
                             <th className="px-2 py-1 text-left font-medium">Exit Model</th>
                             <th className="px-2 py-1 text-left font-medium">Sector</th>
                             <th className="px-2 py-1 text-right font-medium">Conv</th>
@@ -4306,7 +4307,19 @@ function HomePageInner() {
                                   })() : <span className="text-slate-700">—</span>}</td>
                                   {/* #2: Outcome with tooltip */}
                                   <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
-                                    title={t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 10 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
+                                    title={t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 20 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
+                                  {/* Gate Status */}
+                                  <td className="px-2 py-1.5 text-center">{(() => {
+                                    const tgLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                                    if (!tgLog || tgLog.length === 0) return <span className="text-[9px] text-slate-700">—</span>;
+                                    const shielded = tgLog.filter(e => e.result === 'SHIELDED').length;
+                                    const stopped = tgLog.filter(e => e.result === 'STOPPED').length;
+                                    const lastEntry = tgLog[tgLog.length - 1];
+                                    const blockedGate = lastEntry?.gatesTested?.find(g => !g.passed);
+                                    const tipText = tgLog.map(e => `D${e.day}: ${e.result} ${e.dipPct.toFixed(1)}%↓ — ${e.gatesTested.map(g => `${g.passed?'✗':'✓'}${g.gate}`).join(', ')}`).join('\n');
+                                    if (stopped > 0) return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-red-400 font-bold">🛑ALL</span>{shielded > 0 && <span className="text-emerald-500"> {shielded}🛡</span>}</span>;
+                                    return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-emerald-400 font-bold">{shielded}🛡</span><span className="text-cyan-500 ml-0.5">{blockedGate?.gate?.slice(0,5) || ''}</span></span>;
+                                  })()}</td>
                                   {/* #6: Exit model */}
                                   <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% BE' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? '—' : 'Market'}</td>
                                   <td className="px-2 py-1.5 text-slate-600 truncate max-w-[80px]">{t.sector || '—'}</td>
