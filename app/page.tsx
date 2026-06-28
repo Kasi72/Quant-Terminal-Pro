@@ -1958,7 +1958,8 @@ function HomePageInner() {
             if (e.target.value === 'ALL4') { setScanAll(true); try { localStorage.setItem('qtp_paramset', 'ALL4'); } catch {} }
             else { setScanAll(false); setParamSetKey(e.target.value as ParamSetKey); try { localStorage.setItem('qtp_paramset', e.target.value); } catch {} }
           }}
-          className={`ml-2 border rounded text-xs px-2 py-1 focus:outline-none cursor-pointer ${scanAll ? 'bg-cyan-900/40 border-cyan-600 text-cyan-300 focus:border-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-200 focus:border-indigo-500'}`}
+          className={`ml-2 border-2 rounded-md text-[13px] font-semibold px-3 py-1.5 focus:outline-none cursor-pointer shadow-md transition-all ${scanAll ? 'bg-cyan-950 border-cyan-400 text-cyan-100 focus:border-cyan-300' : 'bg-slate-950 border-indigo-500 text-indigo-100 focus:border-indigo-300'}`}
+          style={{colorScheme:'dark'}}
         >
           <option value="ALL4">★ All 5 Param Sets (Multi-Scan)</option>
           {PARAM_SET_OPTIONS.map(o => (
