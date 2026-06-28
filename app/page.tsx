@@ -947,7 +947,7 @@ function HomePageInner() {
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
   const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
-  const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number}>>({});
+  const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
@@ -1277,20 +1277,32 @@ function HomePageInner() {
     const pcaMeans = [6.11, 1.15, 1.49, 1.93, 0.79, 23.66]; // zoneTight, eRA, eVR, eVP5, p10R, uW
     const pcaStds  = [3.81, 0.42, 0.73, 1.28, 0.17, 13.50];
     const pcaWeights = [1.26, 0.56, 0.55, 0.44, -0.36, 0.26];
-    const newPcaMap: Record<string, {score: number; rank: string; pctl: number}> = {};
-    const pcaScores: Array<{sym: string; score: number}> = [];
+    const newPcaMap: Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}> = {};
+    const pcaScores: Array<{sym: string; score: number; candle: number; compression: number; volume: number}> = [];
     for (const r of newResults) {
       if (!r.zone) continue;
       const raw = [r.zone.zoneTightnessPct, r.exactRangeATR14, r.volRatio20 || 0, r.exactVolVsPre5 || 0, r.pre10AvgRangeATR, r.upperWickPct];
       let score = 0;
       for (let i = 0; i < 6; i++) score += pcaWeights[i] * ((raw[i] - pcaMeans[i]) / pcaStds[i]);
-      pcaScores.push({ sym: r.symbol, score });
+      // 3-Factor fingerprint (0-10 scale)
+      const candle = Math.min(10, Math.max(0, (r.closeLoc / 10 + (100 - r.upperWickPct) / 15 + (r.ultraPrecisionScore || 0) / 10) / 3 * 10));
+      const compression = Math.min(10, Math.max(0, ((1 - r.pre10AvgRangeATR) * 10 + (r.zone.zoneTightnessPct < 5 ? 10 : r.zone.zoneTightnessPct < 8 ? 7 : r.zone.zoneTightnessPct < 12 ? 4 : 1)) / 2));
+      const volume = Math.min(10, Math.max(0, (r.volRatio20 || 0) * 3 + (r.exactVolVsPre5 || 0) * 1.5));
+      pcaScores.push({ sym: r.symbol, score, candle, compression, volume });
     }
     pcaScores.sort((a, b) => b.score - a.score);
     for (let i = 0; i < pcaScores.length; i++) {
+      const { sym, score, candle, compression, volume } = pcaScores[i];
       const pctl = pcaScores.length > 1 ? Math.round((1 - i / (pcaScores.length - 1)) * 100) : 50;
       const rank = pctl >= 75 ? 'A' : pctl >= 50 ? 'B' : pctl >= 25 ? 'C' : 'D';
-      newPcaMap[pcaScores[i].sym] = { score: Math.round(pcaScores[i].score * 100) / 100, rank, pctl };
+      let species: string, speciesEmoji: string;
+      if (candle >= 7 && compression >= 6 && volume >= 6) { species = 'TRIPLE THREAT'; speciesEmoji = '⚡'; }
+      else if (volume >= 7 && compression < 5) { species = 'VOL EXPLOSION'; speciesEmoji = '🟡'; }
+      else if (compression >= 7 && volume < 5) { species = 'COMPRESSION'; speciesEmoji = '🔵'; }
+      else if (candle >= 7) { species = 'STRONG CANDLE'; speciesEmoji = '🟢'; }
+      else if (compression >= 5) { species = 'BUILDING'; speciesEmoji = '🔷'; }
+      else { species = 'DEVELOPING'; speciesEmoji = '⚪'; }
+      newPcaMap[sym] = { score: Math.round(score * 100) / 100, rank, pctl, species, speciesEmoji, candle: Math.round(candle * 10) / 10, compression: Math.round(compression * 10) / 10, volume: Math.round(volume * 10) / 10 };
     }
     setPcaMap(newPcaMap);
     // Adaptive Brain — compute insights + per-signal adjusted scores
@@ -4788,8 +4800,10 @@ function HomePageInner() {
                                 const pca = pcaMap[row.symbol];
                                 if (!pca) return <span className="text-slate-700">—</span>;
                                 const color = pca.rank === 'A' ? '#39FF14' : pca.rank === 'B' ? '#22d3ee' : pca.rank === 'C' ? '#facc15' : '#ef4444';
+                                const spColor = pca.species === 'TRIPLE THREAT' ? 'bg-neon' : pca.species === 'VOL EXPLOSION' ? 'bg-yellow' : pca.species === 'COMPRESSION' ? 'bg-cyan' : pca.species === 'STRONG CANDLE' ? 'bg-emerald' : 'bg-slate';
+                                const cBar = '█'.repeat(Math.round(pca.candle)), compBar = '█'.repeat(Math.round(pca.compression)), vBar = '█'.repeat(Math.round(pca.volume));
                                 return <div className="flex items-center gap-1 font-mono text-[10px] cursor-help"
-                                  data-tip-html={`<div class="rt-hdr">PCA Super-Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-neon">Score</span></div><div><div class="rt-desc">${pca.score.toFixed(2)} (Percentile: ${pca.pctl}%)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Rank</span></div><div><div class="rt-desc">${pca.rank === 'A' ? 'A — Top 25%: 49.8% WR expected' : pca.rank === 'B' ? 'B — 25-50%: 42.3% WR expected' : pca.rank === 'C' ? 'C — 50-75%: 38.2% WR expected' : 'D — Bottom 25%: 28.6% WR expected'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">Factors</span></div><div><div class="rt-desc">1.26×ZoneTight + 0.56×RangeATR + 0.55×VolRatio + 0.44×VolVsPre5 - 0.36×Pre10Range + 0.26×UpperWick</div></div></div>`}>
+                                  data-tip-html={`<div class="rt-hdr">${pca.speciesEmoji} PCA — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-neon">Score</span></div><div><div class="rt-desc">${pca.score.toFixed(2)} | Rank ${pca.rank} (P${pca.pctl}) | ${pca.rank === 'A' ? '49.8% WR' : pca.rank === 'B' ? '42.3% WR' : pca.rank === 'C' ? '38.2% WR' : '28.6% WR'}</div></div></div><div class="rt-row"><div><span class="rt-badge ${spColor}">${pca.speciesEmoji} ${pca.species}</span></div><div><div class="rt-desc">${pca.species === 'TRIPLE THREAT' ? 'All 3 factors strong — highest conviction, MAX SIZE' : pca.species === 'VOL EXPLOSION' ? 'Volume-driven — quick T1 exit, fades after day 3' : pca.species === 'COMPRESSION' ? 'Compression spring — hold for T3, slow fuse' : pca.species === 'STRONG CANDLE' ? 'Clean candle breakout — standard partial exit' : pca.species === 'BUILDING' ? 'Pressure building — not ready yet' : 'Early stage — monitor only'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Candle</span></div><div><div class="rt-desc">${pca.candle.toFixed(1)}/10 ${cBar} Close strength + body + wick quality</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Compress</span></div><div><div class="rt-desc">${pca.compression.toFixed(1)}/10 ${compBar} Zone tightness + pre-zone calm</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">Volume</span></div><div><div class="rt-desc">${pca.volume.toFixed(1)}/10 ${vBar} Volume surge vs 20d avg + vs pre-5</div></div></div>`}>
                                   <span className="font-bold" style={{color}}>{pca.score.toFixed(1)}</span>
                                   <span className="px-0.5 rounded text-[8px] font-bold" style={{color, borderColor: color, border: '1px solid'}}>{pca.rank}</span>
                                 </div>;
