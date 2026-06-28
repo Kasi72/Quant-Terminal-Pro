@@ -106,8 +106,13 @@ export function validateTrade(
         if (!blocked) {
           const prevAbove = !prevCandle || prevCandle.c > trade.stopLoss;
           const stabilizing = prevCandle ? candle.c >= prevCandle.c : false;
-          // G2 volume mult: 0.6 optimal (was 0.8) — stricter, only very low volume blocks
-          const lowVol = candle.v != null && prevCandle?.v != null && candle.v < (prevCandle.v ?? 0) * 0.6;
+          // Volume check: compare to 20-bar average (not single previous bar)
+          let avgVol = 0, volCount = 0;
+          for (let vi = Math.max(0, i - 20); vi < i; vi++) {
+            if (candlesSinceEntry[vi]?.v != null && (candlesSinceEntry[vi].v ?? 0) > 0) { avgVol += candlesSinceEntry[vi].v!; volCount++; }
+          }
+          avgVol = volCount > 0 ? avgVol / volCount : 0;
+          const lowVol = candle.v != null && avgVol > 0 && candle.v < avgVol * 0.6;
           if (prevAbove) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'First day below — wait' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (stabilizing) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (lowVol) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Low volume — retail noise' }); blocked = true; entry.result = 'SHIELDED'; }

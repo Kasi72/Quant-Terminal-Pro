@@ -955,46 +955,22 @@ function buildTradeEngine(
   //
   // Four independent methods each produce a stop level.
   // The FINAL stop = the SECOND-LOWEST of the four.
-  //
-  // Why second-lowest, not lowest?
-  //   Lowest = maximum protection but too wide (kills R:R).
-  //   Highest = tightest but gets stopped out by normal noise.
-  //   Second-lowest = consensus of structural support with reasonable width.
-  //   This is the Van Tharp "sweet spot" principle.
-
   const sigRange = sig.h - sig.l;
 
-  // Method 1: WEINSTEIN — Below the zone low (structural support)
+  // Reference stop methods (for display — not used for actual stop)
   const weinstein = tick(zone.zoneLow - 0.25 * atr14);
-
-  // Method 2: KASE DevStop — 2σ of True Range below recent structure
   const kase = kaseDevStop(candles, endIdx, 20, 2.0);
-
-  // Method 3: ELDER SafeZone — 2.5× average downside penetration
   const elder = elderSafeZone(candles, endIdx, 20, 2.5);
-
-  // Method 4: SIGNAL LOW — Below the signal candle low
   const signalLow = tick(sig.l - 0.15 * atr14);
 
-  // Consensus: sort all four, take the SECOND-LOWEST
-  const allStops = [weinstein, kase, elder, signalLow].filter(s => s > 0 && s < plannedEntry).sort((a, b) => a - b);
-  let tacticalStop: number;
-  if (allStops.length >= 2) {
-    tacticalStop = allStops[1]; // second-lowest
-  } else if (allStops.length === 1) {
-    tacticalStop = allStops[0];
-  } else {
-    tacticalStop = tick(zone.zoneLow - 0.30 * atr14); // fallback
-  }
-
-  // ── TRIPLE Dynamic Stop v5-WLB (29-OHLCV deep optimization) ──────
+  // ── Actual stop: Grid-searched optimal formula ──
   //
   // Formula: ZoneLow - 0.5 × ATR14, clamped [4%, 6.5%], CLOSE-ONLY trigger
   // Grid-searched on 33,600 combos × 14,445 signals:
   //   Stop [4,6.5] + T1 2.15×ATR[4,12] + Hold 20d = sweetest spot
   //   WR 48.3%, Expect +1.435%, R:R 1.17 (was 0.94)
 
-  tacticalStop = tick(zone.zoneLow - 0.50 * atr14);
+  let tacticalStop = tick(zone.zoneLow - 0.50 * atr14);
 
   const floorStop = tick(plannedEntry * (1 - 4.0 / 100));
   const capStop = tick(plannedEntry * (1 - 6.5 / 100));
@@ -1075,9 +1051,6 @@ function buildTradeEngine(
 
   // R-based reference (Van Tharp 3R)
   const target3R = tick(plannedEntry + 3.0 * riskPerShare);
-
-  // ATR feasibility: how many ATRs to reach +5% (shown in UI)
-  const atrRequiredFor5Pct = atrPctAtEntry > 0 ? safe(5.0 / atrPctAtEntry) : 99;
 
   // R:R computed from T1 vs actual risk
   const rewardRisk = riskPerShare > 0 ? (target5 - plannedEntry) / riskPerShare : 0;
