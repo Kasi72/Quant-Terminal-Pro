@@ -230,7 +230,7 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     updated.closedDate = updated.lastCheckDate;
     updated.pnlPct = ((trade.target1 - trade.entryPrice) / trade.entryPrice) * 100;
     updated.pnlR = riskPerShare > 0 ? (trade.target1 - trade.entryPrice) / riskPerShare : 0;
-  } else if (daysHeld > 10) {
+  } else if (daysHeld > 20) {
     updated.status = 'expired';
     updated.closedPrice = currentPrice;
     updated.closedDate = updated.lastCheckDate;

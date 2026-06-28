@@ -998,8 +998,8 @@ function buildTradeEngine(
 
   const floorStop = tick(plannedEntry * (1 - 4.0 / 100));
   const capStop = tick(plannedEntry * (1 - 6.5 / 100));
-  if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 3.5%
-  if (tacticalStop < capStop) tacticalStop = capStop;       // too wide → tighten to 8%
+  if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 4%
+  if (tacticalStop < capStop) tacticalStop = capStop;       // too wide → tighten to 6.5%
 
   tacticalStop = protectRoundNumber(tacticalStop);
   tacticalStop = tick(tacticalStop);

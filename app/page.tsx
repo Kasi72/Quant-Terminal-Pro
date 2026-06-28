@@ -364,7 +364,7 @@ async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: str
   doc.text(title, 14, 12);
   doc.setFontSize(8);
   doc.setTextColor(120, 130, 150);
-  doc.text(`Dr KKR Quant Terminal Pro v8.2  ·  ${rows.length} stocks  ·  ${new Date().toLocaleDateString('en-IN')}  ·  Param: ${rows[0]?.paramSetKey ?? 'N/A'}`, 14, 18);
+  doc.text(`Dr KKR Quant Terminal Pro v9.0  ·  ${rows.length} stocks  ·  ${new Date().toLocaleDateString('en-IN')}  ·  Param: ${rows[0]?.paramSetKey ?? 'N/A'}`, 14, 18);
 
   const stageColors: Record<string, [number, number, number]> = {
     'ULTRA STRONG BUY': [253, 224, 71], 'STRONG BUY': [134, 239, 172], 'BUY': [52, 211, 153],
@@ -537,8 +537,8 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.plannedEntry,
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Cascading Gates v3 — 9-Gate Precision</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [3%, 7%] CLOSE-ONLY. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
+    headerTipHtml: '<div class="rt-hdr">Cascading Gates v4 — 10-Gate Precision</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [4%, 6.5%] CLOSE-ONLY + 10-Gate Cascade. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 8: deep capitulation shield — only blocks on extreme oversold (99.7% WR, 23 fewer losers held vs RSI&lt;15)</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'
@@ -645,7 +645,7 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.volatilityExpansionRatio.toFixed(2) + '×',
     numVal: r => r.volatilityExpansionRatio,
     cellClass: () => 'text-slate-300' },
-  // v8.2 momentum columns
+  // v9.0 momentum columns
   { key: 'momentumScore', label: 'MomScore', width: 82, align: 'right',
     fmt: r => r.momentum.momentumScore.toFixed(0),
     numVal: r => r.momentum.momentumScore,
@@ -1951,7 +1951,7 @@ function HomePageInner() {
       <header className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-2.5 flex items-center gap-3">
         <div className="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center text-xs font-bold text-white select-none">Q</div>
         <span className="font-bold text-slate-100 text-sm">Dr KKR Quant Terminal Pro</span>
-        <span className="text-xs text-slate-600">v8.2</span>
+        <span className="text-xs text-slate-600">v9.0</span>
         <select
           value={scanAll ? 'ALL4' : paramSetKey}
           onChange={e => {
@@ -2624,7 +2624,7 @@ function HomePageInner() {
                   )}
                   <span className="text-slate-500">{s.totalScanned} stocks</span>
                   <span className="text-emerald-500 font-semibold">{s.actionableCount} BUY</span>
-                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '4-Set' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
+                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '5-Set' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
                   {/* Compare with previous session */}
                   {i < sessions.length - 1 && (
                     <button onClick={() => { setSessionDiff(compareSessions(sessions[i + 1], s)); }}
@@ -3189,7 +3189,7 @@ function HomePageInner() {
                         const maePct = t.currentPrice && t.entryPrice > 0 ? Math.min(0, ((Math.min(t.currentPrice, t.entryPrice) - t.entryPrice) / t.entryPrice) * 100) : 0;
                         const maeR = riskPerShare > 0 ? maePct / 100 * t.entryPrice / riskPerShare : 0;
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
-                        const daysLeft = 10 - (t.daysHeld ?? 0);
+                        const daysLeft = 20 - (t.daysHeld ?? 0);
                         const gLog = t.gateLog;
                         return (<Fragment key={i}>
                         <tr className="border-b border-slate-800/40 group">
@@ -3203,7 +3203,7 @@ function HomePageInner() {
                           <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(1)}R` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
-                          <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`} title={daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 8 ? ' ⏳' : ''}</td>
+                          <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 16 ? 'text-amber-400' : 'text-slate-500'}`} title={daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 16 ? ' ⏳' : ''}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.currentPrice ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(1)}%` : '—'}</td>
                           <td className="px-2 py-1.5 text-center"><span className="bg-blue-900/40 text-blue-300 text-[10px] px-1.5 py-0.5 rounded font-medium">OPEN</span></td>
@@ -3877,7 +3877,7 @@ function HomePageInner() {
                         <span className="font-mono text-slate-200 font-semibold w-24">{s.symbol.replace('.NS', '').replace('.BO', '')}</span>
                         <span className="text-slate-500 w-10">{s.sector || '—'}</span>
                         <span className="text-slate-400">Conv {s.conviction}</span>
-                        <span className={`${s.rewardRisk >= 0.9 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
+                        <span className={`${s.rewardRisk >= 0.8 && s.rewardRisk <= 1.3 ? 'text-green-300' : s.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
                         <span className="text-slate-500">RS {s.rsRank}</span>
                         <span className="ml-auto text-slate-400 font-mono">{s.weight.toFixed(0)}%</span>
                       </div>
@@ -3945,7 +3945,7 @@ function HomePageInner() {
                             <div className={`text-[10px] font-semibold flex-1 ${nar.verdict.includes('A-grade') ? 'text-[#39FF14]' : nar.verdict.includes('B-grade') ? 'text-yellow-300' : 'text-slate-500'}`}>{nar.verdict}</div>
                             <button onClick={(e) => {
                               e.stopPropagation();
-                              const text = `${nar.headline}\n\n${nar.setup}\n\n${nar.entry}\n${nar.caution !== 'No specific risk flags identified.' ? '\n⚠ ' + nar.caution : ''}\n\n${nar.verdict}\n\n— Dr KKR Quant Terminal Pro v8.2`;
+                              const text = `${nar.headline}\n\n${nar.setup}\n\n${nar.entry}\n${nar.caution !== 'No specific risk flags identified.' ? '\n⚠ ' + nar.caution : ''}\n\n${nar.verdict}\n\n— Dr KKR Quant Terminal Pro v9.0`;
                               const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                               const btn = e.currentTarget; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
                             }}
@@ -4263,7 +4263,7 @@ function HomePageInner() {
                               const curR = rps > 0 && curPrice > 0 ? (curPrice - t.entryPrice) / rps : (t.pnlR ?? 0);
                               const maePct = t.status !== 'open' && (t.pnlPct ?? 0) < 0 ? (t.pnlPct ?? 0) : (t.status === 'open' && curPnl < 0 ? curPnl : 0);
                               const maeR = rps > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / rps : 0;
-                              const daysLeft = 10 - (t.daysHeld ?? 0);
+                              const daysLeft = 20 - (t.daysHeld ?? 0);
 
                               const statusCfg: Record<string, { label: string; color: string }> = {
                                 open: { label: 'OPEN', color: 'bg-blue-900/40 text-blue-300' },
@@ -4298,9 +4298,9 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right ${t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
                                   {/* #3/#7: Days to expiry countdown */}
                                   <td className="px-2 py-1.5 text-center">{t.status === 'open' ? (() => {
-                                    const dl = 10 - (t.daysHeld ?? 0);
-                                    const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / 10) * 100));
-                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of 10 — expires in ${dl} days`}>
+                                    const dl = 20 - (t.daysHeld ?? 0);
+                                    const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / 20) * 100));
+                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of 20 — expires in ${dl} days`}>
                                       <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className={`h-full rounded-full ${pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width:`${pct}%`}} /></div>
                                       <span className={`text-[9px] font-mono ${dl <= 2 ? 'text-red-400' : dl <= 5 ? 'text-amber-400' : 'text-slate-500'}`}>{dl}d</span>
                                     </div>;
@@ -4610,7 +4610,7 @@ function HomePageInner() {
                     <div><b className="text-slate-500">Auto-Runs:</b> After every scan on all open tracked trades</div>
                     <div><b className="text-slate-500">MFE:</b> Highest R-multiple above entry — profit left on the table</div>
                     <div><b className="text-slate-500">MAE:</b> Deepest R-multiple below entry — how close to stop</div>
-                    <div><b className="text-slate-500">Expiry:</b> 10 trading days without target or stop → auto-expired</div>
+                    <div><b className="text-slate-500">Expiry:</b> 20 trading days without target or stop → auto-expired</div>
                     <div><b className="text-slate-500">Entry Skip:</b> Validates from day AFTER entry (no same-day false stops)</div>
                   </div>
                 </>
@@ -4834,7 +4834,7 @@ function HomePageInner() {
               <span className="text-slate-600">·</span>
               <span className="text-slate-400">Best: <span className="text-slate-200 font-semibold">{best.symbol.replace('.NS','').replace('.BO','')}</span></span>
               <span className="text-slate-400">Conv <span className="text-yellow-300 font-bold">{computeConviction(best)}</span></span>
-              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
+              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 0.8 && best.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : best.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
               {badges && <span className="text-[10px] text-emerald-500">{badges}</span>}
               <span className="text-slate-600 ml-auto">{results.length} scanned</span>
             </div>;
@@ -5086,7 +5086,7 @@ function HomePageInner() {
                     { label: 'Entry ₹', fn: (r: AnalysisResult) => r.priceEngine.plannedEntry.toFixed(2), color: () => 'text-slate-200' },
                     { label: 'Stop ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-red-400' },
                     { label: 'T1 ₹', fn: (r: AnalysisResult) => r.priceEngine.target5.toFixed(2), color: () => 'text-emerald-400' },
-                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 0.9 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.5 ? 'text-yellow-300' : 'text-slate-400' },
+                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300' },
                     { label: 'Risk%', fn: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct.toFixed(1) + '%', color: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct <= 2 ? 'text-emerald-400' : 'text-amber-400' },
                     { label: 'RS Rank', fn: (r: AnalysisResult) => String(rsData.get(r.symbol)?.rsRank ?? '—'), color: (r: AnalysisResult) => (rsData.get(r.symbol)?.rsRank ?? 0) >= 70 ? 'text-emerald-400' : 'text-slate-400' },
                     { label: 'Candle', fn: (r: AnalysisResult) => r.stats?.candlePatternFull ?? '—', color: (r: AnalysisResult) => r.stats?.candlePatternType === 'bullish' ? 'text-emerald-400' : 'text-slate-400' },
@@ -5251,7 +5251,7 @@ function HomePageInner() {
                     const conv = computeConviction(selectedResult);
                     const rp = pe.plannedEntry > 0 ? ((pe.plannedEntry - pe.tacticalStop) / pe.plannedEntry * 100) : 0;
                     const verdict = (pe.rewardRisk >= 0.8 && pe.rewardRisk <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (pe.rewardRisk >= 0.6 && pe.rewardRisk <= 2.0) ? 'Good' : pe.rewardRisk >= 0.4 ? 'Fair' : 'Weak';
-                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v8.2`;
+                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v9.0`;
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
                     className="flex-1 px-2 py-1.5 bg-cyan-900/40 hover:bg-cyan-900/60 border border-cyan-700 rounded text-xs font-medium text-cyan-300 transition-colors">📤 Share</button>
@@ -5364,7 +5364,7 @@ function HomePageInner() {
                 </div>
               )}
 
-              {/* v8.2 Momentum */}
+              {/* v9.0 Momentum */}
               {selectedResult.momentum && <div className="mb-4">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
                   Momentum Quality ({selectedResult.momentum?.momentumScore ?? 0}/100)
