@@ -3280,8 +3280,9 @@ function HomePageInner() {
                           manual_close: { label: '◉ Manual', color: 'bg-slate-700/40 text-slate-300' },
                         };
                         const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
-                        return (
-                          <tr key={i} className="border-b border-slate-800/40 group">
+                        const cGLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                        return (<Fragment key={i}>
+                          <tr className="border-b border-slate-800/40 group">
                             <td className="px-3 py-1.5 font-mono text-slate-300">{t.symbol}</td>
                             <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
                             <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
@@ -3297,7 +3298,29 @@ function HomePageInner() {
                               <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                             </td>
                           </tr>
-                        );
+                          {cGLog && cGLog.length > 0 && (
+                            <tr className="border-b border-slate-800/20">
+                              <td colSpan={12} className="px-4 py-1 bg-slate-900/50">
+                                <div className="text-[10px] text-slate-500 font-semibold">🔬 Gate Log ({cGLog.length} stop test{cGLog.length > 1 ? 's' : ''} — {cGLog.filter(e => e.result === 'SHIELDED').length} shielded, {cGLog.filter(e => e.result === 'STOPPED').length} stopped)</div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                  {cGLog.map((entry, gi) => (
+                                    <div key={gi} className="text-[9px] font-mono whitespace-nowrap" title={entry.gatesTested.map(g => `${g.passed ? '✗' : '✓'} ${g.gate}: ${g.reason}`).join('\n')}>
+                                      <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        D{entry.day}{entry.result === 'SHIELDED' ? '🛡' : '🛑'}
+                                      </span>
+                                      {entry.gatesTested.slice(0, 3).map((g, gj) => (
+                                        <span key={gj} className={`ml-0.5 ${!g.passed ? 'text-emerald-500' : 'text-red-500'}`}>
+                                          {!g.passed ? '✓' : '✗'}
+                                        </span>
+                                      ))}
+                                      <span className="text-slate-600 ml-1">{entry.dipPct.toFixed(1)}%↓</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>);
                       })}
                     </tbody>
                   </table>
