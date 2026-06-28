@@ -417,6 +417,13 @@ const COLUMNS: ColDef[] = [
     fmt: r => getSectorTag(r.symbol),
     cellClass: () => 'text-slate-500 text-xs' },
   { key: 'conviction', label: 'Conv', width: 60, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Conviction Score (0-100)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite score measuring how STRONG the breakout signal is. Combines param conditions met, zone quality, candle quality, and volume confirmation.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">80+</span></div><div><div class="rt-desc">Exceptional — nearly all conditions met across param sets. Trade with full size.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">60-79</span></div><div><div class="rt-desc">Strong — majority of conditions met. Standard position size.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">40-59</span></div><div><div class="rt-desc">Moderate — some conditions missing. Reduced size or wait for improvement.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;40</span></div><div><div class="rt-desc">Weak — too many conditions failing. Monitor only, do not trade.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">Weighted avg of: conditions met ratio (40%), inflection score (30%), candle quality (15%), volume confirmation (15%)</div><div class="rt-hit hit-green">Higher conviction = more conditions aligned = stronger setup</div></div></div>',
     fmt: r => '',  // rendered custom in cell
     numVal: r => computeConviction(r),
     cellClass: () => '' },
@@ -428,6 +435,13 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.inflectionScore,
     cellClass: r => r.inflectionScore >= 60 ? 'text-yellow-300 font-semibold' : r.inflectionScore >= 45 ? 'text-emerald-400' : 'text-slate-400' },
   { key: 'confidence', label: 'Conf%',      width: 68,  align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Confidence Percentage (0-100%)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How RELIABLE the signal classification is. Measures agreement across all 5 param sets and consistency of the inflection score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">90%+</span></div><div><div class="rt-desc">Very high — most param sets agree on the stage. Classification is trustworthy.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">70-89%</span></div><div><div class="rt-desc">Good — reasonable agreement. Classification is likely correct.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">50-69%</span></div><div><div class="rt-desc">Moderate — some param sets disagree. Verify with other indicators.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;50%</span></div><div><div class="rt-desc">Low — significant disagreement between param sets. Stage may change.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Difference</span></div><div><div class="rt-desc">Conv = how GOOD the setup is. Conf% = how SURE the screener is about the classification. A stock can have high conviction but low confidence if only 1 param set passes it.</div><div class="rt-hit hit-cyan">High Conv + High Conf = strongest signal</div></div></div>',
     fmt: r => r.confidence.toFixed(0) + '%',
     numVal: r => r.confidence,
     cellClass: () => 'text-slate-300' },
