@@ -267,11 +267,10 @@ function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolea
   const pctl = r.atrPct14Pctl120;
   if (!Number.isFinite(pctl)) return { state: null, explosion: false };
   let state: ATRState;
-  if (pctl < 20) state = 'DEEP_COMPRESSION';
-  else if (pctl < 40) state = 'BUILDING';
-  else if (pctl <= 60) state = 'SWEET_SPOT';    // 40-60: inflection zone (65% hit, MFE 11.7%)
-  else if (pctl <= 95) state = 'HIGH_VOL';       // 65-95: momentum zone
-  else state = 'HIGH_VOL';
+  if (pctl < 25) state = 'DEEP_COMPRESSION';     // <25: sleep (45.1% HR)
+  else if (pctl < 30) state = 'BUILDING';         // 25-30: building (49.8% HR)
+  else if (pctl <= 70) state = 'SWEET_SPOT';      // 30-70: inflection (46.8% HR)
+  else state = 'HIGH_VOL';                        // >70: momentum (47.2% HR)
   // ULTRA ATR+Volume+ADR Explosion: 97.62% hit rate (Wilson LB 87.68%)
   // Hyper-optimized from 29-OHLCV grid search
   const adrPct = r.atrPct14 ?? 0;
@@ -740,9 +739,10 @@ const COLUMNS: ColDef[] = [
     cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
   { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Zone Explosion Badge</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">💎 EXPLODE</span></div><div><div class="rt-desc">Tight zone ≤20%, close 0.75–4% above zone, rangeATR 1–4, volExp ≥1.25, ADR 3.5–7.5%, close ≥75%, green candle</div><div class="rt-hit hit-green">94.7% hit rate · Rarest & strongest</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">🎯 READY</span></div><div><div class="rt-desc">Zone ≤20%, close 0.75–6% above, volR20 ≥1.2, volVsPre5 ≥2.0, close ≥70%, body ≥35%</div><div class="rt-hit hit-cyan">75.9% hit rate · Confirmed breakout</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No qualifying zone breakout detected</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">💎 EXPLODE</span></div><div><div class="rt-desc">Zone ≤20%, close 0.75–4% above, rangeATR 1–4, volExp ≥1.25, ADR 3.5–7.5%, close ≥75%, green candle</div><div class="rt-hit hit-green">63.4% hit rate (290 signals) · Rarest & strongest</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">🎯 READY</span></div><div><div class="rt-desc">Zone ≤20%, close 0.75–6% above, volR20 ≥1.2, volVsPre5 ≥2.0, close ≥70%, body ≥35%</div><div class="rt-hit hit-cyan">63.5% hit rate (219 signals) · Confirmed breakout</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No qualifying zone breakout detected (45.6% baseline hit rate)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Insight</span></div><div><div class="rt-desc">Zone tightness 5-15% outperforms 0-3% (55% vs 35% hit rate). Wider zones store MORE energy. Best zone length: 6-7 candles.</div><div class="rt-hit hit-cyan">Backtested on 14,457 signals across 77 stocks</div></div></div>',
     fmt: r => {
       const ze = detectZoneExplosion(r);
       return ze === 'HIGH_CONVICTION' ? '💎 EXPLODE' : ze === 'CONFIRMED' ? '🎯 READY' : '—';
@@ -754,11 +754,12 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     headerTipHtml: '<div class="rt-hdr">ATR Compression State</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 40–95, rangeATR 2–5, volExp ≥1.5, ADR 4–8%, volR20 ≥1.8, volPre5 ≥2.25, redVolBias ≤0.9</div><div class="rt-hit hit-green">97.6% hit rate · The holy grail</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">🎯 INFLECT</span></div><div><div class="rt-desc">ATR percentile 40–60. Volatility at inflection point — about to expand</div><div class="rt-hit hit-cyan">65% hit rate · Best for early breakouts</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ BUILD</span></div><div><div class="rt-desc">ATR percentile 20–40. Volatility rising from deep compression</div><div class="rt-hit hit-amber">Watch closely — building energy</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">💤 SLEEP</span></div><div><div class="rt-desc">ATR percentile &lt;20. Very low volatility, coiling for future move</div><div class="rt-hit hit-slate">Too early — wait for build/inflect</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 MOMEN</span></div><div><div class="rt-desc">ATR percentile 60–95. Already expanded — ride momentum, not breakout</div><div class="rt-hit hit-amber">Trend continuation plays</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 40–95, rangeATR 2–5, volExp ≥1.5, ADR 4–8%, volR20 ≥1.8, volPre5 ≥2.25, redVolBias ≤0.9</div><div class="rt-hit hit-green">80.4% hit rate (56 signals) · Genuine holy grail</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">🎯 INFLECT</span></div><div><div class="rt-desc">ATR percentile 30–70. Volatility at inflection point — about to expand</div><div class="rt-hit hit-cyan">47.1% hit rate · Slightly above baseline (46.3%)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ BUILD</span></div><div><div class="rt-desc">ATR percentile 25–30. Volatility rising from compression</div><div class="rt-hit hit-amber">49.8% hit rate · Building energy</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">💤 SLEEP</span></div><div><div class="rt-desc">ATR percentile &lt;25. Very low volatility, coiling for future move</div><div class="rt-hit hit-slate">45.1% hit rate · Below baseline — wait</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 MOMEN</span></div><div><div class="rt-desc">ATR percentile &gt;70. Already expanded — ride momentum, not breakout</div><div class="rt-hit hit-amber">47.2% hit rate · Trend continuation</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Note</span></div><div><div class="rt-desc">ATR state alone is a weak predictor (44.9-47.4% across states). Only EXPLODE (80.4%) has genuine edge. Combine with Volume badge for best results.</div><div class="rt-hit hit-cyan">Backtested on 14,457 signals across 77 stocks</div></div></div>',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
       if (explosion) return '💥 EXPLODE';
@@ -780,9 +781,10 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Volume Thrust Badge</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥2.0, volVsPre5 ≥2.0, redVolBias ≤0.8, close ≥65%, body ≥35%, wick ≤35%</div><div class="rt-hit hit-green">66.3% hit rate · Institutional buying</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">✓ CONF</span></div><div><div class="rt-desc">volVsPre5 ≥2.0, volR20 ≥1.2, redVolBias ≤1.1. Clear expansion above recent average</div><div class="rt-hit hit-cyan">Supports breakout · Less extreme</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No significant volume surge detected</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥2.0, volVsPre5 ≥2.0, redVolBias ≤0.8, close ≥65%, body ≥35%, wick ≤35%</div><div class="rt-hit hit-green">52.6% hit rate (1,165 signals) · +7.5% above baseline</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">✓ CONF</span></div><div><div class="rt-desc">volVsPre5 ≥2.0, volR20 ≥1.2, redVolBias ≤1.1. Clear expansion above recent average</div><div class="rt-hit hit-cyan">49.3% hit rate (1,935 signals) · +3.2% above baseline</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No significant volume surge (45.1% baseline hit rate)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Sweet spot</span></div><div><div class="rt-desc">Vol 3-5× = 54.5% hit rate, +10% MFE. Vol 5×+ = 60.9% hit rate. VsPre5 5×+ = 62.6% hit rate. Volume is the strongest single predictor.</div><div class="rt-hit hit-green">Backtested on 14,457 signals across 77 stocks</div></div></div>',
     fmt: r => {
       const vb = detectVolumeBadge(r);
       return vb === 'HIGH_CONVICTION' ? '🔥 THRUST' : vb === 'CONFIRMED' ? '✓ CONF' : '—';
