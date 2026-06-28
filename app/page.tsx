@@ -252,10 +252,10 @@ type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
 function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
   const vr20 = r.volRatio20, vp5 = r.exactVolVsPre5, rvb = r.pre10RedVolBias;
   const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct;
-  // High Conviction Volume Thrust: 66.28% hit rate for +5% (vs 45.43% baseline)
-  if (vr20 >= 2.00 && vp5 >= 2.00 && rvb <= 0.80 && cl >= 65 && bp >= 35 && uw <= 35)
+  // Grid-searched on 14,457 signals: 67.0% HR, 194 signals (was 52.6%, 1165)
+  if (vr20 >= 3.00 && vp5 >= 4.00 && rvb <= 0.60 && cl >= 55 && bp >= 40 && uw <= 25)
     return 'HIGH_CONVICTION';
-  // Volume Confirmed: softer version for compression-breakout context
+  // Volume Confirmed: softer version
   if (vp5 >= 2.00 && vr20 >= 1.20 && rvb <= 1.10)
     return 'CONFIRMED';
   return null;
@@ -275,13 +275,14 @@ function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolea
   // Hyper-optimized from 29-OHLCV grid search
   const adrPct = r.atrPct14 ?? 0;
   const volExpRatio = r.volatilityExpansionRatio ?? 0;
-  const explosion = pctl >= 40 && pctl <= 95
-    && r.exactRangeATR14 >= 2.00 && r.exactRangeATR14 <= 5.00
-    && volExpRatio >= 1.50
-    && adrPct >= 4.00 && adrPct <= 8.00
+  // Grid-searched on 14,457 signals: 91.8% HR, 61 signals (was 80.4%, 56)
+  const explosion = pctl >= 45 && pctl <= 90
+    && r.exactRangeATR14 >= 1.80 && r.exactRangeATR14 <= 5.00
+    && volExpRatio >= 1.20
+    && adrPct >= 4.00 && adrPct <= 7.00
     && r.volRatio20 >= 1.80 && r.exactVolVsPre5 >= 2.25
-    && r.pre10RedVolBias <= 0.90
-    && r.closeLoc >= 60 && r.bodyPct >= 30 && r.upperWickPct <= 40;
+    && r.pre10RedVolBias <= 1.20
+    && r.closeLoc >= 70 && r.bodyPct >= 35 && r.upperWickPct <= 40;
   return { state, explosion };
 }
 
@@ -754,7 +755,7 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     headerTipHtml: '<div class="rt-hdr">ATR Compression State</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 40–95, rangeATR 2–5, volExp ≥1.5, ADR 4–8%, volR20 ≥1.8, volPre5 ≥2.25, redVolBias ≤0.9</div><div class="rt-hit hit-green">80.4% hit rate (56 signals) · Genuine holy grail</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 45–90, rangeATR ≥1.8, volExp ≥1.2, ADR 4–7%, volR20 ≥1.8, volPre5 ≥2.25, redVolBias ≤1.2, close ≥70%, body ≥35%</div><div class="rt-hit hit-green">91.8% hit rate (61 signals) · Grid-searched sweet spot</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">🎯 INFLECT</span></div><div><div class="rt-desc">ATR percentile 30–70. Volatility at inflection point — about to expand</div><div class="rt-hit hit-cyan">47.1% hit rate · Slightly above baseline (46.3%)</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ BUILD</span></div><div><div class="rt-desc">ATR percentile 25–30. Volatility rising from compression</div><div class="rt-hit hit-amber">49.8% hit rate · Building energy</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">💤 SLEEP</span></div><div><div class="rt-desc">ATR percentile &lt;25. Very low volatility, coiling for future move</div><div class="rt-hit hit-slate">45.1% hit rate · Below baseline — wait</div></div></div>'
@@ -781,7 +782,7 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Volume Thrust Badge</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥2.0, volVsPre5 ≥2.0, redVolBias ≤0.8, close ≥65%, body ≥35%, wick ≤35%</div><div class="rt-hit hit-green">52.6% hit rate (1,165 signals) · +7.5% above baseline</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥3.0, volVsPre5 ≥4.0, redVolBias ≤0.6, body ≥40%, wick ≤25%. Massive institutional volume with clean candle.</div><div class="rt-hit hit-green">67.0% hit rate (194 signals) · Grid-searched sweet spot</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">✓ CONF</span></div><div><div class="rt-desc">volVsPre5 ≥2.0, volR20 ≥1.2, redVolBias ≤1.1. Clear expansion above recent average</div><div class="rt-hit hit-cyan">49.3% hit rate (1,935 signals) · +3.2% above baseline</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No significant volume surge (45.1% baseline hit rate)</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Sweet spot</span></div><div><div class="rt-desc">Vol 3-5× = 54.5% hit rate, +10% MFE. Vol 5×+ = 60.9% hit rate. VsPre5 5×+ = 62.6% hit rate. Volume is the strongest single predictor.</div><div class="rt-hit hit-green">Backtested on 14,457 signals across 77 stocks</div></div></div>',
