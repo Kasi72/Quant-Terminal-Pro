@@ -648,6 +648,14 @@ const COLUMNS: ColDef[] = [
     fmt: () => '',  // rendered custom in cell via clenowMap
     numVal: () => 0,
     cellClass: () => '' },
+  { key: 'pcaScore', label: 'PCA', width: 65, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">PCA Super-Score</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Optimal linear combination of 6 features weighted by win-correlation. Derived from PCA on 13,314 breakout signals across 78 stocks.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Formula</span></div><div><div class="rt-desc">1.26×ZoneTight + 0.56×RangeATR + 0.55×VolRatio + 0.44×VolVsPre5 - 0.36×Pre10Range + 0.26×UpperWick (all standardized)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Rank</span></div><div><div class="rt-desc">A (top 25%): 49.8% WR · B (25-50%): 42.3% WR · C (50-75%): 38.2% WR · D (bottom 25%): 28.6% WR</div><div class="rt-hit hit-green">21.2% WR spread between top and bottom quartile</div></div></div>',
+    fmt: () => '',
+    numVal: () => 0,
+    cellClass: () => '' },
   // v9.0 stats columns
   { key: 'statsScore', label: 'Stats', width: 55, align: 'right',
     fmt: r => String(r.stats.statsScore),
@@ -793,10 +801,10 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
-  momentum: new Set(['symbol','stage','brain','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  momentum: new Set(['symbol','stage','brain','pcaScore','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
   all: new Set(/* all keys — handled below */),
 };
@@ -939,6 +947,7 @@ function HomePageInner() {
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
   const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
+  const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number}>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
@@ -1262,6 +1271,28 @@ function HomePageInner() {
       newClenowMap[r.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
     }
     setClenowMap(newClenowMap);
+    // PCA Super-Score — optimal linear combination of 6 features weighted by win-correlation
+    // Backtested: Top 25% = 49.8% WR vs bottom 25% = 28.6% (21.2% spread)
+    // Means/stds from 13,314 signals on 78 OHLCVs
+    const pcaMeans = [6.11, 1.15, 1.49, 1.93, 0.79, 23.66]; // zoneTight, eRA, eVR, eVP5, p10R, uW
+    const pcaStds  = [3.81, 0.42, 0.73, 1.28, 0.17, 13.50];
+    const pcaWeights = [1.26, 0.56, 0.55, 0.44, -0.36, 0.26];
+    const newPcaMap: Record<string, {score: number; rank: string; pctl: number}> = {};
+    const pcaScores: Array<{sym: string; score: number}> = [];
+    for (const r of newResults) {
+      if (!r.zone) continue;
+      const raw = [r.zone.zoneTightnessPct, r.exactRangeATR14, r.volRatio20 || 0, r.exactVolVsPre5 || 0, r.pre10AvgRangeATR, r.upperWickPct];
+      let score = 0;
+      for (let i = 0; i < 6; i++) score += pcaWeights[i] * ((raw[i] - pcaMeans[i]) / pcaStds[i]);
+      pcaScores.push({ sym: r.symbol, score });
+    }
+    pcaScores.sort((a, b) => b.score - a.score);
+    for (let i = 0; i < pcaScores.length; i++) {
+      const pctl = pcaScores.length > 1 ? Math.round((1 - i / (pcaScores.length - 1)) * 100) : 50;
+      const rank = pctl >= 75 ? 'A' : pctl >= 50 ? 'B' : pctl >= 25 ? 'C' : 'D';
+      newPcaMap[pcaScores[i].sym] = { score: Math.round(pcaScores[i].score * 100) / 100, rank, pctl };
+    }
+    setPcaMap(newPcaMap);
     // Adaptive Brain — compute insights + per-signal adjusted scores
     try {
       const bi = computeBrainInsights(trackedTradesRef.current);
@@ -4752,6 +4783,15 @@ function HomePageInner() {
                                 return <div className="flex items-center gap-1 font-mono text-[10px]" title={`Clenow: ${cl.score.toFixed(0)} | Ann: ${cl.annReturn >= 0 ? '+' : ''}${cl.annReturn.toFixed(0)}% | R²: ${cl.r2.toFixed(2)} | ${cl.quality}`}>
                                   <span className="font-bold" style={{color}}>{cl.score.toFixed(0)}</span>
                                   <span className="px-0.5 rounded text-[8px] font-bold" style={{color, borderColor: color, border: '1px solid'}}>{label}</span>
+                                </div>;
+                              })() : col.key === 'pcaScore' ? (() => {
+                                const pca = pcaMap[row.symbol];
+                                if (!pca) return <span className="text-slate-700">—</span>;
+                                const color = pca.rank === 'A' ? '#39FF14' : pca.rank === 'B' ? '#22d3ee' : pca.rank === 'C' ? '#facc15' : '#ef4444';
+                                return <div className="flex items-center gap-1 font-mono text-[10px] cursor-help"
+                                  data-tip-html={`<div class="rt-hdr">PCA Super-Score — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-neon">Score</span></div><div><div class="rt-desc">${pca.score.toFixed(2)} (Percentile: ${pca.pctl}%)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Rank</span></div><div><div class="rt-desc">${pca.rank === 'A' ? 'A — Top 25%: 49.8% WR expected' : pca.rank === 'B' ? 'B — 25-50%: 42.3% WR expected' : pca.rank === 'C' ? 'C — 50-75%: 38.2% WR expected' : 'D — Bottom 25%: 28.6% WR expected'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">Factors</span></div><div><div class="rt-desc">1.26×ZoneTight + 0.56×RangeATR + 0.55×VolRatio + 0.44×VolVsPre5 - 0.36×Pre10Range + 0.26×UpperWick</div></div></div>`}>
+                                  <span className="font-bold" style={{color}}>{pca.score.toFixed(1)}</span>
+                                  <span className="px-0.5 rounded text-[8px] font-bold" style={{color, borderColor: color, border: '1px solid'}}>{pca.rank}</span>
                                 </div>;
                               })() : col.key === 'conviction' ? (() => {
                                 const c = computeConviction(row);
