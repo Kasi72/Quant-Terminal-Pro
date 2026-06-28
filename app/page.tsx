@@ -1882,7 +1882,7 @@ function HomePageInner() {
           }}
           className={`ml-2 border rounded text-xs px-2 py-1 focus:outline-none cursor-pointer ${scanAll ? 'bg-cyan-900/40 border-cyan-600 text-cyan-300 focus:border-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-200 focus:border-indigo-500'}`}
         >
-          <option value="ALL4">★ All 4 Param Sets (Multi-Scan)</option>
+          <option value="ALL4">★ All 5 Param Sets (Multi-Scan)</option>
           {PARAM_SET_OPTIONS.map(o => (
             <option key={o.key} value={o.key}>{o.name} [{o.tag}]</option>
           ))}
@@ -5358,7 +5358,7 @@ function HomePageInner() {
           )
         )}
         {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
-        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 4 Sets' : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v8.2</span>
+        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 5 Sets' : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v9.0</span>
       </footer>
     </main>
   );

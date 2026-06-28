@@ -161,12 +161,17 @@ export function computeRSvsNifty(stockCandles: Candle[], niftyCandles: Candle[],
 
 // Compute conditions met per param set (for cluster breakdown column)
 export function computeClusterBreakdown(candles: Candle[]): ClusterBreakdown {
-  const keys: ParamSetKey[] = ['optimized_deployable_20plus', 'optimized_highprecision_15plus', 'optimized_elite_10plus', 'optimized_ultraselective_8plus'];
-  const labels: (keyof ClusterBreakdown)[] = ['deployable', 'highPrecision', 'elite', 'ultraSelective'];
+  const mapping: Array<{ key: ParamSetKey; label: keyof ClusterBreakdown }> = [
+    { key: 'optimized_deployable_20plus', label: 'deployable' },
+    { key: 'optimized_highprecision_15plus', label: 'highPrecision' },
+    { key: 'optimized_elite_10plus', label: 'elite' },
+    { key: 'optimized_ultraselective_8plus', label: 'ultraSelective' },
+    { key: 'sniper_95plus', label: 'sniper' },
+  ];
   const result = {} as ClusterBreakdown;
-  for (let i = 0; i < keys.length; i++) {
-    const r = analyzeStock(candles, keys[i]);
-    result[labels[i]] = { met: r.conditionsMet, total: r.totalConditions };
+  for (const { key, label } of mapping) {
+    const r = analyzeStock(candles, key);
+    result[label] = { met: r.conditionsMet, total: r.totalConditions };
   }
   return result;
 }
@@ -180,16 +185,20 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
     EARLY_INFLECTION: 3, COMPRESSION_WATCH: 2, NO_SIGNAL: 1,
   };
 
-  const labels: (keyof ClusterBreakdown)[] = ['deployable', 'highPrecision', 'elite', 'ultraSelective'];
-  const keys = Object.keys(PARAM_SETS) as ParamSetKey[];
+  const mapping: Array<{ key: ParamSetKey; label: keyof ClusterBreakdown }> = [
+    { key: 'optimized_deployable_20plus', label: 'deployable' },
+    { key: 'optimized_highprecision_15plus', label: 'highPrecision' },
+    { key: 'optimized_elite_10plus', label: 'elite' },
+    { key: 'optimized_ultraselective_8plus', label: 'ultraSelective' },
+    { key: 'sniper_95plus', label: 'sniper' },
+  ];
   const breakdown = {} as ClusterBreakdown;
 
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
+  for (const { key, label } of mapping) {
     const r = analyzeStock(candles, key);
     r.symbol = symbol;
     byParamSet[key] = r;
-    breakdown[labels[i]] = { met: r.conditionsMet, total: r.totalConditions };
+    breakdown[label] = { met: r.conditionsMet, total: r.totalConditions };
     if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) {
       passedSets.push(key);
     }
