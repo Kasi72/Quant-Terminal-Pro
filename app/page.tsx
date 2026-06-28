@@ -2287,19 +2287,22 @@ function HomePageInner() {
         <div className="flex items-center gap-1 shrink-0">
           <select disabled={scanning} value="" data-tip="Scan stocks from Nifty broad market indices (50, 100, 200, 500, Full Equity)" data-tip-color="green"
             onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-            className="h-7 px-1.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 border border-emerald-700 rounded text-[11px] font-medium text-emerald-300 cursor-pointer focus:outline-none">
+            className="h-7 px-2 bg-emerald-950 hover:bg-emerald-900 disabled:opacity-40 border border-emerald-600 rounded text-[11px] font-semibold text-emerald-200 cursor-pointer focus:outline-none focus:border-emerald-400 shadow-sm"
+            style={{colorScheme:'dark'}}>
             <option value="" disabled>Nifty ▾</option>
             {NIFTY_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
           <select disabled={scanning} value="" data-tip="Scan stocks from 30 NSE sectoral indices (IT, Bank, Pharma, Auto, etc.)" data-tip-color="amber"
             onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-            className="h-7 px-1.5 bg-amber-900/40 hover:bg-amber-900/60 disabled:opacity-40 border border-amber-700 rounded text-[11px] font-medium text-amber-300 cursor-pointer focus:outline-none">
+            className="h-7 px-2 bg-amber-950 hover:bg-amber-900 disabled:opacity-40 border border-amber-600 rounded text-[11px] font-semibold text-amber-200 cursor-pointer focus:outline-none focus:border-amber-400 shadow-sm"
+            style={{colorScheme:'dark'}}>
             <option value="" disabled>Sector ▾</option>
             {SECTOR_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
           <select disabled={scanning} value="" data-tip="Scan thematic & strategy indices (MNC, PSE, Growth, Value, Momentum, etc.)" data-tip-color="purple"
             onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
-            className="h-7 px-1.5 bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-700 rounded text-[11px] font-medium text-purple-300 cursor-pointer focus:outline-none">
+            className="h-7 px-2 bg-purple-950 hover:bg-purple-900 disabled:opacity-40 border border-purple-600 rounded text-[11px] font-semibold text-purple-200 cursor-pointer focus:outline-none focus:border-purple-400 shadow-sm"
+            style={{colorScheme:'dark'}}>
             <option value="" disabled>Thematic ▾</option>
             <optgroup label="── My Portfolio ──">
               {THEMATIC_PRESETS.filter(p => p.category === 'portfolio').map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
