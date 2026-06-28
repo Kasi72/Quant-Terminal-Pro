@@ -3178,6 +3178,7 @@ function HomePageInner() {
                       <th className="px-2 py-1 text-right font-medium">CMP</th>
                       <th className="px-2 py-1 text-right font-medium">P&L%</th>
                       <th className="px-2 py-1 text-center font-medium">Status</th>
+                      <th className="px-2 py-1 text-center font-medium">Gate</th>
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
@@ -3206,6 +3207,18 @@ function HomePageInner() {
                           <td className={`px-2 py-1.5 text-right font-mono ${t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.currentPrice ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(1)}%` : '—'}</td>
                           <td className="px-2 py-1.5 text-center"><span className="bg-blue-900/40 text-blue-300 text-[10px] px-1.5 py-0.5 rounded font-medium">OPEN</span></td>
+                          <td className="px-2 py-1.5 text-center">
+                            {(() => {
+                              if (!gLog || gLog.length === 0) return <span className="text-[9px] text-slate-700">No tests</span>;
+                              const shielded = gLog.filter(e => e.result === 'SHIELDED').length;
+                              const lastEntry = gLog[gLog.length - 1];
+                              const activeGate = lastEntry?.gatesTested?.find(g => !g.passed);
+                              return <span className="text-[9px] font-mono" title={`${gLog.length} tests, ${shielded} shielded\nLast: ${activeGate?.gate || '—'}: ${activeGate?.reason || ''}`}>
+                                <span className="text-emerald-400 font-bold">{shielded}🛡</span>
+                                {activeGate && <span className="text-cyan-400 ml-0.5">{activeGate.gate.slice(0, 5)}</span>}
+                              </span>;
+                            })()}
+                          </td>
                           <td className="px-1 py-1.5 text-center">
                             <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                           </td>
@@ -3262,6 +3275,7 @@ function HomePageInner() {
                       <th className="px-2 py-1 text-right font-medium">MAE-R</th>
                       <th className="px-2 py-1 text-right font-medium">Days</th>
                       <th className="px-2 py-1 text-center font-medium">Outcome</th>
+                      <th className="px-2 py-1 text-center font-medium">Gate Status</th>
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
@@ -3294,13 +3308,32 @@ function HomePageInner() {
                             <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
                             <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
                             <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span></td>
+                            <td className="px-2 py-1.5 text-center">
+                              {(() => {
+                                if (!cGLog || cGLog.length === 0) return <span className="text-slate-700 text-[9px]">—</span>;
+                                const shielded = cGLog.filter(e => e.result === 'SHIELDED').length;
+                                const stopped = cGLog.filter(e => e.result === 'STOPPED').length;
+                                const lastEntry = cGLog[cGLog.length - 1];
+                                const lastGate = lastEntry?.gatesTested?.[lastEntry.gatesTested.length - 1];
+                                if (stopped > 0) {
+                                  return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded, ${stopped} stopped\nLast gate: ${lastGate?.gate || '—'}\n${lastGate?.reason || ''}`}>
+                                    <span className="text-red-400 font-bold">🛑 ALL PASS</span>
+                                    {shielded > 0 && <span className="text-emerald-500 ml-0.5">({shielded}🛡)</span>}
+                                  </span>;
+                                }
+                                const activeGate = lastEntry?.gatesTested?.find(g => !g.passed);
+                                return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded\nBlocked by: ${activeGate?.gate || '—'}\n${activeGate?.reason || ''}`}>
+                                  <span className="text-emerald-400 font-bold">🛡 {activeGate?.gate?.slice(0, 9) || 'SHIELDED'}</span>
+                                </span>;
+                              })()}
+                            </td>
                             <td className="px-1 py-1.5 text-center">
                               <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                             </td>
                           </tr>
                           {cGLog && cGLog.length > 0 && (
                             <tr className="border-b border-slate-800/20">
-                              <td colSpan={12} className="px-4 py-1 bg-slate-900/50">
+                              <td colSpan={13} className="px-4 py-1 bg-slate-900/50">
                                 <div className="text-[10px] text-slate-500 font-semibold">🔬 Gate Log ({cGLog.length} stop test{cGLog.length > 1 ? 's' : ''} — {cGLog.filter(e => e.result === 'SHIELDED').length} shielded, {cGLog.filter(e => e.result === 'STOPPED').length} stopped)</div>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                   {cGLog.map((entry, gi) => (
