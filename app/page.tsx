@@ -3190,7 +3190,7 @@ function HomePageInner() {
                         const maeR = riskPerShare > 0 ? maePct / 100 * t.entryPrice / riskPerShare : 0;
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const daysLeft = 10 - (t.daysHeld ?? 0);
-                        const gLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                        const gLog = t.gateLog;
                         return (<Fragment key={i}>
                         <tr className="border-b border-slate-800/40 group">
                           <td className="px-3 py-1.5 font-mono text-slate-200">{t.symbol}</td>
@@ -3294,7 +3294,7 @@ function HomePageInner() {
                           manual_close: { label: '◉ Manual', color: 'bg-slate-700/40 text-slate-300' },
                         };
                         const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
-                        const cGLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                        const cGLog = t.gateLog;
                         return (<Fragment key={i}>
                           <tr className="border-b border-slate-800/40 group">
                             <td className="px-3 py-1.5 font-mono text-slate-300">{t.symbol}</td>
@@ -4310,7 +4310,7 @@ function HomePageInner() {
                                     title={t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 20 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
                                   {/* Gate Status */}
                                   <td className="px-2 py-1.5 text-center">{(() => {
-                                    const tgLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                                    const tgLog = t.gateLog;
                                     if (!tgLog || tgLog.length === 0) return <span className="text-[9px] text-slate-700">—</span>;
                                     const shielded = tgLog.filter(e => e.result === 'SHIELDED').length;
                                     const stopped = tgLog.filter(e => e.result === 'STOPPED').length;

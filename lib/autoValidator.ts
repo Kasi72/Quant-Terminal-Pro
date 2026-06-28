@@ -252,7 +252,7 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
       daysHeld: result.daysHeld,
       lastCheckDate: new Date().toISOString().slice(0, 10),
       gateLog: result.gateLog,
-    } as TrackedTrade;
+    };
   }
   return {
     ...trade,
@@ -266,7 +266,7 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     highestPrice: trade.entryPrice * (1 + result.mfe / 100),
     lastCheckDate: new Date().toISOString().slice(0, 10),
     gateLog: result.gateLog,
-  } as TrackedTrade;
+  };
 }
 
 // ─── Rolling Stats ───────────────────────────────────────────────────────────

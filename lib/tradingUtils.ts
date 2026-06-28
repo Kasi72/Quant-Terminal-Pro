@@ -106,6 +106,14 @@ export interface TrackedTrade {
   pnlR?: number;
   daysHeld?: number;
   notes?: string;
+  gateLog?: Array<{
+    day: number;
+    close: number;
+    stopLevel: number;
+    dipPct: number;
+    gatesTested: Array<{ gate: string; passed: boolean; reason: string }>;
+    result: string;
+  }>;
 }
 
 export interface WinRateStats {
