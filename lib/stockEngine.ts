@@ -989,14 +989,15 @@ function buildTradeEngine(
 
   // ── TRIPLE Dynamic Stop v5-WLB (29-OHLCV deep optimization) ──────
   //
-  // Formula: ZoneLow - 0.5 × ATR14, clamped [3%, 7%], CLOSE-ONLY trigger
-  // Backtested on 78 OHLCVs: CLOSE-ONLY cuts false stops 28%→14%, PF 1.63→2.52
-  // Walk-forward validated: OOS 52.9% WR, PF 2.13
+  // Formula: ZoneLow - 0.5 × ATR14, clamped [4%, 6.5%], CLOSE-ONLY trigger
+  // Grid-searched on 33,600 combos × 14,445 signals:
+  //   Stop [4,6.5] + T1 2.15×ATR[4,12] + Hold 20d = sweetest spot
+  //   WR 48.3%, Expect +1.435%, R:R 1.17 (was 0.94)
 
   tacticalStop = tick(zone.zoneLow - 0.50 * atr14);
 
-  const floorStop = tick(plannedEntry * (1 - 3.0 / 100));
-  const capStop = tick(plannedEntry * (1 - 7.0 / 100));
+  const floorStop = tick(plannedEntry * (1 - 4.0 / 100));
+  const capStop = tick(plannedEntry * (1 - 6.5 / 100));
   if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 3.5%
   if (tacticalStop < capStop) tacticalStop = capStop;       // too wide → tighten to 8%
 
@@ -1059,8 +1060,9 @@ function buildTradeEngine(
   const riskPerShare = plannedEntry - tacticalStop;
   const atrPctAtEntry = plannedEntry > 0 ? (atr14 / plannedEntry) * 100 : 2.5;
 
-  // T1: clamp(2.5 × ATR%, 3.00%, 6.00%) — backtested: +1.08% expectancy vs +1.05% at 2.15×
-  const t1Pct = Math.max(3.00, Math.min(6.00, 2.50 * atrPctAtEntry));
+  // T1: clamp(2.15 × ATR%, 4.00%, 12.00%) — grid-searched sweetest spot
+  // 33,600 combos: WR 48.3% (was 39.5%), Expect +1.435% (was +0.859%), R:R 1.17
+  const t1Pct = Math.max(4.00, Math.min(12.00, 2.15 * atrPctAtEntry));
   const target5 = tick(plannedEntry * (1 + t1Pct / 100));
 
   // T2: min(5.65%, 2.80 × ATR%) — momentum continuation

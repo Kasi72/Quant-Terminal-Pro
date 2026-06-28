@@ -70,7 +70,8 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
     const t2Pct = pe.plannedEntry > 0 ? ((pe.target7 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
     const t3Pct = pe.plannedEntry > 0 ? ((pe.target10 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
 
-    const verdict = pe.rewardRisk >= 1.2 ? 'Elite' : pe.rewardRisk >= 0.9 ? 'Very Good' : pe.rewardRisk >= 0.7 ? 'Good' : pe.rewardRisk >= 0.5 ? 'Acceptable' : 'Weak';
+    const rp = pe.plannedEntry > 0 ? ((pe.plannedEntry - pe.tacticalStop) / pe.plannedEntry * 100) : 0;
+    const verdict = (pe.rewardRisk >= 0.8 && pe.rewardRisk <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (pe.rewardRisk >= 0.6 && pe.rewardRisk <= 2.0) ? 'Good' : pe.rewardRisk >= 0.4 ? 'Fair' : 'Weak';
 
     let msg = `🟢 <b>NEW BUY SIGNAL</b>\n\n`;
     msg += `<b>${sym}</b> — ${stageLabel}\n`;
