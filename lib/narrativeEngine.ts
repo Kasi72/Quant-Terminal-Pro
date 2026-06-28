@@ -79,7 +79,7 @@ export function generateNarrative(
       const cazp = zone.zoneHigh > 0 ? ((r.lastClose - zone.zoneHigh) / zone.zoneHigh) * 100 : 0;
       const adrPct = r.atrPct14 ?? 0;
       if (r.pre10AvgRangeATR <= 0.75 && cazp >= 0.50 && cazp <= 4.00 && adrPct >= 4.0 && adrPct <= 7.5) {
-        setupParts.push(`HIGH CONVICTION ZONE EXPLOSION — price closed ${cazp.toFixed(1)}% above a narrow ${zone.zoneTightnessPct.toFixed(1)}% zone with avg range ${(r.pre10AvgRangeATR * 100).toFixed(0)}% of ATR. ADR at ${adrPct.toFixed(1)}% is in the optimal momentum zone (94.74% backtest hit rate)`);
+        setupParts.push(`HIGH CONVICTION ZONE EXPLOSION — price closed ${cazp.toFixed(1)}% above a narrow ${zone.zoneTightnessPct.toFixed(1)}% zone with avg range ${(r.pre10AvgRangeATR * 100).toFixed(0)}% of ATR. ADR at ${adrPct.toFixed(1)}% is in the optimal momentum zone (63.4% backtest hit rate on 14,457 signals)`);
       } else if (zone.zoneTightnessPct <= 15 && cazp <= 4.0 && adrPct >= 4.0) {
         setupParts.push(`Zone breakout confirmed — ${cazp.toFixed(1)}% above ${zone.windowLength}-candle zone`);
       }
@@ -125,7 +125,8 @@ export function generateNarrative(
     // ── ENTRY PLAN ──
     const entryParts: string[] = [];
     entryParts.push(`Entry at ₹${pe.plannedEntry.toFixed(2)} with stop at ₹${pe.tacticalStop.toFixed(2)} (${safe(pe.tacticalRiskPct).toFixed(1)}% risk)`);
-    const rrVerdict = rr >= 3.5 ? 'Elite' : rr >= 2.5 ? 'Very Good' : rr >= 2.0 ? 'Good' : 'Acceptable';
+    const rp = safe(pe.tacticalRiskPct);
+    const rrVerdict = (rr >= 0.8 && rr <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (rr >= 0.6 && rr <= 2.0) ? 'Good' : rr >= 0.4 ? 'Fair' : 'Weak';
     entryParts.push(`R:R is ${rr.toFixed(2)}:1 (${rrVerdict})`);
     entryParts.push(`T1 at ₹${pe.target5.toFixed(2)} — sell 50% here, move stop to breakeven`);
     if (pe.target7 > 0) entryParts.push(`T2 at ₹${pe.target7.toFixed(2)} — sell 30%, trail with Chandelier exit`);

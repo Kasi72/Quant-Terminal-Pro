@@ -233,7 +233,7 @@ export async function exportTearSheetPDF(data: TearSheetData) {
 
   doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
-  doc.text('Dr KKR Quant Terminal Pro v8.1 | Partial Exit Model (50% T1, 30% T2, 20% T3) | Level 3 Bar-by-bar Validation', 14, doc.internal.pageSize.getHeight() - 8);
+  doc.text('Dr KKR Quant Terminal Pro v9.0 | Partial Exit Model (50% T1, 30% T2, 20% T3) | Level 3 Bar-by-bar Validation', 14, doc.internal.pageSize.getHeight() - 8);
 
   doc.save(`DrKKR_TearSheet_${data.generatedDate}.pdf`);
 }

@@ -2462,7 +2462,7 @@ function HomePageInner() {
                 <div className="font-bold text-red-300">ACTION REQUIRED:</div>
                 <div>1. EXIT at market open tomorrow morning</div>
                 <div>2. Place SELL order for ALL shares of {a.symbol.replace('.NS','').replace('.BO','')}</div>
-                <div>3. Do NOT hold hoping for recovery — 9 gates confirmed genuine breakdown</div>
+                <div>3. Do NOT hold hoping for recovery — 10 gates confirmed genuine breakdown</div>
               </div>
             </div>
           ))}
@@ -3191,7 +3191,7 @@ function HomePageInner() {
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const daysLeft = 20 - (t.daysHeld ?? 0);
                         const gLog = t.gateLog;
-                        return (<Fragment key={i}>
+                        return (<Fragment key={t.symbol + '-' + i}>
                         <tr className="border-b border-slate-800/40 group">
                           <td className="px-3 py-1.5 font-mono text-slate-200">{t.symbol}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
@@ -3225,7 +3225,7 @@ function HomePageInner() {
                         </tr>
                         {gLog && gLog.length > 0 && (
                           <tr className="border-b border-slate-800/20">
-                            <td colSpan={15} className="px-4 py-1 bg-slate-900/50">
+                            <td colSpan={16} className="px-4 py-1 bg-slate-900/50">
                               <div className="text-[10px] text-slate-500 font-semibold">🔬 Gate Log (last 5 stop tests)</div>
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                 {gLog.slice(-5).map((entry, gi) => (
@@ -3295,7 +3295,7 @@ function HomePageInner() {
                         };
                         const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
                         const cGLog = t.gateLog;
-                        return (<Fragment key={i}>
+                        return (<Fragment key={t.symbol + '-c-' + i}>
                           <tr className="border-b border-slate-800/40 group">
                             <td className="px-3 py-1.5 font-mono text-slate-300">{t.symbol}</td>
                             <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>

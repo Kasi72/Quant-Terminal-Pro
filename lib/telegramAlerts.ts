@@ -112,23 +112,23 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
 
     // Signal quality
     msg += `<b>📊 SIGNAL QUALITY</b>\n`;
-    if (extras?.onset) msg += `Candle: ★ ${extras.onset}\n`;
+    if (extras?.onset) msg += `Candle: ★ ${esc(extras.onset)}\n`;
     if (extras?.rsRank) msg += `RS Rank: ${extras.rsRank}/100\n`;
-    if (extras?.tfAlign) msg += `Timeframe: ${extras.tfAlign === 'DW' ? 'Daily+Weekly aligned' : extras.tfAlign === 'D' ? 'Daily only' : extras.tfAlign}\n`;
-    msg += `ATR%: ${r.atrPct14.toFixed(2)}% | Vol: ${r.volRatio20.toFixed(1)}x\n`;
+    if (extras?.tfAlign) msg += `Timeframe: ${extras.tfAlign === 'DW' ? 'Daily+Weekly aligned' : extras.tfAlign === 'D' ? 'Daily only' : esc(extras.tfAlign)}\n`;
+    msg += `ATR%: ${Number.isFinite(r.atrPct14) ? r.atrPct14.toFixed(2) : '0.00'}% | Vol: ${Number.isFinite(r.volRatio20) ? r.volRatio20.toFixed(1) : '0.0'}x\n`;
 
     if (extras?.pivotPosition) {
-      msg += `Pivot: ${extras.pivotPosition}`;
+      msg += `Pivot: ${esc(extras.pivotPosition)}`;
       if (extras.pivotR1 && Number.isFinite(extras.pivotR1)) msg += ` | R1: Rs.${extras.pivotR1.toFixed(0)}`;
       if (extras.pivotS1 && Number.isFinite(extras.pivotS1)) msg += ` | S1: Rs.${extras.pivotS1.toFixed(0)}`;
       msg += '\n';
     }
-    if (extras?.pivotWarning) msg += `⚠ ${extras.pivotWarning}\n`;
+    if (extras?.pivotWarning) msg += `⚠ ${esc(extras.pivotWarning)}\n`;
 
     msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `<b>📝 ACTION PLAN</b>\n`;
-    msg += `1. BUY ${shares} shares at Rs.${pe.plannedEntry.toFixed(2)}\n`;
-    msg += `2. Set SL-M at Rs.${pe.tacticalStop.toFixed(2)}\n`;
+    msg += `1. BUY ${shares} shares at Rs.${Number.isFinite(pe.plannedEntry) ? pe.plannedEntry.toFixed(2) : '—'}\n`;
+    msg += `2. Set SL-M at Rs.${Number.isFinite(pe.tacticalStop) ? pe.tacticalStop.toFixed(2) : '—'}\n`;
     msg += `3. At T1 → sell ${Math.round(shares*0.5)} (50%), move SL to entry\n`;
     msg += `4. At T2 → sell ${Math.round(shares*0.3)} (30%), trail SL to T1\n`;
     msg += `5. At T3 → sell remaining ${Math.round(shares*0.2)} (20%)\n`;

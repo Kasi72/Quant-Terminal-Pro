@@ -1110,7 +1110,7 @@ function buildTradeEngine(
   // ── Trade Validity (recalibrated for Cascading Gates stop v2) ──────
   //
   // Old system: R:R ≥ 1.5 with 2-3.5% stop (42.6% trigger rate)
-  // New system: R:R ≥ 0.5 with 3.5-8% stop (8.6% trigger rate via 6-gate filter)
+  // New system: R:R ≥ 0.5 with 4-6.5% stop (CLOSE-ONLY via 10-gate filter)
   //
   // Mathematical proof (from 29-OHLCV backtest):
   //   Cascading Gates WR = 89.5%, P(stop trigger) = 8.6%
