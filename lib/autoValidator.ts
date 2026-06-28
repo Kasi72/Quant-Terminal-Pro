@@ -2,18 +2,28 @@ import type { TrackedTrade } from './tradingUtils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export interface GateLogEntry {
+  day: number;
+  close: number;
+  stopLevel: number;
+  dipPct: number;
+  gatesTested: Array<{ gate: string; passed: boolean; reason: string }>;
+  result: 'SHIELDED' | 'STOPPED' | 'NOT_TRIGGERED';
+}
+
 export interface ValidationResult {
   symbol: string;
   status: 'open' | 'hit_t1' | 'hit_t2' | 'hit_t3' | 'stopped' | 'expired';
   pnlPct: number;
   pnlR: number;
   daysHeld: number;
-  mfe: number;       // Maximum Favorable Excursion (highest % above entry)
-  mae: number;       // Maximum Adverse Excursion (lowest % below entry)
-  mfeR: number;      // MFE in R-multiples
-  maeR: number;      // MAE in R-multiples
+  mfe: number;
+  mae: number;
+  mfeR: number;
+  maeR: number;
   closedPrice: number;
   closedDate: string;
+  gateLog?: GateLogEntry[];
 }
 
 interface Candle { h: number; l: number; c: number; o?: number; v?: number; }
@@ -29,11 +39,12 @@ export function validateTrade(
   trade: TrackedTrade,
   candlesSinceEntry: Candle[]
 ): ValidationResult {
-  const defaultResult: ValidationResult = { symbol: trade.symbol, status: 'open', pnlPct: 0, pnlR: 0, daysHeld: 0, mfe: 0, mae: 0, mfeR: 0, maeR: 0, closedPrice: 0, closedDate: '' };
+  const defaultResult: ValidationResult = { symbol: trade.symbol, status: 'open', pnlPct: 0, pnlR: 0, daysHeld: 0, mfe: 0, mae: 0, mfeR: 0, maeR: 0, closedPrice: 0, closedDate: '', gateLog: [] };
   if (!trade || !Number.isFinite(trade.entryPrice) || trade.entryPrice <= 0) return defaultResult;
   if (!Array.isArray(candlesSinceEntry) || candlesSinceEntry.length === 0) return defaultResult;
 
   const riskPerShare = Math.max(trade.entryPrice - trade.stopLoss, 0.01);
+  const gateLog: GateLogEntry[] = [];
   let mfePrice = trade.entryPrice;
   let maePrice = trade.entryPrice;
   let status: ValidationResult['status'] = 'open';
@@ -69,56 +80,82 @@ export function validateTrade(
         const prevCandle = i >= 1 ? candlesSinceEntry[i-1] : null;
         const prevPrevCandle = i >= 2 ? candlesSinceEntry[i-2] : null;
 
-        // GATE 0: WYCKOFF SPRING SHIELD — Shallow dip detection
-        // Backtested on 14,437 signals: +1.9% WR, +262 saved trades, -1292 fewer stops
-        // If close is <2% below stop → likely a spring (shakeout), not a breakdown
-        // Springs recover within 1-2 days; real breakdowns keep falling
+        // 10-GATE CASCADE with logging
         const dipBelowStop = trade.stopLoss > 0 ? (trade.stopLoss - candle.c) / trade.stopLoss * 100 : 0;
-        if (dipBelowStop < 2.0) { /* Gate 0: shallow dip — Wyckoff spring likely, don't stop */ }
-
-        // GATE 1: RSI-2 Oversold Shield (threshold 8 — deep capitulation only)
-        // Backtested: RSI<8 = same 99.7% WR as RSI<15 but holds 23 fewer losers
         const ch1 = prevCandle ? candle.c - prevCandle.c : 0;
         const ch2 = prevCandle && prevPrevCandle ? prevCandle.c - prevPrevCandle.c : 0;
         const rsiG = ((ch2 > 0 ? ch2 : 0) + (ch1 > 0 ? ch1 : 0)) / 2;
         const rsiL = ((ch2 < 0 ? -ch2 : 0) + (ch1 < 0 ? -ch1 : 0)) / 2;
         const rsi2 = rsiL < 0.001 ? 100 : 100 - 100 / (1 + rsiG / rsiL);
-        if (rsi2 < 8) { /* Gate 1: deeply oversold — capitulation bounce likely */ }
+
+        const entry: GateLogEntry = { day: i, close: candle.c, stopLevel: trade.stopLoss, dipPct: dipBelowStop, gatesTested: [], result: 'NOT_TRIGGERED' };
+        let blocked = false;
+
+        // GATE 0: Wyckoff Spring Shield
+        entry.gatesTested.push({ gate: 'G0 Spring Shield', passed: dipBelowStop >= 2.0, reason: dipBelowStop < 2.0 ? `Dip only ${dipBelowStop.toFixed(1)}% — spring likely` : `Deep dip ${dipBelowStop.toFixed(1)}%` });
+        if (dipBelowStop < 2.0) { blocked = true; entry.result = 'SHIELDED'; }
+
+        // GATE 1: RSI-2 Oversold
+        if (!blocked) {
+          entry.gatesTested.push({ gate: 'G1 RSI Oversold', passed: rsi2 >= 8, reason: rsi2 < 8 ? `RSI-2 = ${rsi2.toFixed(0)} — deep capitulation` : `RSI-2 = ${rsi2.toFixed(0)}` });
+          if (rsi2 < 8) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
         // GATE 2: Smart 2-Day Confirmation
-        //   a) Previous day also closed below stop
-        //   b) Today's close WORSE than yesterday's (accelerating down)
-        //   c) Today's volume ≥ 0.8× average (real institutional selling)
-        else if (!prevCandle || prevCandle.c > trade.stopLoss) {
-          /* Gate 2a: first day below — wait */ }
-        else if (prevCandle && candle.c >= prevCandle.c) {
-          /* Gate 2b: stabilizing (today better than yesterday) — don't stop */ }
-        else if (candle.v != null && prevCandle.v != null && candle.v < (prevCandle.v ?? 0) * 0.8) {
-          /* Gate 2c: low volume — retail noise, not institutional selling */ }
+        if (!blocked) {
+          const prevAbove = !prevCandle || prevCandle.c > trade.stopLoss;
+          const stabilizing = prevCandle ? candle.c >= prevCandle.c : false;
+          const lowVol = candle.v != null && prevCandle?.v != null && candle.v < (prevCandle.v ?? 0) * 0.8;
+          if (prevAbove) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'First day below — wait' }); blocked = true; entry.result = 'SHIELDED'; }
+          else if (stabilizing) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday' }); blocked = true; entry.result = 'SHIELDED'; }
+          else if (lowVol) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Low volume — retail noise' }); blocked = true; entry.result = 'SHIELDED'; }
+          else { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: true, reason: '2nd day below, accelerating, volume OK' }); }
+        }
 
-        // GATE 3: Hammer/Rejection Shield
-        else if (lwPct >= 40 && closeLoc >= 50) { /* Gate 3: hammer rejection */ }
+        // GATE 3: Hammer Rejection
+        if (!blocked) {
+          const isHammer = lwPct >= 40 && closeLoc >= 50;
+          entry.gatesTested.push({ gate: 'G3 Hammer Shield', passed: !isHammer, reason: isHammer ? `Hammer: lwPct ${lwPct.toFixed(0)}%, closeLoc ${closeLoc.toFixed(0)}%` : `No hammer` });
+          if (isHammer) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
-        // GATE 4: Green Recovery Shield
-        else if (isGreen && closeLoc >= 50) { /* Gate 4: buyers recovering */ }
+        // GATE 4: Green Recovery
+        if (!blocked) {
+          const greenRecov = isGreen && closeLoc >= 50;
+          entry.gatesTested.push({ gate: 'G4 Green Recovery', passed: !greenRecov, reason: greenRecov ? 'Green candle + close above 50%' : `${isGreen ? 'Green' : 'Red'}, closeLoc ${closeLoc.toFixed(0)}%` });
+          if (greenRecov) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
-        // GATE 5: Close Position (lower 35% — stricter)
-        else if (closeLoc >= 35) { /* Gate 5: close not low enough for real breakdown */ }
+        // GATE 5: Close Position
+        if (!blocked) {
+          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 35, reason: closeLoc >= 35 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 35% — not low enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
+          if (closeLoc >= 35) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
-        // GATE 6: OBV Declining — volume must confirm distribution
-        else if (prevCandle && candle.c > (prevPrevCandle?.c ?? trade.entryPrice)) {
-          /* Gate 6: OBV proxy rising — accumulation, not distribution */ }
+        // GATE 6: OBV Declining
+        if (!blocked) {
+          const obvRising = prevCandle && candle.c > (prevPrevCandle?.c ?? trade.entryPrice);
+          entry.gatesTested.push({ gate: 'G6 OBV Check', passed: !obvRising, reason: obvRising ? 'OBV proxy rising — accumulation' : 'OBV declining — distribution' });
+          if (obvRising) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
-        // GATE 7: ≥2 Consecutive Red Candles
-        else if (!prevCandle || (prevCandle.o ?? prevCandle.c) <= prevCandle.c) {
-          /* Gate 7: previous candle was green — single red is not confirmed */ }
+        // GATE 7: Consecutive Red
+        if (!blocked) {
+          const prevGreen = !prevCandle || (prevCandle.o ?? prevCandle.c) <= prevCandle.c;
+          entry.gatesTested.push({ gate: 'G7 Consec Red', passed: !prevGreen, reason: prevGreen ? 'Previous candle was green — single red' : '≥2 consecutive red candles' });
+          if (prevGreen) { blocked = true; entry.result = 'SHIELDED'; }
+        }
 
-        // ALL 9 GATES PASSED — genuine breakdown confirmed
-        else {
+        // ALL GATES PASSED
+        if (!blocked) {
+          entry.result = 'STOPPED';
           status = 'stopped';
           closedPrice = trade.stopLoss;
+          gateLog.push(entry);
           break;
         }
+
+        gateLog.push(entry);
       }
       // After T1: trailing stop = breakeven (entry price)
       if (t1Hit && !t2Hit && candle.l <= trade.entryPrice) {
@@ -197,6 +234,7 @@ export function validateTrade(
     maeR: Math.round(maeR * 100) / 100,
     closedPrice: Math.round(closedPrice * 100) / 100,
     closedDate: status !== 'open' ? today : '',
+    gateLog: gateLog.length > 0 ? gateLog : undefined,
   };
 }
 
@@ -205,16 +243,15 @@ export function validateTrade(
 export function applyValidation(trade: TrackedTrade, result: ValidationResult): TrackedTrade {
   if (trade.status !== 'open') return trade; // already closed, don't overwrite
   if (result.status === 'open') {
-    // Still open — just update MFE/MAE and current price
     return {
       ...trade,
       currentPrice: (result.closedPrice && result.closedPrice > 0) ? result.closedPrice : (trade.currentPrice ?? trade.entryPrice),
       highestPrice: Math.max(trade.highestPrice ?? 0, trade.entryPrice * (1 + result.mfe / 100)),
       daysHeld: result.daysHeld,
       lastCheckDate: new Date().toISOString().slice(0, 10),
-    };
+      gateLog: result.gateLog,
+    } as TrackedTrade;
   }
-  // Trade has closed
   return {
     ...trade,
     status: result.status,
@@ -226,7 +263,8 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     currentPrice: result.closedPrice,
     highestPrice: trade.entryPrice * (1 + result.mfe / 100),
     lastCheckDate: new Date().toISOString().slice(0, 10),
-  };
+    gateLog: result.gateLog,
+  } as TrackedTrade;
 }
 
 // ─── Rolling Stats ───────────────────────────────────────────────────────────

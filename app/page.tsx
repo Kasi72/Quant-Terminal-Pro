@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo, Component, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, Component, Fragment, type ReactNode } from 'react';
 
 // Global error boundary — prevents white screen crashes
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -3175,8 +3175,9 @@ function HomePageInner() {
                         const maeR = riskPerShare > 0 ? maePct / 100 * t.entryPrice / riskPerShare : 0;
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const daysLeft = 10 - (t.daysHeld ?? 0);
-                        return (
-                        <tr key={i} className="border-b border-slate-800/40 group">
+                        const gLog = (t as unknown as Record<string,unknown>).gateLog as Array<{day:number;close:number;dipPct:number;gatesTested:Array<{gate:string;passed:boolean;reason:string}>;result:string}> | undefined;
+                        return (<Fragment key={i}>
+                        <tr className="border-b border-slate-800/40 group">
                           <td className="px-3 py-1.5 font-mono text-slate-200">{t.symbol}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{t.stopLoss.toFixed(0)}</td>
@@ -3195,7 +3196,29 @@ function HomePageInner() {
                             <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                           </td>
                         </tr>
-                        );
+                        {gLog && gLog.length > 0 && (
+                          <tr className="border-b border-slate-800/20">
+                            <td colSpan={15} className="px-4 py-1 bg-slate-900/50">
+                              <div className="text-[10px] text-slate-500 font-semibold">🔬 Gate Log (last 5 stop tests)</div>
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                {gLog.slice(-5).map((entry, gi) => (
+                                  <div key={gi} className="text-[9px] font-mono whitespace-nowrap">
+                                    <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      D{entry.day}{entry.result === 'SHIELDED' ? '🛡' : '🛑'}
+                                    </span>
+                                    {entry.gatesTested.slice(0, 3).map((g, gj) => (
+                                      <span key={gj} className={`ml-0.5 ${!g.passed ? 'text-emerald-500' : 'text-red-500'}`} title={g.reason}>
+                                        {!g.passed ? '✓' : '✗'}
+                                      </span>
+                                    ))}
+                                    <span className="text-slate-600 ml-1">{entry.dipPct.toFixed(1)}%↓</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>);
                       })}
                     </tbody>
                   </table>
