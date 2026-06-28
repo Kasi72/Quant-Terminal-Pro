@@ -431,6 +431,13 @@ const COLUMNS: ColDef[] = [
     fmt: r => STAGE_CONFIG[r.stage].label,
     cellClass: r => STAGE_CONFIG[r.stage].color + ' font-semibold' },
   { key: 'inflectionScore', label: 'Infl.Score', width: 90, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Inflection Score (0-100)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Measures how close the stock is to a TURNING POINT — the moment compression transitions into a breakout. Like a pressure gauge for stored energy.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">80+</span></div><div><div class="rt-desc">Inflection imminent — one strong candle triggers the breakout. Zone highs tested repeatedly, volume ticking up.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">60-79</span></div><div><div class="rt-desc">Building pressure — setup forming. EMA converging, ATR contracting, higher lows inside zone. Needs 1-3 days.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">40-59</span></div><div><div class="rt-desc">Early signs — compression detected but not ready. Volume still drying up, zone still forming.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">&lt;40</span></div><div><div class="rt-desc">No inflection — stock is flat, trending, or not at a turning point. Not actionable yet.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Detects</span></div><div><div class="rt-desc">EMA alignment converging · Volume dry-up then tick-up · ATR contracting then expanding · Price testing zone highs · Higher lows forming inside zone</div><div class="rt-hit hit-green">Higher score = more compressed energy about to release</div></div></div>',
     fmt: r => r.inflectionScore.toFixed(0),
     numVal: r => r.inflectionScore,
     cellClass: r => r.inflectionScore >= 60 ? 'text-yellow-300 font-semibold' : r.inflectionScore >= 45 ? 'text-emerald-400' : 'text-slate-400' },
