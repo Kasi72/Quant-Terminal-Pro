@@ -4057,6 +4057,62 @@ function HomePageInner() {
                             disabled={trackedTrades.length === 0}
                             data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
                             className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
+                          <button
+                            disabled={scanning || trackedTrades.filter(t => t.status === 'open').length === 0}
+                            onClick={async () => {
+                              if (scanningRef.current) return;
+                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
+                              if (openTrades.length === 0) return;
+                              setScanning(true); scanningRef.current = true; setProgress(0); setTotal(openTrades.length);
+                              try {
+                                const updated = [...trackedTradesRef.current];
+                                let validated = 0;
+                                const tgConfig = loadTelegramConfig();
+                                for (const t of openTrades) {
+                                  try {
+                                    const { candles } = await fetchOHLCVClient(t.symbol);
+                                    if (candles.length > 0) {
+                                      const idx = updated.findIndex(u => u.symbol === t.symbol);
+                                      const entryTs = new Date(t.entryDate).getTime() / 1000;
+                                      let sinceEntry = candles.filter(c => c.ts >= entryTs);
+                                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10);
+                                      if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
+                                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
+                                      if (idx >= 0) {
+                                        updated[idx] = applyValidation(updated[idx], result);
+                                        const lastCandle = candles[candles.length - 1];
+                                        if (lastCandle && lastCandle.c > 0) updated[idx].currentPrice = lastCandle.c;
+                                        const maxH = Math.max(...sinceEntry.map(c => c.h));
+                                        if (maxH > (updated[idx].highestPrice ?? 0)) updated[idx].highestPrice = maxH;
+                                        validated++;
+                                      }
+                                    }
+                                  } catch {}
+                                  setProgress(p => p + 1);
+                                }
+                                const prev = trackedTradesRef.current;
+                                for (const u of updated) {
+                                  const p = prev.find(x => x.symbol === u.symbol);
+                                  if (!p || p.status !== 'open') continue;
+                                  if (tgConfig.enabled) {
+                                    if ((u.status === 'hit_t1' || u.status === 'hit_t2' || u.status === 'hit_t3') && tgConfig.alerts.targetHit) sendTelegramMessage(tgConfig, formatTargetHitAlert(u));
+                                    if (u.status === 'stopped' && tgConfig.alerts.stopped) sendTelegramMessage(tgConfig, formatStoppedAlert(u));
+                                  }
+                                }
+                                setTrackedTrades(updated);
+                                try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
+                                setValidateFlash(validated);
+                                setTimeout(() => setValidateFlash(0), 3000);
+                                if (tgConfig.enabled && tgConfig.alerts.validationSummary && validated > 0) {
+                                  const summaryMsg = formatValidationSummaryAlert(updated);
+                                  if (summaryMsg) sendTelegramMessage(tgConfig, summaryMsg);
+                                }
+                              } catch {} finally { setScanning(false); scanningRef.current = false; }
+                            }}
+                            className="h-5 px-3 bg-cyan-900/50 hover:bg-cyan-900/70 disabled:opacity-40 border border-cyan-500 rounded text-[9px] font-bold text-cyan-200 transition-colors">
+                            {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}
+                          </button>
+                          <span className="text-[9px] text-slate-600">{trackedTrades.length} tracked</span>
                         </div>
                       </div>
                     </div>
