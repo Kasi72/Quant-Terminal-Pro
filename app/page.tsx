@@ -75,7 +75,7 @@ import { optimizePortfolio, type PortfolioResult } from '@/lib/portfolioOptimize
 import {
   loadTelegramConfig, saveTelegramConfig, sendTelegramMessage,
   formatNewSignalAlert, formatTargetHitAlert, formatStoppedAlert,
-  formatRegimeChangeAlert, formatDailySummaryAlert, formatSignalDecayAlert,
+  formatRegimeChangeAlert, formatDailySummaryAlert, formatSignalDecayAlert, formatValidationSummaryAlert,
   type TelegramConfig,
 } from '@/lib/telegramAlerts';
 import {
@@ -1812,7 +1812,7 @@ function HomePageInner() {
   const [reviewedSymbols, setReviewedSymbols] = useState<Set<string>>(new Set());
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
-  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false } });
+  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
   const [showTgSettings, setShowTgSettings] = useState(false);
   const [tgTestStatus, setTgTestStatus] = useState<'' | 'sending' | 'ok' | 'fail'>('');
   const prevRegimeRef = useRef<string | null>(null);
@@ -2287,6 +2287,11 @@ function HomePageInner() {
                   try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
                   setValidateFlash(validated);
                   setTimeout(() => setValidateFlash(0), 3000);
+                  // Telegram: push validation summary
+                  if (tgConfig.enabled && tgConfig.alerts.validationSummary && validated > 0) {
+                    const summaryMsg = formatValidationSummaryAlert(updated);
+                    if (summaryMsg) sendTelegramMessage(tgConfig, summaryMsg);
+                  }
                 } catch {} finally {
                   setScanning(false); scanningRef.current = false;
                 }
@@ -2816,6 +2821,7 @@ function HomePageInner() {
                 ['regimeChange', '⚠ Regime'],
                 ['dailySummary', '📊 Summary'],
                 ['signalDecay', '⏳ Decay'],
+                ['validationSummary', '📋 Validation'],
               ] as const).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-1 cursor-pointer">
                   <input type="checkbox" checked={tgConfig.alerts[key]} onChange={e => {

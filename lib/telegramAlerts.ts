@@ -14,12 +14,13 @@ export interface TelegramConfig {
     regimeChange: boolean;
     dailySummary: boolean;
     signalDecay: boolean;
+    validationSummary: boolean;
   };
 }
 
 export const DEFAULT_TG_CONFIG: TelegramConfig = {
   botToken: '', chatId: '', enabled: false,
-  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false },
+  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true },
 };
 
 export function loadTelegramConfig(): TelegramConfig {
@@ -226,6 +227,59 @@ export function formatDailySummaryAlert(
 }
 
 // ─── Alert #6: Signal Decay Warning ─────────────────────────────────────────
+
+export function formatValidationSummaryAlert(trades: TrackedTrade[]): string {
+  try {
+    const open = trades.filter(t => t.status === 'open');
+    const closed = trades.filter(t => t.status !== 'open');
+    if (open.length === 0 && closed.length === 0) return '';
+
+    const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+    let msg = `📊 <b>VALIDATION SCAN — ${now}</b>\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    if (open.length > 0) {
+      msg += `<b>OPEN TRADES (${open.length})</b>\n`;
+      let totalPnl = 0;
+      for (const t of open) {
+        const sym = esc(t.symbol.replace('.NS', '').replace('.BO', ''));
+        const cmp = t.currentPrice ?? t.entryPrice;
+        const pnl = ((cmp - t.entryPrice) / t.entryPrice * 100);
+        totalPnl += pnl;
+        const pnlStr = pnl >= 0 ? `+${pnl.toFixed(1)}%` : `${pnl.toFixed(1)}%`;
+        const emoji = pnl >= 3 ? '🟢' : pnl >= 0 ? '🔵' : pnl >= -3 ? '🟡' : '🔴';
+        const days = t.daysHeld ?? 0;
+        const gLog = t.gateLog;
+        const shields = gLog ? gLog.filter(e => e.result === 'SHIELDED').length : 0;
+        const shieldStr = shields > 0 ? ` 🛡${shields}` : '';
+        msg += `${emoji} <b>${sym}</b> ₹${cmp.toFixed(0)} ${pnlStr} D${days}${shieldStr}\n`;
+      }
+      const avgPnl = totalPnl / open.length;
+      msg += `\n📈 Portfolio: ${avgPnl >= 0 ? '+' : ''}${avgPnl.toFixed(2)}% avg\n`;
+    }
+
+    // Recently closed (last 24h)
+    const recentClosed = closed.filter(t => {
+      if (!t.closedDate) return false;
+      const cd = new Date(t.closedDate);
+      return Date.now() - cd.getTime() < 86400000;
+    });
+    if (recentClosed.length > 0) {
+      msg += `\n<b>RECENTLY CLOSED (${recentClosed.length})</b>\n`;
+      for (const t of recentClosed) {
+        const sym = esc(t.symbol.replace('.NS', '').replace('.BO', ''));
+        const pnl = t.pnlPct ?? 0;
+        const emoji = t.status === 'stopped' ? '🛑' : t.status === 'expired' ? '⏰' : '✅';
+        msg += `${emoji} ${sym} ${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}% (${t.status.replace('hit_', 'T').toUpperCase()})\n`;
+      }
+    }
+
+    msg += `\n<i>Dr KKR Quant Terminal Pro v9.0</i>`;
+    return msg;
+  } catch {
+    return '📊 <b>VALIDATION SCAN</b>\n\nFormatting error';
+  }
+}
 
 export function formatSignalDecayAlert(symbol: string, ageDays: number, decayedConv: number, extended: boolean): string {
   try {
