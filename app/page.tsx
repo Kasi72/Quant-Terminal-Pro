@@ -14,9 +14,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
             <div className="text-3xl mb-3">⚠️</div>
             <h2 className="text-slate-200 font-bold mb-2">Something went wrong</h2>
             <p className="text-slate-400 text-sm mb-4">{this.state.error}</p>
-            <button onClick={() => { try { localStorage.clear(); } catch {} window.location.reload(); }}
+            <button onClick={() => {
+              try {
+                // Preserve tracked trades before clearing
+                const trades = localStorage.getItem('qtp_tracked_trades');
+                const backup = localStorage.getItem('qtp_tracked_trades_backup');
+                const emergency = localStorage.getItem('qtp_tracked_trades_emergency');
+                localStorage.clear();
+                if (trades) localStorage.setItem('qtp_tracked_trades', trades);
+                if (backup) localStorage.setItem('qtp_tracked_trades_backup', backup);
+                if (emergency) localStorage.setItem('qtp_tracked_trades_emergency', emergency);
+              } catch {}
+              window.location.reload();
+            }}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-sm font-medium">
-              Clear Data & Reload
+              Clear Data & Reload (trades preserved)
             </button>
           </div>
         </div>
@@ -1120,38 +1132,54 @@ function HomePageInner() {
   }, [results, paramSetKey]);
 
   useEffect(() => {
+    // ─── TRACKED TRADES: Load with triple-redundancy backup ───
+    // Primary: qtp_tracked_trades | Backup: qtp_tracked_trades_backup | Emergency: qtp_tracked_trades_emergency
+    let loadedTrades: TrackedTrade[] = [];
+    const tradeKeys = ['qtp_tracked_trades', 'qtp_tracked_trades_backup', 'qtp_tracked_trades_emergency'];
+    for (const key of tradeKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const valid = parsed.filter((t: TrackedTrade) => t && typeof t.entryPrice === 'number' && typeof t.stopLoss === 'number');
+            if (valid.length > loadedTrades.length) loadedTrades = valid;
+          }
+        }
+      } catch { /* try next backup */ }
+    }
+    if (loadedTrades.length > 0) setTrackedTrades(loadedTrades);
+
+    // ─── OTHER SETTINGS: Load individually (failures are isolated) ───
+    try { localStorage.removeItem('qtp_results'); } catch {}
+    try { const savedKey = localStorage.getItem('qtp_paramSetKey'); if (savedKey) setParamSetKey(savedKey as ParamSetKey); } catch {}
+    try { setWatchlist(loadWatchlist()); } catch {}
+    try { setSignalHistory(loadSignalHistory()); } catch {}
+    try { setSessions(loadSessions()); } catch {}
+    try { setFavorites(loadFavorites()); } catch {}
+    try { setReviews(loadReviews()); } catch {}
+    try { const savedTheme = localStorage.getItem('qtp_theme'); if (savedTheme === 'light') setTheme('light'); } catch {}
+    try { setTgConfig(loadTelegramConfig()); } catch {}
     try {
-      // Clear old results that may have incompatible schema
-      // Only keep tracked trades, watchlist, sessions, and settings
-      localStorage.removeItem('qtp_results');
-      const savedKey = localStorage.getItem('qtp_paramSetKey');
-      const savedTrades = localStorage.getItem('qtp_tracked_trades');
-      if (savedKey) { setParamSetKey(savedKey as ParamSetKey); }
-      if (savedTrades) { try {
-        const parsed = JSON.parse(savedTrades);
-        setTrackedTrades(Array.isArray(parsed) ? parsed.filter((t: TrackedTrade) => t && typeof t.entryPrice === 'number' && typeof t.stopLoss === 'number') : []);
-      } catch { /* ignore */ } }
-      try { setWatchlist(loadWatchlist()); } catch { /* ignore */ }
-      try { setSignalHistory(loadSignalHistory()); } catch { /* ignore */ }
-      try { setSessions(loadSessions()); } catch { /* ignore */ }
-      try { setFavorites(loadFavorites()); } catch { /* ignore */ }
-      try { setReviews(loadReviews()); } catch { /* ignore */ }
-      const savedTheme = localStorage.getItem('qtp_theme');
-      if (savedTheme === 'light') setTheme('light');
-      setTgConfig(loadTelegramConfig());
       const savedParamSet = localStorage.getItem('qtp_paramset');
       if (savedParamSet === 'ALL4') setScanAll(true);
       else if (savedParamSet && PARAM_SET_OPTIONS.some(o => o.key === savedParamSet)) setParamSetKey(savedParamSet as ParamSetKey);
-    } catch {
-      // Nuclear fallback — clear everything
-      try { localStorage.clear(); } catch { /* ignore */ }
-    }
+    } catch {}
+    // NO localStorage.clear() fallback — never nuke tracked trades
   }, []);
 
-  // Persist tracked trades
+  // Persist tracked trades — triple redundancy (never lose trades)
   useEffect(() => {
     if (trackedTrades.length > 0) {
-      try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(trackedTrades)); } catch {}
+      const json = JSON.stringify(trackedTrades);
+      try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
+      try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
+      // Emergency backup updates less frequently (every 5th change) to survive partial corruption
+      try {
+        const count = parseInt(localStorage.getItem('qtp_backup_count') || '0') + 1;
+        localStorage.setItem('qtp_backup_count', String(count));
+        if (count % 5 === 0) localStorage.setItem('qtp_tracked_trades_emergency', json);
+      } catch {}
     }
   }, [trackedTrades]);
 
@@ -3202,7 +3230,7 @@ function HomePageInner() {
                 <div className="px-3 py-2 bg-slate-800/50">
                   <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Open Positions ({trackedTrades.filter(t => t.status === 'open').length})</span>
                   {trackedTrades.length > 0 && (
-                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); } catch {} } }}
+                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); localStorage.removeItem('qtp_tracked_trades_backup'); localStorage.removeItem('qtp_tracked_trades_emergency'); } catch {} } }}
                       className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                   )}
                 </div>
@@ -4113,6 +4141,36 @@ function HomePageInner() {
                             {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}
                           </button>
                           <span className="text-[9px] text-slate-600">{trackedTrades.length} tracked</span>
+                          <button onClick={() => {
+                            const json = JSON.stringify(trackedTrades, null, 2);
+                            const blob = new Blob([json], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url;
+                            a.download = `DrKKR_Trades_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                            a.click(); URL.revokeObjectURL(url);
+                          }} disabled={trackedTrades.length === 0}
+                            className="h-5 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-600 rounded text-[9px] text-slate-400 transition-colors">💾 Export</button>
+                          <button onClick={() => {
+                            const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                try {
+                                  const parsed = JSON.parse(ev.target?.result as string);
+                                  if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].entryPrice) {
+                                    if (confirm(`Restore ${parsed.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
+                                      setTrackedTrades(parsed);
+                                    }
+                                  } else { alert('Invalid trade backup file'); }
+                                } catch { alert('Failed to parse backup file'); }
+                              };
+                              reader.readAsText(file);
+                            };
+                            input.click();
+                          }}
+                            className="h-5 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-[9px] text-slate-400 transition-colors">📂 Import</button>
                         </div>
                       </div>
                     </div>
@@ -4316,7 +4374,7 @@ function HomePageInner() {
                     <div className="flex items-center mb-2">
                       <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2"><span className="w-1 h-4 bg-emerald-500 rounded-full"></span>Trade Log ({all.length} trades)</span>
                       {all.length > 0 && (
-                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); } catch {} } }}
+                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); localStorage.removeItem('qtp_tracked_trades_backup'); localStorage.removeItem('qtp_tracked_trades_emergency'); } catch {} } }}
                           className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                       )}
                     </div>
