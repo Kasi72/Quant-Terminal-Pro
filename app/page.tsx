@@ -1266,19 +1266,20 @@ function HomePageInner() {
       flushTimer = setTimeout(() => { flushTimer = null; flushResults(); }, 300);
     }
 
-    // Feature #4: Pre-fetch Nifty 50 candles for RS calculation
+    // Feature #4: Fetch Nifty 50 + VIX candles (every scan — keeps regime/VIX fresh)
     let niftyData: Candle[] | null = niftyCandles;
-    if (!niftyData) {
-      try {
-        const { candles: nc } = await fetchOHLCVClient('^NSEI');
-        niftyData = nc;
-        setNiftyCandles(nc);
-      } catch {
+    try {
+      const [nR, vR] = await Promise.allSettled([fetchOHLCVClient('^NSEI'), fetchOHLCVClient('^INDIAVIX')]);
+      const nc = nR.status === 'fulfilled' ? nR.value.candles : null;
+      const vc = vR.status === 'fulfilled' ? vR.value.candles : null;
+      if (nc && nc.length > 50) { niftyData = nc; setNiftyCandles(nc); }
+      if (vc && vc.length > 20) setVixCandles(vc);
+    } catch {
+      if (!niftyData) {
         try {
           const { candles: nc } = await fetchOHLCVClient('NIFTY_50.NS');
-          niftyData = nc;
-          setNiftyCandles(nc);
-        } catch { /* Nifty fetch failed — RS will default to 1.0 */ }
+          niftyData = nc; setNiftyCandles(nc);
+        } catch {}
       }
     }
 
