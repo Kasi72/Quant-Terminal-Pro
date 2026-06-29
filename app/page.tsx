@@ -482,6 +482,11 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.dayChangePct !== 0 ? `${r.dayChangePct >= 0 ? '+' : ''}${r.dayChangePct.toFixed(1)}%` : '—',
     numVal: r => r.dayChangePct,
     cellClass: r => r.dayChangePct > 3 ? 'text-green-300 font-bold font-mono' : r.dayChangePct > 0 ? 'text-emerald-400 font-mono' : r.dayChangePct < -3 ? 'text-red-400 font-bold font-mono' : r.dayChangePct < 0 ? 'text-red-400 font-mono' : 'text-slate-600 font-mono' },
+  { key: 'atr14pct', label: 'ATR%', width: 50, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">ATR-14 as % of Price</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">14-period Average True Range expressed as % of current price. Shows how much the stock moves per day on average.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">≥4%</span></div><div><div class="rt-desc">High volatility — bigger swings, wider stops needed, but larger profit potential. Typical of small/mid caps.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">2-4%</span></div><div><div class="rt-desc">Sweet spot — enough movement for momentum trades without excessive noise. Most breakout setups land here.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">&lt;2%</span></div><div><div class="rt-desc">Low volatility — large caps, index heavyweights. Harder to hit T1 targets within 20 days.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Used by</span></div><div><div class="rt-desc">Stop formula: ZoneLow - 0.5×ATR14 [4%, 6.5%]. Targets: T1 = 2.15×ATR14 [4%, 12%]. All 5 param sets reference ATR-14.</div></div></div>',
+    fmt: r => r.atrPct14 > 0 ? r.atrPct14.toFixed(1) + '%' : '—',
+    numVal: r => r.atrPct14,
+    cellClass: r => r.atrPct14 >= 5 ? 'text-orange-400 font-bold font-mono' : r.atrPct14 >= 4 ? 'text-amber-400 font-mono' : r.atrPct14 >= 2 ? 'text-cyan-400 font-mono' : r.atrPct14 > 0 ? 'text-slate-500 font-mono' : 'text-slate-700 font-mono' },
   { key: 'candle',  label: 'Candle',        width: 75,  align: 'center',
     headerTipHtml: '<div class="rt-hdr">Breakout DNA + Onset Candle</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">★ BEST</span></div><div><div class="rt-desc">High-conviction onset: body≥45%, close≥70%, vol≥2.5x, wick≤30%</div><div class="rt-hit hit-green">81.8% hit rate</div></div></div>'
@@ -889,7 +894,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','brain','pcaScore','monster','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
