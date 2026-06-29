@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 import { fetchOHLCVClient } from '@/lib/fetchClient';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
-  computeClusterBreakdown, generateDemoData, PARAM_SETS, PARAM_SET_OPTIONS,
+  computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
   type AnalysisResult, type ParamSetKey, type StageRating, type MultiAnalysisResult, type Candle,
 } from '@/lib/stockEngine';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
@@ -764,6 +764,29 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.stats.insideBars > 0 ? String(r.stats.insideBars) : '—',
     numVal: r => r.stats.insideBars,
     cellClass: r => r.stats.insideBars >= 3 ? 'text-yellow-300 font-semibold' : r.stats.insideBars >= 2 ? 'text-emerald-400' : 'text-slate-600' },
+  // Monster Scan
+  { key: 'monster', label: 'Monster', width: 85, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Monster Move Detector (>10% MFE in 20d)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM</span></div><div><div class="rt-desc">Momentum Continuation — 5d mom ≥6%, ATR ≥8%, eRA ≥1.0, above SMA50. Stock already moving hard in a volatile uptrend.</div><div class="rt-hit hit-green">90.5% monster rate (21 signals) · Strongest predictor</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">🔄 MRV</span></div><div><div class="rt-desc">Mean Reversion — ≥22% below 50d high, RSI-2 ≤25, pre-10 vol dried up ≤0.5x, lower wick ≥25%. Deep oversold bounce setup.</div><div class="rt-hit hit-cyan">80% monster rate (20 signals) · Deepest pullback recoveries</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">💥 BRK</span></div><div><div class="rt-desc">Breakout — eRA ≥3.0, volume ≥4x 20d avg, body ≥60%, pre-10 vol quiet ≤1.0x. Explosive range expansion from compression.</div><div class="rt-hit hit-amber">60% monster rate (15 signals) · Rarest but dramatic</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No monster pattern detected. Baseline monster probability is 35.4%.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Grid-searched 22,247 combos on 84,859 data points across 75 stocks. Multiple badges can fire simultaneously on the same candle.</div></div></div>',
+    fmt: r => {
+      if (!r.monster || r.monster.badges.length === 0) return '—';
+      return r.monster.badges.map(b => {
+        const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
+        return `${emoji}${b.type}`;
+      }).join(' ');
+    },
+    numVal: r => r.monster?.topProbability ?? 0,
+    cellClass: r => {
+      if (!r.monster || r.monster.badges.length === 0) return 'text-slate-700';
+      const top = r.monster.topProbability;
+      return top >= 80 ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded animate-pulse' :
+             top >= 60 ? 'text-cyan-300 font-semibold bg-cyan-900/20 px-1 rounded' :
+             top >= 50 ? 'text-amber-300 bg-amber-900/15 px-1 rounded' : 'text-slate-400';
+    } },
   // v7.3 columns
   { key: 'nearBrk', label: 'Near BRK', width: 72, align: 'center',
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
@@ -1268,6 +1291,8 @@ function HomePageInner() {
           result.symbol = resolvedSymbol;
           result.clusterBreakdown = computeClusterBreakdown(candles);
         }
+        // Monster scan
+        result.monster = detectMonster(candles, candles.length - 1, result);
         // Feature #4: compute RS vs Nifty
         if (niftyData && niftyData.length > 20) {
           const rs = computeRSvsNifty(candles, niftyData, 20);
@@ -2677,6 +2702,7 @@ function HomePageInner() {
                           candlePatternStrength: c.cps ?? 0, statsScore: c.ss,
                         },
                         clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
+                        monster: { badges: [], topProbability: 0 },
                       };});
                       setResults(restored); setShowSessions(false);
                     }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
@@ -4980,6 +5006,24 @@ function HomePageInner() {
                                 return <div className="flex items-center gap-1 font-mono text-[10px]" title={`Clenow: ${cl.score.toFixed(0)} | Ann: ${cl.annReturn >= 0 ? '+' : ''}${cl.annReturn.toFixed(0)}% | R²: ${cl.r2.toFixed(2)} | ${cl.quality}`}>
                                   <span className="font-bold" style={{color}}>{cl.score.toFixed(0)}</span>
                                   <span className="px-0.5 rounded text-[8px] font-bold" style={{color, borderColor: color, border: '1px solid'}}>{label}</span>
+                                </div>;
+                              })() : col.key === 'monster' ? (() => {
+                                const m = row.monster;
+                                if (!m || m.badges.length === 0) return <span className="text-slate-700">—</span>;
+                                const tipParts = m.badges.map(b => {
+                                  const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
+                                  const label = b.type === 'MOM' ? 'Momentum' : b.type === 'MRV' ? 'Mean Reversion' : 'Breakout';
+                                  const bg = b.type === 'MOM' ? 'bg-emerald' : b.type === 'MRV' ? 'bg-cyan' : 'bg-orange';
+                                  return `<div class="rt-row"><div><span class="rt-badge ${bg}">${emoji} ${label}</span></div><div><div class="rt-desc">${b.details}</div><div class="rt-hit hit-green">${b.probability}% monster probability (>10% MFE in 20d)</div></div></div>`;
+                                }).join('');
+                                return <div className="flex items-center gap-0.5 cursor-help"
+                                  data-tip-html={`<div class="rt-hdr">🔮 Monster Scan — ${row.symbol.replace('.NS','').replace('.BO','')}</div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Grid-searched 22,247 combos on 84,859 data points across 75 stocks. Baseline monster rate: 35.4%</div></div></div>`}>
+                                  {m.badges.map((b, bi) => {
+                                    const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
+                                    const color = b.probability >= 80 ? '#39FF14' : b.probability >= 60 ? '#22d3ee' : '#facc15';
+                                    return <span key={bi} className="text-[9px] font-bold" style={{color}}>{emoji}{b.type}</span>;
+                                  })}
+                                  <span className="text-[8px] ml-0.5" style={{color: m.topProbability >= 80 ? '#39FF14' : '#22d3ee'}}>{m.topProbability}%</span>
                                 </div>;
                               })() : col.key === 'pcaScore' ? (() => {
                                 const pca = pcaMap[row.symbol];

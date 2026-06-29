@@ -81,6 +81,18 @@ export interface AnalysisResult {
   stats: StatsFeatures;
   // Cluster breakdown: conditions met per param set
   clusterBreakdown: ClusterBreakdown;
+  monster: MonsterScan;
+}
+
+export interface MonsterBadge {
+  type: 'MOM' | 'MRV' | 'BRK';
+  probability: number;
+  details: string;
+}
+
+export interface MonsterScan {
+  badges: MonsterBadge[];
+  topProbability: number;
 }
 
 export interface ClusterBreakdown {
@@ -1347,6 +1359,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     nearBreakoutPct: 99, nearBreakout: false,
     stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
     clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
+    monster: { badges: [], topProbability: 0 },
   });
 
   // 1. Guard — early return if insufficient data
@@ -1652,7 +1665,92 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
       ultraSelective: paramSetKey === 'optimized_ultraselective_8plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
       sniper: paramSetKey === 'sniper_95plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
     },
+    monster: { badges: [], topProbability: 0 },
   };
+}
+
+// ─── MONSTER SCAN — Detect >10% MFE probability ─────────────────────────────
+
+export function detectMonster(
+  candles: Array<{ o: number; h: number; l: number; c: number; v: number }>,
+  endIdx: number,
+  result: AnalysisResult
+): MonsterScan {
+  const badges: MonsterBadge[] = [];
+  const sig = candles[endIdx];
+  if (!sig || sig.c <= 0 || endIdx < 50) return { badges, topProbability: 0 };
+
+  const rng = sig.h - sig.l;
+  const atrPct = result.atrPct14;
+
+  // ── 5-day momentum ──
+  const mom5 = endIdx >= 5 ? (sig.c - candles[endIdx - 5].c) / candles[endIdx - 5].c * 100 : 0;
+
+  // ── SMA50 ──
+  let sma50 = 0;
+  if (endIdx >= 49) { let s = 0; for (let j = endIdx - 49; j <= endIdx; j++) s += candles[j].c; sma50 = s / 50; }
+  const aboveSMA50 = sig.c > sma50 && sma50 > 0;
+
+  // ── eRA ──
+  const eRA = result.exactRangeATR14;
+
+  // ── Volume ratio ──
+  const vr = result.volRatio20;
+
+  // ── Swing high distance ──
+  let high50 = 0;
+  for (let j = Math.max(0, endIdx - 50); j < endIdx; j++) { if (candles[j].h > high50) high50 = candles[j].h; }
+  const swingDist = high50 > 0 ? (sig.c - high50) / high50 * 100 : 0;
+
+  // ── Pre-10 vol ratio ──
+  const pre10VR = result.pre10AvgVolRatio;
+
+  // ── RSI-2 ──
+  const rsi2 = result.rsi2;
+
+  // ── Lower wick ──
+  const lowerWick = rng > 0 ? (Math.min(sig.c, sig.o) - sig.l) / rng * 100 : 0;
+
+  // ── Body % ──
+  const bodyPct = result.bodyPct;
+
+  // ── 🚀 MOMENTUM CONTINUATION ──
+  // Sweet spot: Mom5 ≥ 6%, ATR ≥ 8%, eRA ≥ 1.0, VR ≥ 0.8, above SMA50
+  // 90.5% monster rate (21 signals). Balanced: Mom5 ≥ 12%, ATR ≥ 5% → 73.3% (101 signals)
+  if (mom5 >= 6 && atrPct >= 8 && eRA >= 1.0 && vr >= 0.8 && aboveSMA50) {
+    badges.push({ type: 'MOM', probability: 90, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, >SMA50` });
+  } else if (mom5 >= 12 && atrPct >= 5 && eRA >= 2.0 && aboveSMA50) {
+    badges.push({ type: 'MOM', probability: 73, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, >SMA50` });
+  } else if (mom5 >= 8 && atrPct >= 6 && eRA >= 1.5 && aboveSMA50) {
+    badges.push({ type: 'MOM', probability: 53, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, >SMA50` });
+  }
+
+  // ── 🔄 MEAN REVERSION ──
+  // Sweet spot: Swing ≤ -22%, RSI ≤ 25, PreVR ≤ 0.5, LowerWick ≥ 25%
+  // 80% monster rate (20 signals). Balanced: Swing ≤ -22%, RSI ≤ 60, PreVR ≤ 0.5, LW ≥ 25% → 72% (50 signals)
+  if (swingDist <= -22 && rsi2 <= 25 && pre10VR <= 0.5 && lowerWick >= 25) {
+    badges.push({ type: 'MRV', probability: 80, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}, LW ${lowerWick.toFixed(0)}%` });
+  } else if (swingDist <= -22 && rsi2 <= 60 && pre10VR <= 0.5 && lowerWick >= 25) {
+    badges.push({ type: 'MRV', probability: 72, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}, LW ${lowerWick.toFixed(0)}%` });
+  } else if (swingDist <= -20 && rsi2 <= 30 && pre10VR <= 0.7) {
+    badges.push({ type: 'MRV', probability: 66, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}` });
+  } else if (swingDist <= -30 && rsi2 <= 30 && pre10VR <= 1.1) {
+    badges.push({ type: 'MRV', probability: 62, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}` });
+  }
+
+  // ── 💥 BREAKOUT ──
+  // Sweet spot: eRA ≥ 3.0, VR ≥ 4.0, BP ≥ 60, PreVR ≤ 1.0
+  // 60% monster rate (15 signals). Balanced: eRA ≥ 2.0, VR ≥ 4.0, BP ≥ 60, PreVR ≤ 1.0 → 56.2% (73 signals)
+  if (eRA >= 3.0 && vr >= 4.0 && bodyPct >= 60 && pre10VR <= 1.0) {
+    badges.push({ type: 'BRK', probability: 60, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, Body ${bodyPct.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
+  } else if (eRA >= 2.0 && vr >= 4.0 && bodyPct >= 60 && pre10VR <= 1.0) {
+    badges.push({ type: 'BRK', probability: 56, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, Body ${bodyPct.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
+  } else if (eRA >= 2.5 && vr >= 3.0 && result.closeLoc >= 60 && pre10VR <= 1.0) {
+    badges.push({ type: 'BRK', probability: 47, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, CL ${result.closeLoc.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
+  }
+
+  const topProbability = badges.length > 0 ? Math.max(...badges.map(b => b.probability)) : 0;
+  return { badges, topProbability };
 }
 
 // ─── GENERATE DEMO DATA ───────────────────────────────────────────────────────
@@ -1954,6 +2052,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         ultraSelective: { met: Math.round(rnd(seed + 63, isActionable ? 16 : 7, 20)), total: 20 },
         sniper: { met: Math.round(rnd(seed + 64, isActionable ? 17 : 5, 21)), total: 21 },
       },
+      monster: { badges: [], topProbability: 0 },
     });
   }
 
