@@ -82,6 +82,7 @@ export interface AnalysisResult {
   // Cluster breakdown: conditions met per param set
   clusterBreakdown: ClusterBreakdown;
   monster: MonsterScan;
+  dayChangePct: number;
 }
 
 export interface MonsterBadge {
@@ -1360,6 +1361,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
     clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
     monster: { badges: [], topProbability: 0 },
+    dayChangePct: 0,
   });
 
   // 1. Guard — early return if insufficient data
@@ -1666,6 +1668,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
       sniper: paramSetKey === 'sniper_95plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
     },
     monster: { badges: [], topProbability: 0 },
+    dayChangePct: endIdx >= 1 && candles[endIdx - 1].c > 0 ? safe((sig.c - candles[endIdx - 1].c) / candles[endIdx - 1].c * 100) : 0,
   };
 }
 
@@ -2053,6 +2056,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         sniper: { met: Math.round(rnd(seed + 64, isActionable ? 17 : 5, 21)), total: 21 },
       },
       monster: { badges: [], topProbability: 0 },
+      dayChangePct: rnd(seed + 70, -4, 6),
     });
   }
 

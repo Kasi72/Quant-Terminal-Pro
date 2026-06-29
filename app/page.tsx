@@ -477,6 +477,11 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.lastClose > 0 ? r.lastClose.toFixed(2) : '—',
     numVal: r => r.lastClose,
     cellClass: () => 'text-slate-200 font-mono' },
+  { key: 'dayChg', label: 'Chg%', width: 55, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Day Change %</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Today\'s percentage change from previous close. Updates on every rescan/refresh.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">Green</span></div><div><div class="rt-desc">Positive change — price up from previous close</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Red</span></div><div><div class="rt-desc">Negative change — price down from previous close</div></div></div>',
+    fmt: r => r.dayChangePct !== 0 ? `${r.dayChangePct >= 0 ? '+' : ''}${r.dayChangePct.toFixed(1)}%` : '—',
+    numVal: r => r.dayChangePct,
+    cellClass: r => r.dayChangePct > 3 ? 'text-green-300 font-bold font-mono' : r.dayChangePct > 0 ? 'text-emerald-400 font-mono' : r.dayChangePct < -3 ? 'text-red-400 font-bold font-mono' : r.dayChangePct < 0 ? 'text-red-400 font-mono' : 'text-slate-600 font-mono' },
   { key: 'candle',  label: 'Candle',        width: 75,  align: 'center',
     headerTipHtml: '<div class="rt-hdr">Breakout DNA + Onset Candle</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">★ BEST</span></div><div><div class="rt-desc">High-conviction onset: body≥45%, close≥70%, vol≥2.5x, wick≤30%</div><div class="rt-hit hit-green">81.8% hit rate</div></div></div>'
@@ -884,7 +889,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','brain','pcaScore','monster','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -2703,6 +2708,7 @@ function HomePageInner() {
                         },
                         clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
                         monster: { badges: [], topProbability: 0 },
+                        dayChangePct: c.dcp ?? 0,
                       };});
                       setResults(restored); setShowSessions(false);
                     }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
