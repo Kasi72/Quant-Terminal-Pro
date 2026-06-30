@@ -1738,43 +1738,30 @@ export function detectMonster(
   // ── Lower wick ──
   const lowerWick = rng > 0 ? (Math.min(sig.c, sig.o) - sig.l) / rng * 100 : 0;
 
-  // ── Body % ──
-  const bodyPct = result.bodyPct;
+  // ── MONSTER MOVE v2 — OOS-validated on 146,425 points, 455 Nifty 500 stocks ──
+  // Original v1 thresholds (calibrated on 77 stocks, 21/20/15-signal samples)
+  // showed severe overfitting on proper 60/40 train/test validation. v2 uses
+  // ONLY thresholds whose OOS (held-out) win rate stayed close to train rate.
 
   // ── 🚀 MOMENTUM CONTINUATION ──
-  // Sweet spot: Mom5 ≥ 6%, ATR ≥ 8%, eRA ≥ 1.0, VR ≥ 0.8, above SMA50
-  // 90.5% monster rate (21 signals). Balanced: Mom5 ≥ 12%, ATR ≥ 5% → 73.3% (101 signals)
-  if (mom5 >= 6 && atrPct >= 8 && eRA >= 1.0 && vr >= 0.8 && aboveSMA50) {
-    badges.push({ type: 'MOM', probability: 90, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, >SMA50` });
-  } else if (mom5 >= 12 && atrPct >= 5 && eRA >= 2.0 && aboveSMA50) {
-    badges.push({ type: 'MOM', probability: 73, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, >SMA50` });
-  } else if (mom5 >= 8 && atrPct >= 6 && eRA >= 1.5 && aboveSMA50) {
-    badges.push({ type: 'MOM', probability: 53, details: `Mom5 ${mom5.toFixed(1)}%, ATR ${atrPct.toFixed(1)}%, eRA ${eRA.toFixed(1)}, >SMA50` });
+  // Robust filter: Mom5≥7%, eRA≥1.2, VR≥1.0, ATR≥5%, above SMA50
+  // TRAIN 55.3% (338 sig) → TEST/OOS 53.6% (110 sig), only -1.7pp degradation
+  if (mom5 >= 7 && eRA >= 1.2 && vr >= 1.0 && atrPct >= 5 && aboveSMA50) {
+    badges.push({ type: 'MOM', probability: 54, details: `Mom5 ${mom5.toFixed(1)}%, eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, ATR ${atrPct.toFixed(1)}%, >SMA50 — OOS-validated` });
   }
 
-  // ── 🔄 MEAN REVERSION ──
-  // Sweet spot: Swing ≤ -22%, RSI ≤ 25, PreVR ≤ 0.5, LowerWick ≥ 25%
-  // 80% monster rate (20 signals). Balanced: Swing ≤ -22%, RSI ≤ 60, PreVR ≤ 0.5, LW ≥ 25% → 72% (50 signals)
-  if (swingDist <= -22 && rsi2 <= 25 && pre10VR <= 0.5 && lowerWick >= 25) {
-    badges.push({ type: 'MRV', probability: 80, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}, LW ${lowerWick.toFixed(0)}%` });
-  } else if (swingDist <= -22 && rsi2 <= 60 && pre10VR <= 0.5 && lowerWick >= 25) {
-    badges.push({ type: 'MRV', probability: 72, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}, LW ${lowerWick.toFixed(0)}%` });
-  } else if (swingDist <= -20 && rsi2 <= 30 && pre10VR <= 0.7) {
-    badges.push({ type: 'MRV', probability: 66, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}` });
-  } else if (swingDist <= -30 && rsi2 <= 30 && pre10VR <= 1.1) {
-    badges.push({ type: 'MRV', probability: 62, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)}` });
+  // ── 🔄 MEAN REVERSION ── (strongest validated pattern — 2.5x baseline edge)
+  // Robust filter: Swing≤-30%, RSI2≤60, PreVR≤0.3
+  // TRAIN 96.7% (60 sig) → TEST/OOS 88.6% (35 sig), -8.1pp degradation
+  if (swingDist <= -30 && rsi2 <= 60 && pre10VR <= 0.3) {
+    badges.push({ type: 'MRV', probability: 89, details: `Swing ${swingDist.toFixed(0)}%, RSI2 ${rsi2.toFixed(0)}, PreVR ${pre10VR.toFixed(2)} — OOS-validated, strongest pattern` });
   }
 
-  // ── 💥 BREAKOUT ──
-  // Sweet spot: eRA ≥ 3.0, VR ≥ 4.0, BP ≥ 60, PreVR ≤ 1.0
-  // 60% monster rate (15 signals). Balanced: eRA ≥ 2.0, VR ≥ 4.0, BP ≥ 60, PreVR ≤ 1.0 → 56.2% (73 signals)
-  if (eRA >= 3.0 && vr >= 4.0 && bodyPct >= 60 && pre10VR <= 1.0) {
-    badges.push({ type: 'BRK', probability: 60, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, Body ${bodyPct.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
-  } else if (eRA >= 2.0 && vr >= 4.0 && bodyPct >= 60 && pre10VR <= 1.0) {
-    badges.push({ type: 'BRK', probability: 56, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, Body ${bodyPct.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
-  } else if (eRA >= 2.5 && vr >= 3.0 && result.closeLoc >= 60 && pre10VR <= 1.0) {
-    badges.push({ type: 'BRK', probability: 47, details: `eRA ${eRA.toFixed(1)}, VR ${vr.toFixed(1)}x, CL ${result.closeLoc.toFixed(0)}%, PreVR ${pre10VR.toFixed(2)}` });
-  }
+  // ── 💥 BREAKOUT — DEPRECATED ──
+  // Properly stability-optimized, this pattern's best OOS rate (34.4%) converges
+  // to the random baseline (35.0%). It has NO genuine predictive edge — the
+  // original 60-90% claims were pure overfitting on a 15-signal sample.
+  // Badge intentionally NOT emitted. See scripts/monsterRobustFinal.js.
 
   const topProbability = badges.length > 0 ? Math.max(...badges.map(b => b.probability)) : 0;
   return { badges, topProbability };

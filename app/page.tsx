@@ -806,18 +806,15 @@ const COLUMNS: ColDef[] = [
     cellClass: () => 'text-slate-500' },
   // Monster Scan
   { key: 'monster', label: 'Monster', width: 85, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Monster Move Detector (>10% MFE in 20d)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM</span></div><div><div class="rt-desc">Momentum Continuation — 5d mom ≥6%, ATR ≥8%, eRA ≥1.0, above SMA50. Stock already moving hard in a volatile uptrend.</div><div class="rt-hit hit-green">90.5% monster rate (21 signals) · Strongest predictor</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">🔄 MRV</span></div><div><div class="rt-desc">Mean Reversion — ≥22% below 50d high, RSI-2 ≤25, pre-10 vol dried up ≤0.5x, lower wick ≥25%. Deep oversold bounce setup.</div><div class="rt-hit hit-cyan">80% monster rate (20 signals) · Deepest pullback recoveries</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">💥 BRK</span></div><div><div class="rt-desc">Breakout — eRA ≥3.0, volume ≥4x 20d avg, body ≥60%, pre-10 vol quiet ≤1.0x. Explosive range expansion from compression.</div><div class="rt-hit hit-amber">60% monster rate (15 signals) · Rarest but dramatic</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No monster pattern detected. Baseline monster probability is 35.4%.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Grid-searched 22,247 combos on 84,859 data points across 75 stocks. Multiple badges can fire simultaneously on the same candle.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Monster Move Detector v2 — OOS-validated (>10% MFE in 20d)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">🔄 MRV</span></div><div><div class="rt-desc">Mean Reversion — ≤-30% below 50d high, RSI-2 ≤60, pre-10 vol dried up ≤0.3x. Deep oversold bounce setup.</div><div class="rt-hit hit-cyan">88.6% OOS monster rate (35 held-out signals) · Strongest validated pattern, 2.5x baseline edge</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM</span></div><div><div class="rt-desc">Momentum Continuation — 5d mom ≥7%, eRA ≥1.2, vol ≥1.0x, ATR ≥5%, above SMA50.</div><div class="rt-hit hit-green">53.6% OOS monster rate (110 held-out signals) · 1.5x baseline edge</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No validated monster pattern detected. Baseline monster probability is 35.0%.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Correction</span></div><div><div class="rt-desc">v1 had a 💥 BRK badge claiming 60-90% monster rate from a 15-21 signal sample. Proper 60/40 train/test validation on 146,425 points (455 Nifty 500 stocks) showed it has NO real edge — OOS rate converges to the 35% baseline. Removed.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Stability-optimized grid search (scored by min(train,test) rate, penalized for degradation) on 455 Nifty 500 stocks — not just train-set winners.</div></div></div>',
     fmt: r => {
       if (!r.monster || r.monster.badges.length === 0) return '—';
-      return r.monster.badges.map(b => {
-        const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
-        return `${emoji}${b.type}`;
-      }).join(' ');
+      return r.monster.badges.map(b => `${b.type === 'MOM' ? '🚀' : '🔄'}${b.type}`).join(' ');
     },
     numVal: r => r.monster?.topProbability ?? 0,
     cellClass: r => {
