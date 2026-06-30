@@ -83,6 +83,18 @@ export interface AnalysisResult {
   clusterBreakdown: ClusterBreakdown;
   monster: MonsterScan;
   dayChangePct: number;
+  candleDNA: CandleDNA;
+}
+
+export interface CandleDNA {
+  score: number;             // 0-100 composite
+  bodyStrength: number;      // 0-35 — body size relative to ATR
+  wickCleanliness: number;   // 0-35 — lower wick dominant, minimal upper wick
+  rangeExpansion: number;    // 0-30 — eRA-based
+  bodyATR: number;           // raw body/ATR ratio
+  upperToLowerWickRatio: number;
+  marubozuScore: number;     // 100 - (upperWick% + lowerWick%)
+  tier: 'ELITE' | 'STRONG' | 'GOOD' | 'WEAK';
 }
 
 export interface MonsterBadge {
@@ -1362,6 +1374,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
     monster: { badges: [], topProbability: 0 },
     dayChangePct: 0,
+    candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
   });
 
   // 1. Guard — early return if insufficient data
@@ -1669,6 +1682,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     },
     monster: { badges: [], topProbability: 0 },
     dayChangePct: endIdx >= 1 && candles[endIdx - 1].c > 0 ? safe((sig.c - candles[endIdx - 1].c) / candles[endIdx - 1].c * 100) : 0,
+    candleDNA: detectCandleDNA(candles, endIdx, atr14),
   };
 }
 
@@ -1754,6 +1768,65 @@ export function detectMonster(
 
   const topProbability = badges.length > 0 ? Math.max(...badges.map(b => b.probability)) : 0;
   return { badges, topProbability };
+}
+
+// ─── CANDLE DNA SCORE — Deep wick/body/ATR composite ────────────────────────
+// Grid-searched on 19,987 breakout-context candles across 456 Nifty 500 stocks.
+// Winning filter (UL≤0.5, BodyATR≥0.6, Marubozu≥80) produced +2.97% avg 20d
+// return vs +1.66% baseline (+1.31% edge, +2.7pp win rate, 57% vs 54.5%).
+// Strongest individual predictors: bodyATR (r=+0.044), eRA (r=+0.058).
+
+export function detectCandleDNA(
+  candles: Array<{ o: number; h: number; l: number; c: number; v: number }>,
+  endIdx: number,
+  atr14: number
+): CandleDNA {
+  const sig = candles[endIdx];
+  const rng = sig.h - sig.l;
+  if (!sig || rng <= 0 || atr14 <= 0) {
+    return { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' };
+  }
+
+  const bodySize = Math.abs(sig.c - sig.o);
+  const upperWickAbs = sig.h - Math.max(sig.c, sig.o);
+  const lowerWickAbs = Math.min(sig.c, sig.o) - sig.l;
+  const upperWickPct = upperWickAbs / rng * 100;
+  const lowerWickPct = lowerWickAbs / rng * 100;
+
+  const bodyATR = bodySize / atr14;
+  const eRA = rng / atr14;
+  const upperToLowerWickRatio = lowerWickAbs > 0.001 ? upperWickAbs / lowerWickAbs : (upperWickAbs > 0.001 ? 99 : 1);
+  const marubozuScore = Math.max(0, 100 - (upperWickPct + lowerWickPct));
+
+  // ── Body Strength (0-35): body size relative to ATR — conviction measure ──
+  // Backtest: bodyATR <0.3 was NEGATIVE (-0.71% avg20d). 1.5-2.5 was best (+2.48%).
+  let bodyStrength = 0;
+  if (bodyATR >= 1.5) bodyStrength = 35;
+  else if (bodyATR >= 1.0) bodyStrength = 26;
+  else if (bodyATR >= 0.6) bodyStrength = 16;
+  else if (bodyATR >= 0.3) bodyStrength = 6;
+
+  // ── Wick Cleanliness (0-35): lower wick dominant + minimal total wick ──
+  // Backtest winning filter: UL ratio ≤0.5, Marubozu ≥80
+  let wickCleanliness = 0;
+  if (upperToLowerWickRatio <= 0.5) wickCleanliness += 18;
+  else if (upperToLowerWickRatio <= 1.0) wickCleanliness += 11;
+  else if (upperToLowerWickRatio <= 2.0) wickCleanliness += 5;
+  if (marubozuScore >= 80) wickCleanliness += 17;
+  else if (marubozuScore >= 70) wickCleanliness += 11;
+  else if (marubozuScore >= 55) wickCleanliness += 5;
+
+  // ── Range Expansion (0-30): eRA — strongest correlated predictor (r=+0.058) ──
+  let rangeExpansion = 0;
+  if (eRA >= 2.0) rangeExpansion = 30;
+  else if (eRA >= 1.5) rangeExpansion = 22;
+  else if (eRA >= 1.0) rangeExpansion = 13;
+  else if (eRA >= 0.6) rangeExpansion = 5;
+
+  const score = Math.min(100, bodyStrength + wickCleanliness + rangeExpansion);
+  const tier: CandleDNA['tier'] = score >= 75 ? 'ELITE' : score >= 55 ? 'STRONG' : score >= 35 ? 'GOOD' : 'WEAK';
+
+  return { score, bodyStrength, wickCleanliness, rangeExpansion, bodyATR: safe(bodyATR), upperToLowerWickRatio: safe(upperToLowerWickRatio), marubozuScore: safe(marubozuScore), tier };
 }
 
 // ─── GENERATE DEMO DATA ───────────────────────────────────────────────────────
@@ -2057,6 +2130,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
       },
       monster: { badges: [], topProbability: 0 },
       dayChangePct: rnd(seed + 70, -4, 6),
+      candleDNA: { score: Math.round(rnd(seed + 71, isActionable ? 50 : 15, isActionable ? 95 : 60)), bodyStrength: Math.round(rnd(seed + 72, 0, 35)), wickCleanliness: Math.round(rnd(seed + 73, 0, 35)), rangeExpansion: Math.round(rnd(seed + 74, 0, 30)), bodyATR: rnd(seed + 75, 0.3, 2.0), upperToLowerWickRatio: rnd(seed + 76, 0.2, 2.0), marubozuScore: rnd(seed + 77, 40, 95), tier: isActionable ? 'STRONG' : 'GOOD' },
     });
   }
 

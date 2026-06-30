@@ -809,6 +809,24 @@ const COLUMNS: ColDef[] = [
              top >= 60 ? 'text-cyan-300 font-semibold bg-cyan-900/20 px-1 rounded' :
              top >= 50 ? 'text-amber-300 bg-amber-900/15 px-1 rounded' : 'text-slate-400';
     } },
+  // Candle DNA Score
+  { key: 'candleDNA', label: 'DNA', width: 60, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Candle DNA Score — Deep Wick/Body/ATR Analysis</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (75+)</span></div><div><div class="rt-desc">Body/ATR ≥1.5, Upper:Lower wick ≤0.5, Marubozu ≥80, eRA ≥2.0. The cleanest, most decisive breakout candle shape.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (55-74)</span></div><div><div class="rt-desc">Good body conviction with clean wick structure — minimal selling rejection at the top.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">GOOD (35-54)</span></div><div><div class="rt-desc">Average candle quality — acceptable but not exceptional.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;35)</span></div><div><div class="rt-desc">Small body relative to ATR or significant wick rejection. Avoid sizing up on these.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components</span></div><div><div class="rt-desc">Body Strength (0-35): body/ATR conviction. Wick Cleanliness (0-35): lower-wick-dominant + minimal total wick. Range Expansion (0-30): today\'s range vs ATR.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">Grid-searched on 19,987 breakout candles, 456 stocks. Winning filter (UL≤0.5, BodyATR≥0.6, Marubozu≥80): +2.97% avg 20d return vs +1.66% baseline, 57% vs 54.5% win rate.</div></div></div>',
+    fmt: r => r.candleDNA ? String(Math.round(r.candleDNA.score)) : '—',
+    numVal: r => r.candleDNA?.score ?? 0,
+    cellClass: r => {
+      if (!r.candleDNA) return 'text-slate-700';
+      const t = r.candleDNA.tier;
+      return t === 'ELITE' ? 'text-green-300 font-bold bg-green-900/30 px-1.5 rounded' :
+             t === 'STRONG' ? 'text-cyan-300 font-semibold bg-cyan-900/20 px-1.5 rounded' :
+             t === 'GOOD' ? 'text-amber-400 px-1.5' : 'text-slate-600';
+    } },
   // v7.3 columns
   { key: 'nearBrk', label: 'Near BRK', width: 72, align: 'center',
     fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
@@ -906,10 +924,10 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
-  momentum: new Set(['symbol','stage','brain','pcaScore','monster','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  momentum: new Set(['symbol','stage','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
   all: new Set(/* all keys — handled below */),
 };
@@ -2743,6 +2761,7 @@ function HomePageInner() {
                         clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
                         monster: { badges: [], topProbability: 0 },
                         dayChangePct: c.dcp ?? 0,
+                        candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
                       };});
                       setResults(restored); setShowSessions(false);
                     }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
