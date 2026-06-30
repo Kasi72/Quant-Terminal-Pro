@@ -765,58 +765,74 @@ function computeCQS(
 }
 
 // ─── INFLECTION SCORE ─────────────────────────────────────────────────────────
+// margin-based credit: how far PAST a threshold a value is, not just whether
+// it cleared the threshold. `span` is the distance above/below the threshold
+// that earns full credit (e.g. 2x the min ratio, or the room up to a 0-100 cap).
+function marginUp(value: number, min: number, span: number): number {
+  if (span <= 0) return value >= min ? 1 : 0;
+  return clamp((value - min) / span, 0, 1);
+}
+function marginDown(value: number, max: number, span: number): number {
+  if (span <= 0) return value <= max ? 1 : 0;
+  return clamp((max - value) / span, 0, 1);
+}
 
+// Stage classification (see call site) only reaches this scorer once EVERY
+// gating condition (preCondsMet && breakoutOk && exactCondsMet) is already
+// true. The old implementation awarded flat full credit for each condition
+// the moment it passed — but since all of them are guaranteed true here,
+// that guaranteed a score FLOOR of ~82/100, above the ULTRA_STRONG_BUY
+// cutoff (75) on every single signal that reached this branch. BUY (45-60)
+// and STRONG_BUY (60-75) were mathematically unreachable: every signal that
+// got this far scored 82-100 and landed in ULTRA_STRONG_BUY regardless of
+// how marginally it cleared each gate. Replaced with continuous margin
+// credit — barely-clearing-the-bar signals now score near the floor,
+// comfortably-clearing signals score in the middle, and only genuinely
+// exceptional signals (well past every threshold) reach 75+.
 function computeInflectionScore(
   zone: ZoneInfo | null,
   params: ParamSet,
-  pre10RangeOk: boolean,
-  pre10VolOk: boolean,
-  pre5VolOk: boolean,
-  pre10RedBiasOk: boolean,
   breakoutOk: boolean,
-  exactRangeOk: boolean,
-  exactVolOk: boolean,
-  exactVolPre5Ok: boolean,
-  closeLocOk: boolean,
-  wickOk: boolean,
-  bodyOk: boolean,
-  riskOk: boolean,
-  upsOk: boolean,
-  rsi2Ok: boolean,
-  volExpOk: boolean,
-  cqsOk: boolean
+  pre10AvgRangeATR: number, pre10AvgVolRatio: number, pre5AvgVolRatio: number, pre10RedVolBias: number,
+  exactRangeATR14: number, exactVolRatio20: number, exactVolVsPre5: number,
+  closeLoc: number, upperWickPct: number, bodyPct: number, signalRangePct: number,
+  ultraPrecisionScore: number, rsi2: number, volatilityExpansionRatio: number, candleQualityScore: number
 ): number {
   let score = 0;
 
-  // Compression (30 pts)
+  // Compression (30 pts) — zone existence/breakout are gated true by the
+  // time we're here; only tightness and zone length carry real variance.
   if (zone) {
-    score += 10;
-    if (zone.windowLength >= params.minZoneLen) score += 5;
-    if (zone.zoneTightnessPct <= 8) score += 10;
-    else if (zone.zoneTightnessPct <= 12) score += 5;
+    score += 5;
+    score += marginUp(zone.windowLength, params.minZoneLen, params.minZoneLen) * 5;
+    score += marginDown(zone.zoneTightnessPct, params.maxZoneTightnessPct, params.maxZoneTightnessPct) * 15;
   }
   if (breakoutOk) score += 5;
 
-  // Pre-conditions (20 pts)
-  if (pre10RangeOk) score += 5;
-  if (pre10VolOk) score += 5;
-  if (pre5VolOk) score += 5;
-  if (pre10RedBiasOk) score += 5;
+  // Pre-conditions (20 pts) — continuous margin below each max threshold
+  score += marginDown(pre10AvgRangeATR, params.maxPre10AvgRangeATR, params.maxPre10AvgRangeATR) * 5;
+  score += marginDown(pre10AvgVolRatio, params.maxPre10AvgVolRatio, params.maxPre10AvgVolRatio) * 5;
+  score += marginDown(pre5AvgVolRatio, params.maxPre5AvgVolRatio, params.maxPre5AvgVolRatio) * 5;
+  score += marginDown(pre10RedVolBias, params.maxPre10RedVolBias, params.maxPre10RedVolBias) * 5;
 
-  // Candle Quality (30 pts)
-  if (exactRangeOk) score += 5;
-  if (exactVolOk) score += 5;
-  if (exactVolPre5Ok) score += 5;
-  if (closeLocOk) score += 5;
-  if (wickOk) score += 3;
-  if (bodyOk) score += 2;
-  if (riskOk) score += 5;
+  // Candle Quality (30 pts) — continuous margin above each min threshold
+  score += marginUp(exactRangeATR14, params.minExactRangeATR14, params.minExactRangeATR14) * 5;
+  score += marginUp(exactVolRatio20, params.minExactVolRatio20, params.minExactVolRatio20) * 5;
+  score += marginUp(exactVolVsPre5, params.minExactVolVsPre5, params.minExactVolVsPre5) * 5;
+  score += marginUp(closeLoc, params.minCloseLoc, 100 - params.minCloseLoc) * 5;
+  score += marginDown(upperWickPct, params.maxUpperWickPct, params.maxUpperWickPct) * 3;
+  score += marginUp(bodyPct, params.minBodyPct, 100 - params.minBodyPct) * 2;
+  score += marginDown(signalRangePct, params.maxCandleRisk, params.maxCandleRisk) * 5;
 
   // Precision (20 pts)
-  if (upsOk) score += 8;
-  if (rsi2Ok) score += 4;
-  if (params.minVolatilityExpansionRatio !== null && volExpOk) score += 4;
-  if (params.minCandleQualityScore !== null && cqsOk) score += 4;
+  score += marginUp(ultraPrecisionScore, params.minUltraPrecisionScore, 100 - params.minUltraPrecisionScore) * 8;
+  score += marginUp(rsi2, params.minRSI2, 100 - params.minRSI2) * 4;
+  if (params.minVolatilityExpansionRatio !== null) {
+    score += marginUp(volatilityExpansionRatio, params.minVolatilityExpansionRatio, params.minVolatilityExpansionRatio) * 4;
+  }
+  if (params.minCandleQualityScore !== null) {
+    score += marginUp(candleQualityScore, params.minCandleQualityScore, 100 - params.minCandleQualityScore) * 4;
+  }
 
   return clamp(score, 0, 100);
 }
@@ -1552,10 +1568,11 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
 
   // 18. inflectionScore
   const inflectionScore = computeInflectionScore(
-    zone, params,
-    pre10RangeOk, pre10VolOk, pre5VolOk, pre10RedBiasOk, breakoutOk,
-    exactRangeOk, exactVolOk, exactVolPre5Ok, closeLocOk, wickOk, bodyOk, riskOk,
-    upsOk, rsi2Ok, volExpOk, cqsOk
+    zone, params, breakoutOk,
+    pre10AvgRangeATR, pre10AvgVolRatio, pre5AvgVolRatio, pre10RedVolBias,
+    exactRangeATR14, exactVolRatio20, exactVolVsPre5,
+    closeLoc, upperWickPct, bodyPct, signalRangePct,
+    ultraPrecisionScore, rsi2, volatilityExpansionRatio, candleQualityScore
   );
 
   // 19. Stage determination
