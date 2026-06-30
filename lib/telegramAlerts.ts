@@ -71,8 +71,11 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
     const t2Pct = pe.plannedEntry > 0 ? ((pe.target7 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
     const t3Pct = pe.plannedEntry > 0 ? ((pe.target10 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
 
-    const rp = pe.plannedEntry > 0 ? ((pe.plannedEntry - pe.tacticalStop) / pe.plannedEntry * 100) : 0;
-    const verdict = (pe.rewardRisk >= 0.8 && pe.rewardRisk <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (pe.rewardRisk >= 0.6 && pe.rewardRisk <= 2.0) ? 'Good' : pe.rewardRisk >= 0.4 ? 'Fair' : 'Weak';
+    // Verdict v2 — R:R vs outcome is U-shaped (re-derived on 2,914 trades, 456 stocks):
+    // Elite=RR>=1.5 (67.6% WR, +3.27% avg), Good=RR 0.6-0.8 or 1.0-1.5,
+    // Weak=RR 0.8-1.0 (validated dead zone), Fair=RR<0.6 (sparse data)
+    const rr = pe.rewardRisk;
+    const verdict = rr <= 0 ? '—' : rr >= 1.5 ? 'Elite' : ((rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5)) ? 'Good' : (rr >= 0.8 && rr < 1.0) ? 'Weak' : 'Fair';
 
     let msg = `🟢 <b>NEW BUY SIGNAL</b>\n\n`;
     msg += `<b>${sym}</b> — ${stageLabel}\n`;

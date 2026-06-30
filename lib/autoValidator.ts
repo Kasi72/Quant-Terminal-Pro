@@ -97,9 +97,9 @@ export function validateTrade(
 
         // GATE 1: RSI-2 Oversold
         if (!blocked) {
-          // G1 RSI threshold: 5 optimal (was 8) — stricter, only deepest oversold
-          entry.gatesTested.push({ gate: 'G1 RSI Oversold', passed: rsi2 >= 5, reason: rsi2 < 5 ? `RSI-2 = ${rsi2.toFixed(0)} — deep capitulation` : `RSI-2 = ${rsi2.toFixed(0)}` });
-          if (rsi2 < 5) { blocked = true; entry.result = 'SHIELDED'; }
+          // G1 RSI threshold: 20 optimal (grid-searched on Nifty 500, was 5)
+          entry.gatesTested.push({ gate: 'G1 RSI Oversold', passed: rsi2 >= 20, reason: rsi2 < 20 ? `RSI-2 = ${rsi2.toFixed(0)} — deep capitulation` : `RSI-2 = ${rsi2.toFixed(0)}` });
+          if (rsi2 < 20) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
         // GATE 2: Smart 2-Day Confirmation
@@ -112,7 +112,8 @@ export function validateTrade(
             if (candlesSinceEntry[vi]?.v != null && (candlesSinceEntry[vi].v ?? 0) > 0) { avgVol += candlesSinceEntry[vi].v!; volCount++; }
           }
           avgVol = volCount > 0 ? avgVol / volCount : 0;
-          const lowVol = candle.v != null && avgVol > 0 && candle.v < avgVol * 0.6;
+          // G2 volume mult: 0.8 optimal (grid-searched on Nifty 500, was 0.6)
+          const lowVol = candle.v != null && avgVol > 0 && candle.v < avgVol * 0.8;
           if (prevAbove) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'First day below — wait' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (stabilizing) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday' }); blocked = true; entry.result = 'SHIELDED'; }
           else if (lowVol) { entry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Low volume — retail noise' }); blocked = true; entry.result = 'SHIELDED'; }
@@ -133,10 +134,10 @@ export function validateTrade(
           if (greenRecov) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
-        // GATE 5: Close Position — grid-searched: 45% optimal (was 35%)
+        // GATE 5: Close Position — grid-searched: 50% optimal on Nifty 500 (was 45%)
         if (!blocked) {
-          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 45, reason: closeLoc >= 45 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 45% — not weak enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
-          if (closeLoc >= 45) { blocked = true; entry.result = 'SHIELDED'; }
+          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 50, reason: closeLoc >= 50 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 50% — not weak enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
+          if (closeLoc >= 50) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
         // GATE 6: OBV Declining

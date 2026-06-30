@@ -259,6 +259,23 @@ function detectFlagOverlay(r: AnalysisResult, candles: Candle[]): { hasFlag: boo
   return null;
 }
 
+// Trade Verdict v2 — re-derived on 2,914 completed trades, 456 Nifty 500 stocks.
+// R:R vs outcome is U-shaped: Elite=RR≥1.5 (67.6% WR, +3.27% avg), Good=RR 0.6-0.8
+// or 1.0-1.5, Weak=RR 0.8-1.0 (validated dead zone, 58-60% WR), Fair=RR<0.6 (sparse).
+function rrVerdict(rr: number): 'Elite' | 'Good' | 'Fair' | 'Weak' | '—' {
+  if (rr <= 0) return '—';
+  if (rr >= 1.5) return 'Elite';
+  if ((rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5)) return 'Good';
+  if (rr >= 0.8 && rr < 1.0) return 'Weak';
+  return 'Fair';
+}
+function rrVerdictColor(rr: number): string {
+  if (rr >= 1.5) return 'text-green-300';
+  if ((rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5)) return 'text-emerald-400';
+  if (rr >= 0.8 && rr < 1.0) return 'text-orange-400';
+  return 'text-yellow-300';
+}
+
 // Volume Thrust Badge (backtested on 29 OHLCV files — 66.28% hit rate for +5% moves)
 type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
 function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
@@ -573,34 +590,34 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
   { key: 'pe_risk',   label: 'Risk%',        width: 68,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Risk % (Stop Distance)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">4.0-5.5%</span></div><div><div class="rt-desc">Sweet spot — survives normal noise, not too wide. Risk 6.5-7% has highest WR (43.8%) but wider losses.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">5.5-6.5%</span></div><div><div class="rt-desc">Acceptable — wider stop gives more room but larger loss if hit.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;4% or &gt;6.5%</span></div><div><div class="rt-desc">Outside optimal range — clamped to [4%, 6.5%] by the engine.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [4%, 6.5%]. CLOSE-ONLY trigger — wicks ignored.</div><div class="rt-hit hit-green">Grid-searched: [4,6.5] optimal on 14,445 signals</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Risk % (Stop Distance) v2</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">4.5-5.5%</span></div><div><div class="rt-desc">Sweet spot — best single-factor bucket backtested (5-5.5%: 68.5% WR, +1.52% avg P&L).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">3.5-4.5% or 5.5-6.5%</span></div><div><div class="rt-desc">Acceptable — slightly off the sweet spot but still tradeable.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;3.5% or &gt;6.5%</span></div><div><div class="rt-desc">Outside the validated range — clamped to [4%, 6.5%] by the engine regardless.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [4%, 6.5%]. CLOSE-ONLY trigger — wicks ignored.</div><div class="rt-hit hit-green">Re-validated on 2,914 completed trades, 456 Nifty 500 stocks</div></div></div>',
     fmt: r => r.priceEngine.tacticalRiskPct > 0 ? r.priceEngine.tacticalRiskPct.toFixed(2) + '%' : '—',
     numVal: r => r.priceEngine.tacticalRiskPct,
-    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 4 && rk <= 5.5 ? 'text-green-300 font-bold' : rk <= 6.5 ? 'text-yellow-300' : 'text-orange-400'; } },
+    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 4.5 && rk <= 5.5 ? 'text-green-300 font-bold' : (rk >= 3.5 && rk < 4.5) || (rk > 5.5 && rk <= 6.5) ? 'text-yellow-300' : 'text-orange-400'; } },
   { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">0.8-1.3</span></div><div><div class="rt-desc">Sweet spot — target is reachable, stop has room to breathe. 48.3% WR backtested.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">0.6-0.8</span></div><div><div class="rt-desc">Decent — slightly below optimal but still tradeable.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">&gt;1.5</span></div><div><div class="rt-desc">Looks good on paper but means TIGHT stop — gets triggered by normal noise. WR drops to 31%.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;0.5</span></div><div><div class="rt-desc">Poor — risking too much for too little reward.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">Higher R:R ≠ better. R:R 0.7-0.9 has 43.6% WR vs R:R 1.2+ has only 31.5% WR. Correlation: R:R vs Win = -0.08 (negative).</div><div class="rt-hit hit-cyan">Grid-searched on 33,600 combos × 14,445 signals</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio v2</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥1.5</span></div><div><div class="rt-desc">BEST tier — 67.6% WR, +3.27% avg P&L, 53.5% T3-hit rate. High-ATR setups with room to run.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">0.6-0.8</span></div><div><div class="rt-desc">Also strong — 65-69% WR, +0.7-1.0% avg. Tight target, quick wins.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">1.0-1.5</span></div><div><div class="rt-desc">Moderate — 60-62% WR, +0.65-0.82% avg. Bulk of trades fall here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">0.8-1.0</span></div><div><div class="rt-desc">DEAD ZONE — validated worst tier: 58-60% WR, near-zero or NEGATIVE avg P&L (-0.09% at 0.8-0.9).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">R:R vs outcome is U-shaped, NOT linear — both low (0.6-0.8) and high (≥1.5) R:R outperform the 0.8-1.0 middle zone.</div><div class="rt-hit hit-cyan">Re-derived on 2,914 trades, 456 Nifty 500 stocks</div></div></div>',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 0.8 && rr <= 1.3 ? 'text-green-300 font-bold' : rr >= 0.6 && rr <= 2.0 ? 'text-emerald-400' : rr >= 0.4 ? 'text-yellow-300' : 'text-red-500'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.5 ? 'text-green-300 font-bold' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'text-emerald-400' : rr >= 0.8 && rr < 1.0 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Trade Verdict</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 0.8-1.3 + Risk 4-6.5%. Sweet spot — stop survives noise, target is reachable.</div><div class="rt-hit hit-green">48.3% WR backtested · Best expectancy zone</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 0.6-0.8 OR R:R 1.3-2.0. Decent setup, slightly off optimal.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R 0.4-0.6 OR R:R &gt;2.0. Marginal — stop too tight or target too distant.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R &lt;0.4. Poor risk-reward — risking too much for too little gain.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Note</span></div><div><div class="rt-desc">R:R 0.7-0.9 has highest WR (43.6%). Very high R:R (&gt;2) means tight stop = more shakeouts. Grid-searched on 33,600 combos.</div></div></div>',
-    fmt: r => { const rr = r.priceEngine.rewardRisk; const rp = r.priceEngine.tacticalRiskPct || 0; return (rr >= 0.8 && rr <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (rr >= 0.6 && rr <= 2.0) ? 'Good' : (rr >= 0.4) ? 'Fair' : rr > 0 ? 'Weak' : '—'; },
+    headerTipHtml: '<div class="rt-hdr">Trade Verdict v2</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R ≥ 1.5. Validated best avg P&L tier.</div><div class="rt-hit hit-green">67.6% WR, +3.27% avg P&L, 53.5% T3-hit · 456-stock backtest</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 0.6-0.8 (tight, fast wins) OR R:R 1.0-1.5 (bulk of trades). 60-69% WR range.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.6. Sparse data range — conservatively rated.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8-1.0. Validated DEAD ZONE — worst avg P&L of any band (58-60% WR, near-zero/negative).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Note</span></div><div><div class="rt-desc">Replaces the old monotonic assumption (higher R:R = worse). Real relationship is U-shaped — re-derived on 2,914 completed trades.</div></div></div>',
+    fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 1.5 ? 'Elite' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'Good' : (rr >= 0.8 && rr < 1.0) ? 'Weak' : 'Fair'; },
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; const rp = r.priceEngine.tacticalRiskPct || 0; return (rr >= 0.8 && rr <= 1.3 && rp >= 4 && rp <= 6.5) ? 'text-green-300 font-bold' : (rr >= 0.6 && rr <= 2.0) ? 'text-emerald-400 font-semibold' : (rr >= 0.4) ? 'text-yellow-300' : 'text-red-500'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.5 ? 'text-green-300 font-bold' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'text-emerald-400 font-semibold' : (rr >= 0.8 && rr < 1.0) ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_t1',     label: 'T1 ₹',         width: 85,  align: 'right',
     fmt: r => r.priceEngine.target5 > 0 ? r.priceEngine.target5.toFixed(2) : '—',
     numVal: r => r.priceEngine.target5,
@@ -3225,8 +3242,8 @@ function HomePageInner() {
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{(capital / 1000).toFixed(0)}K</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{maxRisk.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-300 font-mono">₹{r.priceEngine.target5.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : r.priceEngine.rewardRisk >= 0.4 ? 'text-yellow-300' : 'text-red-500'}`}>{r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'Elite' : r.priceEngine.rewardRisk >= 0.6 ? 'Good' : r.priceEngine.rewardRisk >= 0.4 ? 'Fair' : 'Weak'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{rrVerdict(r.priceEngine.rewardRisk)}</td>
                           <td className={`px-2 py-1.5 text-center font-semibold ${computeConviction(r) >= 60 ? 'text-yellow-300' : 'text-slate-400'}`}>{computeConviction(r)}</td>
                         </tr>
                       );
@@ -3992,7 +4009,7 @@ function HomePageInner() {
                         <span className="font-mono text-slate-200 font-semibold w-24">{s.symbol.replace('.NS', '').replace('.BO', '')}</span>
                         <span className="text-slate-500 w-10">{s.sector || '—'}</span>
                         <span className="text-slate-400">Conv {s.conviction}</span>
-                        <span className={`${s.rewardRisk >= 0.8 && s.rewardRisk <= 1.3 ? 'text-green-300' : s.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>R:R {s.rewardRisk.toFixed(1)}</span>
+                        <span className={rrVerdictColor(s.rewardRisk)}>R:R {s.rewardRisk.toFixed(1)}</span>
                         <span className="text-slate-500">RS {s.rsRank}</span>
                         <span className="ml-auto text-slate-400 font-mono">{s.weight.toFixed(0)}%</span>
                       </div>
@@ -4934,8 +4951,8 @@ function HomePageInner() {
                           </div>
                           <div className="px-3 py-2">
                             <div className="text-slate-500">R:R</div>
-                            <div className={`font-mono font-bold ${r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>{r.priceEngine.rewardRisk.toFixed(2)}</div>
-                            <div className={`text-[10px] ${r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-400' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-300' : 'text-yellow-200'}`}>{r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'Elite' : r.priceEngine.rewardRisk >= 0.6 ? 'Good' : r.priceEngine.rewardRisk >= 0.4 ? 'Fair' : 'Weak'}</div>
+                            <div className={`font-mono font-bold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{r.priceEngine.rewardRisk.toFixed(2)}</div>
+                            <div className={`text-[10px] ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{rrVerdict(r.priceEngine.rewardRisk)}</div>
                           </div>
                         </div>
 
@@ -5035,7 +5052,7 @@ function HomePageInner() {
               <span className="text-slate-600">·</span>
               <span className="text-slate-400">Best: <span className="text-slate-200 font-semibold">{best.symbol.replace('.NS','').replace('.BO','')}</span></span>
               <span className="text-slate-400">Conv <span className="text-yellow-300 font-bold">{computeConviction(best)}</span></span>
-              <span className="text-slate-400">R:R <span className={`font-bold ${best.priceEngine.rewardRisk >= 0.8 && best.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : best.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300'}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
+              <span className="text-slate-400">R:R <span className={`font-bold ${rrVerdictColor(best.priceEngine.rewardRisk)}`}>{best.priceEngine.rewardRisk.toFixed(2)}</span></span>
               {badges && <span className="text-[10px] text-emerald-500">{badges}</span>}
               <span className="text-slate-600 ml-auto">{results.length} scanned</span>
             </div>;
@@ -5305,7 +5322,7 @@ function HomePageInner() {
                     { label: 'Entry ₹', fn: (r: AnalysisResult) => r.priceEngine.plannedEntry.toFixed(2), color: () => 'text-slate-200' },
                     { label: 'Stop ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-red-400' },
                     { label: 'T1 ₹', fn: (r: AnalysisResult) => r.priceEngine.target5.toFixed(2), color: () => 'text-emerald-400' },
-                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => r.priceEngine.rewardRisk >= 0.8 && r.priceEngine.rewardRisk <= 1.3 ? 'text-green-300' : r.priceEngine.rewardRisk >= 0.6 ? 'text-emerald-400' : 'text-yellow-300' },
+                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => rrVerdictColor(r.priceEngine.rewardRisk) },
                     { label: 'Risk%', fn: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct.toFixed(1) + '%', color: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct <= 2 ? 'text-emerald-400' : 'text-amber-400' },
                     { label: 'RS Rank', fn: (r: AnalysisResult) => String(rsData.get(r.symbol)?.rsRank ?? '—'), color: (r: AnalysisResult) => (rsData.get(r.symbol)?.rsRank ?? 0) >= 70 ? 'text-emerald-400' : 'text-slate-400' },
                     { label: 'Candle', fn: (r: AnalysisResult) => r.stats?.candlePatternFull ?? '—', color: (r: AnalysisResult) => r.stats?.candlePatternType === 'bullish' ? 'text-emerald-400' : 'text-slate-400' },
@@ -5468,8 +5485,7 @@ function HomePageInner() {
                     const stage = STAGE_CONFIG[selectedResult.stage].label;
                     const pe = selectedResult.priceEngine;
                     const conv = computeConviction(selectedResult);
-                    const rp = pe.plannedEntry > 0 ? ((pe.plannedEntry - pe.tacticalStop) / pe.plannedEntry * 100) : 0;
-                    const verdict = (pe.rewardRisk >= 0.8 && pe.rewardRisk <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (pe.rewardRisk >= 0.6 && pe.rewardRisk <= 2.0) ? 'Good' : pe.rewardRisk >= 0.4 ? 'Fair' : 'Weak';
+                    const verdict = rrVerdict(pe.rewardRisk);
                     const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v9.0`;
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
