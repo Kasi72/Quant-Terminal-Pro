@@ -440,8 +440,20 @@ const COLUMNS: ColDef[] = [
     numVal: r => computeConviction(r),
     cellClass: () => '' },
   { key: 'stage',     label: 'Stage',       width: 155, align: 'left',
-    fmt: r => STAGE_CONFIG[r.stage].label,
-    cellClass: r => STAGE_CONFIG[r.stage].color + ' font-semibold' },
+    headerTipHtml: '<div class="rt-hdr">Stage</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Zone-breakout classification: compression detected, then graded by how cleanly it broke out.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM Alert</span></div><div><div class="rt-desc">Independent of stage. The zone engine misses ~70% of real monster moves (PBFB forensic backtest, 3,102 events) because they\'re momentum-continuation on already-elevated-volatility stocks, not quiet compression. A 🚀MOM tag can appear on ANY stage, including NO_SIGNAL — it means a different, separately-validated pattern fired: Mom5≥7%, eRA≥1.2, Vol≥1.0x, ATR≥5%, above SMA50.</div><div class="rt-hit hit-green">53.6% OOS hit rate vs 35% baseline · use the MOM Alert quick filter to surface all of these at once</div></div></div>',
+    fmt: r => {
+      const hasMom = !!r.monster?.badges?.some(b => b.type === 'MOM');
+      return STAGE_CONFIG[r.stage].label + (hasMom ? ' 🚀MOM' : '');
+    },
+    cellClass: r => {
+      const hasMom = !!r.monster?.badges?.some(b => b.type === 'MOM');
+      if (hasMom && (r.stage === 'NO_SIGNAL' || r.stage === 'COMPRESSION_WATCH' || r.stage === 'EARLY_INFLECTION')) {
+        return 'text-orange-300 font-bold animate-pulse';
+      }
+      return STAGE_CONFIG[r.stage].color + ' font-semibold';
+    } },
   { key: 'inflectionScore', label: 'Infl.Score', width: 90, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Inflection Score (0-100)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Measures how close the stock is to a TURNING POINT — the moment compression transitions into a breakout. Like a pressure gauge for stored energy.</div></div></div>'
@@ -2525,7 +2537,7 @@ function HomePageInner() {
         {/* Group 4: Quick filters */}
         <div className="flex items-center gap-1 shrink-0">
           {results.length > 0 && (() => {
-            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan' };
+            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan', momAlert: 'orange' };
             return QUICK_FILTERS.map(qf => (
               <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
                 data-tip={qf.description} data-tip-color={qfColors[qf.key] ?? 'blue'}

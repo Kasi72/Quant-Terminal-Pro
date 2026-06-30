@@ -1,0 +1,116 @@
+═══════════════════════════════════════════════════════════════════════════════
+  POST-BREAKOUT FORENSIC BACKTEST — does the screener see monster moves coming?
+═══════════════════════════════════════════════════════════════════════════════
+
+Scanning 469 Nifty 500 stocks for genuine monster-move breakout candles...
+
+Found 3102 genuine monster-move breakout events (>=7% close-to-close, >=3x avg volume)
+
+  ...processed 50/3102 events
+  ...processed 100/3102 events
+  ...processed 150/3102 events
+  ...processed 200/3102 events
+  ...processed 250/3102 events
+  ...processed 300/3102 events
+  ...processed 350/3102 events
+  ...processed 400/3102 events
+  ...processed 450/3102 events
+  ...processed 500/3102 events
+  ...processed 550/3102 events
+  ...processed 600/3102 events
+  ...processed 650/3102 events
+  ...processed 700/3102 events
+  ...processed 750/3102 events
+  ...processed 800/3102 events
+  ...processed 850/3102 events
+  ...processed 900/3102 events
+  ...processed 950/3102 events
+  ...processed 1000/3102 events
+  ...processed 1050/3102 events
+  ...processed 1100/3102 events
+  ...processed 1150/3102 events
+  ...processed 1200/3102 events
+  ...processed 1250/3102 events
+  ...processed 1300/3102 events
+  ...processed 1350/3102 events
+  ...processed 1400/3102 events
+  ...processed 1450/3102 events
+  ...processed 1500/3102 events
+  ...processed 1550/3102 events
+  ...processed 1600/3102 events
+  ...processed 1650/3102 events
+  ...processed 1700/3102 events
+  ...processed 1750/3102 events
+  ...processed 1800/3102 events
+  ...processed 1850/3102 events
+  ...processed 1900/3102 events
+  ...processed 1950/3102 events
+  ...processed 2000/3102 events
+  ...processed 2050/3102 events
+  ...processed 2100/3102 events
+  ...processed 2150/3102 events
+  ...processed 2200/3102 events
+  ...processed 2250/3102 events
+  ...processed 2300/3102 events
+  ...processed 2350/3102 events
+  ...processed 2400/3102 events
+  ...processed 2450/3102 events
+  ...processed 2500/3102 events
+  ...processed 2550/3102 events
+  ...processed 2600/3102 events
+  ...processed 2650/3102 events
+  ...processed 2700/3102 events
+  ...processed 2750/3102 events
+  ...processed 2800/3102 events
+  ...processed 2850/3102 events
+  ...processed 2900/3102 events
+  ...processed 2950/3102 events
+  ...processed 3000/3102 events
+  ...processed 3050/3102 events
+  ...processed 3100/3102 events
+
+══════════════════════════════════════════════════════════════════════════════════════════
+  1 TRADING DAY BEFORE THE BREAKOUT  (n=3097 events)
+══════════════════════════════════════════════════════════════════════════════════════════
+  Caught as BUY/STRONG_BUY/ULTRA_STRONG_BUY (actionable signal): 0 (0.0%)
+  PRE_BREAKOUT (right at the edge):                              212 (6.8%)
+  EARLY_INFLECTION (coiling, pre-conditions clean):              244 (7.9%)
+  COMPRESSION_WATCH (zone found, environment not fully clean):   477 (15.4%)
+  ── On radar in ANY form (BUY+ through COMPRESSION_WATCH):      933 (30.1%)
+  MISSED ENTIRELY (NO_SIGNAL — no zone, no signal at all):       2164 (69.9%)
+  (Of which, had a compression zone detected at all: 1358 (43.8%))
+
+══════════════════════════════════════════════════════════════════════════════════════════
+  2 TRADING DAYS BEFORE THE BREAKOUT  (n=3096 events)
+══════════════════════════════════════════════════════════════════════════════════════════
+  Caught as BUY/STRONG_BUY/ULTRA_STRONG_BUY (actionable signal): 0 (0.0%)
+  PRE_BREAKOUT (right at the edge):                              157 (5.1%)
+  EARLY_INFLECTION (coiling, pre-conditions clean):              259 (8.4%)
+  COMPRESSION_WATCH (zone found, environment not fully clean):   534 (17.2%)
+  ── On radar in ANY form (BUY+ through COMPRESSION_WATCH):      950 (30.7%)
+  MISSED ENTIRELY (NO_SIGNAL — no zone, no signal at all):       2146 (69.3%)
+  (Of which, had a compression zone detected at all: 1367 (44.2%))
+
+══════════════════════════════════════════════════════════════════════════════════════════
+  3 TRADING DAYS BEFORE THE BREAKOUT  (n=3092 events)
+══════════════════════════════════════════════════════════════════════════════════════════
+  Caught as BUY/STRONG_BUY/ULTRA_STRONG_BUY (actionable signal): 1 (0.0%)
+  PRE_BREAKOUT (right at the edge):                              165 (5.3%)
+  EARLY_INFLECTION (coiling, pre-conditions clean):              274 (8.9%)
+  COMPRESSION_WATCH (zone found, environment not fully clean):   543 (17.6%)
+  ── On radar in ANY form (BUY+ through COMPRESSION_WATCH):      983 (31.8%)
+  MISSED ENTIRELY (NO_SIGNAL — no zone, no signal at all):       2109 (68.2%)
+  (Of which, had a compression zone detected at all: 1383 (44.7%))
+
+  Sample actionable catches:
+    COALINDIA      06-Sep-2023  +7.1% move, 7.6x vol  →  STRONG_BUY (optimized_elite_10plus)
+
+══════════════════════════════════════════════════════════════════════════════════════════
+  BREAKDOWN BY MOVE SIZE (1 day before, n=3097)
+══════════════════════════════════════════════════════════════════════════════════════════
+  7-10%: n=1800  On-radar=30.9%  Actionable=0.0%
+  10-15%: n=867  On-radar=29.2%  Actionable=0.0%
+  15-25%: n=335  On-radar=26.6%  Actionable=0.0%
+  25-∞%: n=95  On-radar=35.8%  Actionable=0.0%
+
+═══ POST-BREAKOUT FORENSIC BACKTEST COMPLETE ═══

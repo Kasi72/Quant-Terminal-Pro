@@ -465,7 +465,7 @@ export function computeParamSensitivity(r: AnalysisResult): ParamSensitivity[] {
 
 // ─── #8: Quick Filter Presets ────────────────────────────────────────────────
 
-export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'all';
+export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'momAlert' | 'all';
 
 export interface QuickFilter {
   key: QuickFilterKey;
@@ -495,5 +495,14 @@ export const QUICK_FILTERS: QuickFilter[] = [
   {
     key: 'safe', label: 'Safe Entries', emoji: '🛡', description: 'Risk≤5%, R:R≥0.9',
     filter: r => r.priceEngine.tradeValid && r.priceEngine.tacticalRiskPct > 0 && r.priceEngine.tacticalRiskPct <= 5 && r.priceEngine.rewardRisk >= 0.9,
+  },
+  {
+    // Independent of stage by design — PBFB forensic backtest found the zone
+    // engine misses ~70% of monster moves because they're momentum-
+    // continuation breakouts on already-elevated-volatility stocks, not
+    // quiet compression. This surfaces those even when stage is NO_SIGNAL
+    // or COMPRESSION_WATCH. See lib/stockEngine.ts detectMonster() MOM badge.
+    key: 'momAlert', label: 'MOM Alert', emoji: '🚀', description: 'Momentum-continuation signal, independent of stage — 53.6% OOS hit rate vs 35% baseline',
+    filter: r => !!r.monster?.badges?.some(b => b.type === 'MOM'),
   },
 ];

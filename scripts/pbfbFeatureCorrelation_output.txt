@@ -1,0 +1,80 @@
+═══════════════════════════════════════════════════════════════════════════════
+  PBFB DEEP-DIVE — feature correlation: what predicts monster moves the zone engine misses?
+═══════════════════════════════════════════════════════════════════════════════
+
+Scanning 469 stocks...
+
+Event rows (day-before snapshots): 3631
+Control rows (ordinary days):       26548
+
+On-radar events: 1016  |  Missed events: 2615
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  STEP 1: Feature averages — ON_RADAR vs MISSED vs CONTROL (ordinary days) ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+  Feature                      │ ON_RADAR avg │ MISSED avg   │ CONTROL avg  │ Missed-vs-Control Δ
+  ──────────────────────────────┼──────────────┼──────────────┼──────────────┼─────────────────────
+  mom5 (5d momentum %)          │         2.39 │        10.48 │         4.61 │ +5.87
+  eRA (range/ATR)               │         1.07 │         1.14 │         0.94 │ +0.20
+  atrPctVal (ATR14%)            │         4.34 │         6.49 │         3.95 │ +2.54
+  atrPctl (ATR percentile)      │        30.90 │        59.90 │        46.79 │ +13.11
+  volRatio20 (vol vs 20d avg)   │         1.89 │         2.27 │         1.05 │ +1.22
+  pre10VR (pre-10d vol ratio)   │         0.91 │         1.10 │         0.99 │ +0.11
+  rsi2                          │        61.42 │        58.69 │        49.54 │ +9.15
+  swingDist (% off 50d high)    │       -11.54 │       -12.18 │       -10.92 │ -1.26
+  closeLoc %                    │        48.92 │        51.20 │        45.41 │ +5.79
+  bodyPct %                     │        46.06 │        46.08 │        44.04 │ +2.05
+  upperWickPct %                │        29.86 │        28.66 │        28.32 │ +0.33
+  lowerWickPct %                │        24.08 │        25.26 │        27.64 │ -2.38
+
+  aboveSMA50 rate: ON_RADAR=62.0%  MISSED=62.1%  CONTROL=54.7%
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  STEP 2: Correlation — feature vs "is this a monster-move event" (MISSED only vs CONTROL)║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+  Feature                      │ r vs (this becomes a monster move tomorrow)
+  ──────────────────────────────┼─────────────────────────────────────────────
+  volRatio20 (vol vs 20d avg)   │ +0.1356
+  eRA (range/ATR)               │ +0.1280
+  atrPctl (ATR percentile)      │ +0.1183
+  pre10VR (pre-10d vol ratio)   │ +0.1067
+  rsi2                          │ +0.0650
+  closeLoc %                    │ +0.0612
+  lowerWickPct %                │ -0.0350
+  swingDist (% off 50d high)    │ -0.0339
+  atrPctVal (ATR14%)            │ +0.0329
+  bodyPct %                     │ +0.0230
+  mom5 (5d momentum %)          │ +0.0071
+  upperWickPct %                │ +0.0046
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  STEP 3: Elevated-rate test on top correlated features                    ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+  volRatio20 (vol vs 20d avg): control 80th-pctile=1.30
+    MISSED events above this level: 1041/2615 (39.8%)
+    CONTROL days above this level:  5310/26548 (20.0%, expected ~20.0% by construction)
+
+  eRA (range/ATR): control 80th-pctile=1.21
+    MISSED events above this level: 929/2615 (35.5%)
+    CONTROL days above this level:  5310/26548 (20.0%, expected ~20.0% by construction)
+
+  atrPctl (ATR percentile): control 80th-pctile=80.83
+    MISSED events above this level: 860/2615 (32.9%)
+    CONTROL days above this level:  5363/26548 (20.2%, expected ~20.0% by construction)
+
+  pre10VR (pre-10d vol ratio): control 80th-pctile=1.21
+    MISSED events above this level: 906/2615 (34.6%)
+    CONTROL days above this level:  5310/26548 (20.0%, expected ~20.0% by construction)
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  STEP 4: Composite alternative-signal — would a non-zone-based filter catch MISSED events?║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+  Alt filter: mom5>=5% AND volRatio20>=1.3x AND aboveSMA50
+  MISSED events this WOULD catch: 475/2615 (18.2%)
+  CONTROL days falsely flagged:    1324/26548 (5.0%) — false positive rate
+
+═══ PBFB DEEP-DIVE COMPLETE ═══
