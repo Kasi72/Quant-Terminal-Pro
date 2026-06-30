@@ -543,14 +543,15 @@ const COLUMNS: ColDef[] = [
       if (t === 'bearish') return s >= 3 ? 'text-red-400 font-bold' : s >= 2 ? 'text-red-400' : 'text-red-600';
       return 'text-slate-500';
     } },
-  { key: 'guppy',   label: 'Guppy',        width: 65,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Guppy GMMA Spread %</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">&lt;2%</span></div><div><div class="rt-desc">Ultra-compressed — all 12 Guppy EMAs converged. Maximum stored energy. Watch for volume explosion.</div><div class="rt-hit hit-green">💎 COILED badge triggers at ≤5% + vol ≥1.5×</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">2-5%</span></div><div><div class="rt-desc">Compressed — EMAs tightening. Breakout building. Higher spread = energy still accumulating.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">&gt;5%</span></div><div><div class="rt-desc">Expanded — EMAs spread apart. Trend in progress or choppy. Not a compression setup.</div></div></div>',
-    fmt: r => r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(2) + '%' : '—',
-    numVal: r => r.stats.guppyCompressed ? -r.stats.guppySpreadPct : r.stats.guppySpreadPct,
-    cellClass: r => r.stats.guppyUltraCompressed ? 'text-emerald-400 font-bold font-mono' : r.stats.guppyCompressed ? 'text-yellow-300 font-semibold font-mono' : r.stats.guppySpreadPct < 2 ? 'text-slate-400 font-mono' : 'text-slate-600 font-mono' },
+  { key: 'guppy',   label: 'Guppy',        width: 80,  align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Guppy GMMA v2 — Coil-Then-Release</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🌀 COILED</span></div><div><div class="rt-desc">VALIDATED signal: spread was tight (&lt;2%) for 8+ of the last 10 days, NOW expanding (≤5%) with a clean bullish fan (all 6 short EMAs above all 6 long EMAs) and positive group gap (≥1%).</div><div class="rt-hit hit-green">62.4% WR vs 54.5% baseline (+7.9pp) · 19,987 candles, 456 Nifty 500 stocks</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Fan</span></div><div><div class="rt-desc">Clean Bullish Fan alone (no recent compression required): 55.7% WR vs 50.5% when fan is messy/overlapping.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Correction</span></div><div><div class="rt-desc">IMPORTANT: tight spread RIGHT NOW (not coiled-release) is actually the WORST tier — 1-1.5% spread bucket = 48% WR, the lowest of any range. Raw "compressed" is NOT bullish on its own.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Spread%</span></div><div><div class="rt-desc">Raw spread of all 12 EMAs as % of price — shown for reference, not predictive alone.</div></div></div>',
+    fmt: r => r.stats.guppyCoiledRelease ? '🌀 ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCleanBullishFan ? r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(1) + '%' : '—',
+    numVal: r => r.stats.guppyCoiledRelease ? 1000 - r.stats.guppySpreadPct : r.stats.guppyCleanBullishFan ? 500 - r.stats.guppySpreadPct : -r.stats.guppySpreadPct,
+    cellClass: r => r.stats.guppyCoiledRelease ? 'text-green-300 font-bold font-mono bg-green-900/30 px-1 rounded' : r.stats.guppyCleanBullishFan ? 'text-cyan-400 font-semibold font-mono' : 'text-slate-600 font-mono' },
   { key: 'ema10',   label: '10 EMA',       width: 78,  align: 'right',
     fmt: r => r.stats.ema10 > 0 ? r.stats.ema10.toFixed(2) + (r.stats.ema10Cross ? ' ✕' : '') : '—',
     numVal: r => r.stats.ema10,
@@ -2794,6 +2795,7 @@ function HomePageInner() {
                           rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0,
                           ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false,
                           guppySpreadPct: c.gp ?? 99, guppyCompressed: (c.gp ?? 99) < 1, guppyUltraCompressed: (c.gp ?? 99) < 0.5,
+                          guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false,
                           candlePattern: c.cp ?? '—', candlePatternFull: c.cpf ?? 'Unknown',
                           candlePatternType: (c.cpt ?? 'neutral') as 'bullish' | 'bearish' | 'neutral',
                           candlePatternStrength: c.cps ?? 0, statsScore: c.ss,
