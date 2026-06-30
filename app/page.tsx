@@ -1210,6 +1210,29 @@ function HomePageInner() {
     }
   }, [trackedTrades]);
 
+  // P2: Daily off-device auto-backup. The triple-redundancy above all lives
+  // in the SAME browser's localStorage — clearing browser data, switching
+  // devices, or an OS reinstall wipes all three copies at once. This drops
+  // one dated JSON file into Downloads at most once per calendar day, so a
+  // real off-device copy exists without relying on the user remembering to
+  // click Export.
+  useEffect(() => {
+    if (trackedTrades.length === 0) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastBackup = localStorage.getItem('qtp_last_autobackup_date');
+      if (lastBackup === today) return;
+      const json = JSON.stringify(trackedTrades, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `DrKKR_Trades_AutoBackup_${today}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      localStorage.setItem('qtp_last_autobackup_date', today);
+    } catch { /* non-critical — manual Export button still available */ }
+  }, [trackedTrades]);
+
   // #3: Update signal history when results change
   useEffect(() => {
     if (results.length > 0) {
@@ -1487,7 +1510,16 @@ function HomePageInner() {
       const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
       for (const r of buySignals) {
         const cl = newClenowMap[r.symbol];
-        const adj = bi.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: cl?.score, hasFlag: !!newFlagMap[r.symbol], hasCoiled: !!newGuppyCoilMap[r.symbol] });
+        // P0 follow-up: AnalysisResult has no top-level conviction/atrState/
+        // candlePattern/paramSetKey fields — adjustScore reads these from
+        // extraData, so they must be computed and passed explicitly or the
+        // brain score silently falls back to a flat 50 baseline.
+        const atrInfoForBrain = detectATRState(r);
+        const adj = bi.adjustScore(r, {
+          sector: getSectorTag(r.symbol), clenowScore: cl?.score, hasFlag: !!newFlagMap[r.symbol], hasCoiled: !!newGuppyCoilMap[r.symbol],
+          conviction: computeConviction(r), atrState: atrInfoForBrain.explosion ? 'EXPLOSION' : atrInfoForBrain.state,
+          candlePattern: r.stats?.candlePattern, paramSetKey: r.paramSetKey,
+        });
         newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '' };
       }
       // Engine 2: Thompson ranking for priority order
@@ -1674,7 +1706,12 @@ function HomePageInner() {
           // Brain v3 — 5-Engine Intelligence in Telegram
           try {
             const brainTg = computeBrainInsights(trackedTradesRef.current);
-            const brainAdj = brainTg.adjustScore(r, { sector: getSectorTag(r.symbol), clenowScore: newClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo });
+            const atrInfoTg = detectATRState(r);
+            const brainAdj = brainTg.adjustScore(r, {
+              sector: getSectorTag(r.symbol), clenowScore: newClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo,
+              conviction: computeConviction(r), atrState: atrInfoTg.explosion ? 'EXPLOSION' : atrInfoTg.state,
+              candlePattern: r.stats?.candlePattern, paramSetKey: r.paramSetKey,
+            });
             const delta = brainAdj.brainScore - brainAdj.originalScore;
             msg += `\n🧠 <b>ADAPTIVE BRAIN v3</b>\n`;
             msg += `Score: ${brainAdj.originalScore} → <b>${brainAdj.brainScore}</b> (${delta >= 0 ? '+' : ''}${delta})\n`;
@@ -1866,6 +1903,13 @@ function HomePageInner() {
     const totalRiskPct = accountSize > 0 ? ((currentRisk + newRisk) / accountSize) * 100 : 0;
     if (totalRiskPct > 5 && !confirm(`⚠ Total risk will be ${totalRiskPct.toFixed(1)}% of account (exceeds 5% max recommended). Continue?`)) return;
 
+    // P0: snapshot the features Brain v3 needs to learn from at entry time —
+    // captured here once, since they can drift (RS rank, ATR state, etc.)
+    // by the time the trade closes weeks later.
+    const atrInfo = detectATRState(r);
+    const tf = tfAlignments.get(r.symbol);
+    const rs = rsData.get(r.symbol);
+
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
       entryDate: r.lastDate || new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
@@ -1873,6 +1917,12 @@ function HomePageInner() {
       target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
       conviction: computeConviction(r), status: 'open',
+      candlePattern: r.stats?.candlePattern || undefined,
+      atrState: atrInfo.explosion ? 'EXPLOSION' : (atrInfo.state || undefined),
+      tfAlignment: tf?.alignment || undefined,
+      rsRank: rs?.rsRank,
+      volumeBadge: detectVolumeBadge(r) || undefined,
+      regimeAtEntry: marketRegime?.label || undefined,
     };
     setTrackedTrades(prev => [...prev.filter(t => t.symbol !== r.symbol), trade]);
   }
@@ -4260,6 +4310,30 @@ function HomePageInner() {
                       </div>
                     )}
                   </div>
+
+                  {/* P3: Stale validation reminder — open trades only get marked
+                      stopped/hit/expired when you click Validate. Miss a session
+                      and a stop-out sits stale while Brain's form EMA trains on
+                      outdated outcomes. */}
+                  {(() => {
+                    if (open.length === 0) return null;
+                    const todayDow = new Date().getDay();
+                    if (todayDow === 0 || todayDow === 6) return null; // skip weekends, market's closed anyway
+                    const msPerDay = 86400000;
+                    const staleTrades = open.filter(t => {
+                      const lastChecked = t.lastCheckDate || t.entryDate;
+                      if (!lastChecked) return false;
+                      const days = (Date.now() - new Date(lastChecked).getTime()) / msPerDay;
+                      return days >= 1.5; // >1 trading day stale
+                    });
+                    if (staleTrades.length === 0) return null;
+                    return (
+                      <div className="text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-2 bg-cyan-900/20 border border-cyan-800/40 text-cyan-300">
+                        <span className="font-bold">🔬</span>
+                        <span>{staleTrades.length} open trade{staleTrades.length > 1 ? 's' : ''} not validated in 1+ trading days — hit Validate to keep stops/targets and Brain's form score current</span>
+                      </div>
+                    );
+                  })()}
 
                   {/* #7: Alerts for trades near stop */}
                   {(() => {

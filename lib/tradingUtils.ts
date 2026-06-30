@@ -96,6 +96,15 @@ export interface TrackedTrade {
   paramSetKey: string;
   sector: string;
   conviction: number;
+  // P0: feature snapshot at entry — feeds Brain v3's Pattern Scorecard,
+  // Golden/Weak Setups, Regime Scorecard, and ATR/pattern anomaly checks.
+  // Without these, those panels silently have nothing to match against.
+  candlePattern?: string;
+  atrState?: string;
+  tfAlignment?: string;
+  rsRank?: number;
+  volumeBadge?: string;
+  regimeAtEntry?: string;
   status: 'open' | 'hit_t1' | 'hit_t2' | 'hit_t3' | 'stopped' | 'expired' | 'manual_close';
   currentPrice?: number;
   highestPrice?: number;
