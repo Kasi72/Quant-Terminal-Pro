@@ -721,25 +721,34 @@ export function computeStatsFeatures(candles: Candle[], endIdx: number): StatsFe
   const volSkew = computeVolProfileSkew(candles, endIdx);
   const garch = computeGARCH(candles, endIdx);
 
-  // Composite stats score (0-100)
+  // Composite stats score (0-100) — re-weighted on 6,064 breakout candles, 447
+  // Nifty 500 stocks. Correlation ranking vs fwd 20d return: pctFromLow (★★★,
+  // nonlinear/bucket-based), Hurst (★★★), RSI14 (★★★), CCI34 (★★), TTM mom (★★),
+  // VolZ (★★, weak), BB%/insideBars/Sharpe/ddFromHigh (★/noise individually).
   let score = 0;
-  if (volZ.sig) score += 12;
-  else if (volZ.z >= 1.5) score += 7;
-  if (bb.squeeze) score += 15;
-  else if (bb.pctl <= 20) score += 8;
-  if (kSqueeze) score += 8;
-  if (lr.flat) score += 8;
-  if (ac.momentum) score += 5;
-  if (hurst.trending) score += 10;
-  if (skew.positive) score += 5;
-  if (kSqueeze && bb.squeeze) score += 5;        // double squeeze bonus
-  if (ttm.squeezeFired && ttm.momentumRising) score += 5; // TTM squeeze just fired with rising momentum
-  if (w52.ddFromHigh <= 10) score += 8;           // near 52W high = strength
-  if (sharpe > 1.0) score += 5;                   // quality returns
-  if (entropy < 1.5) score += 5;                  // low entropy = tight clustering
-  if (insideBars >= 2) score += 5;                // coiling spring
-  if (volSkew > 0.2) score += 4;                  // accumulation signal
-  if (garch > 1.3) score += 3;                    // vol about to expand
+  if (rsi14val >= 80) score += 14;                // validated: highest tier, 60.6% WR, +3.24% avg
+  else if (rsi14val >= 70) score += 9;            // 56.2% WR, +2.55% avg
+  else if (rsi14val >= 60) score += 5;            // 54.4% WR — still above baseline
+  // RSI14 50-60 is the WORST bucket (49.0% WR, -3.83% avg) — deliberately NOT scored
+  if (hurst.trending) score += 12;                // validated ★★★ — h>0.55 cleanly separates outcomes
+  if (cci34val >= 150 && cci34val <= 300) score += 6; // validated sweet spot (55-58% WR)
+  if (w52.pctFromLow >= 80) score += 6;           // validated: strong stocks far from 52WL outperform
+  if (w52.ddFromHigh <= 10) score += 6;           // near 52W high = strength (part of winning grid combo)
+  if (ttm.squeezeFired && ttm.momentumRising) score += 8; // squeeze FIRING is the signal, not squeeze ON alone
+  if (volZ.sig) score += 5;                       // weak standalone (-0.031 r) — reduced weight
+  else if (volZ.z >= 1.5) score += 3;
+  if (bb.squeeze) score += 6;                     // weak standalone (+0.017 r) — reduced weight
+  else if (bb.pctl <= 20) score += 3;
+  if (kSqueeze) score += 4;
+  if (lr.flat) score += 4;
+  if (ac.momentum) score += 4;
+  if (skew.positive) score += 4;
+  if (kSqueeze && bb.squeeze) score += 3;         // double squeeze bonus
+  if (sharpe > 2.5) score += 4;                   // validated bucket threshold (was >1.0)
+  if (entropy < 1.5) score += 3;                  // low entropy = tight clustering
+  // insideBars>=2 REMOVED — backtest shows it's backward (47.5% WR vs 55.8% at 0 inside bars)
+  if (volSkew > 0.2) score += 3;                  // accumulation signal
+  if (garch > 1.3) score += 2;                    // vol about to expand
   if (guppy.coiledRelease) score += 8;            // validated coil-then-release pattern (62.4% WR)
   else if (guppy.cleanBullishFan) score += 3;     // clean bullish fan alone (55.7% WR)
 
