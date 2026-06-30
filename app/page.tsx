@@ -110,51 +110,34 @@ type ColDef = {
 
 // Safe column formatter for exports — catches errors from missing fields
 // Volume-Thrust Close-High Onset Candle detection (backtested: 81.82% hit rate for >5% momentum run)
-type OnsetTier = 'BEST' | 'STRONG' | 'FULL_BODY' | 'REJECTION' | 'WEAK' | null;
+// Onset Candle v2 — OOS-validated on 6,982 actual breakout candles, 455 Nifty
+// 500 stocks (60/40 train/test split). FINDING: nearly the entire v1 system
+// (5 tiers, claimed 48-82% hit rates) underperformed the 62.0% baseline once
+// properly validated — candle SHAPE barely matters once a real zone breakout
+// has already occurred (max feature correlation r=0.09). Only one combo
+// survived stability search: extreme range expansion.
+type OnsetTier = 'STRONG' | null;
 function detectOnsetCandle(r: AnalysisResult): OnsetTier {
-  const cl = r.closeLoc, vp5 = r.exactVolVsPre5, vr20 = r.volRatio20, ra = r.exactRangeATR14;
-  const bp = r.bodyPct, uw = r.upperWickPct, sr = r.signalRangePct;
+  const cl = r.closeLoc, ra = r.exactRangeATR14, bp = r.bodyPct;
   const brk = r.zone !== null && r.lastClose > r.zone.zoneHigh * 1.001;
   if (!brk) return null;
-  // Tier 1: High Conviction (strictest — 81.82% backtest hit rate)
-  if (cl >= 70 && vp5 >= 2.50 && vr20 >= 1.50 && ra >= 1.20 && ra <= 4.50 && bp >= 45 && uw <= 30 && sr <= 8.5)
-    return 'BEST';
-  // Tier 2: Volume-Thrust Close-High (standard — 52.30% Wilson lower bound)
-  if (cl >= 65 && vp5 >= 2.00 && vr20 >= 1.20 && ra >= 1.00 && ra <= 5.00 && bp >= 35 && uw <= 35 && sr <= 11.0)
-    return 'STRONG';
-  // Tier 3: Near-Marubozu Bullish Drive (50% hit rate)
-  if (cl >= 65 && bp >= 50 && uw <= 25 && ra >= 1.00)
-    return 'FULL_BODY';
-  // Tier 4: Hammer-like lower-wick rejection
-  if (cl >= 60 && r.stats && (r.stats.candlePattern === 'HAMR' || r.stats.candlePattern === 'DGDF') && ra >= 1.00)
-    return 'REJECTION';
-  // Tier 5: Small body / weak onset
-  if (cl >= 55 && bp < 35 && ra >= 1.00 && vp5 >= 1.50)
-    return 'WEAK';
+  // Validated: eRA>=3.0, closeLoc>=75%, body>=50% -> 68.6% train, 65.5% OOS
+  // (-3.1pp degradation, the most stable combo found). Thin sample (n=29 OOS).
+  if (ra >= 3.0 && cl >= 75 && bp >= 50) return 'STRONG';
   return null;
 }
 
-// Breakout DNA detection (backtested on 29 OHLCV files)
-// Identifies the signal candle archetype from the inflection study:
-//   MARUBOZU: body≥70%, green, closeLoc≥80% → 51.1% hit, workhorse signal
-//   HAMMER: lwPct≥50%, body≤35%, closeLoc≥60% → 48.4% hit, +8.6% MFE, fastest (3.4d)
-//   THRUST: body≥45%, green, closeLoc≥65% → 47.7% hit, volume-driven
-//   R-EXP: rangeATR≥1.5, green, closeLoc≥60% → 57.1% hit, range explosion
-// Plus pre-breakout compression detection:
-//   Zone has low pre-volume (≤0.82×) = volume dry-up confirmed
-type BreakoutDNA = 'MARUBOZU' | 'HAMMER' | 'THRUST' | 'R-EXP' | 'COMPRESSION' | null;
+// Breakout DNA v2 — same backtest as above. MARUBOZU/HAMMER/THRUST/COMPRESSION
+// ALL underperformed the 62.0% baseline OOS (53-57% range) and have been
+// removed. R-EXP survives only at much stricter thresholds than v1 claimed.
+type BreakoutDNA = 'R-EXP' | null;
 function detectBreakoutDNA(r: AnalysisResult): BreakoutDNA {
   if (!r.zone || r.lastClose <= r.zone.zoneHigh * 1.001) return null;
-  const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct, ra = r.exactRangeATR14;
-  const range = r.signalRangePct > 0 ? 1 : 0; // just checking it exists
-  if (!range && !ra) return null;
-  const lwPct = 100 - cl - (100 - cl - bp > 0 ? 0 : 0); // approximate
-  // Classify the signal candle archetype
-  if (bp >= 70 && cl >= 80 && uw <= 15) return 'MARUBOZU';
-  if (ra >= 1.5 && cl >= 60 && bp >= 30) return 'R-EXP';
-  if (cl >= 60 && bp <= 35 && uw <= 15 && (r.stats?.candlePattern === 'HAMR' || r.stats?.candlePattern === 'DGDF')) return 'HAMMER';
-  if (bp >= 45 && cl >= 65 && r.exactVolVsPre5 >= 2.0) return 'THRUST';
-  if (r.pre10AvgVolRatio <= 0.82 && r.pre10AvgRangeATR <= 0.75) return 'COMPRESSION';
+  const cl = r.closeLoc, bp = r.bodyPct, ra = r.exactRangeATR14;
+  // Validated: eRA>=3.0, closeLoc>=75%, body>=50% -> 65.5% OOS (n=29, thin
+  // but most stable of all archetypes tested; v1's eRA>=1.5 threshold
+  // showed NO edge OOS at 54.2%, barely above its own train/test noise).
+  if (ra >= 3.0 && cl >= 75 && bp >= 50) return 'R-EXP';
   return null;
 }
 
@@ -524,23 +507,21 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.atrPct14,
     cellClass: r => r.atrPct14 > 10 ? 'text-red-500 font-bold font-mono' : r.atrPct14 >= 6 ? 'text-orange-400 font-mono' : r.atrPct14 >= 4 ? 'text-green-300 font-bold font-mono' : r.atrPct14 >= 3 ? 'text-emerald-400 font-mono' : r.atrPct14 >= 1 ? 'text-slate-400 font-mono' : 'text-slate-700 font-mono' },
   { key: 'candle',  label: 'Candle',        width: 75,  align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Breakout DNA + Onset Candle</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">★ BEST</span></div><div><div class="rt-desc">High-conviction onset: body≥45%, close≥70%, vol≥2.5x, wick≤30%</div><div class="rt-hit hit-green">81.8% hit rate</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">★ STRONG</span></div><div><div class="rt-desc">Volume-thrust close-high: body≥35%, close≥65%, vol≥2.0x</div><div class="rt-hit hit-cyan">52.3% Wilson LB</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">DNA tags</span></div><div><div class="rt-desc">MARUBOZU: big body, close at high (51% hit, workhorse). HAMMER: long lower wick (48% hit, +8.6% MFE, fastest). R-EXP: range explosion ≥1.5ATR (57% hit). THRUST: body+volume driven. COMPRESSION: pre-volume dry-up confirmed.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Breakout DNA + Onset Candle v2 — OOS-validated</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">★ STRONG / R-EXP</span></div><div><div class="rt-desc">Extreme range expansion: eRA≥3.0×ATR, closeLoc≥75%, body≥50%.</div><div class="rt-hit hit-green">65.5% OOS hit-5% rate (29 held-out signals) · +3.5pp vs 62.0% baseline · most stable combo found</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">No badge</span></div><div><div class="rt-desc">Candle pattern shown for reference only — no validated predictive edge.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Major correction</span></div><div><div class="rt-desc">v1 had 5 onset tiers + 5 DNA archetypes (MARUBOZU, HAMMER, THRUST, COMPRESSION, looser R-EXP) claiming 48-82% hit rates from a 29-stock sample. Proper 60/40 OOS validation on 6,982 breakout candles (455 Nifty 500 stocks) showed EVERY one of them underperformed the 62.0% baseline (53-57% OOS) — candle shape barely matters once a real zone breakout has occurred (max correlation r=0.09). All removed except the one combo above.</div></div></div>',
     fmt: r => {
       const onset = detectOnsetCandle(r);
       const dna = detectBreakoutDNA(r);
       const pattern = r.stats?.candlePattern ?? '—';
       const dnaBadge = dna ? ` ${dna}` : '';
-      if (onset === 'BEST') return `★ ${pattern}${dnaBadge}`;
       if (onset === 'STRONG') return `★ ${pattern}${dnaBadge}`;
       if (dna) return `${pattern} ${dna}`;
       return pattern;
     },
     cellClass: r => {
       const onset = detectOnsetCandle(r);
-      if (onset === 'BEST') return 'text-[#39FF14] font-bold';
       if (onset === 'STRONG') return 'text-[#4ade80] font-bold';
       const dna = detectBreakoutDNA(r);
       if (dna) return 'text-cyan-300 font-semibold';
@@ -5058,7 +5039,7 @@ function HomePageInner() {
             const ae = best ? detectATRState(best) : { explosion: false };
             const vb = best ? detectVolumeBadge(best) : null;
             const onset = best ? detectOnsetCandle(best) : null;
-            const badges = [ze === 'HIGH_CONVICTION' ? '💎Zone' : '', ae.explosion ? '💥ATR' : '', vb === 'HIGH_CONVICTION' ? '🔥Vol' : '', onset === 'BEST' ? '★Onset' : ''].filter(Boolean).join(' ');
+            const badges = [ze === 'HIGH_CONVICTION' ? '💎Zone' : '', ae.explosion ? '💥ATR' : '', vb === 'HIGH_CONVICTION' ? '🔥Vol' : '', onset === 'STRONG' ? '★Onset' : ''].filter(Boolean).join(' ');
             return <div className="flex-shrink-0 bg-gradient-to-r from-emerald-900/20 to-slate-900/10 px-4 py-2 border-b border-emerald-800/20 flex items-center gap-3 text-[11px]">
               <span className="text-emerald-400 font-bold">{buys.length} BUY signal{buys.length > 1 ? 's' : ''}</span>
               <span className="text-slate-600">·</span>
@@ -5365,15 +5346,11 @@ function HomePageInner() {
                     const onset = detectOnsetCandle(selectedResult);
                     if (!onset) return null;
                     const labels: Record<string, { label: string; desc: string }> = {
-                      BEST: { label: '★ Best Onset Candle', desc: 'Volume-thrust close-high — 81.82% backtest hit rate for >5% move' },
-                      STRONG: { label: '★ Strong Onset', desc: 'Volume-thrust expansion — 52.30% Wilson lower bound' },
-                      FULL_BODY: { label: '◆ Full Body Drive', desc: 'Near-marubozu bullish — visually strong but can be late' },
-                      REJECTION: { label: '◇ Rejection Breakout', desc: 'Hammer-like lower-wick — useful, needs more confirmation' },
-                      WEAK: { label: '○ Weak Onset', desc: 'Small body — avoid unless other signals are very strong' },
+                      STRONG: { label: '★ Strong Onset (R-EXP)', desc: 'Extreme range expansion: eRA≥3.0×ATR, closeLoc≥75%, body≥50% — 65.5% OOS hit-5% rate, +3.5pp vs 62.0% baseline' },
                     };
                     const cfg = labels[onset];
                     return (
-                      <div className={`mt-1 px-2 py-1 rounded text-[10px] font-semibold ${onset === 'BEST' ? 'bg-[#39FF14]/15 text-[#39FF14] border border-[#39FF14]/30' : onset === 'STRONG' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-700' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                      <div className={`mt-1 px-2 py-1 rounded text-[10px] font-semibold ${onset === 'STRONG' ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-700' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
                         <div>{cfg.label}</div>
                         <div className="font-normal text-[9px] opacity-70 mt-0.5">{cfg.desc}</div>
                       </div>
