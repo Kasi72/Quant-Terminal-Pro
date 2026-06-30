@@ -846,10 +846,16 @@ const COLUMNS: ColDef[] = [
              t === 'GOOD' ? 'text-amber-400 px-1.5' : 'text-slate-600';
     } },
   // v7.3 columns
-  { key: 'nearBrk', label: 'Near BRK', width: 72, align: 'center',
-    fmt: r => r.nearBreakout ? `${r.nearBreakoutPct.toFixed(1)}% ↑` : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
-    numVal: r => r.nearBreakout ? -r.nearBreakoutPct : 99,
-    cellClass: r => r.nearBreakout ? 'text-yellow-300 font-semibold' : r.nearBreakoutPct >= 0 && r.nearBreakoutPct <= 5 ? 'text-amber-500' : 'text-slate-700' },
+  { key: 'nearBrk', label: 'Near BRK', width: 90, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Near Breakout v2 — Tiered (56,340 obs, 456 Nifty 500 stocks)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🔥 IMMINENT (0-1%)</span></div><div><div class="rt-desc">Breaks out within 5 days: 63.7% of the time. Within 10 days: 74.1%. Avg 3.1 days to breakout.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ NEAR (1-2.5%)</span></div><div><div class="rt-desc">Breaks out within 5 days: 43.1%. Within 10 days: 57.7%. Avg 4.4-5.5 days.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">👁 WATCH (2.5-5%)</span></div><div><div class="rt-desc">Breaks out within 5 days: 23.6%. Within 10 days: 38.9%. Avg 6-7 days.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">EARLY (5-10%)</span></div><div><div class="rt-desc">Breaks out within 5 days: only 8.3%. Within 10 days: 19.3%. Too far to act on yet.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Key finding</span></div><div><div class="rt-desc">Distance predicts SPEED of breakout (clean monotonic relationship) but NOT quality — fakeout rate stays flat ~50-53% across every distance band. Closer = sooner, not necessarily better.</div></div></div>',
+    fmt: r => r.nearBreakoutTier === 'IMMINENT' ? `🔥 ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'NEAR' ? `⚡ ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'WATCH' ? `👁 ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'EARLY' ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
+    numVal: r => r.nearBreakoutTier ? -r.nearBreakoutPct : 99,
+    cellClass: r => r.nearBreakoutTier === 'IMMINENT' ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded animate-pulse' : r.nearBreakoutTier === 'NEAR' ? 'text-yellow-300 font-semibold' : r.nearBreakoutTier === 'WATCH' ? 'text-orange-400' : r.nearBreakoutTier === 'EARLY' ? 'text-slate-500' : 'text-slate-700' },
   { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Zone Explosion Badge</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">💎 EXPLODE</span></div><div><div class="rt-desc">Zone ≤20%, close 0.75–4% above, rangeATR 1–4, volExp ≥1.25, ADR 3.5–7.5%, close ≥75%, green candle</div><div class="rt-hit hit-green">63.4% hit rate (290 signals) · Rarest & strongest</div></div></div>'
@@ -2785,7 +2791,7 @@ function HomePageInner() {
                         },
                         conditionsMet: 0, totalConditions: 20, checklist: [],
                         momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: c.ms, rsNifty20: 1.0 },
-                        nearBreakoutPct: c.nbp ?? (c.nb ? 1 : 99), nearBreakout: c.nb,
+                        nearBreakoutPct: c.nbp ?? (c.nb ? 1 : 99), nearBreakout: c.nb, nearBreakoutTier: null,
                         stats: {
                           volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false,
                           lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false,

@@ -74,9 +74,13 @@ export interface AnalysisResult {
   checklist: ChecklistItem[];
   // v7.2 momentum enhancements (additive — does NOT affect stage/screening)
   momentum: MomentumEnhancements;
-  // v7.3 upgrades
+  // v7.3 upgrades — v2 tiered (backtested on 56,340 in-zone observations, 456
+  // Nifty 500 stocks). Clean monotonic relationship: 0-1%=63.7% breaks out in
+  // 5d, 1-2.5%=43.1%, 2.5-5%=23.6%, 5-10%=8.3%. Breakout QUALITY is flat across
+  // distance (~50-53% fakeout rate everywhere) — distance predicts SPEED, not quality.
   nearBreakoutPct: number;
   nearBreakout: boolean;
+  nearBreakoutTier: 'IMMINENT' | 'NEAR' | 'WATCH' | 'EARLY' | null;
   // v9.0 statistical features
   stats: StatsFeatures;
   // Cluster breakdown: conditions met per param set
@@ -1369,7 +1373,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
       adx14: 20, adxInRange: true,
       gapAdjustedRR: 0, momentumScore: 0, rsNifty20: 1.0,
     },
-    nearBreakoutPct: 99, nearBreakout: false,
+    nearBreakoutPct: 99, nearBreakout: false, nearBreakoutTier: null,
     stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
     clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
     monster: { badges: [], topProbability: 0 },
@@ -1607,9 +1611,14 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   // 21c. v9.0 statistical features
   const stats = computeStatsFeatures(candles, endIdx);
 
-  // 21d. v7.3 near-breakout detection
+  // 21d. v7.3 near-breakout detection — v2 tiered (validated on Nifty 500)
   const nearBreakoutPct = zone ? ((zone.zoneHigh - sig.c) / sig.c) * 100 : 99;
   const nearBreakout = zone !== null && nearBreakoutPct >= 0 && nearBreakoutPct <= 2 && liquidityOk && volOk && preCondsMet && !breakoutOk;
+  const nearBreakoutTier: AnalysisResult['nearBreakoutTier'] =
+    zone === null || nearBreakoutPct < 0 || nearBreakoutPct > 10 || !liquidityOk || !preCondsMet || breakoutOk ? null :
+    nearBreakoutPct < 1 ? 'IMMINENT' :
+    nearBreakoutPct < 2.5 ? 'NEAR' :
+    nearBreakoutPct < 5 ? 'WATCH' : 'EARLY';
 
   // 22. checklist
   const checklist = buildChecklist(
@@ -1672,6 +1681,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     momentum,
     nearBreakoutPct: safe(nearBreakoutPct),
     nearBreakout,
+    nearBreakoutTier,
     stats,
     clusterBreakdown: {
       deployable: paramSetKey === 'optimized_deployable_20plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
@@ -2074,6 +2084,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
       },
       nearBreakoutPct: stage === 'EARLY_INFLECTION' ? rnd(seed + 46, 0.3, 1.8) : (stage === 'COMPRESSION_WATCH' ? rnd(seed + 46, 1, 4) : -1),
       nearBreakout: stage === 'EARLY_INFLECTION',
+      nearBreakoutTier: stage === 'EARLY_INFLECTION' ? 'IMMINENT' : stage === 'COMPRESSION_WATCH' ? 'NEAR' : null,
       stats: {
         volZScore: isActionable ? rnd(seed + 50, 2.0, 4.0) : rnd(seed + 50, -0.5, 1.8),
         volZSignificant: isActionable,
