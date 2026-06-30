@@ -810,7 +810,7 @@ const COLUMNS: ColDef[] = [
              top >= 50 ? 'text-amber-300 bg-amber-900/15 px-1 rounded' : 'text-slate-400';
     } },
   // Candle DNA Score
-  { key: 'candleDNA', label: 'DNA', width: 60, align: 'center',
+  { key: 'candleDNA', label: 'Candle DNA', width: 95, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Candle DNA Score — Deep Wick/Body/ATR Analysis</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (75+)</span></div><div><div class="rt-desc">Body/ATR ≥1.5, Upper:Lower wick ≤0.5, Marubozu ≥80, eRA ≥2.0. The cleanest, most decisive breakout candle shape.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (55-74)</span></div><div><div class="rt-desc">Good body conviction with clean wick structure — minimal selling rejection at the top.</div></div></div>'
@@ -818,7 +818,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;35)</span></div><div><div class="rt-desc">Small body relative to ATR or significant wick rejection. Avoid sizing up on these.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components</span></div><div><div class="rt-desc">Body Strength (0-35): body/ATR conviction. Wick Cleanliness (0-35): lower-wick-dominant + minimal total wick. Range Expansion (0-30): today\'s range vs ATR.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">Grid-searched on 19,987 breakout candles, 456 stocks. Winning filter (UL≤0.5, BodyATR≥0.6, Marubozu≥80): +2.97% avg 20d return vs +1.66% baseline, 57% vs 54.5% win rate.</div></div></div>',
-    fmt: r => r.candleDNA ? String(Math.round(r.candleDNA.score)) : '—',
+    fmt: r => r.candleDNA ? `${Math.round(r.candleDNA.score)}-${r.candleDNA.tier.charAt(0) + r.candleDNA.tier.slice(1).toLowerCase()}` : '—',
     numVal: r => r.candleDNA?.score ?? 0,
     cellClass: r => {
       if (!r.candleDNA) return 'text-slate-700';
