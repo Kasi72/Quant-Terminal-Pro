@@ -88,6 +88,7 @@ import {
   loadTelegramConfig, saveTelegramConfig, sendTelegramMessage,
   formatNewSignalAlert, formatTargetHitAlert, formatStoppedAlert,
   formatRegimeChangeAlert, formatDailySummaryAlert, formatSignalDecayAlert, formatValidationSummaryAlert,
+  formatMomAlert,
   type TelegramConfig,
 } from '@/lib/telegramAlerts';
 import {
@@ -1763,6 +1764,20 @@ function HomePageInner() {
           sendTelegramMessage(tg, msg);
         }
       }
+      // #1b: MOM Alert — independent of stage, deliberately separate from
+      // #1 above since these often fire on NO_SIGNAL/COMPRESSION_WATCH rows
+      // that #1's stage filter would never see (see formatMomAlert).
+      if (tg.alerts.momAlert) {
+        const prevMomSet = new Set(
+          resultsRef.current.filter(r => r.monster?.badges?.some(b => b.type === 'MOM')).map(r => r.symbol)
+        );
+        const newMomAlerts = newResults.filter(r =>
+          r.monster?.badges?.some(b => b.type === 'MOM') && !prevMomSet.has(r.symbol)
+        );
+        for (const r of newMomAlerts.slice(0, 5)) {
+          sendTelegramMessage(tg, formatMomAlert(r));
+        }
+      }
       // #4: Market regime change
       if (tg.alerts.regimeChange && marketRegime && prevRegimeRef.current && prevRegimeRef.current !== marketRegime.regime) {
         sendTelegramMessage(tg, formatRegimeChangeAlert(prevRegimeRef.current, marketRegime.regime, marketRegime.niftyClose, marketRegime.ema50, marketRegime.ema200, marketRegime.sizingMultiplier));
@@ -1988,7 +2003,7 @@ function HomePageInner() {
   const [reviewedSymbols, setReviewedSymbols] = useState<Set<string>>(new Set());
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
-  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
+  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, momAlert: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
   const [showTgSettings, setShowTgSettings] = useState(false);
   const [tgTestStatus, setTgTestStatus] = useState<'' | 'sending' | 'ok' | 'fail'>('');
   const prevRegimeRef = useRef<string | null>(null);
@@ -2996,6 +3011,7 @@ function HomePageInner() {
             <div className="flex gap-3 text-[10px]">
               {([
                 ['newSignal', '🟢 New Signal'],
+                ['momAlert', '🚀 MOM Alert'],
                 ['targetHit', '✅ Target Hit'],
                 ['stopped', '🔴 Stopped'],
                 ['regimeChange', '⚠ Regime'],
@@ -5275,15 +5291,15 @@ function HomePageInner() {
                                 const m = row.monster;
                                 if (!m || m.badges.length === 0) return <span className="text-slate-700">—</span>;
                                 const tipParts = m.badges.map(b => {
-                                  const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
-                                  const label = b.type === 'MOM' ? 'Momentum' : b.type === 'MRV' ? 'Mean Reversion' : 'Breakout';
-                                  const bg = b.type === 'MOM' ? 'bg-emerald' : b.type === 'MRV' ? 'bg-cyan' : 'bg-orange';
+                                  const emoji = b.type === 'MOM' ? '🚀' : '🔄';
+                                  const label = b.type === 'MOM' ? 'Momentum' : 'Mean Reversion';
+                                  const bg = b.type === 'MOM' ? 'bg-emerald' : 'bg-cyan';
                                   return `<div class="rt-row"><div><span class="rt-badge ${bg}">${emoji} ${label}</span></div><div><div class="rt-desc">${b.details}</div><div class="rt-hit hit-green">${b.probability}% monster probability (>10% MFE in 20d)</div></div></div>`;
                                 }).join('');
                                 return <div className="flex items-center gap-0.5 cursor-help"
-                                  data-tip-html={`<div class="rt-hdr">🔮 Monster Scan — ${row.symbol.replace('.NS','').replace('.BO','')}</div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Grid-searched 22,247 combos on 84,859 data points across 75 stocks. Baseline monster rate: 35.4%</div></div></div>`}>
+                                  data-tip-html={`<div class="rt-hdr">🔮 Monster Scan v2 — ${row.symbol.replace('.NS','').replace('.BO','')}</div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">OOS-validated on 146,425 points across 455 Nifty 500 stocks (60/40 train/test split). Baseline monster rate: 35.0%. Breakout (BRK) pattern was removed after validation showed no real edge.</div></div></div>`}>
                                   {m.badges.map((b, bi) => {
-                                    const emoji = b.type === 'MOM' ? '🚀' : b.type === 'MRV' ? '🔄' : '💥';
+                                    const emoji = b.type === 'MOM' ? '🚀' : '🔄';
                                     const color = b.probability >= 80 ? '#39FF14' : b.probability >= 60 ? '#22d3ee' : '#facc15';
                                     return <span key={bi} className="text-[9px] font-bold" style={{color}}>{emoji}{b.type}</span>;
                                   })}

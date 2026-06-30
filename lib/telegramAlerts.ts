@@ -15,12 +15,13 @@ export interface TelegramConfig {
     dailySummary: boolean;
     signalDecay: boolean;
     validationSummary: boolean;
+    momAlert: boolean;
   };
 }
 
 export const DEFAULT_TG_CONFIG: TelegramConfig = {
   botToken: '', chatId: '', enabled: false,
-  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true },
+  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true, momAlert: true },
 };
 
 export function loadTelegramConfig(): TelegramConfig {
@@ -140,6 +141,35 @@ export function formatNewSignalAlert(r: AnalysisResult, extras?: {
     return msg;
   } catch {
     return `🟢 <b>NEW BUY SIGNAL</b>\n\n${esc(r?.symbol ?? 'UNKNOWN')} — formatting error\n`;
+  }
+}
+
+// ─── Alert #1b: MOM Alert — independent of stage ─────────────────────────────
+// The PBFB forensic backtest (3,102 monster-move events) found the zone
+// engine misses ~70% of real monster moves because they're momentum-
+// continuation breakouts on already-elevated-volatility stocks, not quiet
+// compression. detectMonster()'s MOM badge fires on every scanned row
+// regardless of stage, but formatNewSignalAlert above only fires for BUY+
+// stages — so a NO_SIGNAL/COMPRESSION_WATCH row with an active MOM badge
+// (the exact case this is designed to catch) never reached Telegram. This
+// is a deliberately lighter-weight alert: no trade sheet, since these
+// aren't necessarily actionable zone-breakout setups.
+export function formatMomAlert(r: AnalysisResult): string {
+  try {
+    const sym = esc(r.symbol.replace('.NS', '').replace('.BO', ''));
+    const stageLabel = r.stage.replace(/_/g, ' ');
+    const momBadge = r.monster?.badges?.find(b => b.type === 'MOM');
+    let msg = `🚀 <b>MOM ALERT</b> — momentum-continuation signal\n\n`;
+    msg += `<b>${sym}</b> — Stage: ${stageLabel}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `CMP: Rs.${r.lastClose.toFixed(2)}\n`;
+    if (momBadge) msg += `${momBadge.details}\n`;
+    msg += `Probability: ${momBadge?.probability ?? 51}% (50.9% OOS-validated, 1.5x baseline edge)\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `⚠ Independent of the zone-engine stage above — not necessarily a clean breakout setup. Verify before acting.\n`;
+    return msg;
+  } catch {
+    return `🚀 <b>MOM ALERT</b>\n\n${esc(r?.symbol ?? 'UNKNOWN')} — formatting error\n`;
   }
 }
 
