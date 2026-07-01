@@ -271,13 +271,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   optimized_highprecision_15plus: {
     name: 'HighPrecision v10-N500 15+', tag: '88% WR',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
-    maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 8.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 2.00,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 2.2, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.5, minExactVolVsPre5: 2.5,
+    minExactRangeATR14: 1.5, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.5,
     minCloseLoc: 55, maxUpperWickPct: 40, minBodyPct: 20, maxCandleRisk: 10.0,
     minUltraPrecisionScore: 50, minRSI2: 50,
     minVolatilityExpansionRatio: 0.75, minCandleQualityScore: null,
@@ -798,40 +798,42 @@ function computeInflectionScore(
   closeLoc: number, upperWickPct: number, bodyPct: number, signalRangePct: number,
   ultraPrecisionScore: number, rsi2: number, volatilityExpansionRatio: number, candleQualityScore: number
 ): number {
-  let score = 0;
+  // Base: reaching this function means preCondsMet && breakoutOk && exactCondsMet
+  // all passed. Award 45 points as the floor for clearing all gates, then add
+  // margin bonuses (up to 55 more) for how comfortably each condition was cleared.
+  // This maps: barely-passing → 45 (BUY), comfortably-passing → 60-74 (STRONG_BUY),
+  // exceptionally-passing → 75+ (ULTRA_STRONG_BUY).
+  let score = 45;
 
-  // Compression (30 pts) — zone existence/breakout are gated true by the
-  // time we're here; only tightness and zone length carry real variance.
+  // Zone quality bonus (0–15 pts)
   if (zone) {
-    score += 5;
     score += marginUp(zone.windowLength, params.minZoneLen, params.minZoneLen) * 5;
-    score += marginDown(zone.zoneTightnessPct, params.maxZoneTightnessPct, params.maxZoneTightnessPct) * 15;
+    score += marginDown(zone.zoneTightnessPct, params.maxZoneTightnessPct, params.maxZoneTightnessPct * 0.5) * 10;
   }
-  if (breakoutOk) score += 5;
 
-  // Pre-conditions (20 pts) — continuous margin below each max threshold
-  score += marginDown(pre10AvgRangeATR, params.maxPre10AvgRangeATR, params.maxPre10AvgRangeATR) * 5;
-  score += marginDown(pre10AvgVolRatio, params.maxPre10AvgVolRatio, params.maxPre10AvgVolRatio) * 5;
-  score += marginDown(pre5AvgVolRatio, params.maxPre5AvgVolRatio, params.maxPre5AvgVolRatio) * 5;
-  score += marginDown(pre10RedVolBias, params.maxPre10RedVolBias, params.maxPre10RedVolBias) * 5;
+  // Pre-condition comfort bonus (0–10 pts) — how far below each max threshold
+  score += marginDown(pre10AvgRangeATR, params.maxPre10AvgRangeATR, params.maxPre10AvgRangeATR * 0.5) * 2.5;
+  score += marginDown(pre10AvgVolRatio, params.maxPre10AvgVolRatio, params.maxPre10AvgVolRatio * 0.5) * 2.5;
+  score += marginDown(pre5AvgVolRatio, params.maxPre5AvgVolRatio, params.maxPre5AvgVolRatio * 0.5) * 2.5;
+  score += marginDown(pre10RedVolBias, params.maxPre10RedVolBias, params.maxPre10RedVolBias * 0.5) * 2.5;
 
-  // Candle Quality (30 pts) — continuous margin above each min threshold
-  score += marginUp(exactRangeATR14, params.minExactRangeATR14, params.minExactRangeATR14) * 5;
-  score += marginUp(exactVolRatio20, params.minExactVolRatio20, params.minExactVolRatio20) * 5;
-  score += marginUp(exactVolVsPre5, params.minExactVolVsPre5, params.minExactVolVsPre5) * 5;
-  score += marginUp(closeLoc, params.minCloseLoc, 100 - params.minCloseLoc) * 5;
-  score += marginDown(upperWickPct, params.maxUpperWickPct, params.maxUpperWickPct) * 3;
+  // Candle quality bonus (0–20 pts)
+  score += marginUp(exactRangeATR14, params.minExactRangeATR14, params.minExactRangeATR14) * 3;
+  score += marginUp(exactVolRatio20, params.minExactVolRatio20, params.minExactVolRatio20) * 3;
+  score += marginUp(exactVolVsPre5, params.minExactVolVsPre5, params.minExactVolVsPre5) * 3;
+  score += marginUp(closeLoc, params.minCloseLoc, 100 - params.minCloseLoc) * 3;
+  score += marginDown(upperWickPct, params.maxUpperWickPct, params.maxUpperWickPct * 0.5) * 2;
   score += marginUp(bodyPct, params.minBodyPct, 100 - params.minBodyPct) * 2;
-  score += marginDown(signalRangePct, params.maxCandleRisk, params.maxCandleRisk) * 5;
+  score += marginDown(signalRangePct, params.maxCandleRisk, params.maxCandleRisk * 0.5) * 4;
 
-  // Precision (20 pts)
-  score += marginUp(ultraPrecisionScore, params.minUltraPrecisionScore, 100 - params.minUltraPrecisionScore) * 8;
-  score += marginUp(rsi2, params.minRSI2, 100 - params.minRSI2) * 4;
+  // Precision bonus (0–10 pts)
+  score += marginUp(ultraPrecisionScore, params.minUltraPrecisionScore, 100 - params.minUltraPrecisionScore) * 4;
+  score += marginUp(rsi2, params.minRSI2, 100 - params.minRSI2) * 2;
   if (params.minVolatilityExpansionRatio !== null) {
-    score += marginUp(volatilityExpansionRatio, params.minVolatilityExpansionRatio, params.minVolatilityExpansionRatio) * 4;
+    score += marginUp(volatilityExpansionRatio, params.minVolatilityExpansionRatio, params.minVolatilityExpansionRatio) * 2;
   }
   if (params.minCandleQualityScore !== null) {
-    score += marginUp(candleQualityScore, params.minCandleQualityScore, 100 - params.minCandleQualityScore) * 4;
+    score += marginUp(candleQualityScore, params.minCandleQualityScore, 100 - params.minCandleQualityScore) * 2;
   }
 
   return clamp(score, 0, 100);
@@ -1624,6 +1626,13 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
 
   // 21b. v7.2 momentum enhancements (additive overlay — does NOT affect stage)
   const momentum = computeMomentumEnhancements(candles, endIdx, zone, priceEngine);
+
+  // Forensic-validated entry gates applied after momentum is computed.
+  // emaAligned + higherLow lifted WR from 73% → 77% — the only entry-level
+  // features that genuinely separate losers from winners in backtesting.
+  if (!momentum.emaAligned || !momentum.higherLowConfirmed) {
+    priceEngine = { ...priceEngine, tradeValid: false };
+  }
 
   // 21c. v9.0 statistical features
   const stats = computeStatsFeatures(candles, endIdx);

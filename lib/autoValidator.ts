@@ -67,6 +67,7 @@ export function validateTrade(
     if (candle.h > mfePrice) mfePrice = candle.h;
     if (candle.l < maePrice) maePrice = candle.l;
 
+
     // CASCADING GATES Stop v4 — 10-gate precision system with Wyckoff Spring Shield
     // Gate 0: Shallow Dip Shield (Wyckoff Spring detection)
     // Gates 1-9: Original cascading validation
