@@ -411,6 +411,7 @@ async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: str
 const STAGE_CONFIG: Record<StageRating, { label: string; color: string; textColor: string; bgColor: string }> = {
   ULTRA_STRONG_BUY:  { label: 'ULTRA STRONG BUY', color: 'text-[#39FF14]',    textColor: '#39FF14', bgColor: '#39FF1420' },
   STRONG_BUY:        { label: 'STRONG BUY',        color: 'text-[#22c55e]',   textColor: '#22c55e', bgColor: '#22c55e20' },
+  // Elite Signal: STRONG_BUY + HiPrec15+ — backtest avg +4.10%, median +6.27%, 69% of trades >5%
   BUY:               { label: 'BUY',               color: 'text-[#4ade80]',   textColor: '#4ade80', bgColor: '#4ade8020' },
   PRE_BREAKOUT:      { label: 'PRE-BREAKOUT',       color: 'text-[#a3e635]',   textColor: '#a3e635', bgColor: '#a3e63520' },
   EARLY_INFLECTION:  { label: 'EARLY INFLECTION',   color: 'text-[#facc15]',   textColor: '#facc15', bgColor: '#facc1520' },
@@ -446,10 +447,14 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM Alert</span></div><div><div class="rt-desc">Independent of stage. The zone engine misses ~70% of real monster moves (PBFB forensic backtest, 3,102 events) because they\'re momentum-continuation on already-elevated-volatility stocks, not quiet compression. A 🚀MOM tag can appear on ANY stage, including NO_SIGNAL — it means a different, separately-validated pattern fired: Mom5≥7%, eRA≥1.2, Vol≥1.0x, ATR≥4.5%, above SMA50.</div><div class="rt-hit hit-green">50.9% OOS hit rate vs 35% baseline · ATR floor lowered from 5.0% to 4.5% via dedicated threshold sweep — same/better OOS rate, 2x+ more coverage · use the MOM Alert quick filter to surface all of these at once</div></div></div>',
     fmt: r => {
       const hasMom = !!r.monster?.badges?.some(b => b.type === 'MOM');
-      return STAGE_CONFIG[r.stage].label + (hasMom ? ' 🚀MOM' : '');
+      const isElite = r.stage === 'STRONG_BUY' && r.paramSetKey === 'optimized_highprecision_15plus';
+      const base = STAGE_CONFIG[r.stage].label;
+      return base + (isElite ? ' ⭐ELITE' : '') + (hasMom ? ' 🚀MOM' : '');
     },
     cellClass: r => {
       const hasMom = !!r.monster?.badges?.some(b => b.type === 'MOM');
+      const isElite = r.stage === 'STRONG_BUY' && r.paramSetKey === 'optimized_highprecision_15plus';
+      if (isElite) return 'text-[#FFD700] font-bold';
       if (hasMom && (r.stage === 'NO_SIGNAL' || r.stage === 'COMPRESSION_WATCH' || r.stage === 'EARLY_INFLECTION')) {
         return 'text-orange-300 font-bold animate-pulse';
       }
@@ -2003,7 +2008,7 @@ function HomePageInner() {
   const [reviewedSymbols, setReviewedSymbols] = useState<Set<string>>(new Set());
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
-  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, momAlert: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
+  const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, momAlert: true, eliteSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
   const [showTgSettings, setShowTgSettings] = useState(false);
   const [tgTestStatus, setTgTestStatus] = useState<'' | 'sending' | 'ok' | 'fail'>('');
   const prevRegimeRef = useRef<string | null>(null);
@@ -2552,7 +2557,7 @@ function HomePageInner() {
         {/* Group 4: Quick filters */}
         <div className="flex items-center gap-1 shrink-0">
           {results.length > 0 && (() => {
-            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan', momAlert: 'orange' };
+            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan', momAlert: 'orange', eliteSignal: 'yellow' };
             return QUICK_FILTERS.map(qf => (
               <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
                 data-tip={qf.description} data-tip-color={qfColors[qf.key] ?? 'blue'}
@@ -3012,6 +3017,7 @@ function HomePageInner() {
               {([
                 ['newSignal', '🟢 New Signal'],
                 ['momAlert', '🚀 MOM Alert'],
+                ['eliteSignal', '⭐ Elite Signal'],
                 ['targetHit', '✅ Target Hit'],
                 ['stopped', '🔴 Stopped'],
                 ['regimeChange', '⚠ Regime'],

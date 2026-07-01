@@ -465,7 +465,7 @@ export function computeParamSensitivity(r: AnalysisResult): ParamSensitivity[] {
 
 // ─── #8: Quick Filter Presets ────────────────────────────────────────────────
 
-export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'momAlert' | 'all';
+export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'momAlert' | 'eliteSignal' | 'all';
 
 export interface QuickFilter {
   key: QuickFilterKey;
@@ -504,5 +504,13 @@ export const QUICK_FILTERS: QuickFilter[] = [
     // or COMPRESSION_WATCH. See lib/stockEngine.ts detectMonster() MOM badge.
     key: 'momAlert', label: 'MOM Alert', emoji: '🚀', description: 'Momentum-continuation signal, independent of stage — 53.6% OOS hit rate vs 35% baseline',
     filter: r => !!r.monster?.badges?.some(b => b.type === 'MOM'),
+  },
+  {
+    // Backtest-validated elite tier: STRONG_BUY + HiPrec15+ only.
+    // 940-trade backtest (470 stocks × 5 param sets, 2022-2024):
+    // avg P&L +4.10%, median +6.27%, 69% of trades >5%, WR 76%, PF 4.41.
+    // Exit breakdown: 71.5% hit T2/T3 (avg +7.0%), 18.7% time_stop (avg -3.9%).
+    key: 'eliteSignal', label: 'Elite Signal', emoji: '⭐', description: 'STRONG BUY + HiPrec15+ — backtest avg +4.10%, median +6.27%, 69% of trades >5%',
+    filter: r => r.stage === 'STRONG_BUY' && r.paramSetKey === 'optimized_highprecision_15plus',
   },
 ];

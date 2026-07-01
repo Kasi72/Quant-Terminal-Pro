@@ -16,12 +16,13 @@ export interface TelegramConfig {
     signalDecay: boolean;
     validationSummary: boolean;
     momAlert: boolean;
+    eliteSignal: boolean;
   };
 }
 
 export const DEFAULT_TG_CONFIG: TelegramConfig = {
   botToken: '', chatId: '', enabled: false,
-  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true, momAlert: true },
+  alerts: { newSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true, momAlert: true, eliteSignal: true },
 };
 
 export function loadTelegramConfig(): TelegramConfig {
