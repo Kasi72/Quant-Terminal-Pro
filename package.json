@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "compile": "./node_modules/.bin/tsc lib/stockEngine.ts lib/statsEngine.ts lib/candlePatterns.ts lib/autoValidator.ts --target ES2020 --module CommonJS --outDir scripts/_compiled --esModuleInterop --skipLibCheck --moduleResolution node --strict false",
+    "check-params": "node scripts/checkParams.js",
+    "update-params": "node scripts/checkParams.js --update"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -250,7 +250,11 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
   };
 }
 
-// ─── PARAM SETS ───────────────────────────────────────────────────────────────
+// ─── PARAM SETS ── LOCKED ─────────────────────────────────────────────────────
+// These values are verified by scripts/goldenParams.json.
+// Before changing any value: node scripts/check-params  (will show drift).
+// After an intentional change: npm run update-params    (updates the lock).
+// ──────────────────────────────────────────────────────────────────────────────
 
 export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   optimized_deployable_20plus: {
