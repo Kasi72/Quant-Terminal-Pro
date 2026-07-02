@@ -1195,7 +1195,27 @@ function HomePageInner() {
         }
       } catch { /* try next backup */ }
     }
-    if (loadedTrades.length > 0) setTrackedTrades(loadedTrades);
+    if (loadedTrades.length > 0) {
+      // Migrate T2/T3 for trades stored with the old capped formula (min(5.65%, 2.80×ATR%))
+      // which caused T2 ≤ T1 whenever ATR% > ~2.6%. Back-calculate ATR from T1 and recompute.
+      const tickFn = (p: number) => Math.round(p / 0.05) * 0.05;
+      const migrated = loadedTrades.map(t => {
+        if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
+        const t1Pct = (t.target1 - t.entryPrice) / t.entryPrice * 100;
+        const atrPct = t1Pct / 2.15;
+        const t2Pct = t1Pct + atrPct;
+        const t2New = tickFn(t.entryPrice * (1 + t2Pct / 100));
+        const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 7.0 : 10.0;
+        const t3PctNew = Math.max(t3BucketPct, t2Pct + 1.5 * atrPct);
+        const t3New = tickFn(Math.max(t.entryPrice * (1 + t3PctNew / 100), t2New + 0.05));
+        // Only patch if old T2 is suspiciously close to T1 (within 1 ATR of T1-entry gap)
+        const oldGap = (t.target2 || 0) - t.target1;
+        const minExpectedGap = t.entryPrice * (atrPct / 100) * 0.8;
+        if (oldGap < minExpectedGap) return { ...t, target2: t2New, target3: t3New };
+        return t;
+      });
+      setTrackedTrades(migrated);
+    }
 
     // ─── OTHER SETTINGS: Load individually (failures are isolated) ───
     try { localStorage.removeItem('qtp_results'); } catch {}
