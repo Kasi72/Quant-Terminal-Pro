@@ -68,9 +68,9 @@ export function validateTrade(
     if (candle.l < maePrice) maePrice = candle.l;
 
 
-    // CASCADING GATES Stop v4 — 10-gate precision system with Wyckoff Spring Shield
+    // CASCADING GATES Stop v5 — 6-gate system (removed dead original G4/G5)
     // Gate 0: Shallow Dip Shield (Wyckoff Spring detection)
-    // Gates 1-9: Original cascading validation
+    // Gates 1-5: Cascading validation
     if (i > 0) {
       if (!t1Hit && candle.c <= trade.stopLoss) {
         const openP = candle.o ?? candle.c;
@@ -128,30 +128,17 @@ export function validateTrade(
           if (isHammer) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
-        // GATE 4: Green Recovery
-        if (!blocked) {
-          const greenRecov = isGreen && closeLoc >= 50;
-          entry.gatesTested.push({ gate: 'G4 Green Recovery', passed: !greenRecov, reason: greenRecov ? 'Green candle + close above 50%' : `${isGreen ? 'Green' : 'Red'}, closeLoc ${closeLoc.toFixed(0)}%` });
-          if (greenRecov) { blocked = true; entry.result = 'SHIELDED'; }
-        }
-
-        // GATE 5: Close Position — grid-searched: 50% optimal on Nifty 500 (was 45%)
-        if (!blocked) {
-          entry.gatesTested.push({ gate: 'G5 Close Position', passed: closeLoc < 50, reason: closeLoc >= 50 ? `CloseLoc ${closeLoc.toFixed(0)}% ≥ 50% — not weak enough` : `CloseLoc ${closeLoc.toFixed(0)}% — genuinely weak` });
-          if (closeLoc >= 50) { blocked = true; entry.result = 'SHIELDED'; }
-        }
-
-        // GATE 6: OBV Declining
+        // GATE 4: OBV Declining (was G6 — moved up after removing dead G4/G5)
         if (!blocked) {
           const obvRising = prevCandle && candle.c > (prevPrevCandle?.c ?? trade.entryPrice);
-          entry.gatesTested.push({ gate: 'G6 OBV Check', passed: !obvRising, reason: obvRising ? 'OBV proxy rising — accumulation' : 'OBV declining — distribution' });
+          entry.gatesTested.push({ gate: 'G4 OBV Check', passed: !obvRising, reason: obvRising ? 'OBV proxy rising — accumulation' : 'OBV declining — distribution' });
           if (obvRising) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
-        // GATE 7: Consecutive Red
+        // GATE 5: Consecutive Red (was G7 — moved up after removing dead G4/G5)
         if (!blocked) {
           const prevGreen = !prevCandle || (prevCandle.o ?? prevCandle.c) <= prevCandle.c;
-          entry.gatesTested.push({ gate: 'G7 Consec Red', passed: !prevGreen, reason: prevGreen ? 'Previous candle was green — single red' : '≥2 consecutive red candles' });
+          entry.gatesTested.push({ gate: 'G5 Consec Red', passed: !prevGreen, reason: prevGreen ? 'Previous candle was green — single red' : '≥2 consecutive red candles' });
           if (prevGreen) { blocked = true; entry.result = 'SHIELDED'; }
         }
 
