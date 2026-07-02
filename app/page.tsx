@@ -3325,7 +3325,7 @@ function HomePageInner() {
                       const maxRisk = qty * risk;
                       return (
                         <tr key={r.symbol} className="border-b border-slate-800/40 hover:bg-slate-800/30">
-                          <td className="px-3 py-1.5 font-mono text-slate-200 font-medium">{r.symbol}</td>
+                          <td className="px-3 py-1.5 font-mono text-slate-200 font-medium cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedSymbol(r.symbol)} title="Click to open details">{r.symbol.replace('.NS','').replace('.BO','')}</td>
                           <td className={`px-2 py-1.5 font-semibold ${STAGE_CONFIG[r.stage].color}`}>{STAGE_CONFIG[r.stage].label}</td>
                           <td className="px-2 py-1.5 text-right text-slate-200 font-mono">₹{r.priceEngine.plannedEntry.toFixed(2)}</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{r.priceEngine.tacticalStop.toFixed(2)}</td>
@@ -3417,7 +3417,7 @@ function HomePageInner() {
                         const gLog = t.gateLog;
                         return (<Fragment key={t.symbol + '-' + i}>
                         <tr className="border-b border-slate-800/40 group">
-                          <td className="px-3 py-1.5 font-mono text-slate-200">{t.symbol}</td>
+                          <td className="px-3 py-1.5 font-mono text-slate-200 cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedSymbol(t.symbol)} title="Click to open details">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{t.stopLoss.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-mono">₹{t.target1.toFixed(0)}</td>
@@ -3521,7 +3521,7 @@ function HomePageInner() {
                         const cGLog = t.gateLog;
                         return (<Fragment key={t.symbol + '-c-' + i}>
                           <tr className="border-b border-slate-800/40 group">
-                            <td className="px-3 py-1.5 font-mono text-slate-300">{t.symbol}</td>
+                            <td className="px-3 py-1.5 font-mono text-slate-300 cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedSymbol(t.symbol)} title="Click to open details">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                             <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
                             <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
                             <td className={`px-2 py-1.5 text-right font-mono font-semibold ${(t.pnlPct ?? 0) > 0 ? 'text-emerald-400' : (t.pnlPct ?? 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.pnlPct != null ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}</td>
@@ -5656,8 +5656,93 @@ function HomePageInner() {
           </div>
         )}
 
+        {/* ── Trade Desk fallback sidebar: symbol clicked but not in current scan ── */}
+        {!selectedResult && selectedSymbol && activeTab === 'tradedesk' && (() => {
+          const trade = trackedTrades.find(t => t.symbol === selectedSymbol);
+          if (!trade) return null;
+          const rps = trade.entryPrice - trade.stopLoss;
+          const curPnl = trade.currentPrice && trade.entryPrice > 0 ? ((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100 : null;
+          const mfePct = trade.highestPrice && trade.entryPrice > 0 ? ((trade.highestPrice - trade.entryPrice) / trade.entryPrice) * 100 : null;
+          const statusCfg: Record<string,{label:string;color:string}> = {
+            open: { label: 'OPEN', color: 'text-blue-300 bg-blue-900/40' },
+            hit_t1: { label: '✓ T1 Hit', color: 'text-emerald-300 bg-emerald-900/40' },
+            hit_t2: { label: '✓ T2 Hit', color: 'text-emerald-200 bg-emerald-900/40' },
+            hit_t3: { label: '✓ T3 Hit', color: 'text-yellow-300 bg-yellow-900/40' },
+            stopped: { label: '✗ Stopped', color: 'text-red-300 bg-red-900/40' },
+            expired: { label: '⏳ Expired', color: 'text-amber-300 bg-amber-900/40' },
+          };
+          const sc = statusCfg[trade.status] ?? { label: trade.status, color: 'text-slate-400 bg-slate-800/40' };
+          return (
+            <div className="w-80 flex-shrink-0 border-l border-slate-800 bg-[#0d1117] overflow-y-auto">
+              <div className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="font-mono font-bold text-slate-100 text-base">{trade.symbol.replace('.NS','').replace('.BO','')}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Entry date: {trade.entryDate}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${sc.color}`}>{sc.label}</span>
+                    <button onClick={() => setSelectedSymbol(null)} className="text-slate-600 hover:text-slate-300 text-lg leading-none">×</button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {/* Price levels */}
+                  <div className="bg-slate-800/40 rounded-lg p-3 space-y-1.5 text-xs">
+                    <div className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider mb-2">Trade Levels</div>
+                    {[
+                      { label: 'Entry', val: `₹${trade.entryPrice.toFixed(2)}`, color: 'text-slate-200' },
+                      { label: 'Stop Loss', val: `₹${trade.stopLoss.toFixed(2)}`, color: 'text-red-400' },
+                      { label: 'Risk/Share', val: `₹${rps.toFixed(2)} (${(rps/trade.entryPrice*100).toFixed(1)}%)`, color: 'text-amber-400' },
+                      { label: 'Target 1', val: `₹${trade.target1.toFixed(2)}`, color: 'text-emerald-400' },
+                      { label: 'Target 2', val: trade.target2 ? `₹${trade.target2.toFixed(2)}` : '—', color: 'text-emerald-300' },
+                      { label: 'Target 3', val: trade.target3 ? `₹${trade.target3.toFixed(2)}` : '—', color: 'text-yellow-300' },
+                      ...(trade.currentPrice ? [{ label: 'CMP', val: `₹${trade.currentPrice.toFixed(2)}`, color: 'text-slate-300' }] : []),
+                    ].map(row => (
+                      <div key={row.label} className="flex justify-between">
+                        <span className="text-slate-500">{row.label}</span>
+                        <span className={`font-mono font-semibold ${row.color}`}>{row.val}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* P&L & Excursion */}
+                  <div className="bg-slate-800/40 rounded-lg p-3 space-y-1.5 text-xs">
+                    <div className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider mb-2">P&L & Excursion</div>
+                    {curPnl !== null && <div className="flex justify-between"><span className="text-slate-500">Current P&L</span><span className={`font-mono font-bold ${curPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{curPnl >= 0 ? '+' : ''}{curPnl.toFixed(2)}%</span></div>}
+                    {trade.pnlPct != null && trade.status !== 'open' && <div className="flex justify-between"><span className="text-slate-500">Final P&L</span><span className={`font-mono font-bold ${trade.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{trade.pnlPct >= 0 ? '+' : ''}{trade.pnlPct.toFixed(2)}%</span></div>}
+                    {mfePct !== null && <div className="flex justify-between"><span className="text-slate-500">Max Favorable (MFE)</span><span className="font-mono text-emerald-300">+{mfePct.toFixed(2)}%</span></div>}
+                    {trade.daysHeld != null && <div className="flex justify-between"><span className="text-slate-500">Days held</span><span className="font-mono text-slate-300">{trade.daysHeld}</span></div>}
+                    {trade.pnlR != null && <div className="flex justify-between"><span className="text-slate-500">P&L in R</span><span className={`font-mono font-bold ${trade.pnlR >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{trade.pnlR >= 0 ? '+' : ''}{trade.pnlR.toFixed(2)}R</span></div>}
+                  </div>
+                  {/* Gate log */}
+                  {trade.gateLog && trade.gateLog.length > 0 && (
+                    <div className="bg-slate-800/40 rounded-lg p-3 text-xs">
+                      <div className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider mb-2">Gate Shield Log ({trade.gateLog.filter(e => e.result === 'SHIELDED').length} shields)</div>
+                      <div className="space-y-1">
+                        {trade.gateLog.slice(-8).map((entry, gi) => (
+                          <div key={gi} className="flex items-center gap-2 text-[10px]">
+                            <span className={`font-bold w-8 ${entry.result === 'SHIELDED' ? 'text-emerald-400' : 'text-red-400'}`}>D{entry.day}{entry.result === 'SHIELDED' ? '🛡' : '🛑'}</span>
+                            <span className="text-slate-600">{entry.dipPct.toFixed(1)}%↓</span>
+                            <span className={`text-[9px] ${entry.result === 'SHIELDED' ? 'text-emerald-600' : 'text-red-600'}`}>{entry.result}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Metadata */}
+                  <div className="text-[10px] text-slate-700 space-y-0.5">
+                    {trade.paramSetKey && <div>Param set: <span className="text-slate-500">{trade.paramSetKey}</span></div>}
+                    {trade.sector && <div>Sector: <span className="text-slate-500">{trade.sector}</span></div>}
+                    {trade.stage && <div>Stage: <span className="text-slate-500">{trade.stage}</span></div>}
+                    <div className="mt-1 text-slate-700 italic">Symbol not in current scan — run a fresh scan to see live analysis</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Detail panel (shared across tabs) ── */}
-        {selectedResult && (activeTab === 'scanner' || activeTab === 'focus' || activeTab === 'validation') && (
+        {selectedResult && (activeTab === 'scanner' || activeTab === 'focus' || activeTab === 'validation' || activeTab === 'tradedesk') && (
           <div className="w-80 flex-shrink-0 border-l border-slate-800 bg-[#0d1117] overflow-y-auto">
             <div className="p-4">
               <div className="flex items-start justify-between mb-3">
