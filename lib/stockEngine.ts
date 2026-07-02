@@ -1092,12 +1092,15 @@ function buildTradeEngine(
   const t1Pct = Math.max(4.00, Math.min(12.00, 2.15 * atrPctAtEntry));
   const target5 = tick(plannedEntry * (1 + t1Pct / 100));
 
-  // T2: min(5.65%, 2.80 × ATR%) — momentum continuation
-  const t2Pct = Math.min(5.65, 2.80 * atrPctAtEntry);
-  const target7 = tick(Math.max(plannedEntry * (1 + t2Pct / 100), target5 + 0.05));
+  // T2: T1 + 1 full ATR step — guarantees meaningful separation regardless of ATR level.
+  // Previous formula min(5.65%, 2.80×ATR%) caused T2 < T1 when ATR% > ~2.6%
+  // (T1 = 2.15×ATR exceeded 5.65 cap), collapsing T2 to T1 + ₹0.05 (5-paise diff).
+  const t2Pct = t1Pct + atrPctAtEntry;
+  const target7 = tick(plannedEntry * (1 + t2Pct / 100));
 
-  // T3: ATR-bucket dependent extension target
-  const t3Pct = atrPctAtEntry < 1.5 ? 5.0 : atrPctAtEntry <= 3.0 ? 7.0 : 10.0;
+  // T3: T2 + 1.5 ATR steps, or ATR-bucket floor, whichever is higher
+  const t3BucketPct = atrPctAtEntry < 1.5 ? 5.0 : atrPctAtEntry <= 3.0 ? 7.0 : 10.0;
+  const t3Pct = Math.max(t3BucketPct, t2Pct + 1.5 * atrPctAtEntry);
   const target10 = tick(Math.max(plannedEntry * (1 + t3Pct / 100), target7 + 0.05));
 
   // R-based reference (Van Tharp 3R)
