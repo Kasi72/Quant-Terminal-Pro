@@ -1,0 +1,656 @@
+{
+  "generatedAt": "2026-07-02T03:30:47.318Z",
+  "globalAvgPnl": 2.98,
+  "total": 719,
+  "byStageParamSet": {
+    "ULTRA_STRONG_BUY::optimized_highprecision_15plus": {
+      "n": 563,
+      "wr": 72,
+      "avgPnl": 2.8,
+      "medPnl": 5.07,
+      "pct25": -0.63,
+      "pct75": 6.04
+    },
+    "STRONG_BUY::optimized_highprecision_15plus": {
+      "n": 91,
+      "wr": 74,
+      "avgPnl": 4.1,
+      "medPnl": 6.27,
+      "pct25": 0,
+      "pct75": 7.86
+    },
+    "ULTRA_STRONG_BUY::optimized_deployable_20plus": {
+      "n": 26,
+      "wr": 77,
+      "avgPnl": 3.28,
+      "medPnl": 4.42,
+      "pct25": 0.39,
+      "pct75": 5.47
+    },
+    "ULTRA_STRONG_BUY::optimized_elite_10plus": {
+      "n": 23,
+      "wr": 83,
+      "avgPnl": 3.04,
+      "medPnl": 3.94,
+      "pct25": 3.21,
+      "pct75": 4.24
+    },
+    "STRONG_BUY::optimized_deployable_20plus": {
+      "n": 1,
+      "wr": 100,
+      "avgPnl": 4.2,
+      "medPnl": 4.2,
+      "pct25": 4.2,
+      "pct75": 4.2
+    },
+    "ULTRA_STRONG_BUY::optimized_ultraselective_8plus": {
+      "n": 7,
+      "wr": 100,
+      "avgPnl": 4.49,
+      "medPnl": 5.19,
+      "pct25": 3.4,
+      "pct75": 5.58
+    },
+    "STRONG_BUY::optimized_elite_10plus": {
+      "n": 1,
+      "wr": 0,
+      "avgPnl": -3.29,
+      "medPnl": -3.29,
+      "pct25": -3.29,
+      "pct75": -3.29
+    },
+    "STRONG_BUY::optimized_ultraselective_8plus": {
+      "n": 1,
+      "wr": 100,
+      "avgPnl": 0.58,
+      "medPnl": 0.58,
+      "pct25": 0.58,
+      "pct75": 0.58
+    },
+    "STRONG_BUY::sniper_95plus": {
+      "n": 1,
+      "wr": 0,
+      "avgPnl": -6.01,
+      "medPnl": -6.01,
+      "pct25": -6.01,
+      "pct75": -6.01
+    },
+    "ULTRA_STRONG_BUY::sniper_95plus": {
+      "n": 5,
+      "wr": 80,
+      "avgPnl": 2.24,
+      "medPnl": 4.85,
+      "pct25": 0.21,
+      "pct75": 5.25
+    }
+  },
+  "byStage": {
+    "ULTRA_STRONG_BUY": {
+      "n": 624,
+      "wr": 73,
+      "avgPnl": 2.85,
+      "medPnl": 4.98,
+      "pct25": 0,
+      "pct75": 5.93
+    },
+    "STRONG_BUY": {
+      "n": 95,
+      "wr": 73,
+      "avgPnl": 3.88,
+      "medPnl": 6.25,
+      "pct25": 0,
+      "pct75": 7.8
+    }
+  },
+  "byParamSet": {
+    "optimized_highprecision_15plus": {
+      "n": 654,
+      "wr": 72,
+      "avgPnl": 2.98,
+      "medPnl": 5.22,
+      "pct25": -0.08,
+      "pct75": 6.22
+    },
+    "optimized_deployable_20plus": {
+      "n": 27,
+      "wr": 78,
+      "avgPnl": 3.32,
+      "medPnl": 4.35,
+      "pct25": 0.39,
+      "pct75": 5.47
+    },
+    "optimized_elite_10plus": {
+      "n": 24,
+      "wr": 79,
+      "avgPnl": 2.77,
+      "medPnl": 3.94,
+      "pct25": 3.21,
+      "pct75": 4.24
+    },
+    "optimized_ultraselective_8plus": {
+      "n": 8,
+      "wr": 100,
+      "avgPnl": 4.01,
+      "medPnl": 5.19,
+      "pct25": 3.4,
+      "pct75": 5.58
+    },
+    "sniper_95plus": {
+      "n": 6,
+      "wr": 67,
+      "avgPnl": 0.86,
+      "medPnl": 4.85,
+      "pct25": -5.3,
+      "pct75": 5.25
+    }
+  },
+  "bySymbol": {
+    "APARINDS": {
+      "n": 6,
+      "wr": 100,
+      "avgPnl": 7.78
+    },
+    "ENGINERSIN": {
+      "n": 5,
+      "wr": 60,
+      "avgPnl": 0.86
+    },
+    "GRAPHITE": {
+      "n": 5,
+      "wr": 60,
+      "avgPnl": 1.51
+    },
+    "MOTILALOFS": {
+      "n": 5,
+      "wr": 20,
+      "avgPnl": -0.53
+    },
+    "CANBK": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 4.38
+    },
+    "CEMPRO": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 8.31
+    },
+    "CENTRALBK": {
+      "n": 4,
+      "wr": 25,
+      "avgPnl": -2.19
+    },
+    "COCHINSHIP": {
+      "n": 4,
+      "wr": 75,
+      "avgPnl": 6.35
+    },
+    "FSL": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": 0.32
+    },
+    "HDFCAMC": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 5.08
+    },
+    "IOC": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": -1.22
+    },
+    "KPITTECH": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 6.45
+    },
+    "LAURUSLABS": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 5.66
+    },
+    "LICHSGFIN": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": 1.07
+    },
+    "MAHABANK": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 5.92
+    },
+    "MANAPPURAM": {
+      "n": 4,
+      "wr": 75,
+      "avgPnl": 0.05
+    },
+    "MUTHOOTFIN": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 5.56
+    },
+    "NMDC": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": 0.21
+    },
+    "PNB": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": 2.66
+    },
+    "RITES": {
+      "n": 4,
+      "wr": 25,
+      "avgPnl": 0.62
+    },
+    "SJVN": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 6.44
+    },
+    "SOBHA": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": 0.14
+    },
+    "SOLARINDS": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 6.67
+    },
+    "TATAPOWER": {
+      "n": 4,
+      "wr": 100,
+      "avgPnl": 4.2
+    },
+    "YESBANK": {
+      "n": 4,
+      "wr": 50,
+      "avgPnl": -1.04
+    },
+    "AAVAS": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 7.56
+    },
+    "ADANIENT": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.65
+    },
+    "AMBER": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.85
+    },
+    "APOLLOHOSP": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 0.29
+    },
+    "APOLLOTYRE": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.09
+    },
+    "ASHOKLEY": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.11
+    },
+    "AWL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 0.33
+    },
+    "BALRAMCHIN": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.57
+    },
+    "BEML": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.17
+    },
+    "BLS": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.48
+    },
+    "CAMS": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.04
+    },
+    "CAPLIPOINT": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.71
+    },
+    "CASTROLIND": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -0.57
+    },
+    "CCL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.02
+    },
+    "CESC": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.93
+    },
+    "CHAMBLFERT": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.54
+    },
+    "CHENNPETRO": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 6.97
+    },
+    "CHOLAFIN": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 0.93
+    },
+    "CONCOR": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.42
+    },
+    "DEEPAKFERT": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 4.63
+    },
+    "DEEPAKNTR": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.4
+    },
+    "ECLERX": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 6.99
+    },
+    "GAIL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.23
+    },
+    "GESHIP": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.29
+    },
+    "GMDCLTD": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": 1.75
+    },
+    "GMRAIRPORT": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.58
+    },
+    "GSPL": {
+      "n": 3,
+      "wr": 0,
+      "avgPnl": -3.55
+    },
+    "HAL": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.53
+    },
+    "HEG": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 7.12
+    },
+    "HINDPETRO": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -2.4
+    },
+    "IGL": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 3.98
+    },
+    "INDIANB": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.25
+    },
+    "IPCALAB": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.66
+    },
+    "IRCON": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.48
+    },
+    "JBCHEPHARM": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -0.35
+    },
+    "JINDALSTEL": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.92
+    },
+    "JSWENERGY": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 6.57
+    },
+    "JUBLFOOD": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 0.8
+    },
+    "JUBLINGREA": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.6
+    },
+    "KARURVYSYA": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 6.7
+    },
+    "KFINTECH": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 7.11
+    },
+    "KPIL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.37
+    },
+    "LINDEINDIA": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.53
+    },
+    "LODHA": {
+      "n": 3,
+      "wr": 0,
+      "avgPnl": -19.3
+    },
+    "LTFOODS": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.35
+    },
+    "MANKIND": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -0.08
+    },
+    "MARICO": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.26
+    },
+    "MINDACORP": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.74
+    },
+    "MOTHERSON": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 4.62
+    },
+    "MRPL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 4.74
+    },
+    "NAUKRI": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 3.53
+    },
+    "NCC": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 6.25
+    },
+    "NLCINDIA": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.84
+    },
+    "PAGEIND": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.39
+    },
+    "PARADEEP": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.5
+    },
+    "PIIND": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -1.56
+    },
+    "PNBHOUSING": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 7.2
+    },
+    "POONAWALLA": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -0.6
+    },
+    "POWERINDIA": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.66
+    },
+    "PVRINOX": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 3.07
+    },
+    "RADICO": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.72
+    },
+    "RVNL": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 8.42
+    },
+    "SCHAEFFLER": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.38
+    },
+    "SONATSOFTW": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -1.82
+    },
+    "SUMICHEM": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.5
+    },
+    "SUNTV": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.65
+    },
+    "SWANCORP": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 5.23
+    },
+    "TATACOMM": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.85
+    },
+    "TATAINVEST": {
+      "n": 3,
+      "wr": 33,
+      "avgPnl": -0.41
+    },
+    "THERMAX": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 5.55
+    },
+    "TMPV": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 1.06
+    },
+    "TORNTPOWER": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.62
+    },
+    "VIJAYA": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.37
+    },
+    "WHIRLPOOL": {
+      "n": 3,
+      "wr": 67,
+      "avgPnl": 2.36
+    },
+    "ZYDUSLIFE": {
+      "n": 3,
+      "wr": 100,
+      "avgPnl": 4.57
+    }
+  },
+  "paramLabels": {
+    "optimized_deployable_20plus": "Deploy20+",
+    "optimized_highprecision_15plus": "HiPrec15+",
+    "optimized_elite_10plus": "Elite10+",
+    "optimized_ultraselective_8plus": "UltraSel8+",
+    "sniper_95plus": "Sniper95+"
+  }
+}

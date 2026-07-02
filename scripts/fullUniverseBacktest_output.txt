@@ -1,0 +1,47 @@
+═══════════════════════════════════════════════════════════════════════════════
+  FULL UNIVERSE BACKTEST — Nifty 500 + 77-stock set, 5 param sets, real engine
+═══════════════════════════════════════════════════════════════════════════════
+
+Nifty 500 OHLCV: 464 stocks
+My Portfolio (extra, non-dup): 6 stocks
+NIFTY 50 (extra, non-dup): 0 stocks
+Duplicate symbols skipped (already in universe): 22
+TOTAL UNIQUE UNIVERSE: 470 stocks
+
+Running signal scan + trade simulation across all stocks × 5 param sets...
+
+(This walks every trading day per stock per param set using the real engine — may take a while)
+
+  ...50/470 stocks scanned
+  ...100/470 stocks scanned
+  ...150/470 stocks scanned
+  ...200/470 stocks scanned
+  ...250/470 stocks scanned
+  ...300/470 stocks scanned
+  ...350/470 stocks scanned
+  ...400/470 stocks scanned
+  ...450/470 stocks scanned
+
+Done. 470 stocks scanned across all 5 param sets. Errors encountered: 0
+
+═══════════════════════════════════════════════════════════════════════════════
+  RESULTS — FULL UNIVERSE BACKTEST (470 stocks)
+═══════════════════════════════════════════════════════════════════════════════
+
+Param Set                       │ Signals │ WR%   │ AvgP&L% │ AvgR  │ PF   │ AvgDays │ Stops
+──────────────────────────────────┼─────────┼───────┼─────────┼───────┼──────┼─────────┼──────
+Deployable v10-N500 20+           │       1 │ 100.0%│ +  3.46%│ + 0.70│ 99.00 │    27.0 │ 0
+HighPrecision 15+                 │       0 │   0.0%│ +  0.00%│ + 0.00│ 0.00 │     0.0 │ 0
+Elite v10-N500 10+                │      10 │ 100.0%│  -0.01%│ -0.02│ 99.00 │    27.0 │ 0
+Ultra-Selective v10-N500 8+       │       2 │ 100.0%│ +  1.26%│ + 0.23│ 99.00 │    27.0 │ 0
+Sniper 95+ v1                     │       1 │   0.0%│  -0.98%│ -0.17│ 0.00 │    27.0 │ 0
+
+─── Detail breakdown ───
+
+Deployable v10-N500 20+: 1 signals → 1W / 0L / 0E (Win Rate 100.0%, 470 stocks scanned)
+HighPrecision 15+: 0 signals → 0W / 0L / 0E (Win Rate 0.0%, 470 stocks scanned)
+Elite v10-N500 10+: 10 signals → 5W / 0L / 5E (Win Rate 100.0%, 470 stocks scanned)
+Ultra-Selective v10-N500 8+: 2 signals → 1W / 0L / 1E (Win Rate 100.0%, 470 stocks scanned)
+Sniper 95+ v1: 1 signals → 0W / 0L / 1E (Win Rate 0.0%, 470 stocks scanned)
+
+═══ FULL UNIVERSE BACKTEST COMPLETE ═══

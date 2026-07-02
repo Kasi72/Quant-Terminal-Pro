@@ -47,7 +47,9 @@ import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { SECTOR_PRESETS } from '@/lib/sectorPresets';
 import { THEMATIC_PRESETS } from '@/lib/thematicPresets';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { computeBrainInsights } from '@/lib/adaptiveBrain';
+import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignalsByBrainV2, getSetupQualityMatrix } from '@/lib/adaptiveBrain';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
@@ -1538,7 +1540,20 @@ function HomePageInner() {
           conviction: computeConviction(r), atrState: atrInfoForBrain.explosion ? 'EXPLOSION' : atrInfoForBrain.state,
           candlePattern: r.stats?.candlePattern, paramSetKey: r.paramSetKey,
         });
-        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct: adj.sizing.risk, riskLabel: adj.sizing.label, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '' };
+        // Brain v2: enrich with backtest prior quality lookup
+        const setupQual = getSetupQuality(brainPrior, r.stage, r.paramSetKey);
+        // Override sizing label with prior-informed recommendation if available
+        let riskLabel = adj.sizing.label;
+        let riskPct = adj.sizing.risk;
+        if (setupQual) {
+          riskPct = Math.round(adj.sizing.risk * setupQual.sizeMultiplier * 10) / 10;
+          riskLabel = setupQual.tier === 'ELITE' ? `ELITE — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
+                     setupQual.tier === 'STRONG' ? `STRONG — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
+                     setupQual.tier === 'GOOD'   ? `GOOD — normal size (${setupQual.expectedPnl.toFixed(1)}% avg)` :
+                     setupQual.tier === 'AVERAGE'? `AVERAGE — reduce 0.75× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
+                                                   `WEAK — half size (${setupQual.expectedPnl.toFixed(1)}% avg)`;
+        }
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '' };
       }
       // Engine 2: Thompson ranking for priority order
       if (buySignals.length > 1) {
@@ -3169,7 +3184,7 @@ function HomePageInner() {
           ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
           ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
           ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
-          ['intelligence', '🧠', 'Intelligence', '#f472b6', 'RS ranking, sector rotation, multi-TF, correlation guard', 'pink'],
+          ['intelligence', '🧠', 'Brain v2', '#f472b6', 'Signal Command ranked by expected P&L · Setup Quality Matrix · Stock DNA · RS · Sector Rotation', 'pink'],
           ['pro', '🏆', 'Pro', '#fbbf24', 'Backtester, signal narrative, portfolio optimizer', 'yellow'],
         ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
           <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
@@ -3660,13 +3675,211 @@ function HomePageInner() {
         {/* ── Intelligence Tab ── */}
         {activeTab === 'intelligence' && (
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🧠 Trading Intelligence</h2>
+            {/* Header with system stats */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🧠 Brain v2 · Trading Intelligence</h2>
+              {brainPrior && (
+                <div className="text-[10px] text-slate-600">
+                  Prior: <span className="text-slate-400">{brainPrior.total} trades</span> · Global avg <span className={(brainPrior.globalAvgPnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}>{(brainPrior.globalAvgPnl ?? 0) >= 0 ? '+' : ''}{(brainPrior.globalAvgPnl ?? 0).toFixed(2)}%</span> · <span className="text-slate-500">updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+
+            {/* ── BRAIN v2 SIGNAL COMMAND — only when signals exist ── */}
+            {(() => {
+              const buySignals = results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+              if (!buySignals.length) return null;
+              const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior);
+              return (
+                <div className="bg-slate-800/40 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal Command — Ranked by Expected P&L</div>
+                    <div className="text-[10px] text-slate-600">{ranked.length} active signal{ranked.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {ranked.slice(0, 8).map((sig: ReturnType<typeof rankSignalsByBrainV2>[number], idx: number) => {
+                      const q = sig.quality;
+                      const rel = sig.reliability;
+                      const stageColor = sig.stage === 'ULTRA_STRONG_BUY' ? '#39FF14' : sig.stage === 'STRONG_BUY' ? '#22d3ee' : '#facc15';
+                      const stageShort = sig.stage === 'ULTRA_STRONG_BUY' ? 'USB' : sig.stage === 'STRONG_BUY' ? 'SB' : 'BUY';
+                      const paramShort: Record<string,string> = {
+                        'optimized_deployable_20plus': 'D20+',
+                        'optimized_highprecision_15plus': 'HP15+',
+                        'optimized_elite_10plus': 'E10+',
+                        'optimized_ultraselective_8plus': 'US8+',
+                        'sniper_95plus': 'S95+',
+                      };
+                      return (
+                        <div key={sig.symbol} className="flex items-center gap-2 bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors text-xs" onClick={() => setSelectedSymbol(sig.symbol)}>
+                          {/* rank */}
+                          <span className="text-slate-600 font-mono w-4 text-center">{idx + 1}</span>
+                          {/* symbol */}
+                          <span className="font-mono font-bold text-slate-100 w-20">{sig.symbol.replace('.NS','').replace('.BO','')}</span>
+                          {/* stage pill */}
+                          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{color: stageColor, backgroundColor: `${stageColor}15`}}>{stageShort}</span>
+                          {/* param set */}
+                          <span className="text-[10px] text-slate-500 w-10">{paramShort[sig.paramSetKey] ?? '—'}</span>
+                          {/* expected P&L from prior */}
+                          {q ? (
+                            <span className="font-mono font-bold text-[11px] w-14" style={{color: q.color}}>
+                              {q.expectedPnl >= 0 ? '+' : ''}{q.expectedPnl.toFixed(1)}%
+                            </span>
+                          ) : <span className="w-14 text-slate-600 text-[10px]">—</span>}
+                          {/* WR from prior */}
+                          {q ? <span className="text-[10px] text-slate-500 w-10">{q.wr}%WR</span> : <span className="w-10"/>}
+                          {/* tier badge */}
+                          {q && <span className="text-[9px] font-bold px-1 rounded" style={{color: q.color, backgroundColor: `${q.color}20`}}>{q.tier}</span>}
+                          {/* R:R */}
+                          <span className="text-slate-500 text-[10px]">R:R {sig.priceEngine?.rewardRisk?.toFixed(1) ?? '—'}</span>
+                          {/* position sizing */}
+                          <span className="ml-auto text-[10px]" style={{color: sig.brainScore >= 75 ? '#22d3ee' : sig.brainScore >= 60 ? '#facc15' : '#94a3b8'}}>
+                            🧠{sig.brainScore} · {sig.riskLabel || `${sig.riskPct}% risk`}
+                          </span>
+                          {/* symbol reliability badge */}
+                          {rel && rel.n >= 3 && (
+                            <span className={`text-[9px] font-bold px-1 rounded ${rel.wr >= 70 ? 'text-emerald-400 bg-emerald-900/30' : rel.wr <= 40 ? 'text-red-400 bg-red-900/30' : 'text-slate-400 bg-slate-800/50'}`}>
+                              {rel.n}× {rel.wr}%
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-[10px] text-slate-700">Composite rank = 60% brain score + 40% backtest expected P&L · click any row to view chart</div>
+                </div>
+              );
+            })()}
+
+            {/* ── SETUP QUALITY MATRIX ── */}
+            {(() => {
+              type MatrixCell = { param: string; label: string; data: {n:number;wr:number;avgPnl:number;medPnl:number;pct25:number;pct75:number} | null };
+              type MatrixRow  = { stage: string; cells: MatrixCell[] };
+              const matrix: MatrixRow[] | null = getSetupQualityMatrix(brainPrior);
+              if (!matrix) return null;
+              const stageLabel: Record<string,string> = { ULTRA_STRONG_BUY: 'Ultra Strong', STRONG_BUY: 'Strong Buy', BUY: 'Buy' };
+              const stageColor: Record<string,string> = { ULTRA_STRONG_BUY: '#39FF14', STRONG_BUY: '#22d3ee', BUY: '#facc15' };
+              const pnlColor = (v: number | undefined) => {
+                if (v === undefined) return '#475569';
+                if (v >= 3.8) return '#39FF14';
+                if (v >= 2.8) return '#22d3ee';
+                if (v >= 1.8) return '#facc15';
+                if (v >= 0.5) return '#fb923c';
+                return '#ef4444';
+              };
+              return (
+                <div className="bg-slate-800/40 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Setup Quality Matrix — Avg P&L by Stage × Param Set</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-slate-600 font-medium pb-2 pr-3">Stage</th>
+                          {matrix[0].cells.map(c => (
+                            <th key={c.param} className="text-center text-slate-500 font-medium pb-2 px-2 text-[10px]">{c.label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrix.map(row => (
+                          <tr key={row.stage} className="border-t border-slate-800/50">
+                            <td className="py-1.5 pr-3 font-semibold" style={{color: stageColor[row.stage]}}>{stageLabel[row.stage] ?? row.stage}</td>
+                            {row.cells.map(cell => (
+                              <td key={cell.param} className="py-1.5 px-2 text-center">
+                                {cell.data ? (
+                                  <div>
+                                    <div className="font-mono font-bold text-[11px]" style={{color: pnlColor(cell.data.avgPnl)}}>
+                                      {cell.data.avgPnl >= 0 ? '+' : ''}{cell.data.avgPnl.toFixed(1)}%
+                                    </div>
+                                    <div className="text-[9px] text-slate-600">{cell.data.wr}%WR n={cell.data.n}</div>
+                                  </div>
+                                ) : <span className="text-slate-700 text-[10px]">—</span>}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 text-[10px] text-slate-700">Based on {brainPrior?.total ?? '—'}-trade backtest. Green ≥+3.8% · Cyan ≥+2.8% · Yellow ≥+1.8% · Orange ≥+0.5% · Red below</div>
+                </div>
+              );
+            })()}
+
+            {/* ── PARAM SET PERFORMANCE SCORECARD ── */}
+            {(() => {
+              if (!brainPrior?.byParamSet) return null;
+              const rows = Object.entries(brainPrior.byParamSet)
+                .map(([key, s]: [string, {n:number,wr:number,avgPnl:number,medPnl:number}]) => ({key, label: (brainPrior.paramLabels as Record<string,string>)?.[key] ?? key, ...s}))
+                .sort((a, b) => b.avgPnl - a.avgPnl);
+              const maxPnl = Math.max(...rows.map(r => r.avgPnl));
+              return (
+                <div className="bg-slate-800/40 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Param Set Performance (Backtest)</div>
+                  <div className="space-y-1.5">
+                    {rows.map((r, i) => (
+                      <div key={r.key} className="flex items-center gap-3 text-xs">
+                        <span className="text-slate-600 w-3">{i + 1}</span>
+                        <span className="font-mono text-slate-300 w-20 font-semibold">{r.label}</span>
+                        <div className="flex-1 bg-slate-900/60 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full" style={{width: `${maxPnl > 0 ? (r.avgPnl / maxPnl) * 100 : 0}%`, backgroundColor: r.avgPnl >= 3 ? '#22d3ee' : r.avgPnl >= 1 ? '#facc15' : '#ef4444'}} />
+                        </div>
+                        <span className="font-mono font-bold w-12 text-right" style={{color: r.avgPnl >= 3 ? '#22d3ee' : r.avgPnl >= 1 ? '#facc15' : '#ef4444'}}>{r.avgPnl >= 0 ? '+' : ''}{r.avgPnl.toFixed(2)}%</span>
+                        <span className="text-slate-600 w-16">{r.wr}% WR</span>
+                        <span className="text-slate-700 text-[10px]">n={r.n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── STOCK DNA — backtest history for symbols in current scan ── */}
+            {(() => {
+              if (!brainPrior?.bySymbol) return null;
+              const scanSymbols = results
+                .filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage))
+                .map(r => r.symbol);
+              const withHistory = scanSymbols
+                .map(sym => {
+                  const rel = getSymbolReliability(brainPrior, sym);
+                  return rel && rel.n >= 2 ? { sym, ...rel } : null;
+                })
+                .filter(Boolean)
+                .sort((a, b) => (b!.wr - a!.wr));
+              if (!withHistory.length) return null;
+              return (
+                <div className="bg-slate-800/40 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Stock DNA — Backtest History for Current Signals</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {withHistory.slice(0, 9).map(s => {
+                      if (!s) return null;
+                      const c = s.wr >= 70 ? '#22d3ee' : s.wr >= 50 ? '#facc15' : '#ef4444';
+                      return (
+                        <div key={s.sym} className="bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60" onClick={() => setSelectedSymbol(s.sym)}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-slate-200 text-xs">{s.sym.replace('.NS','').replace('.BO','')}</span>
+                            <span className="font-bold text-xs" style={{color: c}}>{s.wr}% WR</span>
+                          </div>
+                          <div className="flex items-center justify-between mt-0.5 text-[10px]">
+                            <span className="text-slate-600">{s.n}× in backtest</span>
+                            <span style={{color: (s.avgPnl ?? 0) >= 0 ? '#22d3ee' : '#ef4444'}}>{(s.avgPnl ?? 0) >= 0 ? '+' : ''}{(s.avgPnl ?? 0).toFixed(1)}%</span>
+                          </div>
+                          <div className="mt-1 bg-slate-800 rounded-full h-1">
+                            <div className="h-1 rounded-full" style={{width: `${s.wr}%`, backgroundColor: c}} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {results.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-600">
-                <div className="text-5xl mb-4">🧠</div>
-                <div className="text-lg font-medium mb-1">Intelligence Module</div>
-                <div className="text-sm">Run a scan to activate RS ranking, sector rotation, multi-TF analysis</div>
+              <div className="flex flex-col items-center justify-center py-12 text-slate-600">
+                <div className="text-4xl mb-3">📡</div>
+                <div className="text-sm font-medium mb-1">Run a scan to activate live intelligence</div>
+                <div className="text-xs">RS ranking, sector rotation, multi-TF, signal command</div>
               </div>
             ) : (<>
 
@@ -3861,12 +4074,13 @@ function HomePageInner() {
               </div>
             </div>
 
-            {/* Signal Decay Legend */}
+            {/* Legend */}
             <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
+              <div><span className="text-slate-500 font-semibold">Signal Command:</span> Ranks current BUY signals by composite score (brain + backtest expected P&L). Size up on ELITE tier setups.</div>
+              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from {brainPrior?.total ?? '—'}-trade backtest. STRONG_BUY + HiPrec15+ is the elite tier.</div>
               <div><span className="text-slate-500 font-semibold">RS Rank:</span> Mansfield Relative Strength percentile (0-100). Above 70 = leader, below 30 = laggard. Only buy RS leaders.</div>
               <div><span className="text-slate-500 font-semibold">TF Align:</span> DW = Daily + Weekly breakout confirmed (highest probability). D = Daily only (weekly still compressing).</div>
               <div><span className="text-slate-500 font-semibold">Sector Rotation:</span> Green = money flowing in + signals appearing. Red = money leaving. Trade WITH sector momentum.</div>
-              <div><span className="text-slate-500 font-semibold">Correlation:</span> Above 0.7 = concentrated risk. Diversify across uncorrelated sectors.</div>
               <div><span className="text-slate-500 font-semibold">Risk of Ruin:</span> Probability of a 30% drawdown given current win rate and R:R. Below 5% = safe.</div>
             </div>
 
