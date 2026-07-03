@@ -1,0 +1,183 @@
+════════════════════════════════════════════════════════════════════════════════
+  PARAM OPTIMIZER RESULTS — Top candidates by OOS win rate
+════════════════════════════════════════════════════════════════════════════════
+  Observations: 1436  Candidates evaluated: 4,096  Valid: 206
+  OOS window: 2025-06-25 → 2026-06-29  (last 25% chronologically)
+
+  Baseline (no extra filters, HiPrec signals): ALL WR=51.8%  OOS WR=46.2%  avg=-0.70%  n=1436
+
+────────────────────────────────────────────────────────────────────────────────
+  #1  OOS WR=80.0%  IS WR=41.2%  ΔWR=+38.8%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=22
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            30
+    maxUpperWickPct:        55
+    minBodyPct:             20
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #2  OOS WR=80.0%  IS WR=33.3%  ΔWR=+46.7%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=20
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            30
+    maxUpperWickPct:        55
+    minBodyPct:             40
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #3  OOS WR=80.0%  IS WR=37.5%  ΔWR=+42.5%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=21
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            45
+    maxUpperWickPct:        55
+    minBodyPct:             20
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #4  OOS WR=80.0%  IS WR=33.3%  ΔWR=+46.7%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=20
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            45
+    maxUpperWickPct:        55
+    minBodyPct:             40
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #5  OOS WR=80.0%  IS WR=38.5%  ΔWR=+41.5%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=18
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            55
+    maxUpperWickPct:        55
+    minBodyPct:             20
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #6  OOS WR=80.0%  IS WR=33.3%  ΔWR=+46.7%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=17
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      1.5
+    minCloseLoc:            55
+    maxUpperWickPct:        55
+    minBodyPct:             40
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #7  OOS WR=80.0%  IS WR=41.2%  ΔWR=+38.8%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=22
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      2
+    minCloseLoc:            30
+    maxUpperWickPct:        55
+    minBodyPct:             20
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #8  OOS WR=80.0%  IS WR=33.3%  ΔWR=+46.7%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=20
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      2
+    minCloseLoc:            30
+    maxUpperWickPct:        55
+    minBodyPct:             40
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #9  OOS WR=80.0%  IS WR=37.5%  ΔWR=+42.5%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=21
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      2
+    minCloseLoc:            45
+    maxUpperWickPct:        55
+    minBodyPct:             20
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+────────────────────────────────────────────────────────────────────────────────
+  #10  OOS WR=80.0%  IS WR=33.3%  ΔWR=+46.7%  OOS avg=+1.04%  PF=4.33  n(OOS)=5  n(total)=20
+
+  Thresholds:
+    minExactRangeATR14:     1.8
+    minExactVolRatio20:     1.2
+    minExactVolVsPre5:      2
+    minCloseLoc:            45
+    maxUpperWickPct:        55
+    minBodyPct:             40
+    maxZoneTightnessPct:    undefined
+    minUltraPrecisionScore: undefined
+    minVolatilityExpRatio:  undefined
+    maxPre10AvgRangeATR:    undefined
+
+════════════════════════════════════════════════════════════════════════════════
+  HOW TO APPLY THESE PARAMS
+════════════════════════════════════════════════════════════════════════════════
+  Copy the #1 thresholds into stockEngine.ts → optimized_elite_10plus (or a new param set).
+  The params above override the matching fields in the ParamSet interface.
+  Re-compile: node_modules/.bin/tsc lib/stockEngine.ts ... (see fullBacktest1980.js header)
+
+────────────────────────────────────────────────────────────────────────────────
+  WHAT SEPARATES WINNERS — feature distribution (OOS wins vs losses, baseline HiPrec):
+  Feature              Wins median   Losses median   Delta
+  eRA (exactRangeATR)            0.78             0.77   +0.01
+  eVR (exactVolRatio)            0.59             0.62   -0.03
+  eVP5 (volVsPre5)               1.05             1.00   +0.05
+  closeLoc %                    55.49            53.58   +1.91
+  upperWick %                   30.08            28.14   +1.94
+  bodyPct %                     39.18            36.79   +2.39
+  zoneTightness %                4.28             4.20   +0.07
+  UPS score                     55.00            52.00   +3.00
+  volatilityExpRatio             1.00             0.99   +0.02
+  pre10AvgRangeATR               0.77             0.77   +0.00
+
+════════════════════════════════════════════════════════════════════════════════
+  Total run time: 0.0 minutes
+  Results: D:\Claude code\stock-screener\scripts\optimizer_results.json
+════════════════════════════════════════════════════════════════════════════════

@@ -192,7 +192,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,
     avgWinR: wins.length > 0 ? totalWinR / wins.length : 0,
     avgLossR: losses.length > 0 ? -totalLossR / losses.length : 0,
-    profitFactor: totalLossPct > 0 ? totalWinPct / totalLossPct : totalWinPct > 0 ? 999 : 0,
+    profitFactor: totalLossPct > 0 ? Math.min(totalWinPct / totalLossPct, 50) : totalWinPct > 0 ? 50 : 0,
     expectancy: closed.length > 0 ? (totalWinPct - totalLossPct) / closed.length : 0,
     bestTrade, worstTrade,
     avgDaysHeld: Math.round(avgDays),

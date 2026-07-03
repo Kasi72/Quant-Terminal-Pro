@@ -327,7 +327,7 @@ function computeSharpe20(candles: Candle[], endIdx: number): number {
   if (returns.length < 5) return 0;
   const m = mean(returns);
   const sd = stdDev(returns);
-  return sd > 0 ? safe((m / sd) * Math.sqrt(252)) : 0;
+  return sd > 1e-10 ? safe((m / sd) * Math.sqrt(252)) : 0;
 }
 
 // #4v2: Shannon Entropy of last 10 closes
@@ -819,7 +819,8 @@ export function computeKelly(
 ): number {
   const wr = winRate / 100;
   const lr = 1 - wr;
-  if (lr <= 0 || avgLossPct >= 0) return 0;
+  if (lr <= 0) return 25; // 100% win rate → max Kelly fraction
+  if (avgLossPct >= 0) return 0; // no loss data or wrongly signed
   const wlRatio = Math.abs(avgWinPct / avgLossPct);
   const kelly = wr - (lr / wlRatio);
   return Math.max(0, Math.min(kelly * fraction * 100, 25));

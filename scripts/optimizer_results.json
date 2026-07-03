@@ -1,0 +1,190 @@
+{
+  "meta": {
+    "generatedAt": "2026-07-03T02:10:39.421Z",
+    "totalCandidates": 206,
+    "minTrades": 5,
+    "observations": 1436
+  },
+  "top": [
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 30,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 20
+      },
+      "oosWR": 0.8,
+      "isWR": 0.4117647058823529,
+      "delta": 0.3882352941176471,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 17,
+      "nTotal": 22,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 30,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 40
+      },
+      "oosWR": 0.8,
+      "isWR": 0.3333333333333333,
+      "delta": 0.46666666666666673,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 15,
+      "nTotal": 20,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 45,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 20
+      },
+      "oosWR": 0.8,
+      "isWR": 0.375,
+      "delta": 0.42500000000000004,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 16,
+      "nTotal": 21,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 45,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 40
+      },
+      "oosWR": 0.8,
+      "isWR": 0.3333333333333333,
+      "delta": 0.46666666666666673,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 15,
+      "nTotal": 20,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 55,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 20
+      },
+      "oosWR": 0.8,
+      "isWR": 0.38461538461538464,
+      "delta": 0.4153846153846154,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 13,
+      "nTotal": 18,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 55,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 40
+      },
+      "oosWR": 0.8,
+      "isWR": 0.3333333333333333,
+      "delta": 0.46666666666666673,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 12,
+      "nTotal": 17,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 30,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 20
+      },
+      "oosWR": 0.8,
+      "isWR": 0.4117647058823529,
+      "delta": 0.3882352941176471,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 17,
+      "nTotal": 22,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 30,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 40
+      },
+      "oosWR": 0.8,
+      "isWR": 0.3333333333333333,
+      "delta": 0.46666666666666673,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 15,
+      "nTotal": 20,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 45,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 20
+      },
+      "oosWR": 0.8,
+      "isWR": 0.375,
+      "delta": 0.42500000000000004,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 16,
+      "nTotal": 21,
+      "pf": 4.32554466019082
+    },
+    {
+      "params": {
+        "minExactRangeATR14": 1.8,
+        "minExactVolRatio20": 1.2,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 45,
+        "maxUpperWickPct": 55,
+        "minBodyPct": 40
+      },
+      "oosWR": 0.8,
+      "isWR": 0.3333333333333333,
+      "delta": 0.46666666666666673,
+      "oosPnl": 1.0413321663223762,
+      "n": 5,
+      "nIS": 15,
+      "nTotal": 20,
+      "pf": 4.32554466019082
+    }
+  ]
+}

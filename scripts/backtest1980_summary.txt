@@ -1,0 +1,90 @@
+════════════════════════════════════════════════════════════════════════════════
+  BACKTEST RESULTS — ALL 5 PARAM SETS
+════════════════════════════════════════════════════════════════════════════════
+  Stocks: 1616  ·  Period: 2019-01-01 → today  ·  Engine: production
+  Stop: −7%  ·  T1: +5%  ·  T2: +10%  ·  T3: +15%  ·  Time stop: day 20
+
+────────────────────────────────────────────────────────────────────────────────
+  📊 Deployable       n=   43  WR=55.8%  avgP&L=+0.23%  PF=1.09  avgDays=12.2
+     avgWin=+5.18%  avgLoss=-6.02%  maxConsecL=4
+     IS WR=64.0% avg=+1.42%  →  OOS WR=44.4% avg=-1.42%
+     Exits → time_t2:4  t3:4  time_t1:7  stop:16  time:4  stop_t1:7  stop_t2:1
+     Stages → ULTRA_STRONG_BUY(n=41 WR=56%)  STRONG_BUY(n=2 WR=50%)
+     Year breakdown:
+       2022: n=   7  WR=85.7%  avg=+3.06%
+       2023: n=  17  WR=70.6%  avg=+2.04%
+       2024: n=   3  WR=66.7%  avg=+3.00%
+       2025: n=  14  WR=28.6%  avg=-2.92%
+       2026: n=   2  WR=0.0%  avg=-7.00%
+
+────────────────────────────────────────────────────────────────────────────────
+  📊 HiPrec           n= 1675  WR=51.5%  avgP&L=-0.81%  PF=0.75  avgDays=8.7
+     avgWin=+4.74%  avgLoss=-6.71%  maxConsecL=10
+     IS WR=52.3% avg=-0.66%  →  OOS WR=50.3% avg=-1.04%
+     Exits → stop:658  stop_t2:146  stop_gap:59  stop_t1:339  t3:154  stop_gap_t1:47  time:128  time_t2:47  time_t1:79  stop_gap_t2:18
+     Stages → ULTRA_STRONG_BUY(n=1366 WR=51%)  STRONG_BUY(n=309 WR=53%)
+     Year breakdown:
+       2021: n=  67  WR=37.3%  avg=-3.01%
+       2022: n= 291  WR=51.9%  avg=-0.92%
+       2023: n= 459  WR=59.3%  avg=+0.41%
+       2024: n= 364  WR=47.5%  avg=-1.59%
+       2025: n= 361  WR=51.0%  avg=-0.94%
+       2026: n= 133  WR=43.6%  avg=-1.21%
+
+────────────────────────────────────────────────────────────────────────────────
+  📊 Elite            n=   76  WR=60.5%  avgP&L=+1.10%  PF=1.54  avgDays=14.6
+     avgWin=+5.17%  avgLoss=-5.13%  maxConsecL=5
+     IS WR=64.4% avg=+1.77%  →  OOS WR=54.8% avg=+0.14%
+     Exits → time_t2:8  stop_t1:8  time_t1:15  time:16  stop:15  stop_gap:3  stop_t2:2  t3:6  stop_gap_t2:1  stop_gap_t1:2
+     Stages → ULTRA_STRONG_BUY(n=74 WR=61%)  STRONG_BUY(n=2 WR=50%)
+     Year breakdown:
+       2022: n=  16  WR=62.5%  avg=+0.67%
+       2023: n=  27  WR=70.4%  avg=+2.71%
+       2024: n=   6  WR=83.3%  avg=+3.97%
+       2025: n=  22  WR=50.0%  avg=-0.01%
+       2026: n=   5  WR=20.0%  avg=-4.71%
+
+────────────────────────────────────────────────────────────────────────────────
+  📊 Ultra            n=   75  WR=56.0%  avgP&L=-0.04%  PF=0.98  avgDays=10.6
+     avgWin=+4.71%  avgLoss=-6.10%  maxConsecL=7
+     IS WR=66.7% avg=+1.85%  →  OOS WR=40.0% avg=-2.89%
+     Exits → t3:5  stop_t2:11  stop:21  time:10  stop_t1:14  stop_gap:6  stop_gap_t1:1  time_t1:6  time_t2:1
+     Stages → ULTRA_STRONG_BUY(n=63 WR=57%)  STRONG_BUY(n=12 WR=50%)
+     Year breakdown:
+       2021: n=   1  WR=0.0%  avg=-7.00%
+       2022: n=  10  WR=60.0%  avg=-0.36%
+       2023: n=  22  WR=68.2%  avg=+1.66%
+       2024: n=  16  WR=31.3%  avg=-3.30%
+       2025: n=  25  WR=64.0%  avg=+1.22%
+       2026: n=   1  WR=0.0%  avg=-7.00%
+
+────────────────────────────────────────────────────────────────────────────────
+  📊 Sniper           n=   73  WR=53.4%  avgP&L=+0.09%  PF=1.03  avgDays=12.2
+     avgWin=+5.16%  avgLoss=-5.73%  maxConsecL=7
+     IS WR=62.8% avg=+1.49%  →  OOS WR=40.0% avg=-1.92%
+     Exits → time_t2:7  stop_t2:3  time_t1:10  time:13  stop_t1:9  stop:23  t3:5  stop_gap:1  stop_gap_t2:1  stop_gap_t1:1
+     Stages → ULTRA_STRONG_BUY(n=72 WR=54%)  STRONG_BUY(n=1 WR=0%)
+     Year breakdown:
+       2022: n=  18  WR=55.6%  avg=-0.41%
+       2023: n=  26  WR=57.7%  avg=+1.23%
+       2024: n=   8  WR=62.5%  avg=+1.27%
+       2025: n=  16  WR=50.0%  avg=-0.35%
+       2026: n=   5  WR=20.0%  avg=-4.54%
+
+════════════════════════════════════════════════════════════════════════════════
+  CROSS-PARAM COMPARISON (sorted by OOS win rate)
+════════════════════════════════════════════════════════════════════════════════
+  Param Set             n    WR%   AvgP&L     PF   IS WR   OOS WR    ΔWR
+  ──────────────────────────────────────────────────────────────────────
+  Elite                76   60.5 +1.10       %   1.54    64.4     54.8   -9.6
+  HiPrec             1675   51.5 -0.81       %   0.75    52.3     50.3   -2.0
+  Deployable           43   55.8 +0.23       %   1.09    64.0     44.4  -19.6
+  Ultra                75   56.0 -0.04       %   0.98    66.7     40.0  -26.7
+  Sniper               73   53.4 +0.09       %   1.03    62.8     40.0  -22.8
+
+  ΔWR = OOS − IS  (positive = generalized, not overfit)
+
+  Total run time : 15.4 minutes
+  Results saved  : D:\Claude code\stock-screener\scripts\backtest1980_results.json
+  Summary saved  : D:\Claude code\stock-screener\scripts\backtest1980_summary.txt
+════════════════════════════════════════════════════════════════════════════════

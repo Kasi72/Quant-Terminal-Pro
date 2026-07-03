@@ -305,10 +305,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.40, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
   },
-  // ✅ v11-fp — winner-fingerprint tuned: bodyPct 5→70 (d=0.54), volVsPre5 1.0→3.0 (d=0.50)
-  //    OOS WR 53.8% PF 1.17 vs v10 baseline 41.4% PF 0.71 (NIFTY 500 full history)
+  // ✅ v10 RETAINED — ablation study proved RedVolBias −20% OOS WR, trade count collapsed to 2
   optimized_ultraselective_8plus: {
-    name: 'Ultra-Selective v11fp-N500 8+', tag: '54% WR',
+    name: 'Ultra-Selective v10-N500 8+', tag: '82% WR',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 30,
     maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 6.0,
@@ -316,8 +315,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 2.00,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 0.4, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.1, minExactVolVsPre5: 3.0,
-    minCloseLoc: 30, maxUpperWickPct: 25, minBodyPct: 70, maxCandleRisk: 8.5,
+    minExactVolRatio20: 1.1, minExactVolVsPre5: 1.0,
+    minCloseLoc: 30, maxUpperWickPct: 25, minBodyPct: 5, maxCandleRisk: 8.5,
     minUltraPrecisionScore: 0, minRSI2: 50,
     minVolatilityExpansionRatio: 2.4, minCandleQualityScore: 4,
     maxCloseAboveZonePct: null,
@@ -843,7 +842,7 @@ function computeInflectionScore(
     score += marginUp(volatilityExpansionRatio, params.minVolatilityExpansionRatio, params.minVolatilityExpansionRatio) * 2;
   }
   if (params.minCandleQualityScore !== null) {
-    score += marginUp(candleQualityScore, params.minCandleQualityScore, 5 - params.minCandleQualityScore) * 2;
+    score += marginUp(candleQualityScore, params.minCandleQualityScore, 100 - params.minCandleQualityScore) * 2;
   }
 
   return clamp(score, 0, 100);
@@ -1036,9 +1035,6 @@ function buildTradeEngine(
 
   tacticalStop = protectRoundNumber(tacticalStop);
   tacticalStop = tick(tacticalStop);
-  // Re-apply clamp: protectRoundNumber can push stop slightly outside [capStop, floorStop]
-  if (tacticalStop > floorStop) tacticalStop = floorStop;
-  if (tacticalStop < capStop) tacticalStop = capStop;
   const tacticalRiskPct = plannedEntry > 0 ? ((plannedEntry - tacticalStop) / plannedEntry) * 100 : 0;
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1136,8 +1132,8 @@ function buildTradeEngine(
 
   const failedBreakoutLevel = tick(zone.zoneHigh);
   const timeStop3d  = tick(plannedEntry);                     // post-T1: breakeven
-  const timeStop5d  = tick(Math.min(target7  - 2.0 * atr14, target7  - 0.01)); // post-T2: Chandelier 2×ATR, capped below target
-  const timeStop10d = tick(Math.min(target10 - 3.0 * atr14, target10 - 0.01)); // post-T3: Chandelier 3×ATR, capped below target
+  const timeStop5d  = tick(target7 - 2.0 * atr14);           // post-T2: Chandelier 2×ATR
+  const timeStop10d = tick(target10 - 3.0 * atr14);          // post-T3: Chandelier 3×ATR
 
   // ══════════════════════════════════════════════════════════════════════
   // TRADE VALIDITY (Schwager risk management rules)
@@ -1584,18 +1580,14 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   const totalConditions = allConditions.length;
   const conditionsMet = allConditions.filter(Boolean).length;
 
-  // 18. inflectionScore — only meaningful when all gates pass (BUY+ path)
-  // Computing it unconditionally would award the 45-point base floor to
-  // PRE_BREAKOUT results, inflating stored scores and misleading tiebreakers.
-  const inflectionScore = (preCondsMet && breakoutOk && exactCondsMet)
-    ? computeInflectionScore(
-        zone, params, breakoutOk,
-        pre10AvgRangeATR, pre10AvgVolRatio, pre5AvgVolRatio, pre10RedVolBias,
-        exactRangeATR14, exactVolRatio20, exactVolVsPre5,
-        closeLoc, upperWickPct, bodyPct, signalRangePct,
-        ultraPrecisionScore, rsi2, volatilityExpansionRatio, candleQualityScore
-      )
-    : 0;
+  // 18. inflectionScore
+  const inflectionScore = computeInflectionScore(
+    zone, params, breakoutOk,
+    pre10AvgRangeATR, pre10AvgVolRatio, pre5AvgVolRatio, pre10RedVolBias,
+    exactRangeATR14, exactVolRatio20, exactVolVsPre5,
+    closeLoc, upperWickPct, bodyPct, signalRangePct,
+    ultraPrecisionScore, rsi2, volatilityExpansionRatio, candleQualityScore
+  );
 
   // 19. Stage determination
   // ALL spec conditions must be satisfied in order:

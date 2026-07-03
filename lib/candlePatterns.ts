@@ -99,10 +99,10 @@ export function detectCandlePattern(candles: Candle[], endIdx: number): CandlePa
       return P('Falling 3 Methods', 'F3M', 'bearish', 3);
   }
 
-  // Tri-Star Bullish (3 consecutive dojis with middle gap down)
-  if (isDoji(pp) && isDoji(p) && isDoji(c) && p.h < pp.l)
+  // Tri-Star Bullish: middle doji gaps down from first, third doji gaps back up
+  if (isDoji(pp) && isDoji(p) && isDoji(c) && p.h < pp.l && c.l > p.h)
     return P('Tri-Star ↑', 'TS-U', 'bullish', 3);
-  if (isDoji(pp) && isDoji(p) && isDoji(c) && p.l > pp.h)
+  if (isDoji(pp) && isDoji(p) && isDoji(c) && p.l > pp.h && c.h < p.l)
     return P('Tri-Star ↓', 'TS-D', 'bearish', 3);
 
   // Deliberation (3 bull, 3rd has small body near high — hesitation)
@@ -183,12 +183,12 @@ export function detectCandlePattern(candles: Candle[], endIdx: number): CandlePa
   if (isBull(p) && isLargeBody(p) && isBear(c) && c.o < p.c && c.c > p.o && b < pB * 0.50)
     return P('Bearish Harami', 'R-HR', 'bearish', 2);
 
-  // Tweezer Bottom
-  if (isBear(p) && isBull(c) && Math.abs(c.l - p.l) < r * 0.03)
+  // Tweezer Bottom — tolerance relative to smaller candle's range to avoid false positives on large-range bars
+  if (isBear(p) && isBull(c) && Math.abs(c.l - p.l) < Math.min(r, pR) * 0.03)
     return P('Tweezer Bottom', 'TWBT', 'bullish', 2);
 
   // Tweezer Top
-  if (isBull(p) && isBear(c) && Math.abs(c.h - p.h) < r * 0.03)
+  if (isBull(p) && isBear(c) && Math.abs(c.h - p.h) < Math.min(r, pR) * 0.03)
     return P('Tweezer Top', 'TWTP', 'bearish', 2);
 
   // Bullish Counterattack

@@ -1,0 +1,2012 @@
+{
+  "optimized_deployable_20plus": [
+    {
+      "sym": "ENGINERSIN",
+      "date": "2022-07-18",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.853395061728393,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "PETRONET",
+      "date": "2025-12-03",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 3.6133855464578266,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "ANURAS",
+      "date": "2025-06-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 2
+    },
+    {
+      "sym": "MAHABANK",
+      "date": "2025-12-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.4287721037845,
+      "exitType": "stop_gap_t2",
+      "days": 14
+    },
+    {
+      "sym": "DEEPAKFERT",
+      "date": "2023-07-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "GODREJIND",
+      "date": "2023-03-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "JBCHEPHARM",
+      "date": "2023-06-15",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 4
+    },
+    {
+      "sym": "JBCHEPHARM",
+      "date": "2025-07-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "TATAINVEST",
+      "date": "2022-07-17",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "DRREDDY",
+      "date": "2024-06-26",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.4925025377870496,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BAJAJHLDNG",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.988336644982172,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "CANBK",
+      "date": "2023-11-12",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.522058823529412,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "TATAELXSI",
+      "date": "2023-01-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -1.219602609727165,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "TATACOMM",
+      "date": "2023-05-08",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 6
+    }
+  ],
+  "optimized_highprecision_15plus": [
+    {
+      "sym": "ABBOTINDIA",
+      "date": "2026-03-03",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 12
+    },
+    {
+      "sym": "APOLLOHOSP",
+      "date": "2022-04-18",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 7
+    },
+    {
+      "sym": "ASTRAL",
+      "date": "2022-12-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 10
+    },
+    {
+      "sym": "BANKBARODA",
+      "date": "2024-06-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 1
+    },
+    {
+      "sym": "BLS",
+      "date": "2023-06-13",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 6
+    },
+    {
+      "sym": "BLS",
+      "date": "2024-04-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000014,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "BSE",
+      "date": "2022-08-01",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "CARTRADE",
+      "date": "2022-09-12",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "CONCOR",
+      "date": "2022-07-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.106278498772357,
+      "exitType": "stop_gap",
+      "days": 15
+    },
+    {
+      "sym": "CONCOR",
+      "date": "2024-04-09",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "CONCOR",
+      "date": "2025-12-25",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 16
+    },
+    {
+      "sym": "ECLERX",
+      "date": "2023-01-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 19
+    },
+    {
+      "sym": "GABRIEL",
+      "date": "2024-04-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000115,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "HEG",
+      "date": "2025-10-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "KIRLOSENG",
+      "date": "2022-11-06",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000014,
+      "exitType": "stop",
+      "days": 0
+    },
+    {
+      "sym": "LEMONTREE",
+      "date": "2022-11-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 19
+    },
+    {
+      "sym": "LTF",
+      "date": "2025-06-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 1.9489465153970849,
+      "exitType": "stop_gap_t1",
+      "days": 5
+    },
+    {
+      "sym": "NTPCGREEN",
+      "date": "2025-07-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "NTPCGREEN",
+      "date": "2025-10-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -6.999999999999999,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "RADICO",
+      "date": "2022-12-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000115,
+      "exitType": "stop",
+      "days": 9
+    },
+    {
+      "sym": "RADICO",
+      "date": "2025-10-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 7
+    },
+    {
+      "sym": "RITES",
+      "date": "2021-10-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 12
+    },
+    {
+      "sym": "RITES",
+      "date": "2024-07-03",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 2
+    },
+    {
+      "sym": "SONACOMS",
+      "date": "2022-10-18",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 16
+    },
+    {
+      "sym": "SONACOMS",
+      "date": "2023-11-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.837691918339805,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "SUPREMEIND",
+      "date": "2025-12-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.38567020911895783,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "UNIONBANK",
+      "date": "2025-05-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 1.157718120805369,
+      "exitType": "stop_gap_t1",
+      "days": 9
+    },
+    {
+      "sym": "VIJAYA",
+      "date": "2022-11-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 2
+    },
+    {
+      "sym": "WOCKPHARMA",
+      "date": "2021-11-07",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 8
+    },
+    {
+      "sym": "ABDL",
+      "date": "2025-06-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 3
+    },
+    {
+      "sym": "AFFLE",
+      "date": "2022-01-02",
+      "stage": "STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 6
+    },
+    {
+      "sym": "ANANTRAJ",
+      "date": "2022-12-12",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 1
+    },
+    {
+      "sym": "APTUS",
+      "date": "2023-07-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 18
+    },
+    {
+      "sym": "EIDPARRY",
+      "date": "2022-09-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.5,
+      "exitType": "stop_t2",
+      "days": 10
+    },
+    {
+      "sym": "ENGINERSIN",
+      "date": "2022-07-18",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.853395061728393,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "GRAPHITE",
+      "date": "2025-07-13",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000016,
+      "exitType": "stop",
+      "days": 8
+    },
+    {
+      "sym": "GRAPHITE",
+      "date": "2025-10-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "HAVELLS",
+      "date": "2022-04-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 17
+    },
+    {
+      "sym": "INDIACEM",
+      "date": "2025-07-21",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 0.44763971785132317,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "JSWINFRA",
+      "date": "2025-06-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.7258064516129032,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "MARUTI",
+      "date": "2021-09-26",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -2.5161117078410262,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "MARUTI",
+      "date": "2022-10-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "NUVAMA",
+      "date": "2024-12-09",
+      "stage": "STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 1
+    },
+    {
+      "sym": "SPLPETRO",
+      "date": "2024-12-02",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 7
+    },
+    {
+      "sym": "TATACONSUM",
+      "date": "2023-10-12",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.2723904990193942,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "TITAGARH",
+      "date": "2022-06-09",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "ADANIPORTS",
+      "date": "2022-07-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.372822625959916,
+      "exitType": "stop_gap_t2",
+      "days": 14
+    },
+    {
+      "sym": "ASHOKLEY",
+      "date": "2023-04-24",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.901636428317324,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BALKRISIND",
+      "date": "2023-06-19",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 12
+    },
+    {
+      "sym": "BHEL",
+      "date": "2023-05-01",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 2
+    },
+    {
+      "sym": "BPCL",
+      "date": "2025-12-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "HDFCAMC",
+      "date": "2025-06-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.897315304722712,
+      "exitType": "stop_gap",
+      "days": 5
+    },
+    {
+      "sym": "HINDPETRO",
+      "date": "2022-01-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 11
+    },
+    {
+      "sym": "HINDPETRO",
+      "date": "2023-03-15",
+      "stage": "STRONG_BUY",
+      "pnl": -7.0000000000000115,
+      "exitType": "stop",
+      "days": 10
+    },
+    {
+      "sym": "IGL",
+      "date": "2022-11-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 0.8738645509945853,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "IGL",
+      "date": "2023-06-20",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 1.5502273666804465,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "IGL",
+      "date": "2024-06-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.1954805604894405,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "JMFINANCIL",
+      "date": "2024-04-29",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 2
+    },
+    {
+      "sym": "MAHABANK",
+      "date": "2025-06-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.7162823200559114,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "MAHABANK",
+      "date": "2025-12-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.4287721037845,
+      "exitType": "stop_gap_t2",
+      "days": 14
+    },
+    {
+      "sym": "PARADEEP",
+      "date": "2023-01-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "SJVN",
+      "date": "2022-08-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 4
+    },
+    {
+      "sym": "SJVN",
+      "date": "2023-04-24",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000002,
+      "exitType": "stop_t2",
+      "days": 6
+    },
+    {
+      "sym": "TMPV",
+      "date": "2023-05-07",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.907370517928287,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "USHAMART",
+      "date": "2026-05-26",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 8
+    },
+    {
+      "sym": "ZFCVINDIA",
+      "date": "2022-10-11",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "APARINDS",
+      "date": "2023-11-12",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 5
+    },
+    {
+      "sym": "APARINDS",
+      "date": "2024-08-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 5
+    },
+    {
+      "sym": "AWL",
+      "date": "2024-04-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "BALRAMCHIN",
+      "date": "2023-06-06",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.374753451676531,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "BIKAJI",
+      "date": "2023-05-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 0.3221649484536082,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "CAPLIPOINT",
+      "date": "2022-07-19",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 3
+    },
+    {
+      "sym": "CAPLIPOINT",
+      "date": "2023-05-11",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 19
+    },
+    {
+      "sym": "CHOLAFIN",
+      "date": "2022-07-31",
+      "stage": "STRONG_BUY",
+      "pnl": 6.268963875093542,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "DEEPAKFERT",
+      "date": "2023-07-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "DEEPAKFERT",
+      "date": "2025-06-29",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "GLAND",
+      "date": "2025-05-20",
+      "stage": "STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 19
+    },
+    {
+      "sym": "GODREJIND",
+      "date": "2023-03-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "GODREJIND",
+      "date": "2023-06-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "GRSE",
+      "date": "2026-06-16",
+      "stage": "STRONG_BUY",
+      "pnl": -3.78531073446327,
+      "exitType": "time",
+      "days": 6
+    },
+    {
+      "sym": "IIFL",
+      "date": "2025-06-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.339519650655024,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "IRB",
+      "date": "2022-11-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 3
+    },
+    {
+      "sym": "IRB",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.609375000000002,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "JBCHEPHARM",
+      "date": "2022-01-26",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 0
+    },
+    {
+      "sym": "JBCHEPHARM",
+      "date": "2023-06-15",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 4
+    },
+    {
+      "sym": "JPPOWER",
+      "date": "2023-05-30",
+      "stage": "STRONG_BUY",
+      "pnl": 6.500000000000003,
+      "exitType": "stop_t2",
+      "days": 9
+    },
+    {
+      "sym": "LATENTVIEW",
+      "date": "2025-07-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 11
+    },
+    {
+      "sym": "LODHA",
+      "date": "2023-05-28",
+      "stage": "STRONG_BUY",
+      "pnl": -49.38737040527804,
+      "exitType": "stop_gap",
+      "days": 1
+    },
+    {
+      "sym": "LODHA",
+      "date": "2024-09-19",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 2
+    },
+    {
+      "sym": "MANAPPURAM",
+      "date": "2022-03-31",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 18
+    },
+    {
+      "sym": "MANAPPURAM",
+      "date": "2024-04-02",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 19
+    },
+    {
+      "sym": "MUTHOOTFIN",
+      "date": "2024-06-26",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 16
+    },
+    {
+      "sym": "SCHAEFFLER",
+      "date": "2022-04-26",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 5
+    },
+    {
+      "sym": "SOBHA",
+      "date": "2022-12-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 2
+    },
+    {
+      "sym": "TORNTPHARM",
+      "date": "2022-10-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 7
+    },
+    {
+      "sym": "UCOBANK",
+      "date": "2023-05-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -1.9677996422182493,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "UTIAMC",
+      "date": "2025-09-21",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "WHIRLPOOL",
+      "date": "2025-06-08",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 3.119469026548671,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "ZYDUSLIFE",
+      "date": "2023-11-07",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.119161868202175,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "BBTC",
+      "date": "2024-09-02",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 2
+    },
+    {
+      "sym": "CEATLTD",
+      "date": "2026-06-11",
+      "stage": "STRONG_BUY",
+      "pnl": 2.046783625730994,
+      "exitType": "time",
+      "days": 9
+    },
+    {
+      "sym": "CHENNPETRO",
+      "date": "2023-01-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000002,
+      "exitType": "stop_t2",
+      "days": 14
+    },
+    {
+      "sym": "CHENNPETRO",
+      "date": "2023-05-17",
+      "stage": "STRONG_BUY",
+      "pnl": 6.500000000000002,
+      "exitType": "stop_t2",
+      "days": 12
+    },
+    {
+      "sym": "DLF",
+      "date": "2025-06-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.691240340684758,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "ELECON",
+      "date": "2023-02-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "ESCORTS",
+      "date": "2023-07-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 3
+    },
+    {
+      "sym": "HINDCOPPER",
+      "date": "2025-09-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 9
+    },
+    {
+      "sym": "JKTYRE",
+      "date": "2025-09-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 17
+    },
+    {
+      "sym": "JUBLFOOD",
+      "date": "2022-01-06",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 6
+    },
+    {
+      "sym": "KAYNES",
+      "date": "2025-08-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.704511278195489,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "KPRMILL",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.5,
+      "exitType": "stop_t2",
+      "days": 3
+    },
+    {
+      "sym": "LINDEINDIA",
+      "date": "2023-06-11",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.861762724683586,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "NBCC",
+      "date": "2025-10-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 1.1021181332874128,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "NIVABUPA",
+      "date": "2026-01-07",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 0.5566343042071286,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "PRESTIGE",
+      "date": "2023-04-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 1
+    },
+    {
+      "sym": "RVNL",
+      "date": "2024-01-09",
+      "stage": "STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 5
+    },
+    {
+      "sym": "SUMICHEM",
+      "date": "2022-07-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.5,
+      "exitType": "stop_t2",
+      "days": 5
+    },
+    {
+      "sym": "SUMICHEM",
+      "date": "2023-11-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -2.167070217917673,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "SYNGENE",
+      "date": "2022-08-23",
+      "stage": "STRONG_BUY",
+      "pnl": -8.973113054745705,
+      "exitType": "stop_gap",
+      "days": 7
+    },
+    {
+      "sym": "TATAINVEST",
+      "date": "2022-05-29",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "TATAINVEST",
+      "date": "2022-07-17",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "WELCORP",
+      "date": "2023-08-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 8
+    },
+    {
+      "sym": "AAVAS",
+      "date": "2022-07-18",
+      "stage": "STRONG_BUY",
+      "pnl": 6.499999999999999,
+      "exitType": "stop_t2",
+      "days": 12
+    },
+    {
+      "sym": "ACE",
+      "date": "2023-01-19",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "AEGISLOG",
+      "date": "2025-09-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 8
+    },
+    {
+      "sym": "ASTERDM",
+      "date": "2022-11-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "BANDHANBNK",
+      "date": "2025-06-05",
+      "stage": "STRONG_BUY",
+      "pnl": 1.7013690815744407,
+      "exitType": "stop_gap_t1",
+      "days": 4
+    },
+    {
+      "sym": "BEL",
+      "date": "2023-11-12",
+      "stage": "STRONG_BUY",
+      "pnl": 8.039792387543251,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BIOCON",
+      "date": "2021-11-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.7595356550580386,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "CARBORUNIV",
+      "date": "2022-07-31",
+      "stage": "STRONG_BUY",
+      "pnl": 0.1773049645390071,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "CUB",
+      "date": "2022-08-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.471925884334645,
+      "exitType": "stop_gap_t1",
+      "days": 11
+    },
+    {
+      "sym": "DEEPAKNTR",
+      "date": "2023-05-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.459803871494971,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "DEEPAKNTR",
+      "date": "2023-11-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 17
+    },
+    {
+      "sym": "GODREJPROP",
+      "date": "2026-01-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "GSPL",
+      "date": "2022-01-06",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 4
+    },
+    {
+      "sym": "INDUSTOWER",
+      "date": "2022-07-11",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 16
+    },
+    {
+      "sym": "IRCON",
+      "date": "2023-11-16",
+      "stage": "STRONG_BUY",
+      "pnl": -1.0294117647058822,
+      "exitType": "stop_gap_t1",
+      "days": 12
+    },
+    {
+      "sym": "JBMA",
+      "date": "2023-06-06",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 6
+    },
+    {
+      "sym": "JSL",
+      "date": "2024-08-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 0
+    },
+    {
+      "sym": "LAURUSLABS",
+      "date": "2024-07-03",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 8
+    },
+    {
+      "sym": "LTFOODS",
+      "date": "2021-12-12",
+      "stage": "STRONG_BUY",
+      "pnl": 6.500000000000002,
+      "exitType": "stop_t2",
+      "days": 3
+    },
+    {
+      "sym": "LTFOODS",
+      "date": "2022-10-26",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 1
+    },
+    {
+      "sym": "MANKIND",
+      "date": "2025-09-17",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "NAM-INDIA",
+      "date": "2022-11-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 17
+    },
+    {
+      "sym": "NETWEB",
+      "date": "2025-07-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 10
+    },
+    {
+      "sym": "OIL",
+      "date": "2022-10-19",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.130012936610611,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "PAYTM",
+      "date": "2023-08-22",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "PAYTM",
+      "date": "2024-11-07",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000002,
+      "exitType": "stop",
+      "days": 1
+    },
+    {
+      "sym": "PIIND",
+      "date": "2021-12-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 2
+    },
+    {
+      "sym": "POONAWALLA",
+      "date": "2025-06-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.638674162567348,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "RHIM",
+      "date": "2023-05-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.670043415340087,
+      "exitType": "stop_gap",
+      "days": 19
+    },
+    {
+      "sym": "SOLARINDS",
+      "date": "2024-07-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 7
+    },
+    {
+      "sym": "TATACAP",
+      "date": "2025-12-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.2993929758635625,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "THERMAX",
+      "date": "2023-12-17",
+      "stage": "STRONG_BUY",
+      "pnl": 2.2340735924240183,
+      "exitType": "stop_gap_t1",
+      "days": 2
+    },
+    {
+      "sym": "VEDL",
+      "date": "2024-12-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 6
+    },
+    {
+      "sym": "ADANIENT",
+      "date": "2022-10-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.210335195530726,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BAJAJHLDNG",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.988336644982172,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "CANBK",
+      "date": "2023-11-12",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.522058823529412,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "CANBK",
+      "date": "2025-05-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "COCHINSHIP",
+      "date": "2023-05-01",
+      "stage": "STRONG_BUY",
+      "pnl": -2.1048944517093187,
+      "exitType": "stop_gap_t1",
+      "days": 13
+    },
+    {
+      "sym": "GRASIM",
+      "date": "2022-04-07",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "GRASIM",
+      "date": "2022-07-21",
+      "stage": "STRONG_BUY",
+      "pnl": 5.277138725474086,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "HBLENGINE",
+      "date": "2023-04-20",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 1
+    },
+    {
+      "sym": "KPITTECH",
+      "date": "2023-05-23",
+      "stage": "STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 7
+    },
+    {
+      "sym": "MAXHEALTH",
+      "date": "2026-06-17",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.324598634434396,
+      "exitType": "time_t1",
+      "days": 5
+    },
+    {
+      "sym": "MPHASIS",
+      "date": "2023-02-15",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "NAVINFLUOR",
+      "date": "2023-04-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.121407885943421,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "NIACL",
+      "date": "2024-04-25",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 1
+    },
+    {
+      "sym": "ONGC",
+      "date": "2026-04-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "PNB",
+      "date": "2024-04-02",
+      "stage": "STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 9
+    },
+    {
+      "sym": "TATAELXSI",
+      "date": "2023-01-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -1.219602609727165,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "ABCAPITAL",
+      "date": "2025-11-24",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 14
+    },
+    {
+      "sym": "ACUTAAS",
+      "date": "2025-08-18",
+      "stage": "STRONG_BUY",
+      "pnl": 5.356630824372761,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "ANANDRATHI",
+      "date": "2025-08-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 16
+    },
+    {
+      "sym": "APOLLOTYRE",
+      "date": "2022-11-06",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -6.999999999999998,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "APOLLOTYRE",
+      "date": "2023-11-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 6
+    },
+    {
+      "sym": "BERGEPAINT",
+      "date": "2024-07-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 19
+    },
+    {
+      "sym": "BSOFT",
+      "date": "2023-08-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.5,
+      "exitType": "stop_t2",
+      "days": 18
+    },
+    {
+      "sym": "BSOFT",
+      "date": "2025-12-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.500000000000001,
+      "exitType": "stop_t2",
+      "days": 18
+    },
+    {
+      "sym": "CYIENT",
+      "date": "2023-11-19",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 10
+    },
+    {
+      "sym": "FINCABLES",
+      "date": "2023-09-27",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 0
+    },
+    {
+      "sym": "GAIL",
+      "date": "2026-01-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000115,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "HAL",
+      "date": "2023-05-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.044490929836457,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "HAL",
+      "date": "2023-07-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -4.021403424039447,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "HAL",
+      "date": "2025-09-11",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.018789144050096792,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "KAJARIACER",
+      "date": "2022-11-27",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 18
+    },
+    {
+      "sym": "MARICO",
+      "date": "2022-09-13",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.501858736059484,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "NATIONALUM",
+      "date": "2025-09-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 17
+    },
+    {
+      "sym": "POWERINDIA",
+      "date": "2022-07-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 8
+    },
+    {
+      "sym": "RKFORGE",
+      "date": "2023-04-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 19
+    },
+    {
+      "sym": "SARDAEN",
+      "date": "2026-02-26",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000009,
+      "exitType": "stop",
+      "days": 9
+    },
+    {
+      "sym": "SHRIRAMFIN",
+      "date": "2025-06-25",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000011,
+      "exitType": "stop",
+      "days": 15
+    },
+    {
+      "sym": "SONATSOFTW",
+      "date": "2023-05-15",
+      "stage": "STRONG_BUY",
+      "pnl": 7.414466737064416,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "SONATSOFTW",
+      "date": "2025-11-11",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000004,
+      "exitType": "stop",
+      "days": 1
+    },
+    {
+      "sym": "TATACOMM",
+      "date": "2023-05-08",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "TIMKEN",
+      "date": "2025-10-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -6.999999999999999,
+      "exitType": "stop",
+      "days": 18
+    },
+    {
+      "sym": "TRENT",
+      "date": "2022-10-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 8
+    },
+    {
+      "sym": "TRENT",
+      "date": "2023-11-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.307140294223176,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "YESBANK",
+      "date": "2023-04-17",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.738095238095243,
+      "exitType": "stop_gap",
+      "days": 3
+    },
+    {
+      "sym": "YESBANK",
+      "date": "2025-06-01",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 0
+    }
+  ],
+  "optimized_elite_10plus": [
+    {
+      "sym": "APOLLOHOSP",
+      "date": "2026-05-07",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 4.441958737260751,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "RADICO",
+      "date": "2025-10-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 7
+    },
+    {
+      "sym": "SONACOMS",
+      "date": "2023-11-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.837691918339805,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "BHARATFORG",
+      "date": "2022-01-05",
+      "stage": "STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 9
+    },
+    {
+      "sym": "DIVISLAB",
+      "date": "2024-09-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.9093432007400555,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "JSWINFRA",
+      "date": "2025-06-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.7258064516129032,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "ADANIPORTS",
+      "date": "2022-07-31",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.372822625959916,
+      "exitType": "stop_gap_t2",
+      "days": 14
+    },
+    {
+      "sym": "BPCL",
+      "date": "2025-12-30",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "POLYCAB",
+      "date": "2023-01-18",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.656491228070177,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "SBIN",
+      "date": "2025-07-15",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -1.7831583969465568,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "GODREJIND",
+      "date": "2023-03-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000008,
+      "exitType": "stop",
+      "days": 5
+    },
+    {
+      "sym": "NESTLEIND",
+      "date": "2025-10-14",
+      "stage": "STRONG_BUY",
+      "pnl": 4.555018830849837,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "IOC",
+      "date": "2023-04-26",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.785361334156887,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "DEEPAKNTR",
+      "date": "2023-05-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.459803871494971,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "POONAWALLA",
+      "date": "2025-06-05",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 7.638674162567348,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BAJAJHLDNG",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.988336644982172,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "GRASIM",
+      "date": "2022-07-21",
+      "stage": "STRONG_BUY",
+      "pnl": 5.277138725474086,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "MPHASIS",
+      "date": "2023-02-15",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "TATAELXSI",
+      "date": "2023-01-22",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -1.219602609727165,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "COROMANDEL",
+      "date": "2023-05-03",
+      "stage": "STRONG_BUY",
+      "pnl": -7.0000000000000036,
+      "exitType": "stop",
+      "days": 11
+    }
+  ],
+  "optimized_ultraselective_8plus": [
+    {
+      "sym": "ACE",
+      "date": "2023-01-19",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 3
+    },
+    {
+      "sym": "CANBK",
+      "date": "2025-05-29",
+      "stage": "STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "SHRIRAMFIN",
+      "date": "2025-09-10",
+      "stage": "STRONG_BUY",
+      "pnl": 6.274193548387093,
+      "exitType": "time_t1",
+      "days": 20
+    }
+  ],
+  "sniper_95plus": [
+    {
+      "sym": "LTF",
+      "date": "2025-06-04",
+      "stage": "STRONG_BUY",
+      "pnl": 1.9489465153970849,
+      "exitType": "stop_gap_t1",
+      "days": 5
+    },
+    {
+      "sym": "NTPCGREEN",
+      "date": "2025-10-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -6.999999999999999,
+      "exitType": "stop",
+      "days": 6
+    },
+    {
+      "sym": "SONACOMS",
+      "date": "2023-11-14",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -5.837691918339805,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "CCL",
+      "date": "2024-01-28",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000001,
+      "exitType": "stop",
+      "days": 4
+    },
+    {
+      "sym": "JSWINFRA",
+      "date": "2025-06-04",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -0.7258064516129032,
+      "exitType": "time",
+      "days": 20
+    },
+    {
+      "sym": "ANURAS",
+      "date": "2025-06-09",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 2.5,
+      "exitType": "stop_t1",
+      "days": 2
+    },
+    {
+      "sym": "TVSMOTOR",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 8.5,
+      "exitType": "t3",
+      "days": 17
+    },
+    {
+      "sym": "DEEPAKNTR",
+      "date": "2023-05-02",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.459803871494971,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "POONAWALLA",
+      "date": "2025-06-05",
+      "stage": "STRONG_BUY",
+      "pnl": 7.638674162567348,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "BAJAJHLDNG",
+      "date": "2023-11-16",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 6.988336644982172,
+      "exitType": "time_t2",
+      "days": 20
+    },
+    {
+      "sym": "CANBK",
+      "date": "2025-05-29",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": -7.000000000000006,
+      "exitType": "stop",
+      "days": 13
+    },
+    {
+      "sym": "NAVINFLUOR",
+      "date": "2023-04-10",
+      "stage": "ULTRA_STRONG_BUY",
+      "pnl": 5.121407885943421,
+      "exitType": "time_t1",
+      "days": 20
+    },
+    {
+      "sym": "UPL",
+      "date": "2025-10-27",
+      "stage": "STRONG_BUY",
+      "pnl": 6.199519909630046,
+      "exitType": "time_t1",
+      "days": 20
+    }
+  ]
+}

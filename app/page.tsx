@@ -1434,7 +1434,7 @@ function HomePageInner() {
         newResults.push(result);
         // #8: Alert sound on new BUY signal
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
-          const prevStage = previousResults.find(p => p.symbol === result.symbol)?.stage;
+          const prevStage = resultsRef.current.find(p => p.symbol === result.symbol)?.stage;
           if (!prevStage || !['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(prevStage)) {
             try { new Audio('data:audio/wav;base64,UklGRl9vT19teleXBQVZFZm10teleIBAAEARKwAAIhYAQACABAAZGF0YQ==').play().catch(() => {}); } catch {}
           }

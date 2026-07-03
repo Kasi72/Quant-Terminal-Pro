@@ -15,7 +15,7 @@ export function buildEquityCurve(trades: TrackedTrade[], startingCapital = 10000
 
   let equity = startingCapital;
   let peak = equity;
-  const points: EquityPoint[] = [{ date: closed[0]?.entryDate ?? '', equity: startingCapital, drawdown: 0, tradeCount: 0 }];
+  const points: EquityPoint[] = [{ date: closed[0]?.closedDate ?? '', equity: startingCapital, drawdown: 0, tradeCount: 0 }];
 
   for (let i = 0; i < closed.length; i++) {
     const t = closed[i];

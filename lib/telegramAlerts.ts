@@ -45,6 +45,7 @@ export async function sendTelegramMessage(cfg: TelegramConfig, message: string):
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: cfg.botToken, chatId: cfg.chatId, message }),
+      signal: AbortSignal.timeout(10000),
     });
     const data = await res.json();
     return data.ok === true;
