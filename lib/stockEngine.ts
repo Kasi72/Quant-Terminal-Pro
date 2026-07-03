@@ -843,7 +843,7 @@ function computeInflectionScore(
     score += marginUp(volatilityExpansionRatio, params.minVolatilityExpansionRatio, params.minVolatilityExpansionRatio) * 2;
   }
   if (params.minCandleQualityScore !== null) {
-    score += marginUp(candleQualityScore, params.minCandleQualityScore, 100 - params.minCandleQualityScore) * 2;
+    score += marginUp(candleQualityScore, params.minCandleQualityScore, 5 - params.minCandleQualityScore) * 2;
   }
 
   return clamp(score, 0, 100);

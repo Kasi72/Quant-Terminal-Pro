@@ -4,10 +4,12 @@ import type { TrackedTrade } from './tradingUtils';
 const USER_ID = 'drkkr';
 const LS_KEY = 'qtp_tracked_trades';
 const LS_BACKUP = 'qtp_tracked_trades_backup';
+const LS_EMERGENCY = 'qtp_tracked_trades_emergency'; // restored: triple-redundancy
 
 // ─── Supabase helpers ───────────────────────────────────────────────────────
 
 function toRow(t: TrackedTrade) {
+  const a = t as any;
   return {
     user_id: USER_ID,
     symbol: t.symbol,
@@ -27,24 +29,45 @@ function toRow(t: TrackedTrade) {
     atr_state: t.atrState,
     volume_badge: t.volumeBadge,
     regime_at_entry: t.regimeAtEntry,
-    exit_price: (t as any).exitPrice,
-    exit_date: (t as any).exitDate,
-    pnl_pct: (t as any).pnlPct,
-    outcome: (t as any).outcome,
-    notes: (t as any).notes,
+    exit_price: a.exitPrice ?? null,
+    exit_date: a.exitDate ?? null,
+    pnl_pct: a.pnlPct ?? null,
+    outcome: a.outcome ?? null,
+    notes: a.notes ?? null,
     raw_json: t,
     updated_at: new Date().toISOString(),
   };
 }
 
+function safeNum(v: unknown, fallback?: number): number | undefined {
+  if (v == null) return fallback;
+  const n = Number(v);
+  return isNaN(n) ? fallback : n;
+}
+
 function fromRow(row: any): TrackedTrade {
-  // raw_json is the full object — merge any DB-side fields on top
+  // Spread raw_json as base, then overlay ALL authoritative DB columns on top.
+  // raw_json may be stale (older schema) — DB columns are always current.
+  const base = (row.raw_json ?? {}) as Partial<TrackedTrade>;
   return {
-    ...row.raw_json,
-    symbol: row.symbol,
-    status: row.status,
-    entryPrice: Number(row.entry_price),
-    stopLoss: Number(row.stop_loss),
+    ...base,
+    symbol: row.symbol ?? base.symbol,
+    status: row.status ?? base.status,
+    stage: row.stage ?? base.stage,
+    entryPrice: safeNum(row.entry_price) ?? base.entryPrice ?? 0,
+    stopLoss: safeNum(row.stop_loss) ?? base.stopLoss ?? 0,
+    target1: safeNum(row.target1) ?? base.target1,
+    target2: safeNum(row.target2) ?? base.target2,
+    target3: safeNum(row.target3) ?? base.target3,
+    disasterStop: safeNum(row.disaster_stop) ?? base.disasterStop,
+    entryDate: row.entry_date ?? base.entryDate,
+    paramSetKey: row.param_set_key ?? base.paramSetKey,
+    sector: row.sector ?? base.sector,
+    conviction: safeNum(row.conviction) ?? base.conviction,
+    candlePattern: row.candle_pattern ?? base.candlePattern,
+    atrState: row.atr_state ?? base.atrState,
+    volumeBadge: row.volume_badge ?? base.volumeBadge,
+    regimeAtEntry: row.regime_at_entry ?? base.regimeAtEntry,
   } as TrackedTrade;
 }
 
@@ -57,7 +80,7 @@ export async function loadTradesFromCloud(): Promise<TrackedTrade[] | null> {
       .select('*')
       .eq('user_id', USER_ID)
       .order('created_at', { ascending: true });
-    if (error) return null;
+    if (error) return null; // null = error (distinct from [] = intentionally empty)
     return (data ?? []).map(fromRow);
   } catch {
     return null;
@@ -65,20 +88,22 @@ export async function loadTradesFromCloud(): Promise<TrackedTrade[] | null> {
 }
 
 export function loadTradesFromLocal(): TrackedTrade[] {
-  for (const key of [LS_KEY, LS_BACKUP]) {
+  // Take the LONGEST valid array across all 3 keys (best recovery wins)
+  let best: TrackedTrade[] = [];
+  for (const key of [LS_KEY, LS_BACKUP, LS_EMERGENCY]) {
     try {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const valid = parsed.filter(
-          (t: any) => t && typeof t.entryPrice === 'number' && typeof t.stopLoss === 'number',
+          (t: any) => t && t.symbol && t.entryPrice > 0 && t.stopLoss > 0,
         );
-        if (valid.length > 0) return valid;
+        if (valid.length > best.length) best = valid;
       }
     } catch {}
   }
-  return [];
+  return best;
 }
 
 // ─── Save ───────────────────────────────────────────────────────────────────
@@ -87,12 +112,19 @@ function saveToLocal(trades: TrackedTrade[]) {
   const json = JSON.stringify(trades);
   try { localStorage.setItem(LS_KEY, json); } catch {}
   try { localStorage.setItem(LS_BACKUP, json); } catch {}
+  // Emergency key updated every 5th write — survives partial corruption
+  try {
+    const count = parseInt(localStorage.getItem('qtp_backup_count') || '0') + 1;
+    localStorage.setItem('qtp_backup_count', String(count));
+    if (count % 5 === 0) localStorage.setItem(LS_EMERGENCY, json);
+  } catch {}
 }
 
-// Upsert all trades to Supabase (fire-and-forget — never blocks UI)
+// Upsert all trades to Supabase + mirror to localStorage (fire-and-forget)
 export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
-  saveToLocal(trades);
+  // Guard FIRST — never call saveToLocal([]) on mount before cloud load resolves
   if (trades.length === 0) return;
+  saveToLocal(trades);
   try {
     const rows = trades.map(toRow);
     await getClient()
@@ -112,8 +144,13 @@ export async function deleteTradeFromCloud(symbol: string): Promise<void> {
   } catch {}
 }
 
-// Delete all trades from cloud
+// Delete all trades from cloud AND wipe localStorage so next load doesn't re-seed
 export async function deleteAllTradesFromCloud(): Promise<void> {
+  // Wipe localStorage immediately — prevents stale local data from re-seeding cloud on next load
+  const empty = '[]';
+  try { localStorage.setItem(LS_KEY, empty); } catch {}
+  try { localStorage.setItem(LS_BACKUP, empty); } catch {}
+  try { localStorage.setItem(LS_EMERGENCY, empty); } catch {}
   try {
     await getClient()
       .from('tracked_trades')

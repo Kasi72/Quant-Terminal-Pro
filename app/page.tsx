@@ -1141,6 +1141,7 @@ function HomePageInner() {
   const resultsRef = useRef<AnalysisResult[]>([]);
   resultsRef.current = results;
   const trackedTradesRef = useRef<TrackedTrade[]>([]);
+  const tradesLoadedRef = useRef(false); // prevents save effect from firing before cloud load
   trackedTradesRef.current = trackedTrades;
   const [showTracker, setShowTracker] = useState(false);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
@@ -1186,7 +1187,8 @@ function HomePageInner() {
   useEffect(() => {
     // ─── TRACKED TRADES: Cloud-first load (Supabase → localStorage fallback) ───
     const migrateTrades = (loadedTrades: TrackedTrade[]) => {
-      if (loadedTrades.length === 0) return;
+      tradesLoadedRef.current = true;
+      if (loadedTrades.length === 0) { setTrackedTrades([]); return; }
       const tickFn = (p: number) => Math.round(p / 0.05) * 0.05;
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
@@ -1197,7 +1199,7 @@ function HomePageInner() {
         const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 7.0 : 10.0;
         const t3PctNew = Math.max(t3BucketPct, t2Pct + 1.5 * atrPct);
         const t3New = tickFn(Math.max(t.entryPrice * (1 + t3PctNew / 100), t2New + 0.05));
-        const oldGap = (t.target2 || 0) - t.target1;
+        const oldGap = (t.target2 ?? 0) - t.target1;
         const minExpectedGap = t.entryPrice * (atrPct / 100) * 0.8;
         if (oldGap < minExpectedGap) return { ...t, target2: t2New, target3: t3New };
         return t;
@@ -1205,17 +1207,19 @@ function HomePageInner() {
       setTrackedTrades(migrated);
     };
 
-    // Try cloud first; if unavailable or empty, use localStorage
+    // Cloud-first load. null=error (use localStorage), []=healthy empty, [...]=use cloud.
     loadTradesFromCloud().then(cloudTrades => {
-      if (cloudTrades && cloudTrades.length > 0) {
+      if (cloudTrades === null) {
+        // Cloud error — fall back to localStorage, don't attempt re-seed (may be transient)
+        migrateTrades(loadTradesFromLocal());
+      } else if (cloudTrades.length > 0) {
+        // Cloud has authoritative data
         migrateTrades(cloudTrades);
       } else {
-        // Cloud empty — try localStorage, then upload any found trades to cloud
+        // Cloud healthy but empty — seed from localStorage if available (new device onboarding)
         const local = loadTradesFromLocal();
         migrateTrades(local);
-        if (local.length > 0) {
-          syncTradesToCloud(local); // seed cloud from localStorage
-        }
+        if (local.length > 0) syncTradesToCloud(local);
       }
     }).catch(() => {
       migrateTrades(loadTradesFromLocal());
@@ -1240,7 +1244,9 @@ function HomePageInner() {
   }, []);
 
   // Persist tracked trades — Supabase cloud + localStorage mirror
+  // Guard: skip until cloud load has completed to avoid wiping localStorage with []
   useEffect(() => {
+    if (!tradesLoadedRef.current) return;
     syncTradesToCloud(trackedTrades);
   }, [trackedTrades]);
 
@@ -2820,7 +2826,7 @@ function HomePageInner() {
                     <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
                     <td className={`px-2 py-1 text-center text-[10px] font-bold ${seqMark === 'W' ? 'text-emerald-400' : seqMark === 'L' ? 'text-red-400' : 'text-slate-700'}`}>{seqMark}</td>
                     <td className="px-2 py-1 text-center">
-                      <button onClick={() => setTrackedTrades(prev => prev.filter(x => x.symbol !== t.symbol))}
+                      <button onClick={() => { deleteTradeFromCloud(t.symbol); setTrackedTrades(prev => prev.filter(x => x.symbol !== t.symbol)); }}
                         className="text-slate-700 hover:text-red-400">×</button>
                     </td>
                   </tr>
@@ -4523,7 +4529,6 @@ function HomePageInner() {
                                   }
                                 }
                                 setTrackedTrades(updated);
-                                try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
                                 setValidateFlash(validated);
                                 setTimeout(() => setValidateFlash(0), 3000);
                                 if (tgConfig.enabled && tgConfig.alerts.validationSummary && validated > 0) {
@@ -4556,6 +4561,7 @@ function HomePageInner() {
                                   const parsed = JSON.parse(ev.target?.result as string);
                                   if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].entryPrice) {
                                     if (confirm(`Restore ${parsed.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
+                                      deleteAllTradesFromCloud(); // purge old cloud rows before seeding
                                       setTrackedTrades(parsed);
                                     }
                                   } else { alert('Invalid trade backup file'); }
