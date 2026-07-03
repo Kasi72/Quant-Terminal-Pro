@@ -38,6 +38,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 import { fetchOHLCVClient } from '@/lib/fetchClient';
+import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
@@ -60,6 +61,10 @@ import {
   getSignalAge, exportZerodhaBasket, detectOverlap, generateSparklineSVG,
   type WatchlistItem, type SignalHistory,
 } from '@/lib/tradingUtils2';
+import {
+  loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
+  deleteTradeFromCloud, deleteAllTradesFromCloud,
+} from '@/lib/tradeSync';
 import {
   computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
   deduplicateSymbols, type ScanStats,
@@ -1146,7 +1151,7 @@ function HomePageInner() {
   const [signalHistory, setSignalHistory] = useState<SignalHistory>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
-  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence' | 'pro'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence' | 'pbfb' | 'pro'>('scanner');
   const [sessions, setSessions] = useState<ScanSession[]>([]);
   const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
   const [reviews, setReviews] = useState<TradeReview[]>([]);
@@ -1179,25 +1184,9 @@ function HomePageInner() {
   }, [results, paramSetKey]);
 
   useEffect(() => {
-    // ─── TRACKED TRADES: Load with triple-redundancy backup ───
-    // Primary: qtp_tracked_trades | Backup: qtp_tracked_trades_backup | Emergency: qtp_tracked_trades_emergency
-    let loadedTrades: TrackedTrade[] = [];
-    const tradeKeys = ['qtp_tracked_trades', 'qtp_tracked_trades_backup', 'qtp_tracked_trades_emergency'];
-    for (const key of tradeKeys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const valid = parsed.filter((t: TrackedTrade) => t && typeof t.entryPrice === 'number' && typeof t.stopLoss === 'number');
-            if (valid.length > loadedTrades.length) loadedTrades = valid;
-          }
-        }
-      } catch { /* try next backup */ }
-    }
-    if (loadedTrades.length > 0) {
-      // Migrate T2/T3 for trades stored with the old capped formula (min(5.65%, 2.80×ATR%))
-      // which caused T2 ≤ T1 whenever ATR% > ~2.6%. Back-calculate ATR from T1 and recompute.
+    // ─── TRACKED TRADES: Cloud-first load (Supabase → localStorage fallback) ───
+    const migrateTrades = (loadedTrades: TrackedTrade[]) => {
+      if (loadedTrades.length === 0) return;
       const tickFn = (p: number) => Math.round(p / 0.05) * 0.05;
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
@@ -1208,14 +1197,29 @@ function HomePageInner() {
         const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 7.0 : 10.0;
         const t3PctNew = Math.max(t3BucketPct, t2Pct + 1.5 * atrPct);
         const t3New = tickFn(Math.max(t.entryPrice * (1 + t3PctNew / 100), t2New + 0.05));
-        // Only patch if old T2 is suspiciously close to T1 (within 1 ATR of T1-entry gap)
         const oldGap = (t.target2 || 0) - t.target1;
         const minExpectedGap = t.entryPrice * (atrPct / 100) * 0.8;
         if (oldGap < minExpectedGap) return { ...t, target2: t2New, target3: t3New };
         return t;
       });
       setTrackedTrades(migrated);
-    }
+    };
+
+    // Try cloud first; if unavailable or empty, use localStorage
+    loadTradesFromCloud().then(cloudTrades => {
+      if (cloudTrades && cloudTrades.length > 0) {
+        migrateTrades(cloudTrades);
+      } else {
+        // Cloud empty — try localStorage, then upload any found trades to cloud
+        const local = loadTradesFromLocal();
+        migrateTrades(local);
+        if (local.length > 0) {
+          syncTradesToCloud(local); // seed cloud from localStorage
+        }
+      }
+    }).catch(() => {
+      migrateTrades(loadTradesFromLocal());
+    });
 
     // ─── OTHER SETTINGS: Load individually (failures are isolated) ───
     try { localStorage.removeItem('qtp_results'); } catch {}
@@ -1235,19 +1239,9 @@ function HomePageInner() {
     // NO localStorage.clear() fallback — never nuke tracked trades
   }, []);
 
-  // Persist tracked trades — triple redundancy (never lose trades)
+  // Persist tracked trades — Supabase cloud + localStorage mirror
   useEffect(() => {
-    if (trackedTrades.length > 0) {
-      const json = JSON.stringify(trackedTrades);
-      try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
-      try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
-      // Emergency backup updates less frequently (every 5th change) to survive partial corruption
-      try {
-        const count = parseInt(localStorage.getItem('qtp_backup_count') || '0') + 1;
-        localStorage.setItem('qtp_backup_count', String(count));
-        if (count % 5 === 0) localStorage.setItem('qtp_tracked_trades_emergency', json);
-      } catch {}
-    }
+    syncTradesToCloud(trackedTrades);
   }, [trackedTrades]);
 
   // P2: Daily off-device auto-backup. The triple-redundancy above all lives
@@ -1632,7 +1626,6 @@ function HomePageInner() {
             try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1sbJObi4BvUl5zjJuTi3tlWm+Ij5eLgHVcYHWIkpKKe2pcanmGjo6IeGhbZ3mFjI2Jdmhba3eEi4yJeGldaXmFjY2LfG1gcX+KkJONgHFjcH+MlJaShXZpcIKPlpiWjoF3coCQmJyalIiBe4OSmJ2cmJOLhIaQl5ydnJeTjIiIkJaanJuZlI+KiI+Ul5qamJWRjIuNk5eZmpiVkY6LjJGVl5eXlJGOi4yQk5aWlpSRjoyLj5KUlZWUko+NjI6RkpSUlJKQjoyNj5GTk5OSkI6MjY+RkpKSkZCOjY2Oj5GRkZGQj42NjY+QkJCQj46NjY2Oj4+Pj4+OjY2Njo+Pj4+Pjo2NjY6Ojo6Ojo2NjY2Ojo6Ojo6NjY2NjY6Ojo6OjY2NjY2Njo6Ojo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjQ==').play().catch(() => {}); } catch {}
           }
         }
-        try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
         return updated;
       });
     }
@@ -1995,11 +1988,8 @@ function HomePageInner() {
   }
 
   function removeTrade(symbol: string) {
-    setTrackedTrades(prev => {
-      const updated = prev.filter(t => t.symbol !== symbol);
-      try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
+    deleteTradeFromCloud(symbol);
+    setTrackedTrades(prev => prev.filter(t => t.symbol !== symbol));
   }
 
   // Tooltip portal system — positions a single div at body level via JS
@@ -2232,6 +2222,30 @@ function HomePageInner() {
               + `<div class="rt-row"><div><span class="rt-badge bg-neon">Sizing</span></div><div><div class="rt-desc">Position: ×${marketRegime.sizingMultiplier}</div></div></div>`}>
             {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}{marketRegime.vix > 0 ? ` · VIX ${marketRegime.vix.toFixed(1)}` : ''} · ×{marketRegime.sizingMultiplier}
           </div>
+          {/* Signal Regime — trading decision derived from existing regime state */}
+          {(() => {
+            const r = marketRegime.regime;
+            const isBull    = r === 'strong_bull' || r === 'bull';
+            const isCaution = r === 'neutral';
+            const isAvoid   = r === 'bear' || r === 'strong_bear';
+            const label  = isBull ? '🟢 BULL REGIME' : isCaution ? '🟡 CAUTION' : '🔴 AVOID';
+            const cls    = isBull
+              ? 'bg-emerald-900/50 border-emerald-500 text-emerald-300'
+              : isCaution
+              ? 'bg-yellow-900/40 border-yellow-500 text-yellow-300'
+              : 'bg-red-900/50 border-red-500 text-red-300 animate-pulse';
+            const tip = isBull
+              ? 'Signal Regime: BULL — all 5 param sets active · full position sizing'
+              : isCaution
+              ? 'Signal Regime: CAUTION — take only Elite/Sniper signals · reduce size to ×0.75'
+              : 'Signal Regime: AVOID — regime filter suppressing signals · stand aside or hedge only';
+            return (
+              <div className={`px-2.5 py-0.5 rounded text-xs font-bold border cursor-help ${cls}`}
+                title={tip}>
+                {label}
+              </div>
+            );
+          })()}
           {marketRegime.cusumAlert && (
             <div className={`px-2 py-0.5 rounded text-xs font-bold border ${marketRegime.cusumAlert === 'bearish_shift' ? 'bg-red-900/60 border-red-500 text-red-300 animate-pulse' : 'bg-green-900/50 border-green-500 text-green-300'}`}>
               {marketRegime.cusumAlert === 'bearish_shift' ? '⚠️ CUSUM: Bearish shift detected' : '✅ CUSUM: Bullish shift detected'}
@@ -2515,7 +2529,6 @@ function HomePageInner() {
                     }
                   }
                   setTrackedTrades(updated);
-                  try { localStorage.setItem('qtp_tracked_trades', JSON.stringify(updated)); } catch {}
                   setValidateFlash(validated);
                   setTimeout(() => setValidateFlash(0), 3000);
                   // Telegram: push validation summary
@@ -3196,45 +3209,48 @@ function HomePageInner() {
       )}
 
       {/* ── Tab Bar ── */}
-      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-1 flex items-center gap-1">
-        {([
-          ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
-          ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
-          ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management', 'orange'],
-          ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
-          ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
-          ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
-          ['intelligence', '🧠', 'Brain v2', '#f472b6', 'Signal Command ranked by expected P&L · Setup Quality Matrix · Stock DNA · RS · Sector Rotation', 'pink'],
-          ['pro', '🏆', 'Pro', '#fbbf24', 'Backtester, signal narrative, portfolio optimizer', 'yellow'],
-        ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
-          <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
-            data-tip={tip} data-tip-color={tipColor}
-            style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
-            className={`h-7 px-3 rounded border text-[11px] font-semibold transition-colors ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
-            {emoji} {label}
-          </button>
-        ))}
-        {/* Scan favorites */}
-        {favorites.length > 0 && activeTab === 'scanner' && (
-          <div className="ml-auto flex gap-1 items-center">
+      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117]">
+        {/* Tab row */}
+        <div className="px-4 pt-1 pb-0 flex items-center gap-1 flex-wrap">
+          {([
+            ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
+            ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
+            ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management', 'orange'],
+            ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
+            ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
+            ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
+            ['intelligence', '🧠', 'Brain v2',     '#f472b6', 'Signal Command ranked by expected P&L · Setup Quality Matrix · Stock DNA · RS · Sector Rotation', 'pink'],
+            ['pbfb',         '📉', 'PBFB',         '#e879f9', 'Post Breakout Forensic Backtest — was the stock on my radar before it exploded?', 'pink'],
+            ['pro',          '🏆', 'Pro',          '#fbbf24', 'Backtester, signal narrative, portfolio optimizer', 'yellow'],
+          ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
+            <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
+              data-tip={tip} data-tip-color={tipColor}
+              style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
+              className={`flex-shrink-0 h-7 px-3 rounded-t border-l border-r border-t text-[11px] font-semibold transition-colors whitespace-nowrap ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
+              {emoji} {label}
+            </button>
+          ))}
+        </div>
+        {/* Scan favorites row (only when scanner active and favorites exist) */}
+        {activeTab === 'scanner' && (favorites.length > 0 || lastScanSymbols.length > 0) && (
+          <div className="px-4 pb-1 flex items-center gap-1">
             {favorites.map(f => (
               <button key={f.id} onClick={() => { setScanSource(f.source); runScan([...f.symbols]); }}
-                className="px-2 py-1 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors"
+                className="px-2 py-0.5 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors"
                 title={`${f.symbols.length} stocks · ${f.paramSet}`}>▶ {f.name}</button>
             ))}
+            {lastScanSymbols.length > 0 && (
+              <button onClick={() => {
+                const name = prompt('Name this scan favorite:', scanSource);
+                if (name) {
+                  const fav: ScanFavorite = { id: Date.now().toString(36), name, source: scanSource, symbols: lastScanSymbols, paramSet: scanAll ? 'ALL4' : paramSetKey };
+                  const updated = [...favorites, fav]; setFavorites(updated); saveFavorites(updated);
+                }
+              }}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                + Save Favorite</button>
+            )}
           </div>
-        )}
-        {/* Save current scan as favorite */}
-        {activeTab === 'scanner' && lastScanSymbols.length > 0 && (
-          <button onClick={() => {
-            const name = prompt('Name this scan favorite:', scanSource);
-            if (name) {
-              const fav: ScanFavorite = { id: Date.now().toString(36), name, source: scanSource, symbols: lastScanSymbols, paramSet: scanAll ? 'ALL4' : paramSetKey };
-              const updated = [...favorites, fav]; setFavorites(updated); saveFavorites(updated);
-            }
-          }}
-            className="ml-2 px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            + Save Favorite</button>
         )}
       </div>
 
@@ -3401,7 +3417,7 @@ function HomePageInner() {
                 <div className="px-3 py-2 bg-slate-800/50">
                   <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Open Positions ({trackedTrades.filter(t => t.status === 'open').length})</span>
                   {trackedTrades.length > 0 && (
-                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); localStorage.removeItem('qtp_tracked_trades_backup'); localStorage.removeItem('qtp_tracked_trades_emergency'); } catch {} } }}
+                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { deleteAllTradesFromCloud(); setTrackedTrades([]); } }}
                       className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                   )}
                 </div>
@@ -4108,6 +4124,9 @@ function HomePageInner() {
           </div>
         )}
 
+        {/* ── PBFB Tab ── */}
+        {activeTab === 'pbfb' && <PBFBAnalyzer />}
+
         {/* ── Pro Tab (Backtester + Portfolio Optimizer) ── */}
         {activeTab === 'pro' && (
           <div className="flex-1 overflow-auto p-4 space-y-4">
@@ -4768,7 +4787,7 @@ function HomePageInner() {
                     <div className="flex items-center mb-2">
                       <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2"><span className="w-1 h-4 bg-emerald-500 rounded-full"></span>Trade Log ({all.length} trades)</span>
                       {all.length > 0 && (
-                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { setTrackedTrades([]); try { localStorage.removeItem('qtp_tracked_trades'); localStorage.removeItem('qtp_tracked_trades_backup'); localStorage.removeItem('qtp_tracked_trades_emergency'); } catch {} } }}
+                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { deleteAllTradesFromCloud(); setTrackedTrades([]); } }}
                           className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                       )}
                     </div>
