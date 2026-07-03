@@ -3228,7 +3228,7 @@ function HomePageInner() {
               style={activeTab === key
                 ? { borderColor: color, color, backgroundColor: `${color}18`, boxShadow: `0 0 10px ${color}40, inset 0 1px 0 ${color}30` }
                 : {}}
-              className={`flex-shrink-0 h-7 px-3 rounded-full border text-[11px] font-semibold transition-all duration-150 whitespace-nowrap select-none ${
+              className={`flex-shrink-0 h-7 px-3 rounded border text-[11px] font-semibold transition-all duration-150 whitespace-nowrap select-none ${
                 activeTab === key
                   ? 'border-current'
                   : 'border-slate-600/70 text-slate-400 hover:text-slate-200 hover:border-slate-500 hover:bg-slate-700/40'
