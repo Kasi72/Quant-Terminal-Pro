@@ -3209,9 +3209,9 @@ function HomePageInner() {
       )}
 
       {/* ── Tab Bar ── */}
-      <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117]">
+      <div className="flex-shrink-0 bg-[#0a0d14] border-b border-slate-700/60">
         {/* Tab row */}
-        <div className="px-4 pt-1 pb-0 flex items-center gap-1 flex-wrap">
+        <div className="px-3 pt-2 pb-2 flex items-center gap-1.5 flex-wrap">
           {([
             ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
             ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
@@ -3225,8 +3225,14 @@ function HomePageInner() {
           ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
             <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
               data-tip={tip} data-tip-color={tipColor}
-              style={activeTab === key ? { borderColor: color, color, backgroundColor: `${color}15` } : {}}
-              className={`flex-shrink-0 h-7 px-3 rounded-t border-l border-r border-t text-[11px] font-semibold transition-colors whitespace-nowrap ${activeTab === key ? '' : 'border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600 hover:bg-slate-800/40'}`}>
+              style={activeTab === key
+                ? { borderColor: color, color, backgroundColor: `${color}18`, boxShadow: `0 0 10px ${color}40, inset 0 1px 0 ${color}30` }
+                : {}}
+              className={`flex-shrink-0 h-7 px-3 rounded-full border text-[11px] font-semibold transition-all duration-150 whitespace-nowrap select-none ${
+                activeTab === key
+                  ? 'border-current'
+                  : 'border-slate-600/70 text-slate-400 hover:text-slate-200 hover:border-slate-500 hover:bg-slate-700/40'
+              }`}>
               {emoji} {label}
             </button>
           ))}
