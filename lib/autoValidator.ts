@@ -177,7 +177,7 @@ export function validateTrade(
   let t1Hit = false, t2Hit = false;
   // After T1 is hit, track the highest close seen (for Chandelier after T2)
   let highestCloseSinceT1 = entry;
-  let highestCloseSinceT2 = trade.target1 ?? entry;
+  let highestCloseSinceT2 = trade.target2 ?? entry;
   // Day on which T1/T2 were hit (to avoid same-bar collision)
   let t1HitBar = -1, t2HitBar = -1;
 
@@ -199,13 +199,8 @@ export function validateTrade(
     // intraday extremes on a bar where the position exited at open (gap-down).
     // Actual update happens after the gap-down branch.
 
-    // Update highestClose trackers (for Chandelier after T1/T2)
-    if (t1Hit) {
-      if (close > highestCloseSinceT1) highestCloseSinceT1 = close;
-    }
-    if (t2Hit) {
-      if (close > highestCloseSinceT2) highestCloseSinceT2 = close;
-    }
+    // NOTE: highestClose trackers are updated at END of loop so Chandelier
+    // computations use the highest close through bar i-1, not bar i.
 
     // ── #7 TIME-BASED TRAILING STOP (day 8+, before T1) ───────────────────
     // After holding 8 days with no T1, raise stop to 3-bar swing low if
@@ -273,8 +268,8 @@ export function validateTrade(
         // Breakout bias: T1 fills first on this bar. Let the target section
         // below handle T1; skip stop cascade this iteration.
         // (T1 hit code later in this same loop iteration will set t1Hit=true)
-      } else if (i > 0) {
-        // ── #1 INTRADAY STOP — run full gate cascade (requires prev bar) ──
+      } else {
+        // ── #1 INTRADAY STOP — run full gate cascade ──
         const dipBelowStop = dynamicStop > 0 ? (dynamicStop - lo) / dynamicStop * 100 : 0;
         const range        = hi - lo;
         const closeLoc     = range > 0 ? (close - lo) / range * 100 : 50;
@@ -511,10 +506,15 @@ export function validateTrade(
     if (t2Hit && trade.target3 && trade.target3 > 0 && hi >= trade.target3) {
       status      = 'hit_t3';
       closedPrice = trade.target3;
-      if (i > t2HitBar) closedDate = cDate;
+      if (i >= t2HitBar) closedDate = cDate;
       exitBarIdx = i;
       break; // T3 is fully closed
     }
+
+    // Update highestClose trackers at END of bar so Chandelier on bar i+1
+    // uses closes through bar i (not contaminated by bar i's own close).
+    if (t1Hit && close > highestCloseSinceT1) highestCloseSinceT1 = close;
+    if (t2Hit && close > highestCloseSinceT2) highestCloseSinceT2 = close;
   } // end bar loop
 
   // ── Time expiry: > 20 days still open ────────────────────────────────────
@@ -526,6 +526,10 @@ export function validateTrade(
     closedPrice = lastCandle?.c ?? entry;
     closedDate  = candleDate(lastCandle ?? { h: 0, l: 0, c: 0 }, entryDateBase, daysHeld);
     exitBarIdx  = candlesSinceEntry.length - 1;
+  } else if (status === 'open') {
+    // Surface latest market close so applyValidation can update currentPrice
+    const lastCandle = candlesSinceEntry[candlesSinceEntry.length - 1];
+    closedPrice = lastCandle?.c ?? 0;
   }
 
   // ── Weighted P&L: realistic partial exit model ────────────────────────────

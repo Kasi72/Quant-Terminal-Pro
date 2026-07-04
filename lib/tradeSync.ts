@@ -68,6 +68,9 @@ function fromRow(row: any): TrackedTrade {
     atrState: row.atr_state ?? base.atrState,
     volumeBadge: row.volume_badge ?? base.volumeBadge,
     regimeAtEntry: row.regime_at_entry ?? base.regimeAtEntry,
+    closedPrice: safeNum(row.exit_price) ?? base.closedPrice,
+    closedDate: row.exit_date ?? base.closedDate,
+    pnlPct: safeNum(row.pnl_pct) ?? base.pnlPct,
   } as TrackedTrade;
 }
 
@@ -97,7 +100,7 @@ export function loadTradesFromLocal(): TrackedTrade[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const valid = parsed.filter(
-          (t: any) => t && t.symbol && t.entryPrice > 0 && t.stopLoss > 0,
+          (t: any) => t && t.symbol && t.entryPrice > 0 && t.stopLoss > 0 && t.status && t.entryDate,
         );
         if (valid.length > best.length) best = valid;
       }
@@ -120,17 +123,24 @@ function saveToLocal(trades: TrackedTrade[]) {
   } catch {}
 }
 
+let _syncing = false;
+
 // Upsert all trades to Supabase + mirror to localStorage (fire-and-forget)
 export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
+  if (_syncing) return;
   // Guard FIRST — never call saveToLocal([]) on mount before cloud load resolves
   if (trades.length === 0) return;
-  saveToLocal(trades);
+  _syncing = true;
   try {
+    saveToLocal(trades);
     const rows = trades.map(toRow);
     await getClient()
       .from('tracked_trades')
       .upsert(rows, { onConflict: 'user_id,symbol', ignoreDuplicates: false });
-  } catch {}
+  } catch {
+  } finally {
+    _syncing = false;
+  }
 }
 
 // Delete one trade from cloud

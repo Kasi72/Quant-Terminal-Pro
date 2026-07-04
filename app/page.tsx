@@ -1352,7 +1352,8 @@ function HomePageInner() {
     if (removed > 0) console.log(`Removed ${removed} duplicate symbols`);
 
     abortRef.current = false;
-    setPreviousResults(resultsRef.current);
+    const preScanSnapshot = resultsRef.current;
+    setPreviousResults(preScanSnapshot);
     setScanStartTime(Date.now());
     setScanning(true); scanningRef.current = true;
     try {
@@ -1417,11 +1418,11 @@ function HomePageInner() {
           result = multi.best;
         } else if (lookback > 1) {
           result = analyzeStockWithLookback(candles, paramSetKey, lookback);
-          result.symbol = resolvedSymbol;
+          result.symbol = resolvedSymbol.trim();
           result.clusterBreakdown = computeClusterBreakdown(candles);
         } else {
           result = analyzeStock(candles, paramSetKey);
-          result.symbol = resolvedSymbol;
+          result.symbol = resolvedSymbol.trim();
           result.clusterBreakdown = computeClusterBreakdown(candles);
         }
         // Monster scan
@@ -1436,9 +1437,9 @@ function HomePageInner() {
         freshCandleMap[result.symbol] = sliced;
         setCandleCache(prev => ({ ...prev, [result.symbol]: sliced }));
         newResults.push(result);
-        // #8: Alert sound on new BUY signal
+        // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
-          const prevStage = resultsRef.current.find(p => p.symbol === result.symbol)?.stage;
+          const prevStage = preScanSnapshot.find(p => p.symbol === result.symbol)?.stage;
           if (!prevStage || !['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(prevStage)) {
             try { new Audio('data:audio/wav;base64,UklGRl9vT19teleXBQVZFZm10teleIBAAEARKwAAIhYAQACABAAZGF0YQ==').play().catch(() => {}); } catch {}
           }
@@ -1455,9 +1456,10 @@ function HomePageInner() {
 
     await Promise.all(
       Array.from({ length: CONCURRENCY }, async () => {
-        while (queue.length > 0 && !abortRef.current) {
+        while (!abortRef.current) {
           const sym = queue.shift();
-          if (sym) await processOne(sym);
+          if (!sym) break;
+          await processOne(sym);
         }
       })
     );
@@ -1861,8 +1863,9 @@ function HomePageInner() {
 
   // Feature #5+#8: Adaptive auto-refresh during market hours
   useEffect(() => {
-    if (!autoRefresh || scanning || lastScanSymbols.length === 0) return;
+    if (!autoRefresh || lastScanSymbols.length === 0) return;
     const check = () => {
+      if (scanningRef.current) return 0;
       const now = new Date();
       const istMins = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) % 1440;
       const istHour = Math.floor(istMins / 60);
@@ -1875,7 +1878,7 @@ function HomePageInner() {
     const intervalMs = (adaptiveMin > 0 ? adaptiveMin : 15) * 60 * 1000;
     const interval = setInterval(check, intervalMs);
     return () => clearInterval(interval);
-  }, [autoRefresh, scanning, lastScanSymbols, runScan]);
+  }, [autoRefresh, lastScanSymbols, runScan]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

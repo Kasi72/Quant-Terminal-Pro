@@ -21,7 +21,7 @@ export function computeMfeMaeScatter(trades: TrackedTrade[]): MfeMaePoint[] {
       const rps = Math.max(t.entryPrice - t.stopLoss, 0.01);
       const mfeR = t.highestPrice ? safe((t.highestPrice - t.entryPrice) / rps) : 0;
       const pnlR = safe(t.pnlR ?? 0);
-      const maeR = pnlR < 0 ? pnlR : 0;
+      const maeR = t.maeR != null ? safe(t.maeR) : (pnlR < 0 ? pnlR : 0);
       return { symbol: t.symbol, maeR, mfeR, pnlR, winner: pnlR > 0 };
     });
 }
@@ -106,8 +106,10 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
 
   // Simulate tighter stop (0.7R) — use stored maeR if available, else fall back to pnlR proxy
   const tighterSurvive = closed.filter(t => {
-    const maeR = t.maeR != null ? Math.abs(t.maeR) : ((t.pnlR ?? 0) < 0 ? Math.abs(t.pnlR ?? 0) : 0);
-    return maeR <= 0.7;
+    if (t.maeR != null) return Math.abs(t.maeR) <= 0.7;
+    // For winners without maeR data we can't know MAE — exclude them (conservative)
+    if ((t.pnlR ?? 0) > 0) return false;
+    return Math.abs(t.pnlR ?? 0) <= 0.7;
   });
   const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(t => (t.pnlR ?? 0) > 0).length / tighterSurvive.length * 100 : 0;
   const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / tighterSurvive.length : 0;
@@ -175,7 +177,8 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
     return {
       regime: p.label, trades: p.trades.length,
       winRate: p.trades.length > 0 ? safe(wins.length / p.trades.length * 100) : 0,
-      avgR: safe(avgR), expectancy: safe(avgR),
+      avgR: safe(avgR),
+      expectancy: p.trades.length > 0 ? safe(p.trades.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / p.trades.length) : 0,
     };
   });
 }
@@ -202,7 +205,7 @@ export function computeSectorPerformance(trades: TrackedTrade[]): SectorPerf[] {
     const best = st.reduce((b, t) => (t.pnlR ?? 0) > (b.pnlR ?? 0) ? t : b, st[0]);
     results.push({ sector, trades: st.length, winRate: safe(wins.length / st.length * 100), avgR: safe(avgR), bestSymbol: best.symbol });
   }
-  return results.sort((a, b) => b.avgR - a.avgR);
+  return results.sort((a, b) => (b.avgR - a.avgR) || a.sector.localeCompare(b.sector));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -266,7 +269,8 @@ export function computeDayOfWeek(trades: TrackedTrade[]): DayPerf[] {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const buckets = new Map<number, TrackedTrade[]>();
   for (const t of closed) {
-    const dow = new Date(t.entryDate).getDay();
+    const [y, mo, d] = (t.entryDate ?? '').split('-').map(Number);
+    const dow = (y && mo && d) ? new Date(y, mo - 1, d).getDay() : new Date(t.entryDate).getDay();
     if (!buckets.has(dow)) buckets.set(dow, []);
     buckets.get(dow)!.push(t);
   }

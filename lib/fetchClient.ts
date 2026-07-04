@@ -44,6 +44,7 @@ export async function fetchOHLCVClient(rawSymbol: string): Promise<{ candles: Ca
   const body = await res.json();
   if (!body.ok) throw new Error(`${sym}: ${body.error ?? 'no data'}`);
 
+  if (!body.raw) throw new Error(`${sym}: missing raw candle data`);
   const candles = parseRaw(body.raw);
   if (candles.length < 30) {
     throw new Error(`${sym}: too few candles (${candles.length})`);

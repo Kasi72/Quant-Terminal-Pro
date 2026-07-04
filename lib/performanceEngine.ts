@@ -19,7 +19,7 @@ export function buildEquityCurve(trades: TrackedTrade[], startingCapital = 10000
 
   for (let i = 0; i < closed.length; i++) {
     const t = closed[i];
-    const riskAmount = startingCapital * 0.01; // 1% risk per trade
+    const riskAmount = equity * 0.01; // 1% risk per trade (compounding)
     const riskPct = t.entryPrice > 0 && t.stopLoss > 0
       ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100
       : 2;
@@ -59,15 +59,18 @@ export function generateMonthlyReports(trades: TrackedTrade[]): MonthlyReport[] 
   const reports: MonthlyReport[] = [];
   for (const [month, mTrades] of Array.from(byMonth.entries()).sort()) {
     const wins = mTrades.filter(t => (t.pnlPct ?? 0) > 0);
-    const losses = mTrades.filter(t => (t.pnlPct ?? 0) <= 0);
+    const losses = mTrades.filter(t => (t.pnlPct ?? 0) < 0);
     let best: { symbol: string; pnl: number } | null = null;
     let worst: { symbol: string; pnl: number } | null = null;
-    let grossPnl = 0, maxDD = 0, runningPnl = 0;
-    for (const t of mTrades) {
+    let grossPnl = 0, maxDD = 0, runningPnl = 0, peakPnl = 0;
+    const sorted = [...mTrades].sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
+    for (const t of sorted) {
       const p = t.pnlPct ?? 0;
       grossPnl += p;
       runningPnl += p;
-      if (runningPnl < maxDD) maxDD = runningPnl;
+      if (runningPnl > peakPnl) peakPnl = runningPnl;
+      const dd = peakPnl - runningPnl;
+      if (dd > maxDD) maxDD = dd;
       if (!best || p > best.pnl) best = { symbol: t.symbol, pnl: p };
       if (!worst || p < worst.pnl) worst = { symbol: t.symbol, pnl: p };
     }

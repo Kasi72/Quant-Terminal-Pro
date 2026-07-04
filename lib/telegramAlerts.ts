@@ -40,16 +40,18 @@ export function saveTelegramConfig(cfg: TelegramConfig) {
 
 export async function sendTelegramMessage(cfg: TelegramConfig, message: string): Promise<boolean> {
   if (!cfg.enabled || !cfg.botToken || !cfg.chatId) return false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch('/api/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: cfg.botToken, chatId: cfg.chatId, message }),
-      signal: AbortSignal.timeout(10000),
+      signal: controller.signal,
     });
     const data = await res.json();
     return data.ok === true;
-  } catch { return false; }
+  } catch { return false; } finally { clearTimeout(timer); }
 }
 
 function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -165,7 +167,7 @@ export function formatMomAlert(r: AnalysisResult): string {
     msg += `<b>${sym}</b> — Stage: ${stageLabel}\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `CMP: Rs.${r.lastClose.toFixed(2)}\n`;
-    if (momBadge) msg += `${momBadge.details}\n`;
+    if (momBadge?.details) msg += `${esc(String(momBadge.details))}\n`;
     msg += `Probability: ${momBadge?.probability ?? 51}% (50.9% OOS-validated, 1.5x baseline edge)\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `⚠ Independent of the zone-engine stage above — not necessarily a clean breakout setup. Verify before acting.\n`;

@@ -170,7 +170,7 @@ export function analyzeStockWithLookback(candles: Candle[], paramSetKey: ParamSe
        (stageRank[r.stage] === stageRank[best.stage] && r.inflectionScore > best.inflectionScore)) {
       best = r;
     }
-    if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) break;
+    if (r.stage === 'ULTRA_STRONG_BUY') break; // stop only on highest tier; keep searching for stronger signals
   }
   return best ?? analyzeStock(candles, paramSetKey);
 }
@@ -371,7 +371,7 @@ function clamp(val: number, min: number, max: number): number {
 function safe(val: number, fallback = 0): number {
   if (!Number.isFinite(val)) return fallback;
   if (val === 0 && 1 / val === -Infinity) return 0; // convert -0 to 0
-  if (val > 1e10 || val < -1e10) return 0;           // clamp extreme outliers
+  if (val > 1e15 || val < -1e15) return 0;           // clamp extreme outliers
   return val;
 }
 
@@ -381,8 +381,12 @@ function computeEMA(candles: Candle[], period: number): number[] {
   const result: number[] = new Array(candles.length).fill(0);
   if (candles.length === 0) return result;
   const k = 2 / (period + 1);
-  result[0] = candles[0].c;
-  for (let i = 1; i < candles.length; i++) {
+  // Seed with SMA of first `period` bars to avoid cold-start bias
+  const seedLen = Math.min(period, candles.length);
+  let seed = 0;
+  for (let i = 0; i < seedLen; i++) seed += candles[i].c;
+  result[seedLen - 1] = seed / seedLen;
+  for (let i = seedLen; i < candles.length; i++) {
     result[i] = candles[i].c * k + result[i - 1] * (1 - k);
   }
   return result;
@@ -509,7 +513,8 @@ function computeMomentumEnhancements(
   if (priceEngine.plannedEntry > 0 && priceEngine.tacticalStop > 0 && priceEngine.tradeValid) {
     const risk = priceEngine.plannedEntry - priceEngine.tacticalStop;
     if (risk > 0) {
-      gapAdjustedRR = (priceEngine.plannedEntry * 0.05) / risk;
+      const t1Dist = priceEngine.target5 - priceEngine.plannedEntry;
+      gapAdjustedRR = t1Dist > 0 ? t1Dist / risk : 0;
     }
   }
 

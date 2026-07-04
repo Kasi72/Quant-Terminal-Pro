@@ -117,6 +117,7 @@ export interface TrackedTrade {
   mae?: number;
   mfeR?: number;
   maeR?: number;
+  qty?: number;
   daysHeld?: number;
   notes?: string;
   trailLog?: Array<{ day: number; newStop: number; reason: string }>;
@@ -174,10 +175,12 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   // Current streak
   let streakWins = 0, streakLosses = 0;
   for (let i = closed.length - 1; i >= 0; i--) {
-    const isWin = (closed[i].pnlPct ?? 0) > 0;
-    if (i === closed.length - 1) { if (isWin) streakWins = 1; else streakLosses = 1; }
+    const pnl = closed[i].pnlPct ?? 0;
+    const isWin = pnl > 0;
+    const isBreakeven = pnl === 0;
+    if (i === closed.length - 1) { if (isWin) streakWins = 1; else if (!isBreakeven) streakLosses = 1; }
     else if (isWin && streakWins > 0) streakWins++;
-    else if (!isWin && streakLosses > 0) streakLosses++;
+    else if (!isWin && !isBreakeven && streakLosses > 0) streakLosses++;
     else break;
   }
 
@@ -208,8 +211,8 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
 export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): TrackedTrade {
   if (trade.status !== 'open') return trade;
   const updated = { ...trade, currentPrice, lastCheckDate: new Date().toISOString().slice(0, 10) };
-  const entryDate = new Date(trade.entryDate);
-  const daysHeld = Math.floor((Date.now() - entryDate.getTime()) / 86400000);
+  const entryTs = new Date(trade.entryDate).getTime();
+  const daysHeld = Number.isFinite(entryTs) ? Math.floor((Date.now() - entryTs) / 86400000) : 0;
   updated.daysHeld = daysHeld;
   updated.highestPrice = Math.max(trade.highestPrice ?? 0, currentPrice);
   const riskPerShare = trade.entryPrice - trade.stopLoss;
@@ -273,8 +276,8 @@ export function computePortfolioRisk(
   sectorMap: Record<string, string[]>
 ): PortfolioRisk {
   const open = trades.filter(t => t.status === 'open');
-  const totalCap = open.reduce((s, t) => s + t.entryPrice * 1, 0);
-  const totalRisk = open.reduce((s, t) => s + Math.abs(t.entryPrice - t.stopLoss), 0);
+  const totalCap = open.reduce((s, t) => s + t.entryPrice * (t.qty ?? 1), 0);
+  const totalRisk = open.reduce((s, t) => s + Math.abs(t.entryPrice - t.stopLoss) * (t.qty ?? 1), 0);
 
   const sectorCounts: Record<string, number> = {};
   for (const t of open) {
@@ -340,7 +343,7 @@ export interface RegimeInfo {
 
 export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]): RegimeInfo {
   const fallback: RegimeInfo = { regime: 'neutral', niftyClose: 0, ema200: 0, ema50: 0, aboveEma200: true, ema50Above200: true, label: 'Unknown', emoji: '🟡', sizingMultiplier: 0.75, score: 0, factors: { momentum: 0, breadth: 0, volatility: 0, acceleration: 0, distEma200: 0, vixLevel: 0, vixROC: 0, vixVsSma: 0 }, vix: 0, cusumAlert: null, blackSwanLevel: 'normal', blackSwanAction: '' };
-  if (niftyCandles.length < 55) return fallback;
+  if (niftyCandles.length < 200) return fallback;
   const n = niftyCandles.length;
   const close = niftyCandles[n - 1].c;
 

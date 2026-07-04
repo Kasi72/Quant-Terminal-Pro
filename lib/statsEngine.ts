@@ -17,7 +17,7 @@ function stdDev(arr: number[]): number {
 
 function pctRank(window: number[], value: number): number {
   if (window.length === 0) return 50;
-  return (window.filter(v => v < value).length / window.length) * 100;
+  return (window.filter(v => v <= value).length / window.length) * 100;
 }
 
 function linRegSlope(values: number[]): number {
@@ -249,7 +249,7 @@ function computeHurst(candles: Candle[], endIdx: number): { h: number; trending:
   for (const n of sizes) {
     const chunks = Math.floor(returns.length / n);
     if (chunks === 0) continue;
-    let rsSum = 0;
+    let rsSum = 0, validChunks = 0;
     for (let c = 0; c < chunks; c++) {
       const chunk = returns.slice(c * n, (c + 1) * n);
       const m = mean(chunk);
@@ -263,8 +263,9 @@ function computeHurst(candles: Candle[], endIdx: number): { h: number; trending:
         if (cumSum < minCum) minCum = cumSum;
       }
       rsSum += (maxCum - minCum) / sd;
+      validChunks++;
     }
-    const avgRS = chunks > 0 ? rsSum / chunks : 0;
+    const avgRS = validChunks > 0 ? rsSum / validChunks : 0;
     if (chunks > 0 && avgRS > 0) {
       logRS.push(Math.log(avgRS));
       logN.push(Math.log(n));
@@ -667,7 +668,7 @@ function computeGuppySpread(candles: Candle[], endIdx: number): {
   const cleanBullishFan = minShort > maxLong;
 
   let compressDays = 0;
-  for (let j = Math.max(0, endIdx - 10); j < endIdx; j++) {
+  for (let j = Math.max(0, endIdx - 10); j <= endIdx; j++) {
     if (spreadAt(j).spreadPct < 2.0) compressDays++;
   }
 

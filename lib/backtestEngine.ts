@@ -167,7 +167,7 @@ export function runBacktest(
     for (let d = entryIdx + 1; d <= Math.min(entryIdx + holdingPeriod, candles.length - 1); d++) {
       const dc = candles[d];
       if (dc.h > mfePrice) mfePrice = dc.h;
-      if (dc.l <= stopLoss) { exitPrice = stopLoss; exitType = 'stopped'; exitIdx = d; break; }
+      if (dc.l <= stopLoss) { exitPrice = dc.o <= stopLoss ? dc.o : stopLoss; exitType = 'stopped'; exitIdx = d; break; }
       if (dc.h >= target1) { exitPrice = target1; exitType = 'target'; exitIdx = d; break; }
     }
 

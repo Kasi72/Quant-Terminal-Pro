@@ -7,16 +7,21 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  const body: { session_id: string; symbol: string; candles: Candle[] } = await req.json();
+  let body: { session_id: string; symbol: string; candles: Candle[] };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
   const { session_id, symbol, candles } = body;
 
-  if (!session_id || !symbol) {
+  if (!session_id || typeof session_id !== 'string' || !symbol || typeof symbol !== 'string') {
     return NextResponse.json({ error: 'Missing session_id or symbol' }, { status: 400 });
   }
 
   const supabase = getServiceClient();
 
-  if (!candles || candles.length < 30) {
+  if (!Array.isArray(candles) || candles.length < 30) {
     // Not enough data — insert error row
     await supabase.from('screening_results').insert({
       session_id, symbol,

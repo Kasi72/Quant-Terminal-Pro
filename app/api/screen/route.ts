@@ -4,10 +4,19 @@ import { getServiceClient } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { symbols }: { symbols: string[] } = await req.json();
+  let symbols: string[];
+  try {
+    const body = await req.json();
+    symbols = body?.symbols;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-  if (!symbols?.length) {
+  if (!Array.isArray(symbols) || symbols.length === 0) {
     return NextResponse.json({ error: 'No symbols provided' }, { status: 400 });
+  }
+  if (!symbols.every(s => typeof s === 'string')) {
+    return NextResponse.json({ error: 'symbols must be an array of strings' }, { status: 400 });
   }
 
   const supabase = getServiceClient();

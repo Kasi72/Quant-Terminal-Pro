@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Invalid token' }, { status: 400 });
     }
 
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const cleanToken = token.trim();
+    const res = await fetch(`https://api.telegram.org/bot${encodeURIComponent(cleanToken)}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

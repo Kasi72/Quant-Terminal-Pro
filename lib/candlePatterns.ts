@@ -48,19 +48,19 @@ export function detectCandlePattern(candles: Candle[], endIdx: number): CandlePa
   // ═══════════════════════════════════════════════════════════════════════
 
   // Three White Soldiers
-  if (isBull(pp) && isBull(p) && isBull(c) && p.c > pp.c && c.c > p.c && ppB / ppR > 0.50 && pB / pR > 0.50 && bPct > 0.50 && p.o > pp.o && c.o > p.o)
+  if (isBull(pp) && isBull(p) && isBull(c) && p.c > pp.c && c.c > p.c && ppB / ppR > 0.50 && pB / pR > 0.50 && bPct > 0.50 && p.o > pp.o && p.o < pp.c && c.o > p.o && c.o < p.c)
     return P('Three White Soldiers', '3WS', 'bullish', 3);
 
   // Three Black Crows
-  if (isBear(pp) && isBear(p) && isBear(c) && p.c < pp.c && c.c < p.c && ppB / ppR > 0.50 && pB / pR > 0.50 && bPct > 0.50 && p.o < pp.o && c.o < p.o)
+  if (isBear(pp) && isBear(p) && isBear(c) && p.c < pp.c && c.c < p.c && ppB / ppR > 0.50 && pB / pR > 0.50 && bPct > 0.50 && p.o < pp.o && p.o > pp.c && c.o < p.o && c.o > p.c)
     return P('Three Black Crows', '3BC', 'bearish', 3);
 
   // Morning Star
-  if (isBear(pp) && isLargeBody(pp) && body(p) < ppB * 0.35 && isBull(c) && b > ppB * 0.50 && c.c > bodyMid(pp))
+  if (isBear(pp) && isLargeBody(pp) && body(p) < ppB * 0.35 && p.o < pp.c && isBull(c) && b > ppB * 0.50 && c.c > bodyMid(pp))
     return P('Morning Star', 'MRST', 'bullish', 3);
 
   // Evening Star
-  if (isBull(pp) && isLargeBody(pp) && body(p) < ppB * 0.35 && isBear(c) && b > ppB * 0.50 && c.c < bodyMid(pp))
+  if (isBull(pp) && isLargeBody(pp) && body(p) < ppB * 0.35 && p.o > pp.c && isBear(c) && b > ppB * 0.50 && c.c < bodyMid(pp))
     return P('Evening Star', 'EVST', 'bearish', 3);
 
   // Abandoned Baby Bullish (gap down doji then gap up)
@@ -152,11 +152,11 @@ export function detectCandlePattern(candles: Candle[], endIdx: number): CandlePa
   // ═══════════════════════════════════════════════════════════════════════
 
   // Bullish Engulfing
-  if (isBear(p) && isBull(c) && c.o <= p.c && c.c >= p.o && b > pB * 1.1)
+  if (isBear(p) && isBull(c) && c.o < p.c && c.c > p.o && b > pB * 1.1)
     return P('Bullish Engulfing', 'B-EN', 'bullish', 3);
 
   // Bearish Engulfing
-  if (isBull(p) && isBear(c) && c.o >= p.c && c.c <= p.o && b > pB * 1.1)
+  if (isBull(p) && isBear(c) && c.o > p.c && c.c < p.o && b > pB * 1.1)
     return P('Bearish Engulfing', 'R-EN', 'bearish', 3);
 
   // Bullish Kicking (bearish marubozu → bullish marubozu with gap up)
