@@ -1641,12 +1641,13 @@ function HomePageInner() {
           // BEFORE entryTs and gets excluded — causing the slice(-10) fallback to run prior-day
           // candles whose close was below the stop. Fix: IST-adjust each candle's ts, use
           // strictly-after comparison (entry is for next morning's open, not today's close).
-          const entryDateStr = t.entryDate ?? '';
+          const entryDateStr = t.entryDate;
+          if (!entryDateStr) continue; // guard: empty entryDate would make ''>date TRUE for all candles
           const sinceEntry = cached.filter(c => {
             const cDateIST = new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10);
             return cDateIST > entryDateStr;
           });
-          if (sinceEntry.length === 0) continue; // no post-entry candles yet — trade just added
+          if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
           const result = validateTrade(updated[i], sinceEntry);
           const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
@@ -2018,9 +2019,9 @@ function HomePageInner() {
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
   }
 
-  function removeTrade(symbol: string) {
-    deleteTradeFromCloud(symbol);
-    setTrackedTrades(prev => prev.filter(t => !(t.symbol === symbol && t.status === 'open')));
+  function removeTrade(trade: TrackedTrade) {
+    deleteTradeFromCloud(trade.symbol);
+    setTrackedTrades(prev => prev.filter(t => t !== trade));
   }
 
   // Tooltip portal system — positions a single div at body level via JS
@@ -2527,7 +2528,8 @@ function HomePageInner() {
                           }
                         } catch { /* analysis failed — keep existing values */ }
                       }
-                      const entryDateStr2 = t.entryDate ?? '';
+                      const entryDateStr2 = t.entryDate;
+                      if (!entryDateStr2) { setProgress(p => p + 1); continue; }
                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr2);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
@@ -3515,7 +3517,7 @@ function HomePageInner() {
                             })()}
                           </td>
                           <td className="px-1 py-1.5 text-center">
-                            <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                            <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                           </td>
                         </tr>
                         {gLog && gLog.length > 0 && (
@@ -3623,7 +3625,7 @@ function HomePageInner() {
                               })()}
                             </td>
                             <td className="px-1 py-1.5 text-center">
-                              <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                              <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                             </td>
                           </tr>
                           {cGLog && cGLog.length > 0 && (
@@ -4525,7 +4527,8 @@ function HomePageInner() {
                                     const { candles } = await fetchOHLCVClient(t.symbol);
                                     if (candles.length > 0) {
                                       const idx = updated.findIndex(u => u.symbol === t.symbol);
-                                      const entryDateStr3 = t.entryDate ?? '';
+                                      const entryDateStr3 = t.entryDate;
+                                      if (!entryDateStr3) { setProgress(p => p + 1); continue; }
                                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr3);
                                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
@@ -4932,7 +4935,7 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>
                                   <td className="px-1 py-1.5 text-center">
-                                    <button onClick={() => removeTrade(t.symbol)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                                    <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
                                   </td>
                                 </tr>
                               );
@@ -5361,7 +5364,7 @@ function HomePageInner() {
                             {isTracked ? '✓ Tracked' : '✓ Trade'}
                           </button>
                           {isTracked && (
-                            <button onClick={() => removeTrade(r.symbol)}
+                            <button onClick={() => { const tr = trackedTrades.find(t => t.symbol === r.symbol && t.status === 'open'); if (tr) removeTrade(tr); }}
                               className="px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded text-xs font-medium text-red-400 transition-colors">
                               ✕ Remove</button>
                           )}
