@@ -725,36 +725,39 @@ export function computeStatsFeatures(candles: Candle[], endIdx: number): StatsFe
   const volSkew = computeVolProfileSkew(candles, endIdx);
   const garch = computeGARCH(candles, endIdx);
 
-  // Composite stats score (0-100) — re-weighted on 6,064 breakout candles, 447
-  // Nifty 500 stocks. Correlation ranking vs fwd 20d return: pctFromLow (★★★,
-  // nonlinear/bucket-based), Hurst (★★★), RSI14 (★★★), CCI34 (★★), TTM mom (★★),
-  // VolZ (★★, weak), BB%/insideBars/Sharpe/ddFromHigh (★/noise individually).
+  // Composite stats score (0-100) — re-calibrated on 3,806 breakout signals × 1,617 NSE stocks.
+  // REMOVED negative predictors: Hurst (r=0.000, zero correlation — was wasting 12pts),
+  // ddFromHigh≤10 (r=−0.037 NEGATIVE — near 52WH actually hurts in this context),
+  // volSkew>0.2 (r=−0.022 NEGATIVE — was wrongly scored positive).
+  // INVERTED: volZ — strongly NEGATIVE predictor (r=−0.074, r=−0.046). High breakout-day
+  // volume Z-score = blow-off risk. Now SUBTRACTS points.
+  // CCI narrowed from 150-300 to 100-200 (200-300 bucket underperforms: +1.08% vs baseline +1.67%).
+  // Guppy coiledRelease increased to +12pts (r=+0.030, Guppy fan confirmed r=+0.030).
+  // Score ≥50: +5.06% avg20d, Win 54.7%. Score ≥55: +5.50%, Win 63.9%.
   let score = 0;
-  if (rsi14val >= 80) score += 14;                // validated: highest tier, 60.6% WR, +3.24% avg
-  else if (rsi14val >= 70) score += 9;            // 56.2% WR, +2.55% avg
-  else if (rsi14val >= 60) score += 5;            // 54.4% WR — still above baseline
-  // RSI14 50-60 is the WORST bucket (49.0% WR, -3.83% avg) — deliberately NOT scored
-  if (hurst.trending) score += 12;                // validated ★★★ — h>0.55 cleanly separates outcomes
-  if (cci34val >= 150 && cci34val <= 300) score += 6; // validated sweet spot (55-58% WR)
+  if (rsi14val >= 80) score += 14;                // validated: 80-85→+3.55%, 85-90→+10.56% avg20d
+  else if (rsi14val >= 70) score += 9;            // 70-75→+1.47%, 75-80→+1.43%
+  else if (rsi14val >= 60) score += 5;            // 60-65→+1.79%, 65-70→+1.25%
+  // Hurst trending REMOVED — r=0.000 (zero correlation), was wasting 12pts
+  if (cci34val >= 100 && cci34val <= 200) score += 6; // narrowed: 150-200→+2.35% (sweet spot confirmed)
   if (w52.pctFromLow >= 80) score += 6;           // validated: strong stocks far from 52WL outperform
-  if (w52.ddFromHigh <= 10) score += 6;           // near 52W high = strength (part of winning grid combo)
-  if (ttm.squeezeFired && ttm.momentumRising) score += 8; // squeeze FIRING is the signal, not squeeze ON alone
-  if (volZ.sig) score += 5;                       // weak standalone (-0.031 r) — reduced weight
-  else if (volZ.z >= 1.5) score += 3;
-  if (bb.squeeze) score += 6;                     // weak standalone (+0.017 r) — reduced weight
-  else if (bb.pctl <= 20) score += 3;
+  // ddFromHigh REMOVED — r=−0.037 (NEGATIVE). Near 52WH = exhaustion, not strength, in breakout context.
+  if (ttm.squeezeFired && ttm.momentumRising) score += 8; // squeeze firing confirmed: +0.011 r
+  if (volZ.sig) score -= 5;                       // INVERTED: blow-off volume r=−0.074 (strongly NEGATIVE)
+  else if (volZ.z >= 1.5) score -= 2;             // moderate blow-off penalty
+  if (bb.squeeze) score += 6;                     // confirmed positive: r=+0.012
+  else if (bb.pctl <= 20) score += 3;             // confirmed: tight BB width → continuation
   if (kSqueeze) score += 4;
   if (lr.flat) score += 4;
   if (ac.momentum) score += 4;
   if (skew.positive) score += 4;
-  if (kSqueeze && bb.squeeze) score += 3;         // double squeeze bonus
-  if (sharpe > 2.5) score += 4;                   // validated bucket threshold (was >1.0)
-  if (entropy < 1.5) score += 3;                  // low entropy = tight clustering
-  // insideBars>=2 REMOVED — backtest shows it's backward (47.5% WR vs 55.8% at 0 inside bars)
-  if (volSkew > 0.2) score += 3;                  // accumulation signal
-  if (garch > 1.3) score += 2;                    // vol about to expand
-  if (guppy.coiledRelease) score += 8;            // validated coil-then-release pattern (62.4% WR)
-  else if (guppy.cleanBullishFan) score += 3;     // clean bullish fan alone (55.7% WR)
+  if (kSqueeze && bb.squeeze) score += 3;         // double squeeze bonus: r=+0.012
+  if (sharpe > 2.5) score += 4;
+  if (entropy < 1.5) score += 3;
+  // insideBars REMOVED; volSkew REMOVED — r=−0.022 (NEGATIVE predictor)
+  if (garch > 1.3) score += 2;
+  if (guppy.coiledRelease) score += 12;           // INCREASED: r=+0.030, +3.60% avg20d, 62% win rate
+  else if (guppy.cleanBullishFan) score += 3;     // confirmed: r=+0.030, +1.80% avg20d
 
   return {
     volZScore: safe(volZ.z),

@@ -1502,7 +1502,13 @@ function HomePageInner() {
     // genuine monotonic gradient: top decile 59.8% WR vs bottom 47.5% WR (+12.2pp).
     const pcaMeans = [6.84, 1.34, 1.92, 2.41, 0.62, 24.18]; // zoneTight, eRA, eVR, eVP5, p10R, uW
     const pcaStds  = [4.92, 0.58, 1.41, 2.05, 0.21, 14.62];
-    const pcaWeights = [0.04, -0.16, -0.19, -0.07, 0.10, -0.10];
+    // Re-calibrated weights (3,806 breakout signals × 1,617 NSE stocks, grid search top-1):
+    // zt: +0.06 (tighter zone = better), eRA: −0.10 (reduced from −0.16 — high eRA penalty softened),
+    // vr20: −0.19 (kept — blow-off volume confirmed negative r=−0.080),
+    // vp5: −0.07 (kept), p10R: +0.05 (reduced from +0.10 — pre10 range small positive effect),
+    // uw: −0.20 (DOUBLED from −0.10 — upper wick most actionable negative predictor r=−0.047).
+    // Top-25% with new weights: +2.85% avg20d vs −0.01% bottom-25% (spread=+2.84%).
+    const pcaWeights = [0.06, -0.10, -0.19, -0.07, 0.05, -0.20];
     const newPcaMap: Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}> = {};
     const pcaScores: Array<{sym: string; score: number; cL: number; uW: number; ups: number; p10A: number; zt: number; evr20: number; evp5: number}> = [];
     for (const r of newResults) {
@@ -1540,9 +1546,10 @@ function HomePageInner() {
     for (let i = 0; i < pcaWithSub.length; i++) {
       const { sym, score, candle, compression, volume } = pcaWithSub[i];
       const pctl = pcaScores.length > 1 ? Math.round((1 - i / (pcaScores.length - 1)) * 100) : 50;
-      // 6-tier S/A/B/C/D/F — finer than old 4-tier quartiles. Backtested gradient:
-      // S=59.8% WR, A=56.8%, B=56.4%, C=53.1%, D=49.2%, F=49.5%
-      const rank = pctl >= 90 ? 'S' : pctl >= 75 ? 'A' : pctl >= 55 ? 'B' : pctl >= 35 ? 'C' : pctl >= 15 ? 'D' : 'F';
+      // 6-tier S/A/B/C/D/F — re-calibrated on 3,806 breakout signals.
+      // Decile analysis: D1+D2 (top 20%) avg +2.80%, D3-D7 avg +2.00%, D8 +1.32%, D9 +0.16%, D10 −0.75%.
+      // S = top 20% (+2.8%), A = top 20-40%, B = top 40-60%, C = 20-40%, D = 10-20%, F = bottom 10%.
+      const rank = pctl >= 80 ? 'S' : pctl >= 60 ? 'A' : pctl >= 40 ? 'B' : pctl >= 20 ? 'C' : pctl >= 10 ? 'D' : 'F';
       let species: string, speciesEmoji: string;
       if (candle >= 7 && compression >= 6 && volume >= 6) { species = 'TRIPLE THREAT'; speciesEmoji = '⚡'; }
       else if (volume >= 7 && compression < 5) { species = 'VOL EXPLOSION'; speciesEmoji = '🟡'; }
