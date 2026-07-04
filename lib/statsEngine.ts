@@ -471,6 +471,7 @@ function computeTTMSqueeze(candles: Candle[], endIdx: number): {
 
   let atr = 0;
   const atrPeriod = 10;
+  let atrCount = 0;
   for (let i = endIdx - atrPeriod + 1; i <= endIdx; i++) {
     if (i < 1) continue;
     atr += Math.max(
@@ -478,8 +479,9 @@ function computeTTMSqueeze(candles: Candle[], endIdx: number): {
       Math.abs(candles[i].h - candles[i - 1].c),
       Math.abs(candles[i].l - candles[i - 1].c)
     );
+    atrCount++;
   }
-  atr /= atrPeriod;
+  atr = atrCount > 0 ? atr / atrCount : atr / atrPeriod;
   const kcUpper = ema + kcMult * atr;
   const kcLower = ema - kcMult * atr;
 
@@ -498,12 +500,13 @@ function computeTTMSqueeze(candles: Candle[], endIdx: number): {
 
     let prevEma = candles[0].c;
     for (let i = 1; i < endIdx; i++) prevEma = candles[i].c * k + prevEma * (1 - k);
-    let prevAtr = 0;
+    let prevAtr = 0, prevAtrCount = 0;
     for (let i = endIdx - atrPeriod; i < endIdx; i++) {
       if (i < 1) continue;
       prevAtr += Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - candles[i - 1].c), Math.abs(candles[i].l - candles[i - 1].c));
+      prevAtrCount++;
     }
-    prevAtr /= atrPeriod;
+    prevAtr = prevAtrCount > 0 ? prevAtr / prevAtrCount : prevAtr / atrPeriod;
     const prevKCU = prevEma + kcMult * prevAtr;
     const prevKCL = prevEma - kcMult * prevAtr;
     prevSqueezeOn = prevBBL > prevKCL && prevBBU < prevKCU;

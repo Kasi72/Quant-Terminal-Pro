@@ -16,14 +16,18 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
             <p className="text-slate-400 text-sm mb-4">{this.state.error}</p>
             <button onClick={() => {
               try {
-                // Preserve tracked trades before clearing
-                const trades = localStorage.getItem('qtp_tracked_trades');
-                const backup = localStorage.getItem('qtp_tracked_trades_backup');
-                const emergency = localStorage.getItem('qtp_tracked_trades_emergency');
+                // Preserve all user data — only nuke cache/candle keys
+                const preserveKeys = [
+                  'qtp_tracked_trades', 'qtp_tracked_trades_backup', 'qtp_tracked_trades_emergency',
+                  'qtp_watchlist', 'qtp_sessions', 'qtp_signal_history', 'qtp_favorites',
+                  'qtp_reviews', 'qtp_theme', 'qtp_paramSetKey', 'qtp_paramset', 'qtp_tg_config',
+                ];
+                const saved: Record<string, string | null> = {};
+                for (const key of preserveKeys) saved[key] = localStorage.getItem(key);
                 localStorage.clear();
-                if (trades) localStorage.setItem('qtp_tracked_trades', trades);
-                if (backup) localStorage.setItem('qtp_tracked_trades_backup', backup);
-                if (emergency) localStorage.setItem('qtp_tracked_trades_emergency', emergency);
+                for (const key of preserveKeys) {
+                  if (saved[key] != null) localStorage.setItem(key, saved[key]!);
+                }
               } catch {}
               window.location.reload();
             }}
@@ -1381,7 +1385,7 @@ function HomePageInner() {
 
     function scheduleFlush() {
       if (flushTimer) return;
-      flushTimer = setTimeout(() => { flushTimer = null; flushResults(); }, 300);
+      flushTimer = setTimeout(() => { flushTimer = null; if (!abortRef.current) flushResults(); }, 300);
     }
 
     // Feature #4: Fetch Nifty 50 + VIX candles (every scan — keeps regime/VIX fresh)
@@ -1606,9 +1610,9 @@ function HomePageInner() {
         for (let i = 0; i < updated.length; i++) {
           const t = updated[i];
           if (t.status !== 'open') continue;
-          // Sync stop/targets from fresh scan results (fixes formula changes)
+          // Sync stop/targets from fresh scan results only when param set matches
           const freshResult = newResults.find(r => r.symbol === t.symbol);
-          if (freshResult && freshResult.priceEngine.tacticalStop > 0) {
+          if (freshResult && freshResult.priceEngine.tacticalStop > 0 && freshResult.paramSetKey === t.paramSetKey) {
             updated[i] = { ...updated[i],
               stopLoss: freshResult.priceEngine.tacticalStop,
               target1: freshResult.priceEngine.target5,

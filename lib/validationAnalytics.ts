@@ -98,15 +98,15 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   if (closed.length < 5) return null;
 
   const wins = closed.filter(t => (t.pnlR ?? 0) > 0);
-  const losses = closed.filter(t => (t.pnlR ?? 0) <= 0);
+  const losses = closed.filter(t => (t.pnlR ?? 0) < 0);
   const wr = closed.length > 0 ? wins.length / closed.length * 100 : 0;
   const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / wins.length : 0;
   const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / losses.length : 0;
   const expectancy = closed.length > 0 ? closed.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / closed.length : 0;
 
-  // Simulate tighter stop (0.7R) — trades that had MAE > -0.7R would survive
+  // Simulate tighter stop (0.7R) — use stored maeR if available, else fall back to pnlR proxy
   const tighterSurvive = closed.filter(t => {
-    const maeR = (t.pnlR ?? 0) < 0 ? Math.abs(t.pnlR ?? 0) : 0;
+    const maeR = t.maeR != null ? Math.abs(t.maeR) : ((t.pnlR ?? 0) < 0 ? Math.abs(t.pnlR ?? 0) : 0);
     return maeR <= 0.7;
   });
   const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(t => (t.pnlR ?? 0) > 0).length / tighterSurvive.length * 100 : 0;
@@ -130,13 +130,16 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   // Optimal T1: highest rLevel where >60% trades reach
   const optimalT1R = mfeReachPct.filter(m => m.pctReaching >= 60).pop()?.rLevel ?? 1.0;
 
-  // Profit capture: avg actual R / avg MFE R
-  const avgMfeR = closed.filter(t => t.highestPrice).length > 0
-    ? closed.filter(t => t.highestPrice).reduce((s, t) => {
+  // Profit capture: avg actual R for winners / avg MFE R for same winners
+  const winsWithMfe = wins.filter(t => t.highestPrice && t.highestPrice > t.entryPrice);
+  const avgMfeR = winsWithMfe.length > 0
+    ? winsWithMfe.reduce((s, t) => {
         const rps = Math.max(t.entryPrice - t.stopLoss, 0.01);
         return s + (t.highestPrice! - t.entryPrice) / rps;
-      }, 0) / closed.filter(t => t.highestPrice).length : 1;
-  const profitCapturePct = avgMfeR > 0 ? safe(avgWinR / avgMfeR * 100) : 0;
+      }, 0) / winsWithMfe.length : 1;
+  const avgWinRForCapture = winsWithMfe.length > 0
+    ? winsWithMfe.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / winsWithMfe.length : 0;
+  const profitCapturePct = avgMfeR > 0 ? safe(avgWinRForCapture / avgMfeR * 100) : 0;
 
   return {
     currentStopR: 1.0, currentWinRate: safe(wr), currentExpectancy: safe(expectancy),
@@ -155,10 +158,11 @@ export interface RegimePerf { regime: string; trades: number; winRate: number; a
 export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
   // Simple proxy: if entry was when Nifty trend was up/down
   // Without stored regime data, use PnL sign clustering as proxy
-  const closed = trades.filter(t => t.status !== 'open');
+  const closed = trades.filter(t => t.status !== 'open')
+    .sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
   if (closed.length < 3) return [];
 
-  // Split into halves as proxy for different regimes
+  // Split into chronological halves as proxy for different regimes
   const half = Math.floor(closed.length / 2);
   const periods = [
     { label: 'Earlier Trades', trades: closed.slice(0, half) },

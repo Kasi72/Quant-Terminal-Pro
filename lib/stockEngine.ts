@@ -537,8 +537,10 @@ function computeMomentumEnhancements(
 
 function percentileRank(window: number[], value: number): number {
   if (window.length === 0) return 50;
+  // Use (below + 0.5×equal)/n to avoid 0th-percentile when value equals window max
   const below = window.filter(v => v < value).length;
-  return (below / window.length) * 100;
+  const equal = window.filter(v => v === value).length;
+  return ((below + equal * 0.5) / window.length) * 100;
 }
 
 // ─── ATR14 — Wilder's smoothing ───────────────────────────────────────────────
@@ -817,7 +819,7 @@ function computeInflectionScore(
 
   // Zone quality bonus (0–15 pts)
   if (zone) {
-    score += marginUp(zone.windowLength, params.minZoneLen, params.minZoneLen) * 5;
+    score += marginUp(zone.windowLength, params.minZoneLen, params.maxZoneLen - params.minZoneLen) * 5;
     score += marginDown(zone.zoneTightnessPct, params.maxZoneTightnessPct, params.maxZoneTightnessPct * 0.5) * 10;
   }
 

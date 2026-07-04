@@ -46,7 +46,7 @@ export function computeTradeCosts(buyValue: number, sellValue: number): TradeCos
   const slippage = (buyValue + sellValue) * 0.0005;
 
   const totalCost = brokerage + stt + exchangeTxn + gst + sebiCharges + stampDuty + slippage;
-  const costPct = (buyValue + sellValue) > 0 ? safe(totalCost / buyValue * 100) : 0;
+  const costPct = (buyValue + sellValue) > 0 ? safe(totalCost / (buyValue + sellValue) * 100) : 0;
 
   return { brokerage: safe(brokerage), stt: safe(stt), exchangeTxn: safe(exchangeTxn), gst: safe(gst), sebiCharges: safe(sebiCharges), stampDuty: safe(stampDuty), slippage: safe(slippage), totalCost: safe(totalCost), costPct: safe(costPct) };
 }
@@ -305,6 +305,8 @@ export function analyzeDrawdowns(trades: BacktestTrade[], startingCapital: numbe
   let equity = startingCapital, peak = equity;
   let maxDD = 0, maxDDStart = 0, maxDDEnd = 0;
   let currentDDStart = 0, inDD = false;
+  let equityAtMaxDDEnd = startingCapital;
+  let peakAtMaxDD = startingCapital;
   const ddValues: number[] = [];
   const underwaterCurve: DrawdownAnalysis['underwaterCurve'] = [];
 
@@ -317,20 +319,20 @@ export function analyzeDrawdowns(trades: BacktestTrade[], startingCapital: numbe
     if (dd > 0) {
       ddValues.push(dd);
       if (!inDD) { currentDDStart = i; inDD = true; }
-      if (dd > maxDD) { maxDD = dd; maxDDStart = currentDDStart; maxDDEnd = i; }
+      if (dd > maxDD) { maxDD = dd; maxDDStart = currentDDStart; maxDDEnd = i; equityAtMaxDDEnd = equity; peakAtMaxDD = peak; }
     }
   }
 
   const maxDDDuration = maxDDEnd - maxDDStart + 1;
   const avgDDPct = ddValues.length > 0 ? safe(ddValues.reduce((s, v) => s + v, 0) / ddValues.length) : 0;
 
-  // Recovery: how many trades after maxDDEnd to get back to peak
+  // Recovery: how many trades after maxDDEnd to get back to peak at that point
   let recoveryTrades = 0;
-  let recEquity = equity;
+  let recEquity = equityAtMaxDDEnd;
   for (let i = maxDDEnd + 1; i < trades.length; i++) {
     recEquity += startingCapital * 0.01 * trades[i].pnlR;
     recoveryTrades++;
-    if (recEquity >= peak) break;
+    if (recEquity >= peakAtMaxDD) break;
   }
 
   return { maxDDPct: safe(maxDD), maxDDDuration, avgDDPct, recoveryTrades, underwaterCurve };
@@ -352,9 +354,10 @@ export interface WalkForwardResult {
 export function walkForwardValidation(trades: BacktestTrade[], splitPct = 70): WalkForwardResult {
   if (trades.length < 10) return { inSampleWR: 0, inSampleExp: 0, outSampleWR: 0, outSampleExp: 0, robust: false, degradation: 100 };
 
-  const splitIdx = Math.floor(trades.length * splitPct / 100);
-  const inSample = trades.slice(0, splitIdx);
-  const outSample = trades.slice(splitIdx);
+  const sorted = [...trades].sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+  const splitIdx = Math.floor(sorted.length * splitPct / 100);
+  const inSample = sorted.slice(0, splitIdx);
+  const outSample = sorted.slice(splitIdx);
 
   const calc = (t: BacktestTrade[]) => {
     const wins = t.filter(x => x.pnlR > 0);

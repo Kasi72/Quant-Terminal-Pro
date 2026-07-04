@@ -195,9 +195,9 @@ export function validateTrade(
     const prev  = i >= 1 ? candlesSinceEntry[i - 1] : null;
     const prev2 = i >= 2 ? candlesSinceEntry[i - 2] : null;
 
-    // Track MFE / MAE (intraday extremes)
-    if (hi  > mfePrice) mfePrice = hi;
-    if (lo  < maePrice) maePrice = lo;
+    // Track MFE / MAE — deferred past gap-down check below so we don't credit
+    // intraday extremes on a bar where the position exited at open (gap-down).
+    // Actual update happens after the gap-down branch.
 
     // Update highestClose trackers (for Chandelier after T1/T2)
     if (t1Hit) {
@@ -256,8 +256,12 @@ export function validateTrade(
           result: 'STOPPED',
         });
         exitBarIdx = i;
-        break;
+        break; // MFE/MAE intentionally NOT updated — position exited at open
       }
+
+      // Position still alive past gap-down check — update MFE/MAE with this bar's extremes
+      if (hi > mfePrice) mfePrice = hi;
+      if (lo < maePrice) maePrice = lo;
 
       // ── Also: if T1 and stop both within this bar's range ───────────────
       // Breakout bias: if open is above the stop and T1 is also within range,
@@ -433,6 +437,12 @@ export function validateTrade(
     // Bail early if already stopped
     if ((status as string) === 'stopped') break;
 
+    // Non-gap-down bars that didn't stop: update MFE/MAE with full intraday range
+    if (!gapDownOpen) {
+      if (hi > mfePrice) mfePrice = hi;
+      if (lo < maePrice) maePrice = lo;
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // TRAILING STOP CHECKS (after T1/T2 — only on subsequent bars, not same
     // bar as the target hit, to avoid same-bar collision — #8 fix)
@@ -533,8 +543,8 @@ export function validateTrade(
   const T3 = trade.target3 ?? entry;
 
   if (status === 'hit_t1') {
-    // 50% sold at T1; remaining 50% exited at breakeven (entry) — conservative
-    weightedExitPrice = T1 * 0.5 + entry * 0.5;
+    // 50% sold at T1; remaining 50% exited at closedPrice (Chandelier/trail stop)
+    weightedExitPrice = T1 * 0.5 + closedPrice * 0.5;
   } else if (status === 'hit_t2') {
     // 50% at T1, 30% at T2, remaining 20% exited at Chandelier/trail stop (closedPrice)
     weightedExitPrice = T1 * 0.5 + T2 * 0.3 + closedPrice * 0.2;
@@ -592,10 +602,15 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     pnlPct:        result.pnlPct,
     pnlR:          result.pnlR,
     daysHeld:      result.daysHeld,
+    mfe:           result.mfe,
+    mae:           result.mae,
+    mfeR:          result.mfeR,
+    maeR:          result.maeR,
     currentPrice:  result.closedPrice,
     highestPrice:  trade.entryPrice * (1 + result.mfe / 100),
     lastCheckDate: new Date().toISOString().slice(0, 10),
     gateLog:       result.gateLog,
+    trailLog:      result.trailLog,
   };
 }
 

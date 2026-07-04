@@ -113,8 +113,13 @@ export interface TrackedTrade {
   closedPrice?: number;
   pnlPct?: number;
   pnlR?: number;
+  mfe?: number;
+  mae?: number;
+  mfeR?: number;
+  maeR?: number;
   daysHeld?: number;
   notes?: string;
+  trailLog?: Array<{ day: number; newStop: number; reason: string }>;
   gateLog?: Array<{
     day: number;
     close: number;
@@ -150,8 +155,8 @@ export interface WinRateStats {
 
 export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const closed = trades.filter(t => t.status !== 'open');
-  const wins = closed.filter(t => ['hit_t1', 'hit_t2', 'hit_t3', 'manual_close'].includes(t.status) && (t.pnlPct ?? 0) > 0);
-  const losses = closed.filter(t => t.status === 'stopped' || ((t.pnlPct ?? 0) < 0));
+  const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
+  const losses = closed.filter(t => (t.pnlPct ?? 0) < 0);
 
   const totalWinPct = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
   const totalLossPct = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
