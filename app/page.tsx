@@ -1647,6 +1647,11 @@ function HomePageInner() {
             const cDateIST = new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10);
             return cDateIST > entryDateStr;
           });
+          // Always show last known price even on holidays/weekends (before any post-entry candle)
+          const latestCandle = cached[cached.length - 1];
+          if (latestCandle?.c > 0 && !updated[i].currentPrice) {
+            updated[i] = { ...updated[i], currentPrice: latestCandle.c };
+          }
           if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
           const result = validateTrade(updated[i], sinceEntry);
           const prevStatus = updated[i].status;
