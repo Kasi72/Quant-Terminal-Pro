@@ -849,13 +849,13 @@ const COLUMNS: ColDef[] = [
     } },
   // Candle DNA Score
   { key: 'candleDNA', label: 'Candle DNA', width: 95, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Candle DNA Score — Deep Wick/Body/ATR Analysis</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (75+)</span></div><div><div class="rt-desc">Body/ATR ≥1.5, Upper:Lower wick ≤0.5, Marubozu ≥80, eRA ≥2.0. The cleanest, most decisive breakout candle shape.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (55-74)</span></div><div><div class="rt-desc">Good body conviction with clean wick structure — minimal selling rejection at the top.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">GOOD (35-54)</span></div><div><div class="rt-desc">Average candle quality — acceptable but not exceptional.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;35)</span></div><div><div class="rt-desc">Small body relative to ATR or significant wick rejection. Avoid sizing up on these.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components</span></div><div><div class="rt-desc">Body Strength (0-35): body/ATR conviction. Wick Cleanliness (0-35): lower-wick-dominant + minimal total wick. Range Expansion (0-30): today\'s range vs ATR.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">Grid-searched on 19,987 breakout candles, 456 stocks. Winning filter (UL≤0.5, BodyATR≥0.6, Marubozu≥80): +2.97% avg 20d return vs +1.66% baseline, 57% vs 54.5% win rate.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Candle DNA Score — Recalibrated on 3,802 signals × 1,617 stocks</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (75+)</span></div><div><div class="rt-desc">Near-zero upper wick (upperWickATR&lt;0.10), high 3-candle close location (&gt;75%), strong support tail (lowerWickATR&gt;0.25). Buyers dominate every dimension.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (55-74)</span></div><div><div class="rt-desc">Minimal rejection with consistent upward closes. Good support tail with manageable upper wick.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">GOOD (35-54)</span></div><div><div class="rt-desc">Moderate quality — acceptable close location but some upper wick or weak support tail.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;35)</span></div><div><div class="rt-desc">Heavy upper wick rejection and/or low close location. Caution on sizing.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components v2</span></div><div><div class="rt-desc">Upper Wick Quality (0-40): upperWickATR &lt;0.05 is the strongest signal. Close Location (0-35): 3-candle avgCL3. Support Tail (0-25): lowerWickATR — buyers defending lows.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">Old formula INVERTED: bodyATR r=-0.040 (negative), eRA r=-0.043 (negative). New: upperWickATR&lt;0.05 → +3.75% avg20d (MFE +18.4%), lowerWickATR r=+0.057 (strongest positive). 10× prior dataset.</div></div></div>',
     fmt: r => r.candleDNA ? `${Math.round(r.candleDNA.score)}-${r.candleDNA.tier.charAt(0) + r.candleDNA.tier.slice(1).toLowerCase()}` : '—',
     numVal: r => r.candleDNA?.score ?? 0,
     cellClass: r => {
@@ -892,13 +892,13 @@ const COLUMNS: ColDef[] = [
       return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded' : ze === 'CONFIRMED' ? 'text-blue-400 bg-blue-900/20 px-1 rounded' : 'text-slate-700';
     } },
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">ATR Compression State</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 45–90, rangeATR ≥1.8, volExp ≥1.2, ADR 4–7%, volR20 ≥1.8, volPre5 ≥2.25, redVolBias ≤1.2, close ≥70%, body ≥35%</div><div class="rt-hit hit-green">91.8% hit rate (61 signals) · Grid-searched sweet spot</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">🎯 INFLECT</span></div><div><div class="rt-desc">ATR percentile 30–70. Volatility at inflection point — about to expand</div><div class="rt-hit hit-cyan">47.1% hit rate · Slightly above baseline (46.3%)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ BUILD</span></div><div><div class="rt-desc">ATR percentile 25–30. Volatility rising from compression</div><div class="rt-hit hit-amber">49.8% hit rate · Building energy</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">💤 SLEEP</span></div><div><div class="rt-desc">ATR percentile &lt;25. Very low volatility, coiling for future move</div><div class="rt-hit hit-slate">45.1% hit rate · Below baseline — wait</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 MOMEN</span></div><div><div class="rt-desc">ATR percentile &gt;70. Already expanded — ride momentum, not breakout</div><div class="rt-hit hit-amber">47.2% hit rate · Trend continuation</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Note</span></div><div><div class="rt-desc">ATR state alone is a weak predictor (44.9-47.4% across states). Only EXPLODE (80.4%) has genuine edge. Combine with Volume badge for best results.</div><div class="rt-hit hit-cyan">Backtested on 14,457 signals across 77 stocks</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">ATR Compression State — Recalibrated on 3,802 signals × 1,617 stocks</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">💥 EXPLODE</span></div><div><div class="rt-desc">Pctl 35–85, rangeATR ≥1.4, ADR 3.5–7%, volR20 ≥1.4, volPre5 ≥2.0, redVolBias ≤1.2, close ≥65%, body ≥30%</div><div class="rt-hit hit-green">+2.05% avg20d, 37.9% &gt;5% moves · Grid-searched on 1,617 stocks</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">🎯 INFLECT</span></div><div><div class="rt-desc">ATR percentile 35–85. Active compression zone — moderate expected returns</div><div class="rt-hit hit-cyan">+0.86–1.71% avg20d · Broad sweet spot</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">⚡ BUILD</span></div><div><div class="rt-desc">ATR percentile 20–35. Transitional zone — worst performing state in backtest</div><div class="rt-hit hit-amber">-0.60% avg20d · Wait for INFLECT or MOMEN before acting</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">💤 SLEEP</span></div><div><div class="rt-desc">ATR percentile &lt;20. Ultra-quiet coiling — surprisingly decent breakout setup</div><div class="rt-hit hit-cyan">+1.92% avg20d · Low vol pre-breakout state, 1,496 signals</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 MOMEN</span></div><div><div class="rt-desc">ATR percentile &gt;85. Highest performing state in backtest — momentum burst zone</div><div class="rt-hit hit-green">+4.51% avg20d, 60% win rate · Best single ATR state (90-100 pctl)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key Insight</span></div><div><div class="rt-desc">BUILD zone (20-35%) is the true danger zone (-0.60%). MOMEN (&gt;85%) is the strongest state, not a warning. EXPLODE filter now catches wider entry conditions.</div><div class="rt-hit hit-cyan">Calibrated on 3,802 breakout-context signals across 1,617 NSE stocks</div></div></div>',
     fmt: r => {
       const { state, explosion } = detectATRState(r);
       if (explosion) return '💥 EXPLODE';
@@ -919,11 +919,11 @@ const COLUMNS: ColDef[] = [
       return 'text-slate-700';
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Volume Thrust Badge</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥3.0, volVsPre5 ≥4.0, redVolBias ≤0.6, body ≥40%, wick ≤25%. Massive institutional volume with clean candle.</div><div class="rt-hit hit-green">67.0% hit rate (194 signals) · Grid-searched sweet spot</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">✓ CONF</span></div><div><div class="rt-desc">volVsPre5 ≥2.0, volR20 ≥1.2, redVolBias ≤1.1. Clear expansion above recent average</div><div class="rt-hit hit-cyan">49.3% hit rate (1,935 signals) · +3.2% above baseline</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No significant volume surge (45.1% baseline hit rate)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Sweet spot</span></div><div><div class="rt-desc">Vol 3-5× = 54.5% hit rate, +10% MFE. Vol 5×+ = 60.9% hit rate. VsPre5 5×+ = 62.6% hit rate. Volume is the strongest single predictor.</div><div class="rt-hit hit-green">Backtested on 14,457 signals across 77 stocks</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Volume Thrust Badge — Recalibrated on 3,802 signals × 1,617 stocks</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔥 THRUST</span></div><div><div class="rt-desc">volR20 ≥4.0, volVsPre5 ≥5.0, redVolBias ≤0.9, upperWick ≤15%. Key gate is clean candle (uw≤15%) — volume alone not sufficient.</div><div class="rt-hit hit-green">+2.30% avg20d, MFE +16.2% · Grid-searched on 1,617 stocks</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">✓ CONF</span></div><div><div class="rt-desc">volVsPre5 ≥2.0, volR20 ≥1.0, redVolBias ≤0.80. Sellers absent with moderate volume surge.</div><div class="rt-hit hit-cyan">+1.80% avg20d · rvb tightened from 1.10→0.80 (sellers absent = better signal)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">— NONE</span></div><div><div class="rt-desc">No qualifying volume profile (+1.42% baseline avg20d)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Blow-off Warning</span></div><div><div class="rt-desc">Very high volume (&gt;4× avg, D9-D10 decile) is actually NEGATIVE: -0.54% avg20d. Sweet spot is 1.5–3.0× for moderate surge. Extreme volume = institutions distributing.</div><div class="rt-hit hit-amber">Calibrated on 3,802 breakout-context signals across 1,617 NSE stocks</div></div></div>',
     fmt: r => {
       const vb = detectVolumeBadge(r);
       return vb === 'HIGH_CONVICTION' ? '🔥 THRUST' : vb === 'CONFIRMED' ? '✓ CONF' : '—';
@@ -1744,11 +1744,11 @@ function HomePageInner() {
           const volInfo = detectVolumeBadge(r);
           const dnaInfo = detectBreakoutDNA(r);
           msg += `\n<b>📈 BREAKOUT QUALITY</b>\n`;
-          msg += `ATR: ${atrInfo.explosion ? '💥 EXPLODE (91.8% HR)' : atrInfo.state === 'SWEET_SPOT' ? '🎯 INFLECT' : atrInfo.state === 'BUILDING' ? '⚡ BUILD' : atrInfo.state === 'DEEP_COMPRESSION' ? '💤 SLEEP' : '🔥 MOMEN'}\n`;
+          msg += `ATR: ${atrInfo.explosion ? '💥 EXPLODE (+2.05% avg20d)' : atrInfo.state === 'SWEET_SPOT' ? '🎯 INFLECT' : atrInfo.state === 'BUILDING' ? '⚡ BUILD (worst zone)' : atrInfo.state === 'DEEP_COMPRESSION' ? '💤 SLEEP' : '🔥 MOMEN (+4.5% avg20d)'}\n`;
           msg += `Zone: ${zoneInfo === 'HIGH_CONVICTION' ? '💎 EXPLODE (63.4% HR)' : zoneInfo === 'CONFIRMED' ? '🎯 READY (63.5% HR)' : '— None'}`;
           if (r.zone) msg += ` | Tight: ${r.zone.zoneTightnessPct.toFixed(1)}% | Len: ${r.zone.windowLength}d`;
           msg += `\n`;
-          msg += `Vol: ${volInfo === 'HIGH_CONVICTION' ? '🔥 THRUST (67% HR)' : volInfo === 'CONFIRMED' ? '✓ CONF (49.3% HR)' : '— None'} | ${r.volRatio20.toFixed(1)}× 20d | ${r.exactVolVsPre5.toFixed(1)}× pre5\n`;
+          msg += `Vol: ${volInfo === 'HIGH_CONVICTION' ? '🔥 THRUST (+2.3% avg20d)' : volInfo === 'CONFIRMED' ? '✓ CONF (+1.8% avg20d)' : '— None'} | ${r.volRatio20.toFixed(1)}× 20d | ${r.exactVolVsPre5.toFixed(1)}× pre5\n`;
           if (dnaInfo) msg += `DNA: ★ ${dnaInfo}\n`;
           // PCA + Clenow
           const pcaInfo = newPcaMap[r.symbol];
