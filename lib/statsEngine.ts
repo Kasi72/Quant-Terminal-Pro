@@ -740,7 +740,7 @@ export function computeStatsFeatures(candles: Candle[], endIdx: number): StatsFe
   else if (rsi14val >= 60) score += 5;            // 60-65→+1.79%, 65-70→+1.25%
   // Hurst trending REMOVED — r=0.000 (zero correlation), was wasting 12pts
   if (cci34val >= 100 && cci34val <= 200) score += 6; // narrowed: 150-200→+2.35% (sweet spot confirmed)
-  if (w52.pctFromLow >= 80) score += 6;           // validated: strong stocks far from 52WL outperform
+  if (w52.pctFromLow >= 80 && w52.pctFromLow <= 400) score += 6; // validated: far from 52WL outperforms; cap at 400% to exclude penny-stock recoveries
   // ddFromHigh REMOVED — r=−0.037 (NEGATIVE). Near 52WH = exhaustion, not strength, in breakout context.
   if (ttm.squeezeFired && ttm.momentumRising) score += 8; // squeeze firing confirmed: +0.011 r
   if (volZ.sig) score -= 5;                       // INVERTED: blow-off volume r=−0.074 (strongly NEGATIVE)
@@ -815,6 +815,7 @@ export function computeStatsFeatures(candles: Candle[], endIdx: number): StatsFe
 export function computeExpectedValue(
   winRate: number, avgWinPct: number, avgLossPct: number
 ): number {
+  if (avgLossPct >= 0) return 0; // loss must be negative; mirror computeKelly guard
   const wr = winRate / 100;
   return wr * avgWinPct + (1 - wr) * avgLossPct;
 }

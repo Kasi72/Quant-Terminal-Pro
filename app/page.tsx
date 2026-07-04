@@ -710,6 +710,15 @@ const COLUMNS: ColDef[] = [
     cellClass: () => 'text-slate-300' },
   // v9.0 momentum columns
   { key: 'momentumScore', label: 'MomScore', width: 82, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Momentum Score — Recalibrated on 3,806 signals × 1,617 stocks</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite score measuring breakout momentum quality. Rebuilt from scratch after backtesting revealed 3 of the original 6 components were NEGATIVE predictors.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">+35 VolDryUp≥3</span></div><div><div class="rt-desc">Vol dried up ≥3 bars before breakout — the primary weight. Quiet accumulation before the surge is the strongest momentum predictor.</div><div class="rt-hit hit-green">+10 bonus if ≥4 bars dry · Max vol-dry contribution: 45pts</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">+30 OBVSlope≥0.5</span></div><div><div class="rt-desc">On-Balance Volume rising steeply (≥0.5 normalized slope over 10 days) — confirms institutional accumulation behind price action.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">+10 ADX>40</span></div><div><div class="rt-desc">ADX above 40 = powerfully trending market. Unlike the old filter (ADX 20-40), strong trends (ADX>40) are BETTER for momentum breakouts.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">+5 EMA Aligned</span></div><div><div class="rt-desc">EMA stack 10>20>50>200 — minor confirming factor. Weight reduced from 25pts after validation showed marginal contribution.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Removed ✗</span></div><div><div class="rt-desc">higherLowConfirmed (was +20pts, r=−0.01), adxInRange 20-40 (was +10pts, r=−0.005), gapAdjustedRR≥2 (was +10pts, r=−0.02) — all three were NEGATIVE predictors. Removed entirely.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥70</span></div><div><div class="rt-desc">Exceptional — requires vol-dry + OBV + ADX all aligned. Rare, high-conviction entry.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">≥40</span></div><div><div class="rt-desc">Actionable — at least one primary factor confirmed.</div></div></div>',
     fmt: r => r.momentum.momentumScore.toFixed(0),
     numVal: r => r.momentum.momentumScore,
     cellClass: r => r.momentum.momentumScore >= 70 ? 'text-yellow-300 font-semibold' : r.momentum.momentumScore >= 40 ? 'text-emerald-400' : 'text-slate-500' },
@@ -761,14 +770,14 @@ const COLUMNS: ColDef[] = [
   { key: 'pcaScore', label: 'PCA', width: 65, align: 'right',
     headerTipHtml: '<div class="rt-hdr">PCA Super-Score v2</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Optimal linear combination of 6 features weighted by win-correlation. Re-derived and validated on 5,026 breakout signals across 456 Nifty 500 stocks (the old weights were found to be INVERTED on this larger dataset and have been fixed).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Formula</span></div><div><div class="rt-desc">0.04×ZoneTight - 0.16×RangeATR - 0.19×VolRatio - 0.07×VolVsPre5 + 0.10×Pre10Range - 0.10×UpperWick (all standardized)</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">6-Tier Rank</span></div><div><div class="rt-desc">S (top 10%): 59.8% WR · A (10-25%): 56.8% WR · B (25-45%): 56.4% WR · C (45-65%): 53.1% WR · D (65-85%): 49.2% WR · F (bottom 15%): 49.5% WR</div><div class="rt-hit hit-green">12.2pp WR spread, +2.61% avg 20d return spread between S and F tiers</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Formula</span></div><div><div class="rt-desc">0.06×ZoneTight - 0.10×RangeATR - 0.19×VolRatio - 0.07×VolVsPre5 + 0.05×Pre10Range - 0.20×UpperWick (all standardized) — recalibrated on 3,806 signals × 1,617 stocks. UpperWick penalty DOUBLED (−0.10→−0.20) as strongest negative predictor.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">6-Tier Rank</span></div><div><div class="rt-desc">S (top 20%): highest conviction · A (20-40%): strong · B (40-60%): moderate · C (60-80%): below avg · D (80-90%): weak · F (bottom 10%): avoid. Tier boundaries widened — S now top 20% (decile analysis showed D1+D2 both ~+2.8%, same edge).</div><div class="rt-hit hit-green">Upper wick is the dominant signal — low wick % + high zone tightness = best combos</div></div></div>',
     fmt: () => '',
     numVal: () => 0,
     cellClass: () => '' },
   // v9.0 stats columns
   { key: 'statsScore', label: 'Stats', width: 55, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Stats Composite Score (0-100) v2 — re-weighted</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite re-weighted by validated correlation strength (6,064 candles, 447 Nifty 500 stocks): RSI14, Hurst, CCI34, 52W position, TTM fire, Guppy coil-release, plus minor factors.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">60+</span></div><div><div class="rt-desc">Strong statistical setup — multiple validated indicators aligned.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">30-59</span></div><div><div class="rt-desc">Moderate — some indicators support breakout.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">&lt;30</span></div><div><div class="rt-desc">Weak statistical evidence — limited indicator support.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Changed</span></div><div><div class="rt-desc">RSI14 high-tier and CCI34 sweet-spot scoring ADDED (previously unscored despite being top predictors). Inside-bars bonus REMOVED (was backward — validated as -8.3pp WR penalty).</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Stats Composite Score (0-100) v3 — recalibrated on 3,806 signals × 1,617 stocks</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite statistical edge score rebuilt from correlation analysis. Three components REMOVED (zero or negative predictors), one INVERTED (volZ now costs points), one NARROWED (CCI sweet spot).</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">≥50</span></div><div><div class="rt-desc">Exceptional — +5.06% avg 20d return, 54.7% win rate. ≥55 tier: +5.50%, 63.9% WR.</div><div class="rt-hit hit-green">Sweet spot: Stats≥40 + CandleDNA STRONG+ = +7.27% avg 20d, 58.9% WR</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">≥40</span></div><div><div class="rt-desc">Actionable — meaningful statistical edge confirmed.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">&lt;30</span></div><div><div class="rt-desc">Weak — limited statistical support.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Inverted ⚠</span></div><div><div class="rt-desc">volZ HIGH is now −5pts (was +5pts). High breakout-day volume z-score is strongly NEGATIVE (r=−0.074) — blow-off top risk, not confirmation. CCI sweet spot NARROWED to 100-200 (was 150-300).</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">Removed ✗</span></div><div><div class="rt-desc">hurstTrending +12pts removed (r=0.000, zero correlation). ddFromHigh≤10 +6pts removed (r=−0.037, negative). volSkew>0.2 +3pts removed (r=−0.022, negative). guppy.coiledRelease INCREASED to +12pts (best component, 62% win rate).</div></div></div>',
     fmt: r => String(r.stats.statsScore),
     numVal: r => r.stats.statsScore,
     cellClass: r => r.stats.statsScore >= 60 ? 'text-yellow-300 font-semibold' : r.stats.statsScore >= 30 ? 'text-emerald-400' : 'text-slate-500' },
@@ -803,10 +812,10 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.stats.rsi14,
     cellClass: r => r.stats.rsi14 >= 80 ? 'text-green-300 font-bold' : r.stats.rsi14 >= 70 ? 'text-emerald-400 font-semibold' : r.stats.rsi14 >= 60 ? 'text-cyan-400' : r.stats.rsi14 >= 50 ? 'text-orange-400' : 'text-slate-400' },
   { key: 'cci34', label: 'CCI34', width: 55, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Commodity Channel Index (34-day) v2</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Measures price deviation from its statistical mean. Identifies trend strength and potential reversals.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">150-300</span></div><div><div class="rt-desc">VALIDATED sweet spot — 55-58% WR. Strong trend without extreme exhaustion.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">&gt;300</span></div><div><div class="rt-desc">Extreme — 54.2% WR, slightly below the 150-300 sweet spot.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">0-150</span></div><div><div class="rt-desc">Mild bullish — building momentum, below the validated sweet spot.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">&lt;0</span></div><div><div class="rt-desc">Below mean — pullback or early reversal, weakest zone (51.7% WR).</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Commodity Channel Index (34-day) v2</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Measures price deviation from its statistical mean. Identifies trend strength and potential reversals.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">100-200</span></div><div><div class="rt-desc">VALIDATED sweet spot (recalibrated) — strong trend without extreme exhaustion. Narrowed from 150-300 after 3,806-signal backtest.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">&gt;200</span></div><div><div class="rt-desc">Extended — elevated but past peak sweet spot zone.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-slate">0-100</span></div><div><div class="rt-desc">Mild bullish — building momentum, below the validated sweet spot.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">&lt;0</span></div><div><div class="rt-desc">Below mean — pullback or early reversal, weakest zone (51.7% WR).</div></div></div>',
     fmt: r => r.stats.cci34.toFixed(0),
     numVal: r => r.stats.cci34,
-    cellClass: r => r.stats.cci34 >= 150 && r.stats.cci34 <= 300 ? 'text-green-300 font-bold' : r.stats.cci34 > 300 ? 'text-emerald-400' : r.stats.cci34 >= 0 ? 'text-slate-300' : 'text-orange-400' },
+    cellClass: r => r.stats.cci34 >= 100 && r.stats.cci34 <= 200 ? 'text-green-300 font-bold' : r.stats.cci34 > 200 ? 'text-emerald-400' : r.stats.cci34 >= 0 ? 'text-slate-300' : 'text-orange-400' },
   { key: 'dd52WH', label: '52WH%', width: 55, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Drawdown from 52-Week High (%)</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How far current price is below its 52-week high. Lower = closer to highs = stronger relative position.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">0-5%</span></div><div><div class="rt-desc">Near 52-week high — strong relative strength. Leader stock.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">5-15%</span></div><div><div class="rt-desc">Moderate pullback from highs — normal correction territory.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">&gt;15%</span></div><div><div class="rt-desc">Deep drawdown — stock in correction or downtrend. Weak relative strength.</div></div></div>',
     fmt: r => r.stats.drawdownFrom52WH.toFixed(1),
@@ -849,13 +858,13 @@ const COLUMNS: ColDef[] = [
     } },
   // Candle DNA Score
   { key: 'candleDNA', label: 'Candle DNA', width: 95, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Candle DNA Score — Recalibrated on 3,802 signals × 1,617 stocks</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (75+)</span></div><div><div class="rt-desc">Near-zero upper wick (upperWickATR&lt;0.10), high 3-candle close location (&gt;75%), strong support tail (lowerWickATR&gt;0.25). Buyers dominate every dimension.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (55-74)</span></div><div><div class="rt-desc">Minimal rejection with consistent upward closes. Good support tail with manageable upper wick.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">GOOD (35-54)</span></div><div><div class="rt-desc">Moderate quality — acceptable close location but some upper wick or weak support tail.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;35)</span></div><div><div class="rt-desc">Heavy upper wick rejection and/or low close location. Caution on sizing.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components v2</span></div><div><div class="rt-desc">Upper Wick Quality (0-40): upperWickATR &lt;0.05 is the strongest signal. Close Location (0-35): 3-candle avgCL3. Support Tail (0-25): lowerWickATR — buyers defending lows.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">Old formula INVERTED: bodyATR r=-0.040 (negative), eRA r=-0.043 (negative). New: upperWickATR&lt;0.05 → +3.75% avg20d (MFE +18.4%), lowerWickATR r=+0.057 (strongest positive). 10× prior dataset.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Candle DNA Score v3 — Recalibrated on 3,806 signals × 1,617 stocks</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ELITE (≥70)</span></div><div><div class="rt-desc">Near-zero upper wick (uw&lt;0.08), high close location (≥55%), strong support tail (lw≥0.15). Sweet spot: +4.99% avg 20d. Threshold lowered from 75 — more signals qualify without losing edge.</div><div class="rt-hit hit-green">Best combo: uw&lt;0.08 + lw≥0.15 + cl≥55 → +4.99% avg 20d</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG (50-69)</span></div><div><div class="rt-desc">Minimal rejection with consistent upward closes. Good support tail. Threshold lowered from 55.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">GOOD (30-49)</span></div><div><div class="rt-desc">Moderate quality — acceptable close location but some upper wick or weak support tail. Threshold lowered from 35.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">WEAK (&lt;30)</span></div><div><div class="rt-desc">Heavy upper wick rejection and/or low close location. Caution on sizing.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Components v3</span></div><div><div class="rt-desc">Upper Wick (0-40pts): uw&lt;0.02→40, &lt;0.08→30, &lt;0.15→15 — the strongest component. Close Location (0-35pts): cl 65-70 sweet spot = 22pts (+2.97%). Support Tail (0-25pts): lw≥0.60→25, ≥0.40→20, ≥0.25→14, ≥0.15→8.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Cross-feature</span></div><div><div class="rt-desc">Stats≥40 + DNA STRONG+ = +7.27% avg 20d, 58.9% win rate — strongest validated multi-feature combination across the full 3,806-signal dataset.</div></div></div>',
     fmt: r => r.candleDNA ? `${Math.round(r.candleDNA.score)}-${r.candleDNA.tier.charAt(0) + r.candleDNA.tier.slice(1).toLowerCase()}` : '—',
     numVal: r => r.candleDNA?.score ?? 0,
     cellClass: r => {
@@ -1649,7 +1658,7 @@ function HomePageInner() {
           });
           // Always show last known price even on holidays/weekends (before any post-entry candle)
           const latestCandle = cached[cached.length - 1];
-          if (latestCandle?.c > 0 && !updated[i].currentPrice) {
+          if (latestCandle?.c > 0) {
             updated[i] = { ...updated[i], currentPrice: latestCandle.c };
           }
           if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
@@ -2009,7 +2018,7 @@ function HomePageInner() {
 
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
-      entryDate: r.lastDate || new Date().toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
+      entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
       target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
@@ -2174,7 +2183,7 @@ function HomePageInner() {
     if (results.length === 0) return null;
     const dates = results.map(r => r.lastDate).filter(d => d);
     const latestDate = dates.sort().pop() ?? '';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10); // IST date
     const isStale = latestDate && latestDate < today;
     return { latestDate, isStale, totalStocks: results.length, withZone: results.filter(r => r.zone).length };
   }, [results]);
@@ -2539,11 +2548,12 @@ function HomePageInner() {
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                       if (idx >= 0) {
-                        updated[idx] = applyValidation(updated[idx], result);
+                        let u = applyValidation(updated[idx], result);
                         const lastCandle = candles[candles.length - 1];
-                        if (lastCandle && lastCandle.c > 0) updated[idx].currentPrice = lastCandle.c;
+                        if (lastCandle && lastCandle.c > 0) u = { ...u, currentPrice: lastCandle.c };
                         const maxH = Math.max(...sinceEntry.map(c => c.h));
-                        if (maxH > (updated[idx].highestPrice ?? 0)) updated[idx].highestPrice = maxH;
+                        if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
+                        updated[idx] = u;
                         validated++;
                       }
                     } catch {}
@@ -4538,11 +4548,12 @@ function HomePageInner() {
                                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                                       if (idx >= 0) {
-                                        updated[idx] = applyValidation(updated[idx], result);
+                                        let u = applyValidation(updated[idx], result);
                                         const lastCandle = candles[candles.length - 1];
-                                        if (lastCandle && lastCandle.c > 0) updated[idx].currentPrice = lastCandle.c;
+                                        if (lastCandle && lastCandle.c > 0) u = { ...u, currentPrice: lastCandle.c };
                                         const maxH = Math.max(...sinceEntry.map(c => c.h));
-                                        if (maxH > (updated[idx].highestPrice ?? 0)) updated[idx].highestPrice = maxH;
+                                        if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
+                                        updated[idx] = u;
                                         validated++;
                                       }
                                     }

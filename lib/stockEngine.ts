@@ -646,7 +646,8 @@ function findCompressionZone(
       const atrRatios: number[] = [];
 
       for (let i = s; i < end; i++) {
-        const atrVal = atr14[i] || 0.0001;
+        const atrVal = atr14[i] ?? 0.0001;
+        if (atrVal <= 0) { valid = false; break; }
         const rangeATR = (candles[i].h - candles[i].l) / atrVal;
         if (rangeATR > params.zoneRangeATRThreshold) {
           valid = false;
@@ -1440,7 +1441,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   const atr14Array = computeATR14(candles);
 
   // 6. atr14
-  const atr14 = atr14Array[endIdx] || 0.0001;
+  const atr14 = atr14Array[endIdx] ?? 0.0001;
 
   // 7. ATR percentile
   const atrPct14 = sig.c > 0 ? (atr14 / sig.c) * 100 : 0;
@@ -1467,7 +1468,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   for (let i = vol20Start; i < endIdx; i++) {
     vol20Arr.push(candles[i].v);
   }
-  const volAvg20 = arr_mean(vol20Arr) || 1;
+  const volAvg20 = arr_mean(vol20Arr);
+  if (volAvg20 <= 0) return noSignalBase();
   const volRatio20 = sig.v / volAvg20;
 
   // 10. RSI

@@ -300,7 +300,9 @@ export function formatValidationSummaryAlert(trades: TrackedTrade[]): string {
     // Recently closed (last 24h)
     const recentClosed = closed.filter(t => {
       if (!t.closedDate) return false;
-      const cd = new Date(t.closedDate);
+      // Date-only strings like '2025-07-01' parse as UTC midnight; add IST offset (+5:30)
+      // so the day boundary aligns with NSE market time, not UTC midnight.
+      const cd = new Date(t.closedDate + 'T00:00:00+05:30');
       return Date.now() - cd.getTime() < 86400000;
     });
     if (recentClosed.length > 0) {

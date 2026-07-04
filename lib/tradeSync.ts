@@ -132,16 +132,19 @@ let _syncing = false;
 // Upsert all trades to Supabase + mirror to localStorage (fire-and-forget)
 export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
   if (_syncing) return;
-  // Guard FIRST — never call saveToLocal([]) on mount before cloud load resolves
-  if (trades.length === 0) return;
   _syncing = true;
   try {
     saveToLocal(trades);
+    // No DB upsert for empty array — individual deletes via deleteTradeFromCloud handle removal.
+    // Returning early here only skips the no-op upsert, not local persistence above.
+    if (trades.length === 0) return;
     const rows = trades.map(toRow);
-    await getClient()
+    const { error } = await getClient()
       .from('tracked_trades')
       .upsert(rows, { onConflict: 'user_id,symbol', ignoreDuplicates: false });
-  } catch {
+    if (error) console.error('[tradeSync] upsert failed:', error.message);
+  } catch (e) {
+    console.error('[tradeSync] syncTradesToCloud error:', e);
   } finally {
     _syncing = false;
   }
@@ -150,12 +153,15 @@ export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
 // Delete one trade from cloud
 export async function deleteTradeFromCloud(symbol: string): Promise<void> {
   try {
-    await getClient()
+    const { error } = await getClient()
       .from('tracked_trades')
       .delete()
       .eq('user_id', USER_ID)
       .eq('symbol', symbol);
-  } catch {}
+    if (error) console.error('[tradeSync] delete failed:', symbol, error.message);
+  } catch (e) {
+    console.error('[tradeSync] deleteTradeFromCloud error:', symbol, e);
+  }
 }
 
 // Delete all trades from cloud AND wipe localStorage so next load doesn't re-seed

@@ -5,8 +5,9 @@ function parseRaw(json: Record<string, unknown>): Candle[] {
   const result = chartResult?.[0];
   if (!result) return [];
 
-  const quotes = (result.indicators as Record<string, unknown[]>)?.quote?.[0] as Record<string, (number | null)[]>;
+  const quotes = (result.indicators as Record<string, unknown[]>)?.quote?.[0] as Record<string, (number | null)[]> | undefined;
   const timestamps = (result.timestamp as number[]) ?? [];
+  if (!quotes) return [];
   const candles: Candle[] = [];
 
   for (let i = 0; i < timestamps.length; i++) {
