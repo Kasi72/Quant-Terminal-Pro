@@ -1623,10 +1623,17 @@ function HomePageInner() {
           }
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;
-          const entryTs = new Date(t.entryDate).getTime() / 1000;
-          let sinceEntry = cached.filter(c => c.ts >= entryTs);
-          if (sinceEntry.length === 0) sinceEntry = cached.slice(-10);
-          if (sinceEntry.length === 0) continue;
+          // Yahoo Finance NSE timestamps are IST midnight expressed in UTC (+19800s offset).
+          // new Date("YYYY-MM-DD") parses as UTC midnight, so a same-day NSE candle appears
+          // BEFORE entryTs and gets excluded — causing the slice(-10) fallback to run prior-day
+          // candles whose close was below the stop. Fix: IST-adjust each candle's ts, use
+          // strictly-after comparison (entry is for next morning's open, not today's close).
+          const entryDateStr = t.entryDate ?? '';
+          const sinceEntry = cached.filter(c => {
+            const cDateIST = new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10);
+            return cDateIST > entryDateStr;
+          });
+          if (sinceEntry.length === 0) continue; // no post-entry candles yet — trade just added
           const result = validateTrade(updated[i], sinceEntry);
           const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
@@ -2507,9 +2514,8 @@ function HomePageInner() {
                           }
                         } catch { /* analysis failed — keep existing values */ }
                       }
-                      const entryTs = new Date(t.entryDate).getTime() / 1000;
-                      let sinceEntry = candles.filter(c => c.ts >= entryTs);
-                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10);
+                      const entryDateStr2 = t.entryDate ?? '';
+                      const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr2);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                       if (idx >= 0) {
@@ -4506,9 +4512,8 @@ function HomePageInner() {
                                     const { candles } = await fetchOHLCVClient(t.symbol);
                                     if (candles.length > 0) {
                                       const idx = updated.findIndex(u => u.symbol === t.symbol);
-                                      const entryTs = new Date(t.entryDate).getTime() / 1000;
-                                      let sinceEntry = candles.filter(c => c.ts >= entryTs);
-                                      if (sinceEntry.length === 0) sinceEntry = candles.slice(-10);
+                                      const entryDateStr3 = t.entryDate ?? '';
+                                      const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr3);
                                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                                       if (idx >= 0) {
