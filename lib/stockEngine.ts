@@ -445,7 +445,7 @@ function computeOBVSlope10(candles: Candle[], endIdx: number): number {
   let obv = 0;
   const obvValues: number[] = [];
   const vols: number[] = [];
-  for (let i = start; i < endIdx; i++) {
+  for (let i = start; i <= endIdx; i++) {
     if (candles[i].c > candles[i - 1].c) obv += candles[i].v;
     else if (candles[i].c < candles[i - 1].c) obv -= candles[i].v;
     obvValues.push(obv);
@@ -486,7 +486,7 @@ function computeMomentumEnhancements(
   const ema50Arr = computeEMA(candles, 50);
   const ema20 = safe(ema20Arr[endIdx]);
   const ema50 = safe(ema50Arr[endIdx]);
-  const emaAligned = sig.c > ema20 && sig.c > ema50 && ema20 > ema50;
+  const emaAligned = candles.length >= 50 && sig.c > ema20 && sig.c > ema50 && ema20 > ema50;
 
   // Higher low confirmation
   const swingStart = Math.max(0, endIdx - 30);
@@ -1143,8 +1143,8 @@ function buildTradeEngine(
 
   const failedBreakoutLevel = tick(zone.zoneHigh);
   const timeStop3d  = tick(plannedEntry);                     // post-T1: breakeven
-  const timeStop5d  = tick(Math.min(target7  - 2.0 * atr14, target7  - 0.01)); // post-T2: Chandelier 2×ATR, capped below target
-  const timeStop10d = tick(Math.min(target10 - 3.0 * atr14, target10 - 0.01)); // post-T3: Chandelier 3×ATR, capped below target
+  const timeStop5d  = tick(Math.max(plannedEntry, Math.min(target7  - 2.0 * atr14, target7  - 0.01))); // post-T2: Chandelier 2×ATR, floor at entry
+  const timeStop10d = tick(Math.max(plannedEntry, Math.min(target10 - 3.0 * atr14, target10 - 0.01))); // post-T3: Chandelier 3×ATR, floor at entry
 
   // ══════════════════════════════════════════════════════════════════════
   // TRADE VALIDITY (Schwager risk management rules)
@@ -1838,8 +1838,11 @@ export function detectCandleDNA(
   atr14: number
 ): CandleDNA {
   const sig = candles[endIdx];
+  if (!sig || atr14 <= 0) {
+    return { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' };
+  }
   const rng = sig.h - sig.l;
-  if (!sig || rng <= 0 || atr14 <= 0) {
+  if (rng <= 0) {
     return { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' };
   }
 

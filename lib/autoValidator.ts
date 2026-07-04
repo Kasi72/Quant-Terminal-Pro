@@ -263,7 +263,8 @@ export function validateTrade(
       // and this is NOT after T1 is hit, assume target fills before stop
       // (price went up then came back). T1 hit is handled in target section
       // below — here we just note whether T1 was already pending same bar.
-      const t1InRange = !t1Hit && trade.target1 && hi >= trade.target1 && open < (trade.target1 ?? Infinity);
+      // gap-up open at or above T1 also counts — price already cleared T1 at open
+      const t1InRange = !t1Hit && trade.target1 && hi >= trade.target1;
       if (t1InRange) {
         // Breakout bias: T1 fills first on this bar. Let the target section
         // below handle T1; skip stop cascade this iteration.
@@ -277,12 +278,12 @@ export function validateTrade(
         const isGreen      = close > open;
         const avgV         = avgVol20(candlesSinceEntry, i);
 
-        // Compute RSI-2 (2-period momentum proxy)
+        // Compute RSI-2 — requires 2 prior bars; use neutral 50 when insufficient
         const ch1 = prev  ? close        - prev.c  : 0;
         const ch2 = prev2 ? (prev?.c ?? 0) - prev2.c : 0;
-        const rsiG = ((ch1 > 0 ? ch1 : 0) + (ch2 > 0 ? ch2 : 0)) / 2;
-        const rsiL = ((ch1 < 0 ? -ch1 : 0) + (ch2 < 0 ? -ch2 : 0)) / 2;
-        const rsi2 = rsiL < 0.001 ? 100 : 100 - 100 / (1 + rsiG / rsiL);
+        const rsiG = prev2 ? ((ch1 > 0 ? ch1 : 0) + (ch2 > 0 ? ch2 : 0)) / 2 : 0;
+        const rsiL = prev2 ? ((ch1 < 0 ? -ch1 : 0) + (ch2 < 0 ? -ch2 : 0)) / 2 : 0;
+        const rsi2 = !prev2 ? 50 : rsiL < 0.001 ? 100 : 100 - 100 / (1 + rsiG / rsiL);
 
         // OBV 5-day slope
         const obvSlope = obv5Slope(candlesSinceEntry, i);
@@ -499,7 +500,7 @@ export function validateTrade(
         dynamicStop = trade.target1 ?? dynamicStop;
         trailLog.push({ day: i, newStop: dynamicStop, reason: `T2 hit at ₹${trade.target2.toFixed(2)} — Chandelier trail starts, floor at T1 ₹${(trade.target1 ?? 0).toFixed(2)}` });
       }
-      highestCloseSinceT2 = close;
+      highestCloseSinceT2 = Math.max(trade.target2 ?? close, close);
       // Continue — don't break, check T3 on same bar
     }
 

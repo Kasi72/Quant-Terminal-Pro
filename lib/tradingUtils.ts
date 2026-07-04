@@ -201,7 +201,10 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     avgWinR: wins.length > 0 ? totalWinR / wins.length : 0,
     avgLossR: losses.length > 0 ? -totalLossR / losses.length : 0,
     profitFactor: totalLossPct > 0 ? Math.min(totalWinPct / totalLossPct, 50) : totalWinPct > 0 ? 50 : 0,
-    expectancy: closed.length > 0 ? (totalWinPct - totalLossPct) / closed.length : 0,
+    expectancy: closed.length > 0
+      ? (wins.length / closed.length) * (wins.length > 0 ? totalWinPct / wins.length : 0)
+        - (losses.length / closed.length) * (losses.length > 0 ? totalLossPct / losses.length : 0)
+      : 0,
     bestTrade, worstTrade,
     avgDaysHeld: Math.round(avgDays),
     streakWins, streakLosses,
@@ -222,7 +225,7 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     updated.closedPrice = trade.disasterStop;
     updated.closedDate = updated.lastCheckDate;
     updated.pnlPct = ((trade.disasterStop - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.disasterStop - trade.entryPrice) / riskPerShare : 0;
+    updated.pnlR = riskPerShare > 0 ? (trade.disasterStop - trade.entryPrice) / riskPerShare : -1;
   } else if (currentPrice <= trade.stopLoss) {
     updated.status = 'stopped';
     updated.closedPrice = trade.stopLoss;
@@ -398,10 +401,11 @@ export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]
   if (n >= 55) {
     const cusumRets: number[] = [];
     for (let j = n - 50; j < n; j++) if (j > 0) cusumRets.push((niftyCandles[j].c - niftyCandles[j - 1].c) / niftyCandles[j - 1].c * 100);
-    const cMean = cusumRets.reduce((s, v) => s + v, 0) / cusumRets.length;
-    const cStd = Math.sqrt(cusumRets.reduce((s, v) => s + (v - cMean) ** 2, 0) / cusumRets.length) || 0.01;
+    const warmup = cusumRets.slice(0, 30);
+    const cMean = warmup.reduce((s, v) => s + v, 0) / warmup.length;
+    const cStd = Math.sqrt(warmup.reduce((s, v) => s + (v - cMean) ** 2, 0) / warmup.length) || 0.01;
     let sPlus = 0, sMinus = 0;
-    for (const r of cusumRets.slice(-20)) { sPlus = Math.max(0, sPlus + (r - cMean) / cStd - 0.5); sMinus = Math.max(0, sMinus - (r - cMean) / cStd - 0.5); }
+    for (const r of cusumRets.slice(30)) { sPlus = Math.max(0, sPlus + (r - cMean) / cStd - 0.5); sMinus = Math.max(0, sMinus - (r - cMean) / cStd - 0.5); }
     if (sMinus > 3.0) cusumAlert = 'bearish_shift';
     else if (sPlus > 3.0) cusumAlert = 'bullish_shift';
   }

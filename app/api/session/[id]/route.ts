@@ -10,7 +10,7 @@ export async function GET(
   const { id } = await params;
   const supabase = getServiceClient();
 
-  const [{ data: session }, { data: results }] = await Promise.all([
+  const [{ data: session, error: sessionError }, { data: results }] = await Promise.all([
     supabase.from('screening_sessions').select('*').eq('id', id).single(),
     supabase
       .from('screening_results')
@@ -19,5 +19,6 @@ export async function GET(
       .order('clusters_passed', { ascending: false }),
   ]);
 
+  if (sessionError || !session) return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   return NextResponse.json({ session, results: results ?? [] });
 }

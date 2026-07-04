@@ -4,7 +4,9 @@ import { getServiceClient } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { session_id }: { session_id: string } = await req.json();
+  let body: { session_id?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
+  const { session_id } = body;
   if (!session_id) return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
   const supabase = getServiceClient();
   const { error } = await supabase.rpc('finalize_session', { sid: session_id });

@@ -1320,7 +1320,7 @@ function HomePageInner() {
     // Sync inner width of top scrollbar to actual scrollWidth of bottom
     const syncWidth = () => {
       const sw = bot.scrollWidth;
-      if (sw > 0 && sw !== actualTableWidth) setActualTableWidth(sw);
+      if (sw > 0) setActualTableWidth(sw);
     };
     syncWidth();
     const resizeObs = new ResizeObserver(syncWidth);
@@ -1373,6 +1373,7 @@ function HomePageInner() {
 
     const newResults: AnalysisResult[] = [];
     const freshCandleMap: Record<string, Candle[]> = {};
+    const freshClenowMap: Record<string, {score: number; r2: number; annReturn: number; quality: string}> = {};
     const newMultiResults: MultiAnalysisResult[] = [];
     const newFailed: Array<{sym: string; err: string}> = [];
     const CONCURRENCY = 6;
@@ -1432,6 +1433,12 @@ function HomePageInner() {
           const rs = computeRSvsNifty(candles, niftyData, 20);
           result.momentum = { ...result.momentum, rsNifty20: Number.isFinite(rs) ? rs : 1.0 };
         }
+        // Clenow score computed before slice while full candle array available
+        if (candles.length >= 130) {
+          const cl = computeClenowScore(candles, 125);
+          const quality = cl.r2 >= 0.7 ? 'SMOOTH' : cl.r2 >= 0.4 ? 'MODERATE' : 'CHOPPY';
+          freshClenowMap[result.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
+        }
         // Cache candles for sparkline + validation
         const sliced = candles.slice(-60);
         freshCandleMap[result.symbol] = sliced;
@@ -1481,16 +1488,8 @@ function HomePageInner() {
     }
     setFlagMap(newFlagMap);
     setGuppyCoilMap(newGuppyCoilMap);
-    // Clenow momentum score for all scanned stocks
-    const newClenowMap: Record<string, {score: number; r2: number; annReturn: number; quality: string}> = {};
-    for (const r of newResults) {
-      const candles = freshCandleMap[r.symbol];
-      if (!candles || candles.length < 130) continue;
-      const cl = computeClenowScore(candles, 125);
-      const quality = cl.r2 >= 0.7 ? 'SMOOTH' : cl.r2 >= 0.4 ? 'MODERATE' : 'CHOPPY';
-      newClenowMap[r.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
-    }
-    setClenowMap(newClenowMap);
+    // Clenow momentum score — computed per-symbol in processOne before candle slice
+    setClenowMap(freshClenowMap);
     // PCA Super-Score v2 — re-derived weights, validated on 456 Nifty 500 stocks
     // Backtested 5,026 signals: OLD weights showed INVERTED decile spread
     // (top decile 49.4% WR vs bottom 55.7% WR). Fresh weights below produce a
@@ -1555,7 +1554,7 @@ function HomePageInner() {
       const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}> = {};
       const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
       for (const r of buySignals) {
-        const cl = newClenowMap[r.symbol];
+        const cl = freshClenowMap[r.symbol];
         // P0 follow-up: AnalysisResult has no top-level conviction/atrState/
         // candlePattern/paramSetKey fields — adjustScore reads these from
         // extraData, so they must be computed and passed explicitly or the
@@ -1709,7 +1708,7 @@ function HomePageInner() {
       // #1: New or upgraded BUY signals
       if (tg.alerts.newSignal) {
         const stageRank: Record<string, number> = { NO_SIGNAL: 0, COMPRESSION_WATCH: 1, EARLY_INFLECTION: 2, PRE_BREAKOUT: 3, BUY: 4, STRONG_BUY: 5, ULTRA_STRONG_BUY: 6 };
-        const prevMap = new Map(resultsRef.current.map(r => [r.symbol, r.stage]));
+        const prevMap = new Map(preScanSnapshot.map(r => [r.symbol, r.stage]));
         const newBuys = newResults.filter(r => {
           if (!['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)) return false;
           const prevStage = prevMap.get(r.symbol);
@@ -1740,7 +1739,7 @@ function HomePageInner() {
           if (dnaInfo) msg += `DNA: ★ ${dnaInfo}\n`;
           // PCA + Clenow
           const pcaInfo = newPcaMap[r.symbol];
-          const clInfo = newClenowMap[r.symbol];
+          const clInfo = freshClenowMap[r.symbol];
           if (pcaInfo || clInfo) {
             msg += `\n<b>📊 SCORING</b>\n`;
             if (pcaInfo) msg += `PCA: ${pcaInfo.score.toFixed(1)} [${pcaInfo.rank}] ${pcaInfo.speciesEmoji} ${pcaInfo.species} (P${pcaInfo.pctl})\n`;
@@ -1766,7 +1765,7 @@ function HomePageInner() {
             const brainTg = computeBrainInsights(trackedTradesRef.current);
             const atrInfoTg = detectATRState(r);
             const brainAdj = brainTg.adjustScore(r, {
-              sector: getSectorTag(r.symbol), clenowScore: newClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo,
+              sector: getSectorTag(r.symbol), clenowScore: freshClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo,
               conviction: computeConviction(r), atrState: atrInfoTg.explosion ? 'EXPLOSION' : atrInfoTg.state,
               candlePattern: r.stats?.candlePattern, paramSetKey: r.paramSetKey,
             });
@@ -1971,9 +1970,8 @@ function HomePageInner() {
   function trackTrade(r: AnalysisResult) {
     // Risk warning: check if adding this trade exceeds 5% total risk
     const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' && t.symbol !== r.symbol);
-    const currentRisk = openTrades.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
-    const newRisk = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
-    const totalRiskPct = accountSize > 0 ? ((currentRisk + newRisk) / accountSize) * 100 : 0;
+    // Each open trade risks 1% of account; new trade adds another 1%
+    const totalRiskPct = (openTrades.length + 1) * 1;
     if (totalRiskPct > 5 && !confirm(`⚠ Total risk will be ${totalRiskPct.toFixed(1)}% of account (exceeds 5% max recommended). Continue?`)) return;
 
     // P0: snapshot the features Brain v3 needs to learn from at entry time —
@@ -1997,12 +1995,12 @@ function HomePageInner() {
       volumeBadge: detectVolumeBadge(r) || undefined,
       regimeAtEntry: marketRegime?.label || undefined,
     };
-    setTrackedTrades(prev => [...prev.filter(t => t.symbol !== r.symbol), trade]);
+    setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
   }
 
   function removeTrade(symbol: string) {
     deleteTradeFromCloud(symbol);
-    setTrackedTrades(prev => prev.filter(t => t.symbol !== symbol));
+    setTrackedTrades(prev => prev.filter(t => !(t.symbol === symbol && t.status === 'open')));
   }
 
   // Tooltip portal system — positions a single div at body level via JS
@@ -2801,7 +2799,6 @@ function HomePageInner() {
                   const displayPnl = t.pnlPct ?? unrealPnl;
                   const displayR = t.pnlR ?? unrealR;
                   // Sequence: W/L markers for closed trades
-                  const closedUpToHere = arr.slice(0, i + 1).filter(x => x.status !== 'open');
                   const seqMark = t.status !== 'open' ? ((t.pnlPct ?? 0) >= 0 ? 'W' : 'L') : '·';
                   return (
                   <tr key={i} className={`border-b border-slate-800/30 hover:bg-slate-800/20 ${t.status !== 'open' ? '' : 'opacity-80'}`}>
@@ -2833,7 +2830,7 @@ function HomePageInner() {
                     <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
                     <td className={`px-2 py-1 text-center text-[10px] font-bold ${seqMark === 'W' ? 'text-emerald-400' : seqMark === 'L' ? 'text-red-400' : 'text-slate-700'}`}>{seqMark}</td>
                     <td className="px-2 py-1 text-center">
-                      <button onClick={() => { deleteTradeFromCloud(t.symbol); setTrackedTrades(prev => prev.filter(x => x.symbol !== t.symbol)); }}
+                      <button onClick={() => { if (t.status === 'open') deleteTradeFromCloud(t.symbol); setTrackedTrades(prev => t.status === 'open' ? prev.filter(x => !(x.symbol === t.symbol && x.status === 'open')) : prev.filter(x => x !== t)); }}
                         className="text-slate-700 hover:text-red-400">×</button>
                     </td>
                   </tr>

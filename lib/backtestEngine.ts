@@ -98,7 +98,7 @@ export function runBacktest(
 
     // ATR14 at this point
     let atrSum = 0, atrCount = 0;
-    for (let j = Math.max(1, i - 14); j <= i; j++) {
+    for (let j = Math.max(1, i - 14); j < i; j++) {
       atrSum += Math.max(candles[j].h - candles[j].l, Math.abs(candles[j].h - candles[j - 1].c), Math.abs(candles[j].l - candles[j - 1].c));
       atrCount++;
     }
@@ -176,8 +176,8 @@ export function runBacktest(
       exitPrice = candles[exitIdx].c;
     }
 
-    // Apply exit slippage
-    exitPrice *= 0.9995;
+    // Apply exit slippage (not for stop exits — they already fill at market open)
+    if (exitType !== 'stopped') exitPrice *= 0.9995;
 
     // Compute costs
     const buyValue = entryPrice * shares;
@@ -213,8 +213,8 @@ export interface BenchmarkResult {
 
 export function computeBenchmark(niftyCandles: Candle[], trades: BacktestTrade[], startingCapital: number): BenchmarkResult {
   if (!niftyCandles || niftyCandles.length < 30 || trades.length === 0) return { niftyReturn: 0, strategyReturn: 0, alpha: 0, niftyMaxDD: 0 };
-  const firstDate = trades[0].entryDate;
-  const lastDate = trades[trades.length - 1].exitDate;
+  const firstDate = trades.reduce((min, t) => t.entryDate < min ? t.entryDate : min, trades[0].entryDate);
+  const lastDate = trades.reduce((max, t) => t.exitDate > max ? t.exitDate : max, trades[0].exitDate);
   const niftyStart = niftyCandles.find(c => new Date(c.ts * 1000).toISOString().slice(0, 10) >= firstDate);
   const niftyEnd = [...niftyCandles].reverse().find(c => new Date(c.ts * 1000).toISOString().slice(0, 10) <= lastDate);
   const niftyReturn = niftyStart && niftyEnd && niftyStart.c > 0 ? safe((niftyEnd.c - niftyStart.c) / niftyStart.c * 100) : 0;
@@ -273,8 +273,7 @@ export function runMonteCarlo(trades: BacktestTrade[], startingCapital: number, 
       if (dd >= 30) { ruined = true; break; }
     }
 
-    results.push(Math.round(equity));
-    if (ruined) ruinCount++;
+    if (ruined) { results.push(0); ruinCount++; } else results.push(Math.round(equity));
   }
 
   results.sort((a, b) => a - b);
@@ -311,8 +310,7 @@ export function analyzeDrawdowns(trades: BacktestTrade[], startingCapital: numbe
   const underwaterCurve: DrawdownAnalysis['underwaterCurve'] = [];
 
   for (let i = 0; i < trades.length; i++) {
-    const riskAmt = startingCapital * 0.01;
-    equity += riskAmt * trades[i].pnlR;
+    equity += trades[i].pnlNet;
     if (equity > peak) { peak = equity; inDD = false; }
     const dd = peak > 0 ? (peak - equity) / peak * 100 : 0;
     underwaterCurve.push({ tradeNum: i + 1, ddPct: safe(dd) });

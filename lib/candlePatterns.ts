@@ -126,12 +126,12 @@ export function detectCandlePattern(candles: Candle[], endIdx: number): CandlePa
       return P('Mat Hold', 'MATH', 'bullish', 3);
   }
 
-  // Upside Tasuki Gap
-  if (isBull(pp) && isBull(p) && gapUp(pp, p) && isBear(c) && c.o > p.o && c.c < p.o && c.c > pp.c)
+  // Upside Tasuki Gap — fill candle must open inside prior bull body
+  if (isBull(pp) && isBull(p) && gapUp(pp, p) && isBear(c) && c.o > p.o && c.o < p.c && c.c < p.o && c.c > pp.c)
     return P('Tasuki Gap ↑', 'TG-U', 'bullish', 2);
 
-  // Downside Tasuki Gap
-  if (isBear(pp) && isBear(p) && gapDn(pp, p) && isBull(c) && c.o < p.o && c.c > p.o && c.c < pp.c)
+  // Downside Tasuki Gap — fill candle must open inside prior bear body
+  if (isBear(pp) && isBear(p) && gapDn(pp, p) && isBull(c) && c.o < p.o && c.o > p.c && c.c > p.o && c.c < pp.c)
     return P('Tasuki Gap ↓', 'TG-D', 'bearish', 2);
 
   // Concealing Baby Swallow (4-candle: 2 marubozu bears, then gap-down, then engulf)

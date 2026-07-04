@@ -28,7 +28,9 @@ export const DEFAULT_TG_CONFIG: TelegramConfig = {
 export function loadTelegramConfig(): TelegramConfig {
   try {
     const raw = localStorage.getItem('qtp_telegram');
-    return raw ? { ...DEFAULT_TG_CONFIG, ...JSON.parse(raw) } : DEFAULT_TG_CONFIG;
+    if (!raw) return DEFAULT_TG_CONFIG;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_TG_CONFIG, ...parsed, alerts: { ...DEFAULT_TG_CONFIG.alerts, ...(parsed.alerts ?? {}) } };
   } catch { return DEFAULT_TG_CONFIG; }
 }
 

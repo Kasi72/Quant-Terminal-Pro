@@ -114,9 +114,14 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(t => (t.pnlR ?? 0) > 0).length / tighterSurvive.length * 100 : 0;
   const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / tighterSurvive.length : 0;
 
-  // Simulate wider stop (1.5R)
-  const widerWR = wr;
-  const widerExp = expectancy;
+  // Simulate wider stop (1.5R) — trades that were stopped with |maeR| <= 1.5 survive
+  const widerSurvive = closed.filter(t => {
+    if (t.maeR != null) return Math.abs(t.maeR) <= 1.5;
+    if ((t.pnlR ?? 0) > 0) return true; // winners survive wider stop
+    return Math.abs(t.pnlR ?? 0) <= 1.5;
+  });
+  const widerWR = widerSurvive.length > 0 ? widerSurvive.filter(t => (t.pnlR ?? 0) > 0).length / widerSurvive.length * 100 : 0;
+  const widerExp = widerSurvive.length > 0 ? widerSurvive.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / widerSurvive.length : 0;
 
   // MFE reach analysis
   const mfeReachPct: OptimizationResult['mfeReachPct'] = [];
@@ -178,7 +183,14 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
       regime: p.label, trades: p.trades.length,
       winRate: p.trades.length > 0 ? safe(wins.length / p.trades.length * 100) : 0,
       avgR: safe(avgR),
-      expectancy: p.trades.length > 0 ? safe(p.trades.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / p.trades.length) : 0,
+      expectancy: (() => {
+        const pWins = p.trades.filter(t => (t.pnlR ?? 0) > 0);
+        const pLosses = p.trades.filter(t => (t.pnlR ?? 0) < 0);
+        const wr2 = p.trades.length > 0 ? pWins.length / p.trades.length : 0;
+        const awr = pWins.length > 0 ? pWins.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / pWins.length : 0;
+        const alr = pLosses.length > 0 ? pLosses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / pLosses.length : 0;
+        return safe(wr2 * awr - (1 - wr2) * alr);
+      })(),
     };
   });
 }
@@ -270,7 +282,8 @@ export function computeDayOfWeek(trades: TrackedTrade[]): DayPerf[] {
   const buckets = new Map<number, TrackedTrade[]>();
   for (const t of closed) {
     const [y, mo, d] = (t.entryDate ?? '').split('-').map(Number);
-    const dow = (y && mo && d) ? new Date(y, mo - 1, d).getDay() : new Date(t.entryDate).getDay();
+    if (!y || !mo || !d || isNaN(y) || isNaN(mo) || isNaN(d)) continue;
+    const dow = new Date(y, mo - 1, d).getDay();
     if (!buckets.has(dow)) buckets.set(dow, []);
     buckets.get(dow)!.push(t);
   }

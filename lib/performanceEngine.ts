@@ -58,8 +58,8 @@ export function generateMonthlyReports(trades: TrackedTrade[]): MonthlyReport[] 
 
   const reports: MonthlyReport[] = [];
   for (const [month, mTrades] of Array.from(byMonth.entries()).sort()) {
-    const wins = mTrades.filter(t => (t.pnlPct ?? 0) > 0);
-    const losses = mTrades.filter(t => (t.pnlPct ?? 0) < 0);
+    const wins = mTrades.filter(t => (t.pnlR ?? t.pnlPct ?? 0) > 0);
+    const losses = mTrades.filter(t => (t.pnlR ?? t.pnlPct ?? 0) < 0);
     let best: { symbol: string; pnl: number } | null = null;
     let worst: { symbol: string; pnl: number } | null = null;
     let grossPnl = 0, maxDD = 0, runningPnl = 0, peakPnl = 0;
