@@ -271,42 +271,48 @@ function rrVerdictColor(rr: number): string {
   return 'text-yellow-300';
 }
 
-// Volume Thrust Badge (backtested on 29 OHLCV files — 66.28% hit rate for +5% moves)
+// Volume Thrust Badge — calibrated on 3,802 signals across 1,617 NSE stocks.
+// Key finding: very high volume (>4x avg) is blow-off risk. Sweet spot 1.5-3.0x.
+// HC optimal: vr20≥4.0, vp5≥5.0, rvb≤0.90, uw≤15 → +2.30% avg20d, MFE+16.17%.
+// CONFIRMED optimal: vp5≥2.0, vr20≥1.0, rvb≤0.80 → +1.80% avg20d.
 type VolumeBadge = 'HIGH_CONVICTION' | 'CONFIRMED' | null;
 function detectVolumeBadge(r: AnalysisResult): VolumeBadge {
   const vr20 = r.volRatio20, vp5 = r.exactVolVsPre5, rvb = r.pre10RedVolBias;
-  const cl = r.closeLoc, bp = r.bodyPct, uw = r.upperWickPct;
-  // Grid-searched on 14,457 signals: 67.0% HR, 194 signals (was 52.6%, 1165)
-  if (vr20 >= 3.00 && vp5 >= 4.00 && rvb <= 0.60 && cl >= 55 && bp >= 40 && uw <= 25)
+  const uw = r.upperWickPct;
+  // HIGH_CONVICTION: strong volume surge + clean close (uw≤15 is the key gate)
+  if (vr20 >= 4.00 && vp5 >= 5.00 && rvb <= 0.90 && uw <= 15)
     return 'HIGH_CONVICTION';
-  // Volume Confirmed: softer version
-  if (vp5 >= 2.00 && vr20 >= 1.20 && rvb <= 1.10)
+  // CONFIRMED: moderate volume with sellers absent (rvb≤0.80 tightened from 1.10)
+  if (vp5 >= 2.00 && vr20 >= 1.00 && rvb <= 0.80)
     return 'CONFIRMED';
   return null;
 }
 
-// ATR Compression State (backtested on 29 OHLCV files)
+// ATR Compression State — calibrated on 3,802 signals across 1,617 NSE stocks.
+// Key finding: pctl >90 is BEST (+4.51% avg20d, 60% win rate).
+// pctl <10 also good (+1.92%). SWEET_SPOT middle (30-70) is mediocre.
+// BUILDING zone (25-30) is worst (-0.60% avg20d).
 type ATRState = 'DEEP_COMPRESSION' | 'BUILDING' | 'SWEET_SPOT' | 'HIGH_VOL' | null;
 function detectATRState(r: AnalysisResult): { state: ATRState; explosion: boolean } {
   const pctl = r.atrPct14Pctl120;
   if (!Number.isFinite(pctl)) return { state: null, explosion: false };
   let state: ATRState;
-  if (pctl < 25) state = 'DEEP_COMPRESSION';     // <25: sleep (45.1% HR)
-  else if (pctl < 30) state = 'BUILDING';         // 25-30: building (49.8% HR)
-  else if (pctl <= 70) state = 'SWEET_SPOT';      // 30-70: inflection (46.8% HR)
-  else state = 'HIGH_VOL';                        // >70: momentum (47.2% HR)
-  // ULTRA ATR+Volume+ADR Explosion: 97.62% hit rate (Wilson LB 87.68%)
-  // Hyper-optimized from 29-OHLCV grid search
+  if (pctl < 20) state = 'DEEP_COMPRESSION';     // <20: ultra-quiet (+1.92% avg20d)
+  else if (pctl < 35) state = 'BUILDING';         // 20-35: transitional (worst zone, -0.60%)
+  else if (pctl <= 85) state = 'SWEET_SPOT';      // 35-85: active compression (+0.86-1.71%)
+  else state = 'HIGH_VOL';                        // >85: momentum burst (+4.51%, 60% win rate)
+  // EXPLOSION filter — calibrated on 1617 stocks:
+  // Best: pctl 35-85, eRA≥1.4, adr≥3.5%, vr≥1.4, cl≥65 → +2.05% avg20d, 37.9% >5%.
+  // Lowered eRA from 1.80→1.40, widened pctl from 45-90→35-85, adr from 4.0→3.5%.
   const adrPct = r.atrPct14 ?? 0;
   const volExpRatio = r.volatilityExpansionRatio ?? 0;
-  // Grid-searched on 14,457 signals: 91.8% HR, 61 signals (was 80.4%, 56)
-  const explosion = pctl >= 45 && pctl <= 90
-    && r.exactRangeATR14 >= 1.80 && r.exactRangeATR14 <= 5.00
+  const explosion = pctl >= 35 && pctl <= 85
+    && r.exactRangeATR14 >= 1.40 && r.exactRangeATR14 <= 5.00
     && volExpRatio >= 1.20
-    && adrPct >= 4.00 && adrPct <= 7.00
-    && r.volRatio20 >= 1.80 && r.exactVolVsPre5 >= 2.25
+    && adrPct >= 3.50 && adrPct <= 7.00
+    && r.volRatio20 >= 1.40 && r.exactVolVsPre5 >= 2.00
     && r.pre10RedVolBias <= 1.20
-    && r.closeLoc >= 70 && r.bodyPct >= 35 && r.upperWickPct <= 40;
+    && r.closeLoc >= 65 && r.bodyPct >= 30 && r.upperWickPct <= 40;
   return { state, explosion };
 }
 

@@ -1827,10 +1827,11 @@ export function detectMonster(
 }
 
 // ─── CANDLE DNA SCORE — Deep wick/body/ATR composite ────────────────────────
-// Grid-searched on 19,987 breakout-context candles across 456 Nifty 500 stocks.
-// Winning filter (UL≤0.5, BodyATR≥0.6, Marubozu≥80) produced +2.97% avg 20d
-// return vs +1.66% baseline (+1.31% edge, +2.7pp win rate, 57% vs 54.5%).
-// Strongest individual predictors: bodyATR (r=+0.044), eRA (r=+0.058).
+// Calibrated on 3,802 breakout-context signals across 1,617 NSE stocks.
+// Key finding: old formula was INVERTED — big body/eRA predicts poorly.
+// True predictors: upperWickATR<0.05→+3.75% avg20d (r=-0.056),
+// lowerWickATR→+0.057 correlation, 3-candle avgCL3→+0.042 correlation.
+// bodyATR r=-0.040 (NEGATIVE), eRA r=-0.043 (NEGATIVE) — both removed from score.
 
 export function detectCandleDNA(
   candles: Array<{ o: number; h: number; l: number; c: number; v: number }>,
@@ -1856,36 +1857,55 @@ export function detectCandleDNA(
   const eRA = rng / atr14;
   const upperToLowerWickRatio = lowerWickAbs > 0.001 ? upperWickAbs / lowerWickAbs : (upperWickAbs > 0.001 ? 99 : 1);
   const marubozuScore = Math.max(0, 100 - (upperWickPct + lowerWickPct));
+  const upperWickATR = upperWickAbs / atr14;
+  const lowerWickATR = lowerWickAbs / atr14;
 
-  // ── Body Strength (0-35): body size relative to ATR — conviction measure ──
-  // Backtest: bodyATR <0.3 was NEGATIVE (-0.71% avg20d). 1.5-2.5 was best (+2.48%).
-  let bodyStrength = 0;
-  if (bodyATR >= 1.5) bodyStrength = 35;
-  else if (bodyATR >= 1.0) bodyStrength = 26;
-  else if (bodyATR >= 0.6) bodyStrength = 16;
-  else if (bodyATR >= 0.3) bodyStrength = 6;
+  // 3-candle avg close location (primary upward pressure signal)
+  const closeLoc0 = (sig.c - sig.l) / rng * 100;
+  const cl1 = endIdx >= 1 ? (() => { const p = candles[endIdx - 1]; const r = p.h - p.l; return r > 0 ? (p.c - p.l) / r * 100 : 50; })() : closeLoc0;
+  const cl2 = endIdx >= 2 ? (() => { const p = candles[endIdx - 2]; const r = p.h - p.l; return r > 0 ? (p.c - p.l) / r * 100 : 50; })() : closeLoc0;
+  const avgCL3 = (closeLoc0 + cl1 + cl2) / 3;
 
-  // ── Wick Cleanliness (0-35): lower wick dominant + minimal total wick ──
-  // Backtest winning filter: UL ratio ≤0.5, Marubozu ≥80
-  let wickCleanliness = 0;
-  if (upperToLowerWickRatio <= 0.5) wickCleanliness += 18;
-  else if (upperToLowerWickRatio <= 1.0) wickCleanliness += 11;
-  else if (upperToLowerWickRatio <= 2.0) wickCleanliness += 5;
-  if (marubozuScore >= 80) wickCleanliness += 17;
-  else if (marubozuScore >= 70) wickCleanliness += 11;
-  else if (marubozuScore >= 55) wickCleanliness += 5;
+  // ── Upper Wick Quality (0-40): upperWickATR — primary predictor (r=-0.056) ──
+  // Backtest: <0.05→+3.75% avg20d (MFE+18.38%), >1.0→-0.11% avg20d.
+  // Monotonically decreasing: less upper rejection = better continuation.
+  let upperWickQuality = 0;
+  if (upperWickATR < 0.05) upperWickQuality = 40;
+  else if (upperWickATR < 0.10) upperWickQuality = 28;
+  else if (upperWickATR < 0.15) upperWickQuality = 18;
+  else if (upperWickATR < 0.25) upperWickQuality = 10;
+  else if (upperWickATR < 0.50) upperWickQuality = 4;
 
-  // ── Range Expansion (0-30): eRA — strongest correlated predictor (r=+0.058) ──
-  let rangeExpansion = 0;
-  if (eRA >= 2.0) rangeExpansion = 30;
-  else if (eRA >= 1.5) rangeExpansion = 22;
-  else if (eRA >= 1.0) rangeExpansion = 13;
-  else if (eRA >= 0.6) rangeExpansion = 5;
+  // ── Close Location Quality (0-35): 3-candle avgCL3 (r=+0.042) ──
+  // Backtest: avgCL3>85→+2.64%, avgCL3<35→+0.01% avg20d.
+  let closeQuality = 0;
+  if (avgCL3 > 85) closeQuality = 35;
+  else if (avgCL3 > 75) closeQuality = 28;
+  else if (avgCL3 > 65) closeQuality = 20;
+  else if (avgCL3 > 55) closeQuality = 12;
+  else if (avgCL3 > 45) closeQuality = 5;
 
-  const score = Math.min(100, bodyStrength + wickCleanliness + rangeExpansion);
+  // ── Support Tail Quality (0-25): lowerWickATR — strongest positive (r=+0.057) ──
+  // Backtest: longer lower wick = buyers defending lows = bullish continuation.
+  let supportTail = 0;
+  if (lowerWickATR > 0.40) supportTail = 25;
+  else if (lowerWickATR > 0.25) supportTail = 18;
+  else if (lowerWickATR > 0.15) supportTail = 12;
+  else if (lowerWickATR > 0.08) supportTail = 6;
+
+  const score = Math.min(100, upperWickQuality + closeQuality + supportTail);
   const tier: CandleDNA['tier'] = score >= 75 ? 'ELITE' : score >= 55 ? 'STRONG' : score >= 35 ? 'GOOD' : 'WEAK';
 
-  return { score, bodyStrength, wickCleanliness, rangeExpansion, bodyATR: safe(bodyATR), upperToLowerWickRatio: safe(upperToLowerWickRatio), marubozuScore: safe(marubozuScore), tier };
+  return {
+    score,
+    bodyStrength: upperWickQuality,    // repurposed: upper wick quality (0-40)
+    wickCleanliness: closeQuality,     // repurposed: close location quality (0-35)
+    rangeExpansion: supportTail,       // repurposed: support tail quality (0-25)
+    bodyATR: safe(bodyATR),
+    upperToLowerWickRatio: safe(upperToLowerWickRatio),
+    marubozuScore: safe(marubozuScore),
+    tier,
+  };
 }
 
 // ─── GENERATE DEMO DATA ───────────────────────────────────────────────────────
