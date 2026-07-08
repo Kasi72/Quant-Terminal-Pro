@@ -39,16 +39,16 @@ export async function fetchOHLCVClient(rawSymbol: string): Promise<{ candles: Ca
   if (!res.ok) {
     let errMsg = `HTTP ${res.status}`;
     try { const j = await res.json(); errMsg = j.error ?? errMsg; } catch { /* ignore */ }
-    throw new Error(`${sym}: ${errMsg}`);
+    throw new Error(errMsg);
   }
 
   const body = await res.json();
-  if (!body.ok) throw new Error(`${sym}: ${body.error ?? 'no data'}`);
+  if (!body.ok) throw new Error(body.error ?? 'No data returned');
 
-  if (!body.raw) throw new Error(`${sym}: missing raw candle data`);
+  if (!body.raw) throw new Error('Missing raw candle data');
   const candles = parseRaw(body.raw);
   if (candles.length < 30) {
-    throw new Error(`${sym}: too few candles (${candles.length})`);
+    throw new Error(`Too few candles (${candles.length}) — possibly delisted or suspended`);
   }
 
   return { candles, resolvedSymbol: body.resolvedSymbol };

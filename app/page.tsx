@@ -3348,12 +3348,17 @@ function HomePageInner() {
             <button onClick={() => setShowFailedPanel(false)} className="text-red-500 text-xs hover:text-red-300">close ×</button>
           </div>
           <div className="space-y-0.5">
-            {failedSymbols.map((f, i) => (
-              <div key={i} className="text-xs flex gap-2">
-                <span className="text-red-400 font-mono shrink-0">{f.sym}</span>
-                <span className="text-red-600 truncate">{f.err}</span>
-              </div>
-            ))}
+            {failedSymbols.map((f, i) => {
+              const cleanSym = f.sym.replace(/\.(NS|BO)$/i, '');
+              const isNoData = /no data|delisted|suspended|too few candles/i.test(f.err);
+              const label = isNoData ? 'Delisted / no data on Yahoo Finance' : f.err;
+              return (
+                <div key={i} className="text-xs flex gap-2">
+                  <span className="text-red-400 font-mono shrink-0">{cleanSym}</span>
+                  <span className={isNoData ? 'text-slate-500 truncate' : 'text-red-600 truncate'}>{label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
