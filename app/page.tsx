@@ -2183,14 +2183,52 @@ function HomePageInner() {
       if (!el || !tip) return;
       const html = el.getAttribute('data-tip-html');
       if (html) { tip.innerHTML = html; tip.className = 'rich-tip'; }
-      else { tip.textContent = el.getAttribute('data-tip') ?? ''; tip.className = ''; const color = el.getAttribute('data-tip-color'); if (color && colorClasses.includes(`tip-${color}`)) tip.classList.add(`tip-${color}`); }
-      const rect = el.getBoundingClientRect();
+      else {
+        tip.textContent = el.getAttribute('data-tip') ?? '';
+        tip.className = '';
+        const color = el.getAttribute('data-tip-color');
+        if (color && colorClasses.includes(`tip-${color}`)) tip.classList.add(`tip-${color}`);
+      }
+
+      // Reset position so we can measure natural tip dimensions
+      tip.style.visibility = 'hidden';
+      tip.style.display = 'block';
+      tip.style.maxHeight = '';
+      tip.style.overflowY = '';
       const tipW = 320;
-      let left = rect.left + rect.width / 2;
-      if (left - tipW / 2 < 8) left = tipW / 2 + 8;
-      if (left + tipW / 2 > window.innerWidth - 8) left = window.innerWidth - tipW / 2 - 8;
+      const tipH = tip.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const rect = el.getBoundingClientRect();
+
+      // Horizontal: centre on element, clamp to viewport
+      let left = rect.left + rect.width / 2 - tipW / 2;
+      left = Math.max(8, Math.min(vw - tipW - 8, left));
+
+      // Vertical: prefer below, flip above if not enough room; clamp + scroll if needed
+      const gap = 8;
+      const spaceBelow = vh - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      let top: number;
+      if (spaceBelow >= tipH || spaceBelow >= spaceAbove) {
+        top = rect.bottom + gap;
+        if (top + tipH > vh - 8) {
+          tip.style.maxHeight = `${Math.max(120, vh - top - 8)}px`;
+          tip.style.overflowY = 'auto';
+        }
+      } else {
+        top = rect.top - tipH - gap;
+        if (top < 8) {
+          top = 8;
+          tip.style.maxHeight = `${Math.max(120, spaceAbove)}px`;
+          tip.style.overflowY = 'auto';
+        }
+      }
+
       tip.style.left = `${left}px`;
-      tip.style.top = `${rect.bottom + 10}px`;
+      tip.style.top = `${top}px`;
+      tip.style.visibility = '';
+      tip.style.display = '';
       requestAnimationFrame(() => tip!.classList.add('visible'));
     }
     function hide() { if (tip) { tip.classList.remove('visible'); } }

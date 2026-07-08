@@ -133,11 +133,13 @@ function computeMWC(candles: Candle[], endIdx: number): {
   const roc20 = endIdx >= 20 && candles[endIdx - 20].c > 0 ? (c / candles[endIdx - 20].c - 1) * 100 : 0;
   const roc60 = endIdx >= 60 && candles[endIdx - 60].c > 0 ? (c / candles[endIdx - 60].c - 1) * 100 : 0;
 
-  // slope of 5D ROC over last 3 bars
+  // ROC5 slope: compare ROC5 now vs ROC5 3 bars ago (i.e. both are 5-bar windows shifted by 3)
   let slopePosCount = 0;
-  if (endIdx >= 7) {
-    const roc5_3 = candles[endIdx - 3].c > 0 ? (c / candles[endIdx - 3].c - 1) * 100 : 0;
-    if (roc5 > roc5_3) slopePosCount = 1;
+  if (endIdx >= 8) {
+    const prev5Base = candles[endIdx - 3 - 5].c; // close 8 bars ago
+    const prev5End  = candles[endIdx - 3].c;      // close 3 bars ago
+    const roc5_prev = prev5Base > 0 ? (prev5End / prev5Base - 1) * 100 : 0;
+    if (roc5 > roc5_prev) slopePosCount = 1;
   }
 
   const score =
@@ -154,22 +156,23 @@ function computeMWC(candles: Candle[], endIdx: number): {
 function computeTRAM(candles: Candle[], endIdx: number): {
   tram: number; cvar95: number; tramTier: AdvancedFeatures['tramTier'];
 } {
-  const period60 = 60;
-  if (endIdx < period60) return { tram: 0, cvar95: 0, tramTier: 'POOR' };
+  // Need at least 60 bars for CVaR + 20 more for ROC20 (but ROC20 uses endIdx-20 which is within 60)
+  if (endIdx < 60) return { tram: 0, cvar95: 0, tramTier: 'POOR' };
 
   const returns: number[] = [];
-  for (let i = endIdx - period60 + 1; i <= endIdx; i++) {
-    if (candles[i - 1].c > 0) {
+  for (let i = endIdx - 59; i <= endIdx; i++) {
+    if (i >= 1 && candles[i - 1].c > 0) {
       returns.push((candles[i].c - candles[i - 1].c) / candles[i - 1].c * 100);
     }
   }
+  if (returns.length < 10) return { tram: 0, cvar95: 0, tramTier: 'POOR' };
+
   returns.sort((a, b) => a - b);
   const cutoff = Math.max(1, Math.floor(returns.length * 0.05));
-  const worstReturns = returns.slice(0, cutoff);
-  const cvar95 = mean(worstReturns); // negative number
+  const cvar95 = mean(returns.slice(0, cutoff)); // negative number = expected tail loss
 
-  const roc20 = candles[endIdx - 20].c > 0
-    ? (candles[endIdx].c / candles[endIdx - 20].c - 1) * 100 : 0;
+  const base20 = candles[endIdx - 20];
+  const roc20 = base20.c > 0 ? (candles[endIdx].c / base20.c - 1) * 100 : 0;
 
   const tram = Math.abs(cvar95) > 0.001 ? safe(roc20 / Math.abs(cvar95)) : 0;
   const tramTier: AdvancedFeatures['tramTier'] =
@@ -217,27 +220,26 @@ function computeRegimeDuration(candles: Candle[], endIdx: number, atr14: number)
   const close = candles[endIdx].c;
   const threshold = close > 0 ? atr14 / close : 0.015; // ~1 ATR% as momentum threshold per bar
 
-  // Build a list of all momentum runs: count consecutive bars where 5D return > threshold
+  // Build list of completed momentum runs (≥3 consecutive bars with positive 5D return)
   const runs: number[] = [];
   let inRun = false;
   let runLen = 0;
-  let currentRunStart = -1;
 
   for (let i = 5; i <= endIdx; i++) {
     const ret = candles[i - 5].c > 0 ? (candles[i].c / candles[i - 5].c - 1) : 0;
     if (ret > threshold) {
-      if (!inRun) { inRun = true; runLen = 1; currentRunStart = i; }
+      if (!inRun) { inRun = true; runLen = 1; }
       else runLen++;
     } else {
-      if (inRun && runLen >= 3) runs.push(runLen); // only count meaningful runs (≥3 days)
+      if (inRun && runLen >= 3) runs.push(runLen);
       inRun = false;
       runLen = 0;
     }
   }
+  // Don't push current run to runs[] — it's the open run we're measuring
 
-  // Current run: from currentRunStart to endIdx
   const regimeDays = inRun ? runLen : 0;
-  const avgRunLen = runs.length >= 3 ? mean(runs) : 10; // default 10 bars if no history
+  const avgRunLen = runs.length >= 3 ? mean(runs) : 10; // default 10 bars if insufficient history
   const durationRatio = avgRunLen > 0 ? safe(regimeDays / avgRunLen) : 0;
 
   const durationTier: AdvancedFeatures['durationTier'] =
@@ -250,41 +252,55 @@ function computeRegimeDuration(candles: Candle[], endIdx: number, atr14: number)
 
 // ── Feature 7: Vol-Regime Adjusted Momentum ──────────────────────────────────
 
+// Proper percentile rank: fraction of arr values strictly below v
+function pctRank(sortedArr: number[], v: number): number {
+  if (sortedArr.length === 0) return 0.5;
+  let lo = 0, hi = sortedArr.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (sortedArr[m] < v) lo = m + 1; else hi = m; }
+  return lo / sortedArr.length;
+}
+
+function toVolRegime(rank: number): AdvancedFeatures['volRegime'] {
+  return rank < 0.33 ? 'LOW' : rank < 0.67 ? 'MID' : 'HIGH';
+}
+
 function computeVRAM(candles: Candle[], endIdx: number): {
   volRegime: AdvancedFeatures['volRegime']; vram: number; vramTier: AdvancedFeatures['vramTier'];
 } {
   if (endIdx < 80) return { volRegime: 'MID', vram: 0, vramTier: 'WEAK' };
 
-  // Build ATR% history to classify vol regimes
+  // True Range % for every bar (index 1..endIdx)
   const atrPcts: number[] = [];
-  let prevH = candles[0].h, prevL = candles[0].l, prevC = candles[0].c;
+  let prevC = candles[0].c;
   for (let i = 1; i <= endIdx; i++) {
-    const tr = Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - prevC), Math.abs(candles[i].l - prevC));
+    const tr = Math.max(
+      candles[i].h - candles[i].l,
+      Math.abs(candles[i].h - prevC),
+      Math.abs(candles[i].l - prevC),
+    );
     atrPcts.push(candles[i].c > 0 ? tr / candles[i].c * 100 : 0);
-    prevH = candles[i].h; prevL = candles[i].l; prevC = candles[i].c;
+    prevC = candles[i].c;
   }
 
-  // Classify each bar into vol regime using rolling 20-bar ATR pctl
-  const currentATRPct = atrPcts[endIdx - 1];
+  // Rolling 120-bar window ending at endIdx-1 (atrPcts has length endIdx)
   const window = atrPcts.slice(Math.max(0, endIdx - 120), endIdx);
   const sorted = [...window].sort((a, b) => a - b);
-  const rank = sorted.findIndex(v => v >= currentATRPct) / sorted.length;
-  const volRegime: AdvancedFeatures['volRegime'] = rank < 0.33 ? 'LOW' : rank < 0.67 ? 'MID' : 'HIGH';
 
-  // Collect ROC20 values from same vol regime in history
+  const currentATRPct = atrPcts[endIdx - 1]; // TR% of signal candle
+  const volRegime = toVolRegime(pctRank(sorted, currentATRPct));
+
+  // Collect ROC20 samples from bars that were in the same vol regime
   const regimeROCs: number[] = [];
-  for (let i = 30; i < endIdx; i++) {
-    const histATRPct = atrPcts[i - 1];
-    const histRank = sorted.findIndex(v => v >= histATRPct) / sorted.length;
-    const histRegime: AdvancedFeatures['volRegime'] = histRank < 0.33 ? 'LOW' : histRank < 0.67 ? 'MID' : 'HIGH';
-    if (histRegime === volRegime && i >= 20 && candles[i - 20].c > 0) {
+  for (let i = 20; i < endIdx; i++) {
+    const histRank = pctRank(sorted, atrPcts[i - 1]);
+    if (toVolRegime(histRank) === volRegime && candles[i - 20].c > 0) {
       regimeROCs.push((candles[i].c / candles[i - 20].c - 1) * 100);
     }
   }
 
   if (regimeROCs.length < 10) return { volRegime, vram: 0, vramTier: 'WEAK' };
 
-  const currentROC20 = endIdx >= 20 && candles[endIdx - 20].c > 0
+  const currentROC20 = candles[endIdx - 20].c > 0
     ? (candles[endIdx].c / candles[endIdx - 20].c - 1) * 100 : 0;
 
   const mu = mean(regimeROCs);
