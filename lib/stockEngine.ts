@@ -2,6 +2,8 @@
 // Pure TypeScript, browser-safe (no Node.js APIs)
 
 import { computeStatsFeatures, computeBayesianProb, type StatsFeatures } from './statsEngine';
+import { computeAdvancedFeatures, type AdvancedFeatures } from './advancedEngine';
+export type { AdvancedFeatures };
 
 export interface Candle { ts: number; o: number; h: number; l: number; c: number; v: number; }
 
@@ -88,6 +90,7 @@ export interface AnalysisResult {
   monster: MonsterScan;
   dayChangePct: number;
   candleDNA: CandleDNA;
+  advanced?: AdvancedFeatures;
 }
 
 export interface CandleDNA {
@@ -1751,6 +1754,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     monster: { badges: [], topProbability: 0 },
     dayChangePct: endIdx >= 1 && candles[endIdx - 1].c > 0 ? safe((sig.c - candles[endIdx - 1].c) / candles[endIdx - 1].c * 100) : 0,
     candleDNA: detectCandleDNA(candles, endIdx, atr14),
+    advanced: computeAdvancedFeatures(candles, endIdx, atr14),
   };
 }
 

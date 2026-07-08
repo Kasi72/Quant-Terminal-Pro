@@ -972,9 +972,142 @@ const COLUMNS: ColDef[] = [
     fmt: () => '',
     numVal: () => 0,
     cellClass: () => '' },
+  // ── Advanced Features Tab ──────────────────────────────────────────────────
+  { key: 'adv_score', label: 'AdvScore', width: 80, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Advanced Score (0-100) — Composite of all 8 advanced signals</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">A+ (≥80)</span></div><div><div class="rt-desc">All 8 signals firing: trending efficiently, CUSUM breakout, all timeframes aligned, tail-risk adjusted momentum strong, clean run, early/mid regime, vol-regime outperformer, latent demand accumulation. Rare setup with multiple independent confirmations.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">A (65-79)</span></div><div><div class="rt-desc">Most signals positive. Strong thesis with 1-2 absent confirmations. Actionable.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">B (45-64)</span></div><div><div class="rt-desc">Mixed signals. Some momentum quality but not all aligned. Monitor closely.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">C/D (&lt;45)</span></div><div><div class="rt-desc">Few advanced signals firing. Low conviction from this overlay.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Scoring</span></div><div><div class="rt-desc">FER(20) + CUSUM(15) + MWC(15) + TRAM(15) + CleanMom(15) + Duration(10) + VRAM(10) + PIC(10) = 100 max.</div></div></div>',
+    fmt: r => r.advanced ? `${r.advanced.advScore}` : '—',
+    numVal: r => r.advanced?.advScore ?? 0,
+    cellClass: r => {
+      const g = r.advanced?.advGrade;
+      return g === 'A+' ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded' :
+             g === 'A'  ? 'text-cyan-300 font-semibold' :
+             g === 'B'  ? 'text-amber-400' :
+             g === 'C'  ? 'text-orange-500' : 'text-slate-600';
+    } },
+  { key: 'adv_fer', label: 'FER', width: 72, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Fractal Efficiency Ratio (20-bar) — How linearly price trends</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">STRONG (≥0.60)</span></div><div><div class="rt-desc">Net price move covers ≥60% of total path length. Price is trending efficiently without much back-and-fill. Institutional directional accumulation signature.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MODERATE (0.35-0.59)</span></div><div><div class="rt-desc">Some directionality but with normal oscillation. Most trending stocks fall here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">CHOPPY (&lt;0.35)</span></div><div><div class="rt-desc">Price path is highly non-linear — high noise, no clear directional trend over 20 bars.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">FER = |Close[t] − Close[t-20]| / Σ|Close[i] − Close[i-1]| for i in last 20 bars. Range: 0 (random walk) to 1 (straight line).</div></div></div>',
+    fmt: r => r.advanced ? r.advanced.fer20.toFixed(2) : '—',
+    numVal: r => r.advanced?.fer20 ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.ferTier;
+      return t === 'STRONG' ? 'text-green-300 font-semibold' :
+             t === 'MODERATE' ? 'text-amber-400' : 'text-slate-600';
+    } },
+  { key: 'adv_cusum', label: 'CUSUM', width: 80, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">CUSUM Filter — Cumulative sum of return deviations vs adaptive threshold</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">SIGNAL ✓</span></div><div><div class="rt-desc">S+ > 2× ATR% cumulative. Statistically significant upward drift detected — not just noise. High-quality regime-change filter used by quant funds to separate signal from noise in return series.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">S+ value</span></div><div><div class="rt-desc">Cumulative positive return above the adaptive threshold (0.5×ATR%). Higher = stronger/longer accumulation detected. Resets to 0 when drift reverses.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">S+ = max(0, S+[prev] + ret − threshold) where threshold=0.5×ATR%. Signal fires when S+ > 2×ATR%. Looks back 60 bars.</div></div></div>',
+    fmt: r => r.advanced ? (r.advanced.cusumSignal ? `✓ ${r.advanced.cusumPos.toFixed(2)}` : r.advanced.cusumPos.toFixed(2)) : '—',
+    numVal: r => r.advanced?.cusumPos ?? 0,
+    cellClass: r => {
+      if (!r.advanced) return 'text-slate-600';
+      return r.advanced.cusumSignal ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded' :
+             r.advanced.cusumPos > 0 ? 'text-cyan-400' : 'text-slate-600';
+    } },
+  { key: 'adv_mwc', label: 'MWC', width: 65, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Momentum Wave Convergence (0-4) — All timeframes aligned and accelerating</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Score 4 — FULL</span></div><div><div class="rt-desc">All 4 checks pass: ROC5 > ROC20 (acceleration), ROC20 > ROC60 (medium > long term), ROC5 > 0 (short-term positive), ROC slope increasing over last 3 bars. Full cascade alignment = strong trend continuation setup.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Score 3</span></div><div><div class="rt-desc">3 of 4 checks pass. Strong momentum with one missing confirmation — still actionable.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">Score 2</span></div><div><div class="rt-desc">Partial alignment — some timeframes diverging. Mixed momentum quality.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">Score 0-1</span></div><div><div class="rt-desc">Timeframes misaligned or short-term negative. Momentum not confirmed across all horizons.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">ROC values</span></div><div><div class="rt-desc">ROC5/20/60 = (Close − Close[n days ago]) / Close[n days ago] × 100%. Displayed as MWC score only — hover tooltip shows raw ROC values.</div></div></div>',
+    fmt: r => r.advanced ? `${r.advanced.mwcScore}/4` : '—',
+    numVal: r => r.advanced?.mwcScore ?? 0,
+    cellClass: r => {
+      const s = r.advanced?.mwcScore ?? 0;
+      return s === 4 ? 'text-green-300 font-bold' :
+             s === 3 ? 'text-cyan-300 font-semibold' :
+             s === 2 ? 'text-amber-400' : 'text-slate-600';
+    } },
+  { key: 'adv_tram', label: 'TRAM', width: 72, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Tail-Risk Adjusted Momentum — ROC_20 / |CVaR_95%|</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">EXCEPTIONAL (≥3.0)</span></div><div><div class="rt-desc">20-day return is 3× or more the tail risk (worst 5% average loss). Extremely favourable risk/reward momentum. Momentum relative to downside tail is exceptional.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">GOOD (1.5-2.9)</span></div><div><div class="rt-desc">Return is 1.5-3× the tail risk. Solid momentum quality with manageable downside profile.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">FAIR (0.5-1.4)</span></div><div><div class="rt-desc">Returns roughly match tail risk. Mediocre risk-adjusted momentum.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">POOR (&lt;0.5)</span></div><div><div class="rt-desc">Tail risk dominates upside. Either returns are weak or volatility is high — poor risk/reward for momentum.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">CVaR</span></div><div><div class="rt-desc">CVaR_95% = mean of worst 5% of 60 daily returns. Penalises fat-tailed downside more than standard deviation.</div></div></div>',
+    fmt: r => r.advanced ? r.advanced.tram.toFixed(2) : '—',
+    numVal: r => r.advanced?.tram ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.tramTier;
+      return t === 'EXCEPTIONAL' ? 'text-green-300 font-bold' :
+             t === 'GOOD' ? 'text-cyan-300' :
+             t === 'FAIR' ? 'text-amber-400' : 'text-slate-600';
+    } },
+  { key: 'adv_cleanmom', label: 'CleanMom', width: 82, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Clean Momentum Score — ROC_20 minus MaxDrawdown_20 (both %)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">CLEAN</span></div><div><div class="rt-desc">20-day return is positive AND max intrarun drawdown stayed above -3%. Price went up cleanly without giving back much along the way. Ideal trajectory — minimal counter-trend moves.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MODERATE</span></div><div><div class="rt-desc">Drawdown stayed within -7%. Some noise but the uptrend is intact.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">ROUGH</span></div><div><div class="rt-desc">Drawdown exceeded -7% during the 20-bar run. High volatility path — even if the endpoint is up, the journey was rough and stop-outs likely.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">CleanMom = ROC_20% + MaxDD_20% (MaxDD is negative, so this penalises drawdowns). E.g. +12% return with -5% max DD → CleanMom = 7.</div></div></div>',
+    fmt: r => r.advanced ? `${r.advanced.cleanMom.toFixed(1)}%` : '—',
+    numVal: r => r.advanced?.cleanMom ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.cleanTier;
+      return t === 'CLEAN' ? 'text-green-300 font-semibold' :
+             t === 'MODERATE' ? 'text-amber-400' : 'text-slate-600';
+    } },
+  { key: 'adv_regime', label: 'Regime', width: 90, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Regime Duration Signal — Where in the momentum run are we?</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">EARLY (&lt;30% of avg run)</span></div><div><div class="rt-desc">Momentum run just started. Historical average run length for this stock is computed from prior regimes. EARLY = most runway remaining. Best entry timing.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">MID (30-60%)</span></div><div><div class="rt-desc">Run is in its middle phase — still trending, some runway left. Good risk/reward but not as early as ideal.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">LATE (60-100%)</span></div><div><div class="rt-desc">Approaching average run end. Be cautious — this does not mean it WILL reverse here, just that historically runs of this length end soon. Tighten stops.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">EXTENDED (&gt;avg run)</span></div><div><div class="rt-desc">Run has exceeded the average historical length for this stock. Could be a breakout continuation but statistically extended. Aggressive stops recommended.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Identifies all prior momentum runs (≥3 consecutive days with 5D return > 1 ATR%). Duration Ratio = current run days / average past run length.</div></div></div>',
+    fmt: r => {
+      if (!r.advanced) return '—';
+      const { durationTier, regimeDays, durationRatio } = r.advanced;
+      return `${durationTier} ${regimeDays}d`;
+    },
+    numVal: r => r.advanced?.durationRatio ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.durationTier;
+      return !r.advanced || r.advanced.regimeDays === 0 ? 'text-slate-600' :
+             t === 'EARLY' ? 'text-green-300 font-semibold' :
+             t === 'MID'   ? 'text-cyan-300' :
+             t === 'LATE'  ? 'text-amber-400' : 'text-orange-400';
+    } },
+  { key: 'adv_vram', label: 'VRAM', width: 72, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Vol-Regime Adjusted Momentum — Z-score within volatility regime</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">STRONG (z≥1.5)</span></div><div><div class="rt-desc">20D return is 1.5+ standard deviations above the mean for this stock when it is in a similar volatility environment. Outperforming its historical self in comparable vol conditions.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">MODERATE (z 0.5-1.5)</span></div><div><div class="rt-desc">Modestly above average for its vol regime. Positive but not exceptional z-score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">WEAK (z 0-0.5)</span></div><div><div class="rt-desc">At or slightly above regime average. Momentum is present but not statistically notable given current volatility.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">NEGATIVE (z&lt;0)</span></div><div><div class="rt-desc">Underperforming vs its own history in similar vol conditions. Bearish signal despite any nominal positive return.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Vol Regimes</span></div><div><div class="rt-desc">LOW/MID/HIGH vol regime classified by 120-bar ATR% percentile rank. Z-score computed separately within each regime using historical ROC_20 distribution.</div></div></div>',
+    fmt: r => r.advanced ? `${r.advanced.vram.toFixed(2)}z` : '—',
+    numVal: r => r.advanced?.vram ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.vramTier;
+      return t === 'STRONG' ? 'text-green-300 font-bold' :
+             t === 'MODERATE' ? 'text-cyan-300' :
+             t === 'WEAK' ? 'text-amber-400' : 'text-slate-600';
+    } },
+  { key: 'adv_pic', label: 'PIC', width: 65, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Price Impact Coefficient — Volume-to-price sensitivity (OLS beta × 1000)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">LATENT (&lt;2.0)</span></div><div><div class="rt-desc">Price barely moves per unit of signed order flow. Hidden demand is absorbing sell pressure or accumulation is happening quietly. Low PIC = potential for explosive move when supply exhausts. Classic stealth accumulation signature.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">NORMAL (2.0-5.0)</span></div><div><div class="rt-desc">Price responds to volume normally. Standard market microstructure. No special accumulation or distribution signal.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">REACTIVE (&gt;5.0)</span></div><div><div class="rt-desc">Price jumps sharply per unit of flow. High sensitivity — often thin order books or news-driven. Moves can be sharp both ways. Caution.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">OLS regression: signed_volume (×sign of daily return, normalised by mean absolute volume) → daily return. Beta × 1000 for readability. Computed over last 20 bars.</div></div></div>',
+    fmt: r => r.advanced ? r.advanced.pic.toFixed(2) : '—',
+    numVal: r => r.advanced?.pic ?? 0,
+    cellClass: r => {
+      const t = r.advanced?.picTier;
+      return t === 'LATENT' ? 'text-green-300 font-semibold' :
+             t === 'NORMAL' ? 'text-slate-400' : 'text-orange-400';
+    } },
 ];
 
-type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'all';
+type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'advanced' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
@@ -982,6 +1115,7 @@ const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
+  advanced: new Set(['symbol','stage','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
   all: new Set(/* all keys — handled below */),
 };
 
@@ -991,6 +1125,7 @@ const SUBTAB_META: Array<{ key: ScannerSubTab; label: string; emoji: string; col
   { key: 'tradeplan',  label: 'Trade Plan',  emoji: '💰', color: '#34d399', tip: 'Full trade engine: Entry, Stop, Targets, R:R, Gap%, EMAs', tipColor: 'green' },
   { key: 'momentum',   label: 'Momentum',    emoji: '📈', color: '#fb923c', tip: 'Momentum quality: EMA alignment, OBV, ADX, vol dry-up', tipColor: 'orange' },
   { key: 'statistics', label: 'Statistics',   emoji: '📉', color: '#22d3ee', tip: 'Statistical edge: TTM Squeeze, Hurst, GARCH, entropy, BB/KC', tipColor: 'cyan' },
+  { key: 'advanced',   label: 'Advanced',     emoji: '🧠', color: '#e879f9', tip: 'Advanced predictive features: FER, CUSUM, MWC, TRAM, CleanMom, Regime Duration, VRAM, PIC', tipColor: 'purple' },
   { key: 'all',        label: 'All',          emoji: '⊡',  color: '#94a3b8', tip: 'All 60+ columns visible — use horizontal scroll', tipColor: 'blue' },
 ];
 
