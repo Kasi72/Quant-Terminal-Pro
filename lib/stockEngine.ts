@@ -399,19 +399,21 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   minExactVolVsPre5 1.5→2.0, minCloseLoc 65→63, maxUpperWickPct 20→15,
   //   minVolatilityExpansionRatio 1.4→1.1, minBodyPct 60→30, maxPre10HighVolCount 0→1,
   //   maxPre10RedVolBias 0.8→1.5, maxZoneTightnessPct 15→18, minExactRangeATR14 1.2→1.0
+  // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
+  // OOS (last 30%): n=17, WR=70.6%, PF=4.237. Tighter than Grid-v13 (7x fewer signals, cleaner setup)
   optimized_ultraselective_8plus: {
-    name: 'Ultra-Selective Grid-v13 8+', tag: '56.8% WR',
+    name: 'Ultra-Selective Forensic 8+', tag: '70.4% WR',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
-    maxPre10AvgRangeATR: 1.3, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 0.95, minZoneLen: 6, maxZoneLen: 25, maxZoneTightnessPct: 18.0,
-    maxPre10AvgVolRatio: 1.00, maxPre5AvgVolRatio: 1.10,
-    maxPre10HighVolCount: 1, highVolMultiplier: 1.5, maxPre10RedVolBias: 1.5,
+    maxPre10AvgRangeATR: 1.3, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 15.0,
+    maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
+    maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 0.8,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 1.0, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
-    minCloseLoc: 63, maxUpperWickPct: 15, minBodyPct: 30, maxCandleRisk: 8.5,
-    minUltraPrecisionScore: 60, minRSI2: 50,
-    minVolatilityExpansionRatio: 1.1, minCandleQualityScore: 2,
+    minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
+    minExactVolRatio20: 0.8, minExactVolVsPre5: 1.5,
+    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 60, maxCandleRisk: 8.5,
+    minUltraPrecisionScore: 0, minRSI2: 50,
+    minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
   // ✅ ORS-Prime v1 — forensic reversal edge: 70.4% OOS WR, PF 1.08 (1616 NSE stocks, 635 test trades)
