@@ -9,7 +9,7 @@ export interface Candle { ts: number; o: number; h: number; l: number; c: number
 
 export type StageRating = 'NO_SIGNAL' | 'COMPRESSION_WATCH' | 'EARLY_INFLECTION' | 'PRE_BREAKOUT' | 'BUY' | 'STRONG_BUY' | 'ULTRA_STRONG_BUY';
 
-export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus' | 'sniper_95plus';
+export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus' | 'sniper_95plus' | 'ors_prime_reversal';
 
 export interface ParamSet {
   name: string; tag: string;
@@ -25,6 +25,56 @@ export interface ParamSet {
   minUltraPrecisionScore: number; minRSI2: number;
   minVolatilityExpansionRatio: number | null; minCandleQualityScore: number | null;
   maxCloseAboveZonePct: number | null;
+  forensic?: ForensicOverlay | null;
+  // ORS-Reversal specific (undefined on all breakout sets)
+  ors?: {
+    maxRSI2: number;           // RSI2 must be ≤ this (deeply oversold)
+    maxRSI14: number;          // RSI14 ≤ this
+    maxCloseLoc: number;       // close location ≤ this% (capitulation candle closes LOW)
+    minBodyPct: number;        // body ≥ this% (decisive move)
+    maxUpperWickPct: number;   // upper wick ≤ this% (no rejection above)
+    minRangePct: number;       // candle range/close ≥ this% (wide candle)
+    maxDistEMA20: number;      // close must be ≤ EMA20*(1+maxDistEMA20/100) — negative = below
+    minDdSwingHigh: number;    // drawdown from 60d swing high ≥ this%
+    requireSwingLow: boolean;  // must be a 6-bar swing-low pivot
+    requireRedCandle: boolean; // signal candle must be red
+    minOrsScore: number;       // ORS composite score ≥ this
+    tpPct: number;             // profit target %
+    slAtrMult: number;         // stop = entry − slAtrMult × ATR14
+    maxHoldBars: number;       // time-stop in bars
+  };
+}
+
+export interface ForensicOverlay {
+  minCandleDnaScore?: number | null;
+  minCandleDnaCloseQuality?: number | null;
+  minCandleDnaLowerTail?: number | null;
+  maxBodyATR?: number | null;
+  maxUpperToLowerWickRatio?: number | null;
+  minMarubozuScore?: number | null;
+  minAdvScore?: number | null;
+  minFer20?: number | null;
+  maxCusumPos?: number | null;
+  maxMwcScore?: number | null;
+  maxTram?: number | null;
+  maxCleanMom?: number | null;
+  maxDurationRatio?: number | null;
+  maxVram?: number | null;
+  minPic?: number | null;
+  maxPic?: number | null;
+  maxUtbotBarsAgo?: number | null;
+  maxBbWidthPctl?: number | null;
+  minVolZScore?: number | null;
+  minStatsScore?: number | null;
+  minSharpe20?: number | null;
+  maxEntropy10?: number | null;
+  minInsideBars?: number | null;
+  minGuppyCompressDays?: number | null;
+  minGuppyGroupGapPct?: number | null;
+  requireGuppyCleanBullishFan?: boolean;
+  requireGuppyCoiledRelease?: boolean;
+  minCandlePatternStrength?: number | null;
+  requireBullishPattern?: boolean;
 }
 
 export interface ZoneInfo {
@@ -91,6 +141,12 @@ export interface AnalysisResult {
   dayChangePct: number;
   candleDNA: CandleDNA;
   advanced?: AdvancedFeatures;
+  // ORS-Reversal specific fields (populated when paramSetKey === 'ors_prime_reversal')
+  orsScore?: number;
+  ddFromSwingHigh?: number;
+  distFromEMA20?: number;
+  zScore252?: number;
+  orsConfirmed?: boolean;   // true = green-confirmation candle fired (entry tomorrow open)
 }
 
 export interface CandleDNA {
@@ -121,6 +177,7 @@ export interface ClusterBreakdown {
   elite: { met: number; total: number };
   ultraSelective: { met: number; total: number };
   sniper?: { met: number; total: number };
+  orsReversal?: { met: number; total: number; score?: number; confirmed?: boolean };
 }
 
 export interface ScanMeta {
@@ -205,6 +262,14 @@ export function computeClusterBreakdown(candles: Candle[]): ClusterBreakdown {
     const r = analyzeStock(candles, key);
     result[label] = { met: r.conditionsMet, total: r.totalConditions };
   }
+  // ORS-Prime: separate reversal analysis
+  const orsR = analyzeStock(candles, 'ors_prime_reversal');
+  result.orsReversal = {
+    met: orsR.conditionsMet,
+    total: orsR.totalConditions,
+    score: orsR.orsScore ?? 0,
+    confirmed: orsR.orsConfirmed ?? false,
+  };
   return result;
 }
 
@@ -239,6 +304,20 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
       best = r;
     }
   }
+  // ORS-Prime reversal — separate path, included in byParamSet and breakdown
+  const orsR = analyzeStock(candles, 'ors_prime_reversal');
+  orsR.symbol = symbol;
+  byParamSet['ors_prime_reversal'] = orsR;
+  breakdown.orsReversal = {
+    met: orsR.conditionsMet,
+    total: orsR.totalConditions,
+    score: orsR.orsScore ?? 0,
+    confirmed: orsR.orsConfirmed ?? false,
+  };
+  if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(orsR.stage)) {
+    passedSets.push('ors_prime_reversal');
+    if (!best || stageRank[orsR.stage] > stageRank[best.stage]) best = orsR;
+  }
   // Set full breakdown on best result
   best!.clusterBreakdown = breakdown;
 
@@ -260,85 +339,134 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
 // ──────────────────────────────────────────────────────────────────────────────
 
 export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
-  // ✅ v11 — backtested OOS WR 83%, PF 3.86 (NIFTY 500)
+  // v13 forensic — stop-first validation: 68.3% WR, +2.08% avg, PF 2.24 (41 trades)
   optimized_deployable_20plus: {
-    name: 'Deployable v11-N500 20+', tag: '★ 83% WR',
+    name: 'Deployable Forensic D6', tag: '68.3% WR',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
-    maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 15.0,
+    maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.90,
-    maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.30,
+    maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 0.8,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.20, minExactVolVsPre5: 3.0,
-    minCloseLoc: 65, maxUpperWickPct: 18, minBodyPct: 70, maxCandleRisk: 6.0,
+    minExactVolRatio20: 1.3, minExactVolVsPre5: 2.0,
+    minCloseLoc: 40, maxUpperWickPct: 18, minBodyPct: 50, maxCandleRisk: 10.0,
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
-    maxCloseAboveZonePct: 4.0,
+    maxCloseAboveZonePct: 6.0,
+    forensic: {
+      maxCusumPos: 0.04,
+      requireBullishPattern: true,
+    },
   },
-  // ✅ v10 RETAINED — ablation study proved all proposed changes hurt OOS WR (51.5% baseline best)
+  // v13 forensic — stop-first validation: 62.5% WR, +1.33% avg, PF 1.67 (80 trades)
   optimized_highprecision_15plus: {
-    name: 'HighPrecision v10-N500 15+', tag: '88% WR',
+    name: 'HighPrecision Forensic HP2', tag: '62.5% WR',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
     maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 8.0,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 5.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
-    maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 2.00,
+    maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 1.5, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.5,
-    minCloseLoc: 55, maxUpperWickPct: 40, minBodyPct: 20, maxCandleRisk: 10.0,
+    minExactRangeATR14: 0.8, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 1.1, minExactVolVsPre5: 2.0,
+    minCloseLoc: 50, maxUpperWickPct: 10, minBodyPct: 50, maxCandleRisk: 5.0,
     minUltraPrecisionScore: 50, minRSI2: 50,
-    minVolatilityExpansionRatio: 0.75, minCandleQualityScore: null,
-    maxCloseAboveZonePct: 6.0,
+    minVolatilityExpansionRatio: 1.4, minCandleQualityScore: null,
+    maxCloseAboveZonePct: 4.0,
+    forensic: {
+      maxBodyATR: 1.6,
+    },
   },
-  // ✅ v11 — backtested OOS WR 62.5%, PF 2.84 (NIFTY 500)
+  // v12 tuned — stop-first validation: 75.0% WR, +3.41% avg, PF 4.33 (12 trades; small sample)
   optimized_elite_10plus: {
-    name: 'Elite v11-N500 10+', tag: '63% WR',
+    name: 'Elite Tuned', tag: '75.0% WR',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
     maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
-    maxPre10AvgVolRatio: 1.00, maxPre5AvgVolRatio: 1.10,
-    maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 1.10,
+    maxPre10AvgVolRatio: 1.0, maxPre5AvgVolRatio: 1.10,
+    maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.8, minExactVolVsPre5: 2.0,
-    minCloseLoc: 55, maxUpperWickPct: 20, minBodyPct: 35, maxCandleRisk: 5.0,
+    minExactVolRatio20: 2.2, minExactVolVsPre5: 2.0,
+    minCloseLoc: 55, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 5.0,
     minUltraPrecisionScore: 0, minRSI2: 50,
-    minVolatilityExpansionRatio: 1.40, minCandleQualityScore: 2,
+    minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
   },
-  // ✅ v11-fp — winner-fingerprint tuned: bodyPct 5→70 (d=0.54), volVsPre5 1.0→3.0 (d=0.50)
-  //    OOS WR 53.8% PF 1.17 vs v10 baseline 41.4% PF 0.71 (NIFTY 500 full history)
+  // ✅ Grid-optimised v13 — 1616-stock sweep, n=294, WR=56.8%, Wilson=51.09%, PF=1.933
+  // Key changes vs v12: minUltraPrecisionScore 0→60, minExactVolRatio20 0.8→1.5,
+  //   minExactVolVsPre5 1.5→2.0, minCloseLoc 65→63, maxUpperWickPct 20→15,
+  //   minVolatilityExpansionRatio 1.4→1.1, minBodyPct 60→30, maxPre10HighVolCount 0→1,
+  //   maxPre10RedVolBias 0.8→1.5, maxZoneTightnessPct 15→18, minExactRangeATR14 1.2→1.0
   optimized_ultraselective_8plus: {
-    name: 'Ultra-Selective v11fp-N500 8+', tag: '54% WR',
-    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 30,
-    maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 6.0,
-    maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
-    maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 2.00,
+    name: 'Ultra-Selective Grid-v13 8+', tag: '56.8% WR',
+    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
+    maxPre10AvgRangeATR: 1.3, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 0.95, minZoneLen: 6, maxZoneLen: 25, maxZoneTightnessPct: 18.0,
+    maxPre10AvgVolRatio: 1.00, maxPre5AvgVolRatio: 1.10,
+    maxPre10HighVolCount: 1, highVolMultiplier: 1.5, maxPre10RedVolBias: 1.5,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 0.4, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.1, minExactVolVsPre5: 3.0,
-    minCloseLoc: 30, maxUpperWickPct: 25, minBodyPct: 70, maxCandleRisk: 8.5,
-    minUltraPrecisionScore: 0, minRSI2: 50,
-    minVolatilityExpansionRatio: 2.4, minCandleQualityScore: 4,
+    minExactRangeATR14: 1.0, maxExactRangeATR14: 6.0,
+    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
+    minCloseLoc: 63, maxUpperWickPct: 15, minBodyPct: 30, maxCandleRisk: 8.5,
+    minUltraPrecisionScore: 60, minRSI2: 50,
+    minVolatilityExpansionRatio: 1.1, minCandleQualityScore: 2,
     maxCloseAboveZonePct: null,
   },
-  // ✅ v11 — backtested OOS WR 66.7%, PF 2.37 (NIFTY 500)
+  // ✅ ORS-Prime v1 — forensic reversal edge: 70.4% OOS WR, PF 1.08 (1616 NSE stocks, 635 test trades)
+  // Strategy: oversold capitulation candle (RSI2≤5, red, dd≥30% from 60d high, below EMA20)
+  // Entry: open of bar after green-confirmation candle | Exit: +4% TP / 2×ATR SL / 15-bar max
+  // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
+  ors_prime_reversal: {
+    name: 'ORS-Prime Reversal v1', tag: '↩ 70% WR',
+    // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
+    minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
+    maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 99, minZoneLen: 1, maxZoneLen: 100, maxZoneTightnessPct: 100,
+    maxPre10AvgVolRatio: 99, maxPre5AvgVolRatio: 99,
+    maxPre10HighVolCount: 99, highVolMultiplier: 1.35, maxPre10RedVolBias: 99,
+    breakoutMultiplier: 0,
+    minExactRangeATR14: 0, maxExactRangeATR14: 99,
+    minExactVolRatio20: 0, minExactVolVsPre5: 0,
+    minCloseLoc: 0, maxUpperWickPct: 100, minBodyPct: 0, maxCandleRisk: 100,
+    minUltraPrecisionScore: 0, minRSI2: 0,
+    minVolatilityExpansionRatio: null, minCandleQualityScore: null,
+    maxCloseAboveZonePct: null,
+    // ORS-specific logic
+    ors: {
+      maxRSI2: 5,
+      maxRSI14: 38,
+      maxCloseLoc: 35,
+      minBodyPct: 45,
+      maxUpperWickPct: 20,
+      minRangePct: 3.5,
+      maxDistEMA20: -3.0,
+      minDdSwingHigh: 30,
+      requireSwingLow: true,
+      requireRedCandle: true,
+      minOrsScore: 72,
+      tpPct: 4,
+      slAtrMult: 2.0,
+      maxHoldBars: 15,
+    },
+  },
+  // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
+  //    maxPre10AvgRangeATR 0.80→1.15, maxPre10RedVolBias 0.90→1.6, minExactVolRatio20 1.8→1.5,
+  //    minCloseLoc 75→65, maxUpperWickPct 20→15, minBodyPct 50→20, minVolExpRatio 2.0→1.0
   sniper_95plus: {
-    name: 'Sniper v11-N500 95+', tag: '🎯 67% WR',
-    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
-    maxPre10AvgRangeATR: 0.80, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    name: 'Sniper v12-N500 95+', tag: '🎯 67% WR',
+    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
+    maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
-    maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 0.90,
+    maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.8, minExactVolVsPre5: 1.0,
-    minCloseLoc: 75, maxUpperWickPct: 20, minBodyPct: 50, maxCandleRisk: 6.0,
+    minExactVolRatio20: 1.5, minExactVolVsPre5: 3.5,
+    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 20, maxCandleRisk: 6.0,
     minUltraPrecisionScore: 5, minRSI2: 50,
-    minVolatilityExpansionRatio: 2.00, minCandleQualityScore: 2,
+    minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
   },
 };
@@ -349,6 +477,7 @@ export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: str
   { key: 'optimized_elite_10plus', name: PARAM_SETS.optimized_elite_10plus.name, tag: PARAM_SETS.optimized_elite_10plus.tag },
   { key: 'optimized_ultraselective_8plus', name: PARAM_SETS.optimized_ultraselective_8plus.name, tag: PARAM_SETS.optimized_ultraselective_8plus.tag },
   { key: 'sniper_95plus', name: PARAM_SETS.sniper_95plus.name, tag: PARAM_SETS.sniper_95plus.tag },
+  { key: 'ors_prime_reversal', name: PARAM_SETS.ors_prime_reversal.name, tag: PARAM_SETS.ors_prime_reversal.tag },
 ];
 
 // ─── CORE HELPERS ─────────────────────────────────────────────────────────────
@@ -1218,6 +1347,82 @@ function buildTradeEngine(
 
 // ─── BUILD CHECKLIST ──────────────────────────────────────────────────────────
 
+function evaluateForensicOverlay(
+  params: ParamSet,
+  candleDNA: CandleDNA,
+  advanced: AdvancedFeatures,
+  stats: StatsFeatures
+): { ok: boolean; checklist: ChecklistItem[] } {
+  const forensic = params.forensic;
+  if (!forensic) return { ok: true, checklist: [] };
+
+  const checks: ChecklistItem[] = [];
+  const add = (enabled: boolean, label: string, pass: boolean, value: string) => {
+    if (enabled) checks.push({ label, pass, value });
+  };
+
+  add(forensic.minCandleDnaScore !== undefined && forensic.minCandleDnaScore !== null,
+    `CandleDNA ≥ ${forensic.minCandleDnaScore}`, candleDNA.score >= (forensic.minCandleDnaScore ?? 0), candleDNA.score.toFixed(0));
+  add(forensic.minCandleDnaCloseQuality !== undefined && forensic.minCandleDnaCloseQuality !== null,
+    `DNA close quality ≥ ${forensic.minCandleDnaCloseQuality}`, candleDNA.wickCleanliness >= (forensic.minCandleDnaCloseQuality ?? 0), candleDNA.wickCleanliness.toFixed(0));
+  add(forensic.minCandleDnaLowerTail !== undefined && forensic.minCandleDnaLowerTail !== null,
+    `DNA lower-tail support ≥ ${forensic.minCandleDnaLowerTail}`, candleDNA.rangeExpansion >= (forensic.minCandleDnaLowerTail ?? 0), candleDNA.rangeExpansion.toFixed(0));
+  add(forensic.maxBodyATR !== undefined && forensic.maxBodyATR !== null,
+    `Body/ATR ≤ ${forensic.maxBodyATR}`, candleDNA.bodyATR <= (forensic.maxBodyATR ?? Infinity), candleDNA.bodyATR.toFixed(2));
+  add(forensic.maxUpperToLowerWickRatio !== undefined && forensic.maxUpperToLowerWickRatio !== null,
+    `Upper/lower wick ≤ ${forensic.maxUpperToLowerWickRatio}`, candleDNA.upperToLowerWickRatio <= (forensic.maxUpperToLowerWickRatio ?? Infinity), candleDNA.upperToLowerWickRatio.toFixed(2));
+  add(forensic.minMarubozuScore !== undefined && forensic.minMarubozuScore !== null,
+    `Marubozu score ≥ ${forensic.minMarubozuScore}`, candleDNA.marubozuScore >= (forensic.minMarubozuScore ?? 0), candleDNA.marubozuScore.toFixed(0));
+  add(forensic.minAdvScore !== undefined && forensic.minAdvScore !== null,
+    `Advanced score ≥ ${forensic.minAdvScore}`, advanced.advScore >= (forensic.minAdvScore ?? 0), advanced.advScore.toFixed(0));
+  add(forensic.minFer20 !== undefined && forensic.minFer20 !== null,
+    `FER20 ≥ ${forensic.minFer20}`, advanced.fer20 >= (forensic.minFer20 ?? 0), advanced.fer20.toFixed(2));
+  add(forensic.maxCusumPos !== undefined && forensic.maxCusumPos !== null,
+    `CUSUM+ ≤ ${forensic.maxCusumPos}`, advanced.cusumPos <= (forensic.maxCusumPos ?? Infinity), advanced.cusumPos.toFixed(3));
+  add(forensic.maxMwcScore !== undefined && forensic.maxMwcScore !== null,
+    `MWC score ≤ ${forensic.maxMwcScore}`, advanced.mwcScore <= (forensic.maxMwcScore ?? Infinity), String(advanced.mwcScore));
+  add(forensic.maxTram !== undefined && forensic.maxTram !== null,
+    `TRAM ≤ ${forensic.maxTram}`, advanced.tram <= (forensic.maxTram ?? Infinity), advanced.tram.toFixed(2));
+  add(forensic.maxCleanMom !== undefined && forensic.maxCleanMom !== null,
+    `Clean momentum ≤ ${forensic.maxCleanMom}`, advanced.cleanMom <= (forensic.maxCleanMom ?? Infinity), advanced.cleanMom.toFixed(1));
+  add(forensic.maxDurationRatio !== undefined && forensic.maxDurationRatio !== null,
+    `Duration ratio ≤ ${forensic.maxDurationRatio}`, advanced.durationRatio <= (forensic.maxDurationRatio ?? Infinity), advanced.durationRatio.toFixed(2));
+  add(forensic.maxVram !== undefined && forensic.maxVram !== null,
+    `VRAM ≤ ${forensic.maxVram}`, advanced.vram <= (forensic.maxVram ?? Infinity), advanced.vram.toFixed(2));
+  add(forensic.minPic !== undefined && forensic.minPic !== null,
+    `PIC ≥ ${forensic.minPic}`, advanced.pic >= (forensic.minPic ?? 0), advanced.pic.toFixed(1));
+  add(forensic.maxPic !== undefined && forensic.maxPic !== null,
+    `PIC ≤ ${forensic.maxPic}`, advanced.pic <= (forensic.maxPic ?? Infinity), advanced.pic.toFixed(1));
+  add(forensic.maxUtbotBarsAgo !== undefined && forensic.maxUtbotBarsAgo !== null,
+    `UTBot bars ago ≤ ${forensic.maxUtbotBarsAgo}`, advanced.utbotBarsAgo <= (forensic.maxUtbotBarsAgo ?? Infinity), String(advanced.utbotBarsAgo));
+  add(forensic.maxBbWidthPctl !== undefined && forensic.maxBbWidthPctl !== null,
+    `BB width pctl ≤ ${forensic.maxBbWidthPctl}`, stats.bbWidthPctl <= (forensic.maxBbWidthPctl ?? Infinity), stats.bbWidthPctl.toFixed(1));
+  add(forensic.minVolZScore !== undefined && forensic.minVolZScore !== null,
+    `Volume Z ≥ ${forensic.minVolZScore}`, stats.volZScore >= (forensic.minVolZScore ?? 0), stats.volZScore.toFixed(2));
+  add(forensic.minStatsScore !== undefined && forensic.minStatsScore !== null,
+    `Stats score ≥ ${forensic.minStatsScore}`, stats.statsScore >= (forensic.minStatsScore ?? 0), String(stats.statsScore));
+  add(forensic.minSharpe20 !== undefined && forensic.minSharpe20 !== null,
+    `Sharpe20 ≥ ${forensic.minSharpe20}`, stats.sharpe20 >= (forensic.minSharpe20 ?? -Infinity), stats.sharpe20.toFixed(2));
+  add(forensic.maxEntropy10 !== undefined && forensic.maxEntropy10 !== null,
+    `Entropy10 ≤ ${forensic.maxEntropy10}`, stats.entropy10 <= (forensic.maxEntropy10 ?? Infinity), stats.entropy10.toFixed(2));
+  add(forensic.minInsideBars !== undefined && forensic.minInsideBars !== null,
+    `Inside bars ≥ ${forensic.minInsideBars}`, stats.insideBars >= (forensic.minInsideBars ?? 0), String(stats.insideBars));
+  add(forensic.minGuppyCompressDays !== undefined && forensic.minGuppyCompressDays !== null,
+    `Guppy compress days ≥ ${forensic.minGuppyCompressDays}`, stats.guppyCompressDays >= (forensic.minGuppyCompressDays ?? 0), String(stats.guppyCompressDays));
+  add(forensic.minGuppyGroupGapPct !== undefined && forensic.minGuppyGroupGapPct !== null,
+    `Guppy group gap ≥ ${forensic.minGuppyGroupGapPct}%`, stats.guppyGroupGapPct >= (forensic.minGuppyGroupGapPct ?? 0), stats.guppyGroupGapPct.toFixed(2) + '%');
+  add(!!forensic.requireGuppyCleanBullishFan,
+    'Guppy clean bullish fan', stats.guppyCleanBullishFan, stats.guppyCleanBullishFan ? 'Yes' : 'No');
+  add(!!forensic.requireGuppyCoiledRelease,
+    'Guppy coiled release', stats.guppyCoiledRelease, stats.guppyCoiledRelease ? 'Yes' : 'No');
+  add(forensic.minCandlePatternStrength !== undefined && forensic.minCandlePatternStrength !== null,
+    `Pattern strength ≥ ${forensic.minCandlePatternStrength}`, stats.candlePatternStrength >= (forensic.minCandlePatternStrength ?? 0), String(stats.candlePatternStrength));
+  add(!!forensic.requireBullishPattern,
+    'Bullish candle pattern', stats.candlePatternType === 'bullish', stats.candlePatternType);
+
+  return { ok: checks.every(c => c.pass), checklist: checks };
+}
+
 function buildChecklist(
   params: ParamSet,
   avgTurnover20: number,
@@ -1263,7 +1468,8 @@ function buildChecklist(
   volatilityExpansionRatio: number,
   candleQualityScore: number,
   closeAboveZoneOk: boolean,
-  closeAboveZonePct: number
+  closeAboveZonePct: number,
+  forensicChecklist: ChecklistItem[] = []
 ): ChecklistItem[] {
   const fmt = (n: number, dec = 2) => n.toFixed(dec);
   const fmtM = (n: number) => (n / 1_000_000).toFixed(1) + 'M';
@@ -1384,7 +1590,260 @@ function buildChecklist(
       pass: cqsOk,
       value: String(candleQualityScore),
     }] : []),
+    ...forensicChecklist,
   ];
+}
+
+// ─── ORS-PRIME REVERSAL ENGINE ───────────────────────────────────────────────
+// Separate analysis path — do NOT mix with breakout logic.
+// Signal candle i: red, RSI2≤5, body≥45%, upWick≤20%, rPct≥3.5%,
+//   close ≥3% below EMA20, 60d drawdown ≥30%, 6-bar swing-low pivot, ORS score≥72.
+// Confirmation: candle i+1 (next day) closes GREEN → ULTRA_STRONG_BUY (enter at i+2 open).
+// Signal only (no confirm yet): STRONG_BUY.
+// ORS score bonus: 252d z-score ≤−2.5 adds +8pts, ≤−3.0 adds +12pts.
+
+function computeOrsScore(params: {
+  rsi2: number; rsi14: number; rPct: number; distE20: number;
+  bodyPct: number; upWick: number; isSwLo: boolean; volDryUp: number; ddFromSwHi: number;
+  zScore: number;
+}): number {
+  let s = 0;
+  // RSI2 depth (30 pts) — d=−1.37
+  if (params.rsi2 <= 3) s += 30; else if (params.rsi2 <= 5) s += 25;
+  else if (params.rsi2 <= 10) s += 20; else if (params.rsi2 <= 15) s += 12;
+  // RSI14 (15 pts)
+  if (params.rsi14 <= 30) s += 15; else if (params.rsi14 <= 38) s += 10; else if (params.rsi14 <= 45) s += 5;
+  // Range/close% (10 pts) — d=+0.65
+  if (params.rPct >= 5) s += 10; else if (params.rPct >= 3.5) s += 7; else if (params.rPct >= 2.4) s += 4;
+  // EMA20 distance (10 pts) — d=−0.68
+  if (params.distE20 <= -8) s += 10; else if (params.distE20 <= -5) s += 7; else if (params.distE20 <= -2) s += 4;
+  // Body (8 pts) — d=+0.49
+  if (params.bodyPct >= 60) s += 8; else if (params.bodyPct >= 45) s += 5; else if (params.bodyPct >= 35) s += 2;
+  // Upper wick (7 pts) — d=−0.51
+  if (params.upWick <= 10) s += 7; else if (params.upWick <= 20) s += 5; else if (params.upWick <= 30) s += 2;
+  // Swing-low pivot (5 pts)
+  if (params.isSwLo) s += 5;
+  // Volume dry-up before signal (5 pts) — exhaustion
+  if (params.volDryUp <= 0.70) s += 5; else if (params.volDryUp <= 0.85) s += 3;
+  // Drawdown from 60d swing high (10 pts) — elastic bounce magnitude
+  if (params.ddFromSwHi >= 30) s += 10; else if (params.ddFromSwHi >= 25) s += 8;
+  else if (params.ddFromSwHi >= 20) s += 6; else if (params.ddFromSwHi >= 15) s += 3;
+  // 252d z-score bonus (soft component, not a hard gate) — d=+0.00 standalone but additive
+  if (params.zScore <= -3.0) s += 12; else if (params.zScore <= -2.5) s += 8; else if (params.zScore <= -2.0) s += 5;
+  return Math.min(s, 100);
+}
+
+function analyzeORS(candles: Candle[]): AnalysisResult {
+  const n = candles.length;
+  const noOrs = (stage: AnalysisResult['stage'] = 'NO_SIGNAL', score = 0): AnalysisResult => ({
+    symbol: '', stage, inflectionScore: score, confidence: 0,
+    paramSetKey: 'ors_prime_reversal',
+    lastClose: n > 0 ? candles[n - 1].c : 0,
+    lastDate: n > 0 ? new Date(candles[n - 1].ts * 1000).toISOString().slice(0, 10) : '',
+    avgTurnover20: 0, atrPct14: 0, atrPct14Pctl120: 0,
+    volRatio20: 0, rsi2: 0, rsi14: 50, zone: null,
+    pre10AvgRangeATR: 0, pre10ExpansionCount: 0,
+    pre10AvgVolRatio: 0, pre5AvgVolRatio: 0,
+    pre10HighVolCount: 0, pre10RedVolBias: 0,
+    exactRangeATR14: 0, exactVolRatio20: 0, exactVolVsPre5: 0,
+    closeLoc: 0, upperWickPct: 0, bodyPct: 0,
+    signalRangePct: 0, volatilityExpansionRatio: 0,
+    ultraPrecisionScore: score, candleQualityScore: 0,
+    priceEngine: buildNullPriceEngine(),
+    conditionsMet: 0, totalConditions: 10, checklist: [],
+    momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: 0, rsNifty20: 1.0 },
+    nearBreakoutPct: 99, nearBreakout: false, nearBreakoutTier: null,
+    stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
+    clusterBreakdown: { deployable: { met: 0, total: 0 }, highPrecision: { met: 0, total: 0 }, elite: { met: 0, total: 0 }, ultraSelective: { met: 0, total: 0 }, sniper: { met: 0, total: 0 }, orsReversal: { met: 0, total: 10, score, confirmed: false } },
+    monster: { badges: [], topProbability: 0 },
+    dayChangePct: 0,
+    candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+    orsScore: score, ddFromSwingHigh: 0, distFromEMA20: 0, zScore252: 0, orsConfirmed: false,
+  });
+
+  const orsParams = PARAM_SETS['ors_prime_reversal'].ors!;
+  if (n < 260) return noOrs();
+
+  // ── Helper: check one candle at index i ──────────────────────────────────
+  const atr14Arr = computeATR14(candles);
+  const ema20Arr = computeEMA(candles, 20);
+
+  // 252d rolling z-score
+  const zScoreAt = (i: number): number => {
+    const start = Math.max(0, i - 251);
+    let sum = 0, cnt = 0;
+    for (let j = start; j <= i; j++) { sum += candles[j].c; cnt++; }
+    const mean = sum / cnt;
+    let varSum = 0;
+    for (let j = start; j <= i; j++) { const d = candles[j].c - mean; varSum += d * d; }
+    const std = cnt > 1 ? Math.sqrt(varSum / (cnt - 1)) : 0;
+    return std > 0 ? (candles[i].c - mean) / std : 0;
+  };
+
+  const evalCandle = (i: number) => {
+    if (i < 10) return null;
+    const c = candles[i];
+    const range = c.h - c.l;
+    if (range <= 0 || c.c <= 0) return null;
+
+    // Liquidity
+    let tSum = 0, tCnt = 0;
+    for (let j = Math.max(0, i - 20); j < i; j++) { tSum += candles[j].c * candles[j].v; tCnt++; }
+    if (tCnt === 0 || tSum / tCnt < 10_000_000) return null;
+
+    const a14 = atr14Arr[i] || 0.0001;
+    const bodyPct = Math.abs(c.c - c.o) / range * 100;
+    const upWick = (c.h - Math.max(c.o, c.c)) / range * 100;
+    const closeLoc = (c.c - c.l) / range * 100;
+    const rPct = range / c.c * 100;
+    const red = c.c < c.o;
+
+    // RSI2
+    let g2 = 0, l2 = 0;
+    for (let j = Math.max(1, i - 1); j <= i; j++) { const d = candles[j].c - candles[j - 1].c; if (d > 0) g2 += d; else l2 -= d; }
+    const rsi2 = l2 === 0 ? 100 : 100 - 100 / (1 + g2 / l2);
+
+    // RSI14
+    let g14 = 0, l14 = 0;
+    for (let j = Math.max(1, i - 13); j <= i; j++) { const d = candles[j].c - candles[j - 1].c; if (d > 0) g14 += d; else l14 -= d; }
+    const rsi14 = l14 === 0 ? 100 : 100 - 100 / (1 + g14 / l14);
+
+    // EMA20 distance
+    const e20 = ema20Arr[i];
+    const distE20 = e20 > 0 ? (c.c - e20) / e20 * 100 : 0;
+
+    // 60d swing high drawdown
+    let swHi = -Infinity;
+    for (let j = Math.max(0, i - 60); j < i; j++) if (candles[j].h > swHi) swHi = candles[j].h;
+    const ddFromSwHi = swHi > 0 ? (swHi - c.c) / swHi * 100 : 0;
+
+    // 6-bar swing-low pivot
+    let minLo = Infinity;
+    for (let j = Math.max(0, i - 6); j < i; j++) if (candles[j].l < minLo) minLo = candles[j].l;
+    const isSwLo = c.l <= minLo;
+
+    // Volume dry-up (pre-5 avg vs 20d avg)
+    let v20s = 0, v20c = 0;
+    for (let j = Math.max(0, i - 20); j < i; j++) { v20s += candles[j].v; v20c++; }
+    const vAvg20 = v20c ? v20s / v20c : 1;
+    let v5s = 0, v5c = 0;
+    for (let j = Math.max(0, i - 5); j < i; j++) { v5s += candles[j].v; v5c++; }
+    const volDryUp = v5c ? (v5s / v5c) / vAvg20 : 1;
+
+    const zScore = zScoreAt(i);
+    const score = computeOrsScore({ rsi2, rsi14, rPct, distE20, bodyPct, upWick, isSwLo, volDryUp, ddFromSwHi, zScore });
+
+    // Gate check
+    const passes = (
+      red &&
+      rsi2 <= orsParams.maxRSI2 &&
+      rsi14 <= orsParams.maxRSI14 &&
+      closeLoc <= orsParams.maxCloseLoc &&
+      bodyPct >= orsParams.minBodyPct &&
+      upWick <= orsParams.maxUpperWickPct &&
+      rPct >= orsParams.minRangePct &&
+      distE20 <= orsParams.maxDistEMA20 &&
+      ddFromSwHi >= orsParams.minDdSwingHigh &&
+      (!orsParams.requireSwingLow || isSwLo) &&
+      score >= orsParams.minOrsScore
+    );
+
+    return { passes, score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, c };
+  };
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+
+  // Check: is today's candle a green-confirmation of yesterday's ORS signal?
+  const prevEval = endIdx >= 1 ? evalCandle(endIdx - 1) : null;
+  const todayGreen = sig.c > sig.o;
+  const confirmed = !!(prevEval?.passes && todayGreen);
+
+  // Check: is today's candle itself an ORS signal?
+  const todayEval = evalCandle(endIdx);
+
+  const primaryEval = confirmed ? prevEval! : todayEval;
+  if (!primaryEval?.passes) return noOrs();
+
+  const { score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20 } = primaryEval;
+
+  // Price engine — entry at next open, stop = entry − 2×ATR
+  const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c); // approximate
+  const tacticalStop = Math.max(0, entryPrice - orsParams.slAtrMult * a14);
+  const target4pct = entryPrice * (1 + orsParams.tpPct / 100);
+  const rrRatio = tacticalStop > 0 && entryPrice > tacticalStop
+    ? (target4pct - entryPrice) / (entryPrice - tacticalStop) : 0;
+
+  const pe: PriceEngine = {
+    ...buildNullPriceEngine(),
+    plannedEntry: entryPrice,
+    tacticalStop,
+    target5: target4pct,
+    riskPerShare: entryPrice - tacticalStop,
+    rewardRisk: rrRatio,
+    tradeValid: true,
+  };
+
+  // Stage
+  const stage: AnalysisResult['stage'] = confirmed ? 'ULTRA_STRONG_BUY' : 'STRONG_BUY';
+
+  // Checklist
+  const checklist: ChecklistItem[] = [
+    { label: 'RSI(2) ≤ 5 (deeply oversold)', pass: rsi2 <= orsParams.maxRSI2, value: rsi2.toFixed(1) },
+    { label: 'RSI(14) ≤ 38', pass: rsi14 <= orsParams.maxRSI14, value: rsi14.toFixed(1) },
+    { label: 'Red capitulation candle', pass: primaryEval.c.c < primaryEval.c.o, value: primaryEval.c.c < primaryEval.c.o ? 'RED' : 'GREEN' },
+    { label: `Body ≥ ${orsParams.minBodyPct}%`, pass: bodyPct >= orsParams.minBodyPct, value: bodyPct.toFixed(1) + '%' },
+    { label: `Upper wick ≤ ${orsParams.maxUpperWickPct}%`, pass: upWick <= orsParams.maxUpperWickPct, value: upWick.toFixed(1) + '%' },
+    { label: `Range/Close ≥ ${orsParams.minRangePct}%`, pass: rPct >= orsParams.minRangePct, value: rPct.toFixed(2) + '%' },
+    { label: `EMA20 dist ≤ ${orsParams.maxDistEMA20}%`, pass: distE20 <= orsParams.maxDistEMA20, value: distE20.toFixed(2) + '%' },
+    { label: `60d drawdown ≥ ${orsParams.minDdSwingHigh}%`, pass: ddFromSwHi >= orsParams.minDdSwingHigh, value: ddFromSwHi.toFixed(1) + '%' },
+    { label: '6-bar swing-low pivot', pass: primaryEval.passes, value: primaryEval.passes ? 'YES' : 'NO' },
+    { label: `ORS score ≥ ${orsParams.minOrsScore}`, pass: score >= orsParams.minOrsScore, value: score.toString() },
+    { label: 'Green confirmation candle', pass: confirmed, value: confirmed ? 'CONFIRMED ✓' : 'PENDING' },
+  ];
+
+  return {
+    symbol: '',
+    stage,
+    inflectionScore: score,
+    confidence: (score / 100) * 100,
+    paramSetKey: 'ors_prime_reversal',
+    lastClose: sig.c,
+    lastDate: new Date(sig.ts * 1000).toISOString().slice(0, 10),
+    avgTurnover20: vAvg20 * sig.c,
+    atrPct14: a14 / sig.c * 100,
+    atrPct14Pctl120: 0,
+    volRatio20: sig.v / (vAvg20 || 1),
+    rsi2, rsi14,
+    zone: null,
+    pre10AvgRangeATR: 0, pre10ExpansionCount: 0,
+    pre10AvgVolRatio: 0, pre5AvgVolRatio: 0,
+    pre10HighVolCount: 0, pre10RedVolBias: 0,
+    exactRangeATR14: (sig.h - sig.l) / a14,
+    exactVolRatio20: sig.v / (vAvg20 || 1),
+    exactVolVsPre5: 0,
+    closeLoc, upperWickPct: upWick, bodyPct,
+    signalRangePct: rPct,
+    volatilityExpansionRatio: 0,
+    ultraPrecisionScore: score,
+    candleQualityScore: 0,
+    priceEngine: pe,
+    conditionsMet: checklist.filter(c => c.pass).length,
+    totalConditions: checklist.length,
+    checklist,
+    momentum: { emaAligned: false, ema20: ema20Arr[endIdx] ?? 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: rrRatio, momentumScore: 0, rsNifty20: 1.0 },
+    nearBreakoutPct: 99, nearBreakout: false, nearBreakoutTier: null,
+    stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: ddFromSwHi, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, candlePattern: '—', candlePatternFull: 'ORS Signal', candlePatternType: 'bullish' as const, candlePatternStrength: score, statsScore: score },
+    clusterBreakdown: { deployable: { met: 0, total: 0 }, highPrecision: { met: 0, total: 0 }, elite: { met: 0, total: 0 }, ultraSelective: { met: 0, total: 0 }, sniper: { met: 0, total: 0 }, orsReversal: { met: checklist.filter(c => c.pass).length, total: checklist.length, score, confirmed } },
+    monster: { badges: [{ type: 'MRV', probability: score / 100, details: `ORS-Prime score ${score} — ${confirmed ? 'ENTRY CONFIRMED' : 'watch for green confirm'}` }], topProbability: score / 100 },
+    dayChangePct: n > 1 ? (sig.c - candles[n - 2].c) / candles[n - 2].c * 100 : 0,
+    candleDNA: detectCandleDNA(candles, endIdx, a14),
+    orsScore: score,
+    ddFromSwingHigh: ddFromSwHi,
+    distFromEMA20: distE20,
+    zScore252: zScore,
+    orsConfirmed: confirmed,
+  };
 }
 
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
@@ -1428,6 +1887,9 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     dayChangePct: 0,
     candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
   });
+
+  // ORS-Prime: separate reversal engine — dispatch immediately
+  if (paramSetKey === 'ors_prime_reversal') return analyzeORS(candles);
 
   // 1. Guard — early return if insufficient data
   if (!candles || candles.length === 0 || candles.length < 30) return noSignalBase();
@@ -1543,6 +2005,12 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     closeLoc, upperWickPct, bodyPct, exactVolVsPre5, volatilityExpansionRatio
   );
 
+  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
+  const advanced = computeAdvancedFeatures(candles, endIdx, atr14);
+  const stats = computeStatsFeatures(candles, endIdx);
+  const forensicEval = evaluateForensicOverlay(params, candleDNA, advanced, stats);
+  const forensicOk = forensicEval.ok;
+
   // 16. Condition booleans
   const liquidityOk = avgTurnover20 >= params.minAvgTurnover20;
   const volOk = atrPct14Pctl120 <= params.maxATRPct14Pctl120;
@@ -1584,7 +2052,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     pre10HighVolOk && pre10RedBiasOk;
   const exactCondsMet =
     exactRangeOk && exactVolOk && exactVolPre5Ok && closeLocOk &&
-    wickOk && bodyOk && riskOk && upsOk && rsi2Ok && volExpOk && cqsOk;
+    wickOk && bodyOk && riskOk && upsOk && rsi2Ok && volExpOk && cqsOk && forensicOk;
 
   const allConditions: boolean[] = [
     liquidityOk, volOk, zoneOk, breakoutOk,
@@ -1596,6 +2064,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   if (params.minVolatilityExpansionRatio !== null) allConditions.push(volExpOk);
   if (params.minCandleQualityScore !== null) allConditions.push(cqsOk);
   if (params.maxCloseAboveZonePct !== null) allConditions.push(closeAboveZoneOk);
+  for (const item of forensicEval.checklist) allConditions.push(item.pass);
   const totalConditions = allConditions.length;
   const conditionsMet = allConditions.filter(Boolean).length;
 
@@ -1669,9 +2138,6 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     priceEngine = { ...priceEngine, tradeValid: false };
   }
 
-  // 21c. v9.0 statistical features
-  const stats = computeStatsFeatures(candles, endIdx);
-
   // 21d. v7.3 near-breakout detection — v2 tiered (validated on Nifty 500)
   const nearBreakoutPct = zone ? ((zone.zoneHigh - sig.c) / sig.c) * 100 : 99;
   const nearBreakout = zone !== null && nearBreakoutPct >= 0 && nearBreakoutPct <= 2 && liquidityOk && volOk && preCondsMet && !breakoutOk;
@@ -1698,7 +2164,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     exactRangeOk, exactVolOk, exactVolPre5Ok,
     closeLocOk, wickOk, bodyOk, riskOk, upsOk, rsi2Ok,
     volExpOk, cqsOk, volatilityExpansionRatio, candleQualityScore,
-    closeAboveZoneOk, closeAboveZonePct
+    closeAboveZoneOk, closeAboveZonePct,
+    forensicEval.checklist
   );
 
   // 23. lastDate
@@ -1750,11 +2217,12 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
       elite: paramSetKey === 'optimized_elite_10plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
       ultraSelective: paramSetKey === 'optimized_ultraselective_8plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
       sniper: paramSetKey === 'sniper_95plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
+      orsReversal: { met: 0, total: 0, score: 0, confirmed: false },
     },
     monster: { badges: [], topProbability: 0 },
     dayChangePct: endIdx >= 1 && candles[endIdx - 1].c > 0 ? safe((sig.c - candles[endIdx - 1].c) / candles[endIdx - 1].c * 100) : 0,
-    candleDNA: detectCandleDNA(candles, endIdx, atr14),
-    advanced: computeAdvancedFeatures(candles, endIdx, atr14),
+    candleDNA,
+    advanced,
   };
 }
 
