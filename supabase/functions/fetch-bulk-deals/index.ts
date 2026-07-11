@@ -1,13 +1,5 @@
-// ─── fetch-bulk-deals ─────────────────────────────────────────────────────────
-// Daily BSE bulk deal ingestion (Phase 3).
-//
-// Pipeline: fetch BSE report → parse by field NAME (never position) → normalize
-// client names → pattern-classify → file-hash dedup → upsert raw rows → compute
-// daily symbol scores → write audit record. Idempotent: safe to invoke 3× per
-// evening (7:15 / 8:15 / 9:30 PM IST cron) — exits early once today succeeded.
-//
-// Alerting: failures land in market_data_ingestion_runs; optional Telegram push
-// when TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets are set.
+// ─── fetch-bulk-deals v2 ──────────────────────────────────────────────────────
+// NSE primary source, BSE fallback. Cookie preflight handles session requirements.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -16,35 +8,131 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-const BSE_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://www.bseindia.com/',
-  'Origin': 'https://www.bseindia.com',
-};
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// Candidate endpoints, tried in order. BSE's API surface shifts; parse by field
-// name so a schema reshuffle degrades to "unrecognized" rather than bad data.
-const BSE_ENDPOINTS = [
-  'https://api.bseindia.com/BseIndiaAPI/api/BulkDeals/w',
-  'https://api.bseindia.com/BseIndiaAPI/api/GetBulkDealsData/w?flag=0',
-  'https://api.bseindia.com/BseIndiaAPI/api/GetBulkBlockDeal/w?flag=bulk',
-];
-
-interface RawDeal {
-  dealDate: string;      // ISO
-  scripCode: string;
-  securityName: string;
-  clientName: string;
-  side: 'BUY' | 'SELL' | null;
-  quantity: number;
-  price: number;
+function todayIST(): string {
+  return new Date(Date.now() + 19800_000).toISOString().slice(0, 10);
+}
+function toNSEDate(iso: string): string {
+  const [y, m, d] = iso.split('-'); return `${d}-${m}-${y}`;
+}
+function toBSEDate(iso: string): string {
+  return iso.replace(/-/g, '');
 }
 
-// ── Field-name based extraction ──────────────────────────────────────────────
-// BSE JSON rows vary in casing across endpoints (DealDate/Deal_Date/DT_TM etc).
-// Match by lowercase substring of the key name.
+// ── Cookie preflight ─────────────────────────────────────────────────────────
+
+async function getCookies(homeUrl: string): Promise<string> {
+  try {
+    const res = await fetch(homeUrl, {
+      headers: { 'User-Agent': UA, 'Accept': 'text/html,*/*', 'Accept-Language': 'en-US,en;q=0.9' },
+      signal: AbortSignal.timeout(12000),
+      redirect: 'follow',
+    });
+    const raw: string[] = (res.headers as unknown as { getSetCookie?(): string[] }).getSetCookie?.()
+      ?? [res.headers.get('set-cookie') ?? ''];
+    return raw.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+  } catch { return ''; }
+}
+
+// ── CSV parser ─────────────────────────────────────────────────────────────────
+
+function parseCSVtoRows(csv: string): Record<string, unknown>[] {
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+  return lines.slice(1)
+    .map(line => {
+      const vals = line.split(',');
+      const obj: Record<string, unknown> = {};
+      headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); });
+      return obj;
+    })
+    .filter(r => Object.values(r).some(v => v !== ''));
+}
+
+// ── Fetch strategies ─────────────────────────────────────────────────────────
+
+type FetchResult = { body: string; rows: Record<string, unknown>[]; source: string };
+
+async function tryNSEArchivesCSV(dateISO: string): Promise<FetchResult | null> {
+  try {
+    const res = await fetch('https://nsearchives.nseindia.com/content/equities/bulk.csv', {
+      headers: { 'User-Agent': UA, 'Accept': 'text/csv,*/*', 'Referer': 'https://www.nseindia.com/' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const body = await res.text();
+    if (!body.includes(',') || body.trim().length < 50) return null;
+    const rows = parseCSVtoRows(body);
+    if (rows.length < 1) return null;
+    const todayNSE = toNSEDate(dateISO).toUpperCase();
+    const todayRows = rows.filter(r => {
+      const d = String(r['date'] ?? r['trade_date'] ?? r['dt'] ?? '').toUpperCase();
+      return !d || d.includes(todayNSE.replace(/-/g, ' ').slice(0, 7)) || d === todayNSE || d.startsWith(dateISO);
+    });
+    return { body, rows: todayRows.length > 0 ? todayRows : rows, source: 'nse_archives_csv' };
+  } catch { return null; }
+}
+
+async function tryNSEApiWithCookies(dateISO: string): Promise<FetchResult | null> {
+  const cookies = await getCookies('https://www.nseindia.com/');
+  const nseDate = toNSEDate(dateISO);
+  const headers: Record<string, string> = {
+    'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.nseindia.com/market-data/bulk-block-deals',
+  };
+  if (cookies) headers['Cookie'] = cookies;
+  for (const url of [
+    `https://www.nseindia.com/api/bulk-deals-archives?from=${nseDate}&to=${nseDate}`,
+    `https://www.nseindia.com/api/bulk-deals?from=${nseDate}&to=${nseDate}`,
+  ]) {
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+      if (!res.ok) continue;
+      const body = await res.text();
+      const json = JSON.parse(body);
+      const rows = Array.isArray(json) ? json : (json.data ?? json.result ?? null);
+      if (Array.isArray(rows) && rows.length > 0) return { body, rows, source: 'nse_api' };
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function tryBSEApiWithCookies(dateISO: string): Promise<FetchResult | null> {
+  const cookies = await getCookies('https://www.bseindia.com/');
+  const bseDate = toBSEDate(dateISO);
+  const headers: Record<string, string> = {
+    'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.bseindia.com/', 'Origin': 'https://www.bseindia.com',
+  };
+  if (cookies) headers['Cookie'] = cookies;
+  for (const url of [
+    `https://api.bseindia.com/BseIndiaAPI/api/BulkDeals/w?dttm=${bseDate}`,
+    `https://api.bseindia.com/BseIndiaAPI/api/GetBulkDealsData/w?flag=0&dttm=${bseDate}`,
+    'https://api.bseindia.com/BseIndiaAPI/api/BulkDeals/w',
+  ]) {
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+      if (!res.ok) continue;
+      const body = await res.text();
+      const json = JSON.parse(body);
+      const rows = Array.isArray(json) ? json : (json.Table ?? json.data ?? json.result ?? json.Data ?? null);
+      if (Array.isArray(rows) && rows.length > 0) return { body, rows, source: 'bse_api' };
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function fetchDeals(dateISO: string): Promise<FetchResult | null> {
+  const r1 = await tryNSEArchivesCSV(dateISO);
+  if (r1) return r1;
+  const r2 = await tryNSEApiWithCookies(dateISO);
+  if (r2) return r2;
+  return tryBSEApiWithCookies(dateISO);
+}
+
+// ── Field-name extraction ──────────────────────────────────────────────────────
 
 function pick(row: Record<string, unknown>, ...needles: string[]): unknown {
   for (const [k, v] of Object.entries(row)) {
@@ -54,76 +142,78 @@ function pick(row: Record<string, unknown>, ...needles: string[]): unknown {
   return undefined;
 }
 
-function parseDealRow(row: Record<string, unknown>): RawDeal | null {
-  const dateRaw = String(pick(row, 'date', 'dt_tm', 'dttm') ?? '');
-  const scrip = String(pick(row, 'scrip_cd', 'scripcode', 'scrip cd', 'code') ?? '').trim();
-  const name = String(pick(row, 'scripname', 'scrip_name', 'sname', 'security') ?? '').trim();
-  const client = String(pick(row, 'client', 'name of client', 'deal_client') ?? '').trim();
-  const sideRaw = String(pick(row, 'buysell', 'buy_sell', 'dealtype', 'deal type', 'side') ?? '').toUpperCase();
-  const qty = Number(String(pick(row, 'qty', 'quantity', 'shares') ?? '').replace(/,/g, ''));
-  const price = Number(String(pick(row, 'price', 'rate', 'trade price') ?? '').replace(/,/g, ''));
+interface RawDeal {
+  dealDate: string; scripCode: string; securityName: string;
+  clientName: string; side: 'BUY' | 'SELL' | null; quantity: number; price: number;
+}
+
+const MONTHS: Record<string, string> = {
+  JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',
+  JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12',
+};
+
+function parseDate(raw: string, fallback: string): string {
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const dmy = raw.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  const dMonY = raw.match(/^(\d{2})-([A-Z]{3})-(\d{4})/i);
+  if (dMonY) return `${dMonY[3]}-${MONTHS[dMonY[2].toUpperCase()] ?? '01'}-${dMonY[1]}`;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? fallback : d.toISOString().slice(0, 10);
+}
+
+function parseDealRow(row: Record<string, unknown>, dateISO: string): RawDeal | null {
+  const dateRaw = String(pick(row, 'date', 'dt_tm', 'dttm', 'trade_date') ?? dateISO);
+  const scrip = String(pick(row, 'scrip_cd', 'scripcode', 'code', 'symbol') ?? '').trim();
+  const name = String(
+    pick(row, 'scripname', 'scrip_name', 'sname', 'security_name', 'security', 'name_of_security') ??
+    pick(row, 'symbol') ?? ''
+  ).trim();
+  const client = String(pick(row, 'client', 'name_of_client', 'deal_client', 'client_name') ?? '').trim();
+  const sideRaw = String(
+    pick(row, 'buysell', 'buy_sell', 'dealtype', 'deal_type', 'side', 'transaction_type') ?? ''
+  ).toUpperCase();
+  const qty = Number(String(pick(row, 'qty', 'quantity', 'shares', 'quantity_traded') ?? '').replace(/,/g, ''));
+  const price = Number(String(pick(row, 'price', 'rate', 'trade_price', 'avg_price') ?? '').replace(/,/g, ''));
 
   if (!name || !client || !Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0 || price <= 0) return null;
 
-  // Date formats seen: "2026-07-11T00:00:00", "11/07/2026", "11 Jul 2026"
-  let iso = '';
-  if (/^\d{4}-\d{2}-\d{2}/.test(dateRaw)) iso = dateRaw.slice(0, 10);
-  else if (/^(\d{2})\/(\d{2})\/(\d{4})/.test(dateRaw)) {
-    const m = dateRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})/)!;
-    iso = `${m[3]}-${m[2]}-${m[1]}`;
-  } else {
-    const d = new Date(dateRaw);
-    if (!isNaN(d.getTime())) iso = d.toISOString().slice(0, 10);
-  }
-  if (!iso) return null;
+  const side: 'BUY' | 'SELL' | null =
+    sideRaw.startsWith('B') || sideRaw === 'P' ? 'BUY'
+    : sideRaw.startsWith('S') ? 'SELL'
+    : null;
 
-  const side = sideRaw.startsWith('B') || sideRaw.includes('BUY') ? 'BUY'
-             : sideRaw.startsWith('S') || sideRaw.includes('SELL') ? 'SELL' : null;
-
-  return { dealDate: iso, scripCode: scrip, securityName: name, clientName: client, side, quantity: qty, price };
+  return { dealDate: parseDate(dateRaw, dateISO), scripCode: scrip, securityName: name, clientName: client, side, quantity: qty, price };
 }
 
-// ── Client normalization + pattern classification ───────────────────────────
+// ── Client classification ────────────────────────────────────────────────────
 
 function normalizeClient(name: string): string {
   return name.toUpperCase()
-    .replace(/[.,'"()]/g, ' ')
-    .replace(/\bLIMITED\b/g, 'LTD')
-    .replace(/\bPRIVATE\b/g, 'PVT')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/[.,\'"()]/g, ' ').replace(/\bLIMITED\b/g, 'LTD').replace(/\bPRIVATE\b/g, 'PVT')
+    .replace(/\s+/g, ' ').trim();
 }
 
 function classifyClient(norm: string): string {
-  if (/MUTUAL FUND|\bMF\b|TRUSTEE|INSURANCE|\bAIF\b|\bFPI\b|\bPMS\b|LIFE INS|ASSET MANAGEMENT|INVESTMENT MANAGER|PENSION/.test(norm)) return 'institutional';
+  if (/MUTUAL FUND|\bMF\b|TRUSTEE|INSURANCE|\bAIF\b|\bFPI\b|\bPMS\b|LIFE INS|ASSET MANAGEMENT|INVESTMENT MANAGER|PENSION/.test(norm))
+    return 'institutional';
   if (/PROMOTER|HOLDINGS PVT|FAMILY TRUST|VENTURES LLP/.test(norm)) return 'promoter_group';
   return 'unknown';
 }
 
-// ── Fetch + hash ─────────────────────────────────────────────────────────────
+// Rights entitlements / rights issues are not tradeable equity and never map to a
+// screener symbol — they only pollute the top of the score list. NSE tags them with
+// a "-RE" symbol suffix (e.g. GANGAFO-RE); BSE names them "... RIGHTS".
+function isRightsInstrument(symbol: string, securityName: string): boolean {
+  return /-RE$/i.test(symbol) || /\bRIGHTS?\b/i.test(securityName);
+}
 
 async function sha256hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function fetchBSE(): Promise<{ body: string; rows: Record<string, unknown>[] } | null> {
-  for (const url of BSE_ENDPOINTS) {
-    try {
-      const res = await fetch(url, { headers: BSE_HEADERS, signal: AbortSignal.timeout(20000) });
-      if (!res.ok) continue;
-      const body = await res.text();
-      const json = JSON.parse(body);
-      // Rows may live under Table / data / result / the root array
-      const rows = Array.isArray(json) ? json
-        : json.Table ?? json.data ?? json.result ?? json.Data ?? null;
-      if (Array.isArray(rows) && rows.length > 0) return { body, rows };
-    } catch { /* try next endpoint */ }
-  }
-  return null;
-}
-
-// ── Scoring (robust MAD z over 180d history, same recipe as sector flow) ────
+// ── Scoring ───────────────────────────────────────────────────────────────────
 
 function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
@@ -131,8 +221,7 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-async function computeDailyScores(dealDate: string) {
-  // Aggregate today's deals per symbol
+async function computeDailyScores(dealDate: string): Promise<number> {
   const { data: todays } = await supabase
     .from('bulk_deals')
     .select('symbol, side, deal_value, client_category, client_name_normalized')
@@ -141,20 +230,15 @@ async function computeDailyScores(dealDate: string) {
 
   const bySymbol = new Map<string, typeof todays>();
   for (const d of todays) {
-    const arr = bySymbol.get(d.symbol) ?? [];
-    arr.push(d); bySymbol.set(d.symbol, arr);
+    const arr = bySymbol.get(d.symbol) ?? []; arr.push(d); bySymbol.set(d.symbol, arr);
   }
 
-  // 180-day net-buy history per symbol (single query)
   const since = new Date(Date.now() - 180 * 86400_000).toISOString().slice(0, 10);
   const { data: hist } = await supabase
-    .from('bulk_deals')
-    .select('symbol, deal_date, side, deal_value')
-    .gte('deal_date', since)
-    .lt('deal_date', dealDate)
-    .in('symbol', [...bySymbol.keys()]);
+    .from('bulk_deals').select('symbol, deal_date, side, deal_value')
+    .gte('deal_date', since).lt('deal_date', dealDate).in('symbol', [...bySymbol.keys()]);
 
-  const histNet = new Map<string, Map<string, number>>(); // symbol → date → net
+  const histNet = new Map<string, Map<string, number>>();
   for (const h of hist ?? []) {
     const m = histNet.get(h.symbol) ?? new Map<string, number>();
     const v = (h.side === 'BUY' ? 1 : h.side === 'SELL' ? -1 : 0) * (h.deal_value ?? 0);
@@ -164,23 +248,22 @@ async function computeDailyScores(dealDate: string) {
 
   const upserts = [];
   for (const [symbol, deals] of bySymbol) {
-    const grossBuy = deals.filter(d => d.side === 'BUY').reduce((s, d) => s + (d.deal_value ?? 0), 0);
+    const grossBuy  = deals.filter(d => d.side === 'BUY').reduce((s, d) => s + (d.deal_value ?? 0), 0);
     const grossSell = deals.filter(d => d.side === 'SELL').reduce((s, d) => s + (d.deal_value ?? 0), 0);
     const net = grossBuy - grossSell;
-    const netRatio = grossBuy + grossSell > 0 ? net / (grossBuy + grossSell) : 0;
+    const netRatio = (grossBuy + grossSell) > 0 ? net / (grossBuy + grossSell) : 0;
 
     const flags: string[] = [];
-    // Matched-deal red flag: same client on both sides same day
-    const buyers = new Set(deals.filter(d => d.side === 'BUY').map(d => d.client_name_normalized));
+    const buyers  = new Set(deals.filter(d => d.side === 'BUY').map(d => d.client_name_normalized));
     const sellers = new Set(deals.filter(d => d.side === 'SELL').map(d => d.client_name_normalized));
     if ([...buyers].some(b => sellers.has(b))) flags.push('matched_client');
     if (deals.some(d => d.client_category === 'promoter_group')) flags.push('promoter_involved');
 
-    // Credibility: mean of category weights
-    const catW: Record<string, number> = { institutional: 1.0, promoter_group: 0.4, operator_hni: 0.4, inter_se_transfer: 0.2, unknown: 0.5 };
+    const catW: Record<string, number> = {
+      institutional: 1.0, promoter_group: 0.4, operator_hni: 0.4, inter_se_transfer: 0.2, unknown: 0.5,
+    };
     const cred = deals.reduce((s, d) => s + (catW[d.client_category] ?? 0.5), 0) / deals.length;
 
-    // Abnormality z over history
     const histVals = [...(histNet.get(symbol)?.values() ?? [])];
     let z: number | null = null;
     let confidence = 'new_large_deal';
@@ -191,7 +274,6 @@ async function computeDailyScores(dealDate: string) {
       confidence = histVals.length >= 60 ? 'high' : histVals.length >= 25 ? 'medium' : 'low';
     }
 
-    // Composite 0–100: abnormality 45%, net ratio 25%, credibility 30%
     const zScore = z != null ? ((z + 4) / 8) * 100 : (net > 0 ? 65 : 35);
     let final = 0.45 * zScore + 0.25 * ((netRatio + 1) / 2) * 100 + 0.30 * cred * 100;
     if (flags.includes('matched_client')) final = Math.min(final, 45);
@@ -210,40 +292,28 @@ async function computeDailyScores(dealDate: string) {
   return upserts.length;
 }
 
-// ── Telegram alert (optional) ────────────────────────────────────────────────
-
 async function telegramAlert(msg: string) {
   const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
-  const chat = Deno.env.get('TELEGRAM_CHAT_ID');
+  const chat  = Deno.env.get('TELEGRAM_CHAT_ID');
   if (!token || !chat) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chat, text: msg }),
     });
-  } catch { /* alerting is best-effort */ }
+  } catch { /* best-effort */ }
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
-
-function todayIST(): string {
-  return new Date(Date.now() + 19800_000).toISOString().slice(0, 10);
-}
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
-  const url = new URL(req.url);
-  const isFinalAttempt = url.searchParams.get('final') === '1';
+  const isFinalAttempt = new URL(req.url).searchParams.get('final') === '1';
   const runDate = todayIST();
 
-  // Idempotency: exit if today already succeeded
   const { data: prior } = await supabase
     .from('market_data_ingestion_runs')
-    .select('id, attempt')
-    .eq('source', 'bse_bulk_deals').eq('run_date', runDate).eq('status', 'success')
-    .limit(1);
-  if (prior?.length) {
-    return Response.json({ ok: true, skipped: true, reason: 'already ingested today' });
-  }
+    .select('id').eq('source', 'bse_bulk_deals').eq('run_date', runDate).eq('status', 'success').limit(1);
+  if (prior?.length) return Response.json({ ok: true, skipped: true, reason: 'already ingested today' });
 
   const { data: attempts } = await supabase
     .from('market_data_ingestion_runs')
@@ -251,89 +321,91 @@ Deno.serve(async (req: Request) => {
     .order('attempt', { ascending: false }).limit(1);
   const attempt = (attempts?.[0]?.attempt ?? 0) + 1;
 
-  const audit = async (status: string, rows: number, err?: string, hash?: string) => {
-    await supabase.from('market_data_ingestion_runs').insert({
+  const audit = async (status: string, rows: number, err?: string, hash?: string) =>
+    supabase.from('market_data_ingestion_runs').insert({
       source: 'bse_bulk_deals', run_date: runDate, attempt, status,
       rows_ingested: rows, error_message: err ?? null, source_file_hash: hash ?? null,
       completed_at: new Date().toISOString(),
     });
-  };
 
   try {
-    const fetched = await fetchBSE();
+    const fetched = await fetchDeals(runDate);
     if (!fetched) {
-      await audit('error', 0, 'all BSE endpoints failed');
-      if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ingestion FAILED for ${runDate} — all BSE endpoints unreachable after final attempt.`);
-      return Response.json({ ok: false, error: 'all BSE endpoints failed', attempt }, { status: 502 });
+      await audit('error', 0, 'all sources failed (NSE CSV, NSE API, BSE API)');
+      if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ingestion FAILED ${runDate} — all sources unreachable.`);
+      return Response.json({ ok: false, error: 'all sources failed', attempt }, { status: 502 });
     }
 
     const hash = await sha256hex(fetched.body);
-
-    // File-level dedup: same hash already ingested → skip whole file
     const { data: sameFile } = await supabase
-      .from('market_data_ingestion_runs')
-      .select('id').eq('source_file_hash', hash).eq('status', 'success').limit(1);
+      .from('market_data_ingestion_runs').select('id').eq('source_file_hash', hash).eq('status', 'success').limit(1);
     if (sameFile?.length) {
-      await audit('skipped', 0, 'identical file hash already ingested', hash);
+      await audit('skipped', 0, 'duplicate file hash', hash);
       return Response.json({ ok: true, skipped: true, reason: 'duplicate file' });
     }
 
     const parsed = fetched.rows
-      .map((r, i) => ({ deal: parseDealRow(r as Record<string, unknown>), seq: i }))
+      .map((r, i) => ({ deal: parseDealRow(r as Record<string, unknown>, runDate), seq: i }))
       .filter((x): x is { deal: RawDeal; seq: number } => x.deal !== null);
 
     if (parsed.length < 3) {
       await audit('empty', parsed.length, `only ${parsed.length} parseable rows`, hash);
-      if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ingestion for ${runDate}: only ${parsed.length} rows parsed — possible BSE schema change.`);
-      return Response.json({ ok: false, error: 'too few rows', parsed: parsed.length, attempt });
+      if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ${runDate}: only ${parsed.length} rows. Source: ${fetched.source}`);
+      return Response.json({ ok: false, error: 'too few rows', parsed: parsed.length, source: fetched.source, attempt });
     }
 
-    // Symbol normalization via crossref (scrip code → NSE symbol), fallback to security name
     const scripCodes = [...new Set(parsed.map(p => p.deal.scripCode).filter(Boolean))];
     const { data: xref } = scripCodes.length
       ? await supabase.from('symbol_crossref').select('nse_symbol, bse_scrip_code').in('bse_scrip_code', scripCodes)
       : { data: [] };
-    const codeToSymbol = new Map((xref ?? []).map(x => [x.bse_scrip_code, x.nse_symbol]));
+    const codeToSymbol = new Map((xref ?? []).map((x: { bse_scrip_code: string; nse_symbol: string }) => [x.bse_scrip_code, x.nse_symbol]));
 
+    const isNSE = fetched.source.startsWith('nse');
     const rows = parsed.map(({ deal, seq }) => {
       const norm = normalizeClient(deal.clientName);
-      const symbol = codeToSymbol.get(deal.scripCode)
-        ?? deal.securityName.toUpperCase().replace(/\s+LTD\.?$/,'').replace(/[^A-Z0-9&-]/g, '').slice(0, 20);
+      let symbol: string;
+      if (isNSE) {
+        // NSE: scripCode IS the NSE trading symbol
+        symbol = deal.scripCode || deal.securityName.toUpperCase().replace(/\s+LTD\.?$/, '').replace(/[^A-Z0-9&]/g, '').slice(0, 20);
+      } else {
+        const mapped = codeToSymbol.get(deal.scripCode);
+        symbol = mapped ?? deal.securityName.toUpperCase().replace(/\s+LTD\.?$/, '').replace(/[^A-Z0-9&]/g, '').slice(0, 20);
+      }
       return {
-        deal_date: deal.dealDate, exchange: 'BSE', symbol,
-        bse_scrip_code: deal.scripCode || null, security_name: deal.securityName,
+        deal_date: deal.dealDate, exchange: isNSE ? 'NSE' : 'BSE', symbol,
+        bse_scrip_code: isNSE ? null : (deal.scripCode || null),
+        security_name: deal.securityName,
         client_name: deal.clientName, client_name_normalized: norm,
         client_category: classifyClient(norm),
         side: deal.side, quantity: deal.quantity, price: deal.price,
         row_seq: seq, source_file_hash: hash,
       };
-    });
+    })
+    // Skip rights entitlements / rights issues — not tradeable equity (see isRightsInstrument).
+    .filter(r => !isRightsInstrument(r.symbol, r.security_name));
 
-    // Inter-se detection: same normalized client both sides, same symbol, same date
-    const key = (r: typeof rows[0], side: string) => `${r.deal_date}|${r.symbol}|${r.client_name_normalized}|${side}`;
-    const buyKeys = new Set(rows.filter(r => r.side === 'BUY').map(r => key(r, '')));
+    const key = (r: typeof rows[0]) => `${r.deal_date}|${r.symbol}|${r.client_name_normalized}`;
+    const buyKeys = new Set(rows.filter(r => r.side === 'BUY').map(key));
     for (const r of rows) {
-      if (r.side === 'SELL' && buyKeys.has(key(r, '')) && r.client_category === 'unknown') {
+      if (r.side === 'SELL' && buyKeys.has(key(r)) && r.client_category === 'unknown')
         r.client_category = 'inter_se_transfer';
-      }
     }
 
     const { error: insErr } = await supabase
-      .from('bulk_deals')
-      .upsert(rows, { onConflict: 'deal_date,source_file_hash,row_seq', ignoreDuplicates: true });
+      .from('bulk_deals').upsert(rows, { onConflict: 'deal_date,source_file_hash,row_seq', ignoreDuplicates: true });
     if (insErr) throw new Error(`deal upsert: ${insErr.message}`);
 
-    // Score every deal date present in the file (usually just today)
     const dates = [...new Set(rows.map(r => r.deal_date))];
     let scored = 0;
     for (const d of dates) scored += await computeDailyScores(d);
 
     await audit('success', rows.length, undefined, hash);
-    return Response.json({ ok: true, ingested: rows.length, scored, dates, attempt });
+    return Response.json({ ok: true, ingested: rows.length, scored, dates, source: fetched.source, attempt });
+
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await audit('error', 0, msg);
-    if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ingestion ERROR for ${runDate}: ${msg}`);
+    if (isFinalAttempt) await telegramAlert(`⚠️ Bulk deal ERROR ${runDate}: ${msg}`);
     return Response.json({ ok: false, error: msg, attempt }, { status: 500 });
   }
 });
