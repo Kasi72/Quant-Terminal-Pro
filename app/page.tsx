@@ -875,6 +875,28 @@ const COLUMNS: ColDef[] = [
              t === 'GOOD' ? 'text-amber-400 px-1.5' : 'text-slate-600';
     } },
   // v7.3 columns
+  { key: 'ors_reversal', label: 'ORS↩', width: 88, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">ORS-Prime Reversal Signal</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">↩✓✓ CONFIRMED</span></div><div><div class="rt-desc">Yesterday was the oversold red signal AND today closed green. Enter at tomorrow open. Stop = 2×ATR. Target +4%.</div><div class="rt-hit hit-green">70.4% OOS Win Rate (635 test trades) · Convention A</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">↩✓ SIGNAL</span></div><div><div class="rt-desc">Today is the oversold red candle: RSI2≤5 · Body≥45% · UpWick≤20% · ≥3% below EMA20 · ≥30% from 60d high. Watch for green confirmation tomorrow.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Score 0-100</span></div><div><div class="rt-desc">ORS score: RSI2 depth (30pts) · RSI14 (15pts) · Range% (10pts) · EMA20 dist (10pts) · Body (8pts) · Wick (7pts) · SwingLow (5pts) · VolDryUp (5pts) · Drawdown (10pts) · 252d z-score bonus</div></div></div>',
+    fmt: r => {
+      const ors = r.clusterBreakdown?.orsReversal;
+      if (!ors || !ors.score || ors.score < 72) return '—';
+      return ors.confirmed ? `↩✓✓` : `↩✓ ${ors.score}`;
+    },
+    numVal: r => {
+      const ors = r.clusterBreakdown?.orsReversal;
+      if (!ors || !ors.score || ors.score < 72) return 0;
+      return ors.confirmed ? 1000 + (ors.score ?? 0) : ors.score ?? 0;
+    },
+    cellClass: r => {
+      const ors = r.clusterBreakdown?.orsReversal;
+      if (!ors || !ors.score || ors.score < 72) return 'text-slate-700';
+      return ors.confirmed
+        ? 'text-purple-300 font-bold bg-purple-900/30 px-1 rounded animate-pulse'
+        : 'text-purple-400 font-semibold';
+    } },
   { key: 'nearBrk', label: 'Near BRK', width: 90, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Near Breakout v2 — Tiered (56,340 obs, 456 Nifty 500 stocks)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🔥 IMMINENT (0-1%)</span></div><div><div class="rt-desc">Breaks out within 5 days: 63.7% of the time. Within 10 days: 74.1%. Avg 3.1 days to breakout.</div></div></div>'
@@ -973,13 +995,60 @@ const COLUMNS: ColDef[] = [
     numVal: () => 0,
     cellClass: () => '' },
   // ── Advanced Features Tab ──────────────────────────────────────────────────
+  { key: 'adv_utbot', label: 'UT Bot', width: 160, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">UT Bot Alerts — Live buy-signal detection (two grid-search-optimal param sets)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow-400 text-black">⚡ BOTH</span></div><div><div class="rt-desc">VWMA-55 (precision, 60.5% WR10) AND TEMA-10 (early, 57% WR10) confluence fired. When VRAM OVERSOLD + FER EFFICIENT also align: empirical ~85% WR10 from 1,617-stock grid-search backtest. Highest-conviction UT Bot setup.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">PRECISION</span></div><div><div class="rt-desc">VWMA-55 / ATR14 / Sensitivity 2.0 buy signal fired. 60.5% WR10 base — fires ~14 bars after bottom. When VRAM+FER both align: +25pp lift observed in backtest. Use for high-conviction slow entries.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">EARLY</span></div><div><div class="rt-desc">TEMA-10 / ATR7 / Sensitivity 1.0 buy signal fired. 57% WR10 base — fires ~8 bars after bottom (5 bars sooner). +8-12pp lift when VRAM+FER align. Larger signal count, more actionable for active traders.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Format</span></div><div><div class="rt-desc">Shows: MODE · freshness · lag (bars from 20-bar low) · entry price (High+0.75×ATR14). Lag ≤ 5 = caught early. Entry price is ATR-based formula — best reversal entry from prior entry formula backtest.</div></div></div>',
+    fmt: r => {
+      const adv = r.advanced;
+      // utbotMode is undefined for results scanned before the UT Bot update — show rescan hint
+      if (!adv || !adv.utbotMode) return '↻ rescan';
+      if (adv.utbotMode === 'NONE') return '—';
+      const m     = adv.utbotMode;
+      const ago   = adv.utbotBarsAgo === 0 ? 'today' : `${adv.utbotBarsAgo}d ago`;
+      const lag   = `lag:${adv.utbotLag}`;
+      const entry = adv.utbotEntry > 0 ? ` ₹${adv.utbotEntry.toFixed(1)}` : '';
+      // APEX = UT Bot (BOTH or EARLY) + VRAM OVERSOLD + FER EFFICIENT — the ~85% WR10 setup
+      const apex  = (m === 'BOTH' || m === 'EARLY') &&
+                    adv.vramTier === 'OVERSOLD' && adv.ferTier === 'EFFICIENT';
+      if (apex) return `★ APEX · ${ago} · ${lag}${entry}`;
+      const icon  = m === 'BOTH' ? '⚡ ' : '';
+      return `${icon}${m} · ${ago} · ${lag}${entry}`;
+    },
+    numVal: r => {
+      const adv = r.advanced;
+      if (!adv) return 0;
+      const m   = adv.utbotMode;
+      const apex = (m === 'BOTH' || m === 'EARLY') &&
+                   adv.vramTier === 'OVERSOLD' && adv.ferTier === 'EFFICIENT';
+      if (apex) return 10;
+      return m === 'BOTH' ? 3 : m === 'PRECISION' ? 2 : m === 'EARLY' ? 1 : 0;
+    },
+    cellClass: r => {
+      const adv = r.advanced;
+      const m   = adv?.utbotMode;
+      const ago = adv?.utbotBarsAgo ?? 99;
+      if (!m || m === 'NONE') return 'text-slate-600 text-xs';
+      const fresh = ago <= 1;
+      const apex  = (m === 'BOTH' || m === 'EARLY') &&
+                    adv?.vramTier === 'OVERSOLD' && adv?.ferTier === 'EFFICIENT';
+      // APEX gets a solid green background — unmissable even when scanning 500 rows
+      if (apex) return `text-xs font-black ${fresh
+        ? 'text-black bg-green-400 px-1 rounded animate-pulse'
+        : 'text-green-300 bg-green-900/60 px-1 rounded'}`;
+      if (m === 'BOTH')      return `text-xs font-bold ${fresh ? 'text-yellow-300' : 'text-yellow-500'}`;
+      if (m === 'PRECISION') return `text-xs font-semibold ${fresh ? 'text-amber-300' : 'text-amber-500'}`;
+      return `text-xs font-semibold ${fresh ? 'text-cyan-300' : 'text-cyan-500'}`;
+    } },
   { key: 'adv_score', label: 'AdvScore', width: 80, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Advanced Score (0-100) — Composite of all 8 advanced signals</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">A+ (≥80)</span></div><div><div class="rt-desc">All 8 signals firing: trending efficiently, CUSUM breakout, all timeframes aligned, tail-risk adjusted momentum strong, clean run, early/mid regime, vol-regime outperformer, latent demand accumulation. Rare setup with multiple independent confirmations.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">A (65-79)</span></div><div><div class="rt-desc">Most signals positive. Strong thesis with 1-2 absent confirmations. Actionable.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">B (45-64)</span></div><div><div class="rt-desc">Mixed signals. Some momentum quality but not all aligned. Monitor closely.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">C/D (&lt;45)</span></div><div><div class="rt-desc">Few advanced signals firing. Low conviction from this overlay.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Scoring</span></div><div><div class="rt-desc">FER(20) + CUSUM(15) + MWC(15) + TRAM(15) + CleanMom(15) + Duration(10) + VRAM(10) + PIC(10) = 100 max.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Advanced Score (0-100) — Empirically weighted composite of 9 signals incl. UT Bot</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">A+ (≥80)</span></div><div><div class="rt-desc">Multiple high-edge signals firing: UT Bot buy signal (BOTH/PRECISION/EARLY), VRAM oversold, TRAM oversold, FER efficient, CleanMom deep value, Duration idle, MWC contrarian. Validated vs 558,650-obs NIFTY backtest.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">A (65-79)</span></div><div><div class="rt-desc">Most signals positive. Strong mean-reversion setup with 1-2 absent confirmations. Actionable.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">B (45-64)</span></div><div><div class="rt-desc">Mixed signals. Some edge but not fully confirmed across features.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">C/D (&lt;45)</span></div><div><div class="rt-desc">Few signals aligned. Low conviction from this overlay.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Weights</span></div><div><div class="rt-desc">UTBot(up to 20) + VRAM(20) + TRAM(20) + FER(15) + CleanMom(15) + Duration(10) + MWC(10) + CUSUM(5) + PIC(5) → capped 100. BOTH fresh=+20, PRECISION fresh=+12, EARLY fresh=+10.</div></div></div>',
     fmt: r => r.advanced ? `${r.advanced.advScore}` : '—',
     numVal: r => r.advanced?.advScore ?? 0,
     cellClass: r => {
@@ -991,131 +1060,137 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'adv_fer', label: 'FER', width: 72, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Fractal Efficiency Ratio (20-bar) — How linearly price trends</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">STRONG (≥0.60)</span></div><div><div class="rt-desc">Net price move covers ≥60% of total path length. Price is trending efficiently without much back-and-fill. Institutional directional accumulation signature.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MODERATE (0.35-0.59)</span></div><div><div class="rt-desc">Some directionality but with normal oscillation. Most trending stocks fall here.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">CHOPPY (&lt;0.35)</span></div><div><div class="rt-desc">Price path is highly non-linear — high noise, no clear directional trend over 20 bars.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">FER = |Close[t] − Close[t-20]| / Σ|Close[i] − Close[i-1]| for i in last 20 bars. Range: 0 (random walk) to 1 (straight line).</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">EFFICIENT (≥0.55) +3.1pp</span></div><div><div class="rt-desc">Net move covers ≥55% of total path. Price trending cleanly — backtest shows +3.11pp 20d edge at this level (monotonically positive, highest confidence feature).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MODERATE (0.30-0.54)</span></div><div><div class="rt-desc">Some directionality with normal oscillation. Mild positive edge (~+0.5pp). Most stocks fall here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">CHOPPY (&lt;0.30)</span></div><div><div class="rt-desc">Highly non-linear price path — noise-dominated, no clear 20-bar trend. Slight negative edge (−0.8pp).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">FER = |Close[t] − Close[t-20]| / Σ|Close[i]−Close[i-1]|. Range: 0 (random walk) → 1 (straight line). Thresholds from 558,650-obs NIFTY backtest.</div></div></div>',
     fmt: r => r.advanced ? r.advanced.fer20.toFixed(2) : '—',
     numVal: r => r.advanced?.fer20 ?? 0,
     cellClass: r => {
       const t = r.advanced?.ferTier;
-      return t === 'STRONG' ? 'text-green-300 font-semibold' :
-             t === 'MODERATE' ? 'text-amber-400' : 'text-slate-600';
+      return t === 'EFFICIENT' ? 'text-green-300 font-semibold' :
+             t === 'MODERATE'  ? 'text-amber-400' : 'text-slate-600';
     } },
   { key: 'adv_cusum', label: 'CUSUM', width: 80, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">CUSUM Filter — Cumulative sum of return deviations vs adaptive threshold</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">SIGNAL ✓</span></div><div><div class="rt-desc">S+ > 2× ATR% cumulative. Statistically significant upward drift detected — not just noise. High-quality regime-change filter used by quant funds to separate signal from noise in return series.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">S+ value</span></div><div><div class="rt-desc">Cumulative positive return above the adaptive threshold (0.5×ATR%). Higher = stronger/longer accumulation detected. Resets to 0 when drift reverses.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">S+ = max(0, S+[prev] + ret − threshold) where threshold=0.5×ATR%. Signal fires when S+ > 2×ATR%. Looks back 60 bars.</div></div></div>',
-    fmt: r => r.advanced ? (r.advanced.cusumSignal ? `✓ ${r.advanced.cusumPos.toFixed(2)}` : r.advanced.cusumPos.toFixed(2)) : '—',
+    headerTipHtml: '<div class="rt-hdr">CUSUM Filter — Cumulative drift (INVERTED: low = better)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">IDLE (S+=0) sweet spot</span></div><div><div class="rt-desc">No accumulated upward drift detected. Backtest shows IDLE is the best state — stock has NOT been chased. Slight positive edge when drift is absent.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MILD (S+ 0-0.064)</span></div><div><div class="rt-desc">Early drift accumulating. Modest positive edge still present but diminishing. Price starting to get noticed.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">ELEVATED (S+&gt;0.064) −2.4pp</span></div><div><div class="rt-desc">High accumulated drift = price has been chased. Backtest shows −2.36pp 20d edge at ELEVATED level. Overbought drift signal — avoid for new entries.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">S+ = max(0, S+[prev] + ret − 0.5×ATR%). Looks back 60 bars. High S+ means price kept rising above ATR-adjusted noise threshold — a chase signal, not accumulation.</div></div></div>',
+    fmt: r => r.advanced ? (r.advanced.cusumTier === 'IDLE' ? 'IDLE' : `${r.advanced.cusumTier} ${r.advanced.cusumPos.toFixed(3)}`) : '—',
     numVal: r => r.advanced?.cusumPos ?? 0,
     cellClass: r => {
-      if (!r.advanced) return 'text-slate-600';
-      return r.advanced.cusumSignal ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded' :
-             r.advanced.cusumPos > 0 ? 'text-cyan-400' : 'text-slate-600';
+      const t = r.advanced?.cusumTier;
+      return t === 'IDLE'     ? 'text-green-300 font-semibold' :
+             t === 'MILD'     ? 'text-amber-400' :
+             t === 'ELEVATED' ? 'text-red-400 font-semibold' : 'text-slate-600';
     } },
   { key: 'adv_mwc', label: 'MWC', width: 65, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Momentum Wave Convergence (0-4) — All timeframes aligned and accelerating</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Score 4 — FULL</span></div><div><div class="rt-desc">All 4 checks pass: ROC5 > ROC20 (acceleration), ROC20 > ROC60 (medium > long term), ROC5 > 0 (short-term positive), ROC slope increasing over last 3 bars. Full cascade alignment = strong trend continuation setup.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Score 3</span></div><div><div class="rt-desc">3 of 4 checks pass. Strong momentum with one missing confirmation — still actionable.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">Score 2</span></div><div><div class="rt-desc">Partial alignment — some timeframes diverging. Mixed momentum quality.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">Score 0-1</span></div><div><div class="rt-desc">Timeframes misaligned or short-term negative. Momentum not confirmed across all horizons.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">ROC values</span></div><div><div class="rt-desc">ROC5/20/60 = (Close − Close[n days ago]) / Close[n days ago] × 100%. Displayed as MWC score only — hover tooltip shows raw ROC values.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Momentum Wave Convergence (0-4) — CONTRARIAN: low score = not yet chased</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Score 0 — CONTRARIAN +0.9pp</span></div><div><div class="rt-desc">No momentum wave aligned. Backtest shows Score 0 has +0.94pp 20d edge — stock has NOT been chased yet. Contrarian sweet spot: uncrowded, ignored by trend followers.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Score 1-2 — MIXED</span></div><div><div class="rt-desc">Partial alignment. Modest positive edge. Some interest building but not yet overbought.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">Score 3-4 — CROWDED −1.4pp</span></div><div><div class="rt-desc">All timeframes aligned and accelerating = everyone is already long. Score 4 shows −1.38pp 20d edge — momentum is priced in. Avoid for new entries.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Checks</span></div><div><div class="rt-desc">+1 each: ROC5&gt;ROC20 (accelerating), ROC20&gt;ROC60 (medium outpacing long), ROC5&gt;0 (short-term up), ROC5 slope rising vs 3 bars ago. High score = chased; low score = opportunity.</div></div></div>',
     fmt: r => r.advanced ? `${r.advanced.mwcScore}/4` : '—',
     numVal: r => r.advanced?.mwcScore ?? 0,
     cellClass: r => {
-      const s = r.advanced?.mwcScore ?? 0;
-      return s === 4 ? 'text-green-300 font-bold' :
-             s === 3 ? 'text-cyan-300 font-semibold' :
-             s === 2 ? 'text-amber-400' : 'text-slate-600';
+      const t = r.advanced?.mwcTier;
+      return t === 'CONTRARIAN' ? 'text-green-300 font-semibold' :
+             t === 'MIXED'      ? 'text-amber-400' : 'text-red-400';
     } },
   { key: 'adv_tram', label: 'TRAM', width: 72, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Tail-Risk Adjusted Momentum — ROC_20 / |CVaR_95%|</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">EXCEPTIONAL (≥3.0)</span></div><div><div class="rt-desc">20-day return is 3× or more the tail risk (worst 5% average loss). Extremely favourable risk/reward momentum. Momentum relative to downside tail is exceptional.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">GOOD (1.5-2.9)</span></div><div><div class="rt-desc">Return is 1.5-3× the tail risk. Solid momentum quality with manageable downside profile.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">FAIR (0.5-1.4)</span></div><div><div class="rt-desc">Returns roughly match tail risk. Mediocre risk-adjusted momentum.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">POOR (&lt;0.5)</span></div><div><div class="rt-desc">Tail risk dominates upside. Either returns are weak or volatility is high — poor risk/reward for momentum.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">CVaR</span></div><div><div class="rt-desc">CVaR_95% = mean of worst 5% of 60 daily returns. Penalises fat-tailed downside more than standard deviation.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Tail-Risk Adjusted Momentum — MEAN-REVERSION: negative TRAM = oversold bounce</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">OVERSOLD (&lt;−3.0) +4.0pp</span></div><div><div class="rt-desc">ROC20 is deeply negative relative to tail risk — stock is oversold with elevated downside volatility. Backtest: +3.96pp 20d edge. Classic mean-reversion bounce setup. The negative value means upside/CVaR ratio is extreme on the downside.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">DEPRESSED (−3.0 to −1.4) +1.4pp</span></div><div><div class="rt-desc">Moderately negative TRAM — beaten down but not extreme. +1.37pp 20d edge. Recovering candidates.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">NEUTRAL (−1.4 to +0.5)</span></div><div><div class="rt-desc">No clear directional tilt in risk-adjusted momentum. Near-baseline forward returns.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">EXTENDED (&gt;+0.5)</span></div><div><div class="rt-desc">High positive TRAM = momentum has run far relative to tail risk. No forward edge — overbought on this metric.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">TRAM = ROC_20 / |CVaR_95%|. CVaR_95% = mean of worst 5% of 60 daily returns (negative). Negative TRAM = negative ROC20 with high tail risk = oversold.</div></div></div>',
     fmt: r => r.advanced ? r.advanced.tram.toFixed(2) : '—',
     numVal: r => r.advanced?.tram ?? 0,
     cellClass: r => {
       const t = r.advanced?.tramTier;
-      return t === 'EXCEPTIONAL' ? 'text-green-300 font-bold' :
-             t === 'GOOD' ? 'text-cyan-300' :
-             t === 'FAIR' ? 'text-amber-400' : 'text-slate-600';
+      return t === 'OVERSOLD'  ? 'text-green-300 font-bold' :
+             t === 'DEPRESSED' ? 'text-cyan-300' :
+             t === 'NEUTRAL'   ? 'text-slate-400' : 'text-orange-400';
     } },
   { key: 'adv_cleanmom', label: 'CleanMom', width: 82, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Clean Momentum Score — ROC_20 minus MaxDrawdown_20 (both %)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">CLEAN</span></div><div><div class="rt-desc">20-day return is positive AND max intrarun drawdown stayed above -3%. Price went up cleanly without giving back much along the way. Ideal trajectory — minimal counter-trend moves.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MODERATE</span></div><div><div class="rt-desc">Drawdown stayed within -7%. Some noise but the uptrend is intact.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">ROUGH</span></div><div><div class="rt-desc">Drawdown exceeded -7% during the 20-bar run. High volatility path — even if the endpoint is up, the journey was rough and stop-outs likely.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">CleanMom = ROC_20% + MaxDD_20% (MaxDD is negative, so this penalises drawdowns). E.g. +12% return with -5% max DD → CleanMom = 7.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Clean Momentum — ROC20 + MaxDD20 (MEAN-REVERSION: deep negative = bounce)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">DEEP_VALUE (&lt;−28%) +3-5pp</span></div><div><div class="rt-desc">Stock has crashed hard — large negative ROC20 AND large drawdown. Backtest: −28% bin → +3.34pp, extreme bins → +5.03pp 20d edge. Classic crash-bounce mean-reversion setup. Best combined with VRAM OVERSOLD.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">RECOVERING (−28% to −10%)</span></div><div><div class="rt-desc">Moderately beaten down. Some mean-reversion potential. Mild positive edge (~+1pp).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">NEUTRAL (−10% to +11%)</span></div><div><div class="rt-desc">No strong directional tilt. Near-baseline forward returns in this range.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">OVERBOUGHT (&gt;+11%) −0.9pp</span></div><div><div class="rt-desc">Strong clean upside move already happened. Backtest shows −0.87pp 20d edge — momentum is priced in, mean-reversion risk increases.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">CleanMom = ROC_20% + MaxDD_20% (MaxDD is negative). Very negative = deep crash. E.g. −25% return with −20% DD → CleanMom = −45 → DEEP_VALUE.</div></div></div>',
     fmt: r => r.advanced ? `${r.advanced.cleanMom.toFixed(1)}%` : '—',
     numVal: r => r.advanced?.cleanMom ?? 0,
     cellClass: r => {
       const t = r.advanced?.cleanTier;
-      return t === 'CLEAN' ? 'text-green-300 font-semibold' :
-             t === 'MODERATE' ? 'text-amber-400' : 'text-slate-600';
+      return t === 'DEEP_VALUE'  ? 'text-green-300 font-bold' :
+             t === 'RECOVERING'  ? 'text-cyan-300' :
+             t === 'NEUTRAL'     ? 'text-slate-400' : 'text-orange-400';
     } },
   { key: 'adv_regime', label: 'Regime', width: 90, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">Regime Duration Signal — Where in the momentum run are we?</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">EARLY (&lt;30% of avg run)</span></div><div><div class="rt-desc">Momentum run just started. Historical average run length for this stock is computed from prior regimes. EARLY = most runway remaining. Best entry timing.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">MID (30-60%)</span></div><div><div class="rt-desc">Run is in its middle phase — still trending, some runway left. Good risk/reward but not as early as ideal.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">LATE (60-100%)</span></div><div><div class="rt-desc">Approaching average run end. Be cautious — this does not mean it WILL reverse here, just that historically runs of this length end soon. Tighten stops.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">EXTENDED (&gt;avg run)</span></div><div><div class="rt-desc">Run has exceeded the average historical length for this stock. Could be a breakout continuation but statistically extended. Aggressive stops recommended.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Identifies all prior momentum runs (≥3 consecutive days with 5D return > 1 ATR%). Duration Ratio = current run days / average past run length.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Regime Duration — IDLE (not in a run) is the sweet spot (+1.6pp)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">IDLE — not in run +1.6pp</span></div><div><div class="rt-desc">Stock is NOT currently in a momentum run. Backtest shows IDLE = +1.59pp 20d edge — uncrowded, no active trend chasers. Once a run starts, forward returns worsen progressively.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">EARLY (&lt;30% of avg run)</span></div><div><div class="rt-desc">Run just started. Mild positive edge early on (+0.4pp) before chasers pile in.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">MID (30-76% of avg run)</span></div><div><div class="rt-desc">Run in middle phase. Forward edge diminishing. Return is mostly priced in.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">EXTENDED (&gt;76% of avg run)</span></div><div><div class="rt-desc">Run has exceeded 76% of historical average length. Backtest shows worsening returns. Tail end of momentum cycle.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">Identifies prior momentum runs (≥3 bars with 5D return &gt; 1 ATR%). DurationRatio = current run / avg past run. IDLE when no run is active.</div></div></div>',
     fmt: r => {
       if (!r.advanced) return '—';
-      const { durationTier, regimeDays, durationRatio } = r.advanced;
-      return `${durationTier} ${regimeDays}d`;
+      const { durationTier, regimeDays } = r.advanced;
+      return durationTier === 'IDLE' ? 'IDLE' : `${durationTier} ${regimeDays}d`;
     },
     numVal: r => r.advanced?.durationRatio ?? 0,
     cellClass: r => {
       const t = r.advanced?.durationTier;
-      return !r.advanced || r.advanced.regimeDays === 0 ? 'text-slate-600' :
-             t === 'EARLY' ? 'text-green-300 font-semibold' :
-             t === 'MID'   ? 'text-cyan-300' :
-             t === 'LATE'  ? 'text-amber-400' : 'text-orange-400';
+      return t === 'IDLE'     ? 'text-green-300 font-semibold' :
+             t === 'EARLY'    ? 'text-cyan-300' :
+             t === 'MID'      ? 'text-amber-400' : 'text-red-400';
     } },
   { key: 'adv_vram', label: 'VRAM', width: 72, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Vol-Regime Adjusted Momentum — Z-score within volatility regime</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">STRONG (z≥1.5)</span></div><div><div class="rt-desc">20D return is 1.5+ standard deviations above the mean for this stock when it is in a similar volatility environment. Outperforming its historical self in comparable vol conditions.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">MODERATE (z 0.5-1.5)</span></div><div><div class="rt-desc">Modestly above average for its vol regime. Positive but not exceptional z-score.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">WEAK (z 0-0.5)</span></div><div><div class="rt-desc">At or slightly above regime average. Momentum is present but not statistically notable given current volatility.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">NEGATIVE (z&lt;0)</span></div><div><div class="rt-desc">Underperforming vs its own history in similar vol conditions. Bearish signal despite any nominal positive return.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Vol Regimes</span></div><div><div class="rt-desc">LOW/MID/HIGH vol regime classified by 120-bar ATR% percentile rank. Z-score computed separately within each regime using historical ROC_20 distribution.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Vol-Regime Adjusted Momentum — INVERTED: low z-score = oversold = best entry</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">OVERSOLD (z&lt;−1.1) +4.6pp</span></div><div><div class="rt-desc">Stock is &gt;1.1 std devs BELOW its own historical mean within same vol regime. Strongest single signal: +4.64pp 20d edge. Significantly underperforming vs its own history = oversold mean-reversion setup.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">LOW (z −1.1 to −0.76) +2.9pp</span></div><div><div class="rt-desc">Moderately below regime average. +2.93pp 20d edge. Solid contrarian setup.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">NEUTRAL (z −0.76 to +0.35)</span></div><div><div class="rt-desc">Near the regime average. No strong directional tilt. Near-baseline forward returns.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">ELEVATED (z +0.35 to +0.93)</span></div><div><div class="rt-desc">Modestly above regime average. Mild positive edge (+1pp) but momentum partly priced in.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">OVERBOUGHT (z&gt;+0.93) −1.1pp</span></div><div><div class="rt-desc">Significantly outperforming vs its own vol-regime history. Overbought — backtest shows −1.14pp 20d edge. Mean-reversion risk. Avoid new entries.</div></div></div>',
     fmt: r => r.advanced ? `${r.advanced.vram.toFixed(2)}z` : '—',
     numVal: r => r.advanced?.vram ?? 0,
     cellClass: r => {
       const t = r.advanced?.vramTier;
-      return t === 'STRONG' ? 'text-green-300 font-bold' :
-             t === 'MODERATE' ? 'text-cyan-300' :
-             t === 'WEAK' ? 'text-amber-400' : 'text-slate-600';
+      return t === 'OVERSOLD'   ? 'text-green-300 font-bold' :
+             t === 'LOW'        ? 'text-cyan-300' :
+             t === 'NEUTRAL'    ? 'text-slate-400' :
+             t === 'ELEVATED'   ? 'text-amber-400' : 'text-red-400';
     } },
   { key: 'adv_pic', label: 'PIC', width: 65, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Price Impact Coefficient — Volume-to-price sensitivity (OLS beta × 1000)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">LATENT (&lt;2.0)</span></div><div><div class="rt-desc">Price barely moves per unit of signed order flow. Hidden demand is absorbing sell pressure or accumulation is happening quietly. Low PIC = potential for explosive move when supply exhausts. Classic stealth accumulation signature.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">NORMAL (2.0-5.0)</span></div><div><div class="rt-desc">Price responds to volume normally. Standard market microstructure. No special accumulation or distribution signal.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">REACTIVE (&gt;5.0)</span></div><div><div class="rt-desc">Price jumps sharply per unit of flow. High sensitivity — often thin order books or news-driven. Moves can be sharp both ways. Caution.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">OLS regression: signed_volume (×sign of daily return, normalised by mean absolute volume) → daily return. Beta × 1000 for readability. Computed over last 20 bars.</div></div></div>',
-    fmt: r => r.advanced ? r.advanced.pic.toFixed(2) : '—',
+    headerTipHtml: '<div class="rt-hdr">Price Impact Coefficient — Mid-range PIC (16-25) has modest edge (+1pp)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ACTIVE (16-25) +1.0pp</span></div><div><div class="rt-desc">Price responds efficiently to flow — not too thin, not too reactive. Sweet spot from backtest: +0.96pp 20d edge. Healthy market microstructure with genuine two-sided activity.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">HIGH (25-30)</span></div><div><div class="rt-desc">Slightly reactive. Near-neutral edge (+0.4pp). Volume moves price a bit more than average.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">FAIR (8-16)</span></div><div><div class="rt-desc">Below-average price sensitivity per unit of flow. Mild positive edge. Normal range.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">SATURATED (&gt;30)</span></div><div><div class="rt-desc">Very high PIC — price jumps sharply per unit of signed flow. Thin book or news-driven. Neutral to slightly negative forward edge (−0.6pp).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">REACTIVE_LOW (&lt;8) −1.0pp</span></div><div><div class="rt-desc">Price barely responds to flow despite signed volume. Weak edge (−1pp). Structural low-sensitivity that historically underperforms.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Method</span></div><div><div class="rt-desc">OLS: signed_volume (normalised) → daily return. Beta × 1000. Over last 20 bars. Note: this feature has modest discriminating power (~1pp max edge).</div></div></div>',
+    fmt: r => r.advanced ? r.advanced.pic.toFixed(1) : '—',
     numVal: r => r.advanced?.pic ?? 0,
     cellClass: r => {
       const t = r.advanced?.picTier;
-      return t === 'LATENT' ? 'text-green-300 font-semibold' :
-             t === 'NORMAL' ? 'text-slate-400' : 'text-orange-400';
+      return t === 'ACTIVE'       ? 'text-green-300 font-semibold' :
+             t === 'HIGH'         ? 'text-cyan-300' :
+             t === 'FAIR'         ? 'text-slate-400' :
+             t === 'SATURATED'    ? 'text-amber-400' : 'text-red-400';
     } },
 ];
 
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'advanced' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','nearBrk','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
-  advanced: new Set(['symbol','stage','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
+  advanced: new Set(['symbol','stage','adv_utbot','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
   all: new Set(/* all keys — handled below */),
 };
 
@@ -1358,7 +1433,24 @@ function HomePageInner() {
         if (oldGap < minExpectedGap) return { ...t, target2: t2New, target3: t3New };
         return t;
       });
-      setTrackedTrades(migrated);
+      // Auto-heal trades with inverted stop loss (SL ≥ entry price — data corruption artifact)
+      const healed = migrated.map(t => {
+        if (t.entryPrice > 0 && t.stopLoss > 0 && t.stopLoss >= t.entryPrice) {
+          return { ...t, stopLoss: 0, status: 'open' as const, closedPrice: undefined, closedDate: undefined, pnlPct: undefined, pnlR: undefined };
+        }
+        return t;
+      });
+      const anyHealed = healed.some((t, i) => t !== migrated[i]);
+      setTrackedTrades(healed);
+      if (anyHealed) {
+        // Force-overwrite ALL localStorage keys including emergency backup so stale inverted-SL
+        // data can never win by trade-count on next load.
+        const healedJson = JSON.stringify(healed);
+        try { localStorage.setItem('qtp_tracked_trades', healedJson); } catch {}
+        try { localStorage.setItem('qtp_tracked_trades_backup', healedJson); } catch {}
+        try { localStorage.setItem('qtp_tracked_trades_emergency', healedJson); } catch {}
+        syncTradesToCloud(healed);
+      }
     };
 
     // Cloud-first load. null=error (use localStorage), []=healthy empty, [...]=use cloud.
@@ -1767,10 +1859,11 @@ function HomePageInner() {
         let updated = [...prev];
         for (let i = 0; i < updated.length; i++) {
           const t = updated[i];
-          if (t.status !== 'open') continue;
+          // Re-validate stopped/partial-exit trades: false-stop recovery + live mark-to-market
+          if (t.status !== 'open' && t.status !== 'stopped' && t.status !== 'hit_t1' && t.status !== 'hit_t2') continue;
           // Sync stop/targets from fresh scan results only when param set matches
           const freshResult = newResults.find(r => r.symbol === t.symbol);
-          if (freshResult && freshResult.priceEngine.tacticalStop > 0 && freshResult.paramSetKey === t.paramSetKey) {
+          if (freshResult && freshResult.priceEngine.tacticalStop > 0 && freshResult.paramSetKey === t.paramSetKey && freshResult.priceEngine.tacticalStop < t.entryPrice) {
             updated[i] = { ...updated[i],
               stopLoss: freshResult.priceEngine.tacticalStop,
               target1: freshResult.priceEngine.target5,
@@ -1794,7 +1887,8 @@ function HomePageInner() {
           // Always show last known price even on holidays/weekends (before any post-entry candle)
           const latestCandle = cached[cached.length - 1];
           if (latestCandle?.c > 0) {
-            updated[i] = { ...updated[i], currentPrice: latestCandle.c };
+            const latestCmpDate = new Date((latestCandle.ts + 19800) * 1000).toISOString().slice(0, 10);
+            updated[i] = { ...updated[i], currentPrice: latestCandle.c, cmpDate: latestCmpDate };
           }
           if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
           const result = validateTrade(updated[i], sinceEntry);
@@ -2153,7 +2247,7 @@ function HomePageInner() {
 
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
-      entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop,
+      entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop < r.priceEngine.plannedEntry ? r.priceEngine.tacticalStop : 0,
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
       target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
@@ -2689,7 +2783,8 @@ function HomePageInner() {
               data-tip-color="cyan"
               onClick={async () => {
                 if (scanningRef.current) return;
-                const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
+                // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
+                const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2');
                 if (openTrades.length === 0) return;
                 setScanning(true); scanningRef.current = true;
                 setTotal(openTrades.length); setProgress(0);
@@ -2705,7 +2800,7 @@ function HomePageInner() {
                       if (idx >= 0) {
                         try {
                           const freshR = analyzeStock(candles, (t.paramSetKey || 'optimized_deployable_20plus') as ParamSetKey);
-                          if (freshR.priceEngine.tacticalStop > 0) {
+                          if (freshR.priceEngine.tacticalStop > 0 && freshR.priceEngine.tacticalStop < t.entryPrice) {
                             updated[idx] = { ...updated[idx],
                               stopLoss: freshR.priceEngine.tacticalStop,
                               target1: freshR.priceEngine.target5,
@@ -2717,17 +2812,21 @@ function HomePageInner() {
                       }
                       const entryDateStr2 = t.entryDate;
                       if (!entryDateStr2) { setProgress(p => p + 1); continue; }
+                      // Always update CMP from latest candle regardless of whether post-entry candles exist
+                      const lastCandle2 = candles[candles.length - 1];
+                      if (idx >= 0 && lastCandle2 && lastCandle2.c > 0) {
+                        const latestCmpDate2 = new Date((lastCandle2.ts + 19800) * 1000).toISOString().slice(0, 10);
+                        updated[idx] = { ...updated[idx], currentPrice: lastCandle2.c, cmpDate: latestCmpDate2 };
+                        validated++;
+                      }
                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr2);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
                       if (idx >= 0) {
                         let u = applyValidation(updated[idx], result);
-                        const lastCandle = candles[candles.length - 1];
-                        if (lastCandle && lastCandle.c > 0) u = { ...u, currentPrice: lastCandle.c };
                         const maxH = Math.max(...sinceEntry.map(c => c.h));
                         if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
                         updated[idx] = u;
-                        validated++;
                       }
                     } catch {}
                     setProgress(p => p + 1);
@@ -2761,7 +2860,7 @@ function HomePageInner() {
                 }
               }}
               className="h-7 px-2.5 bg-cyan-900/40 hover:bg-cyan-900/60 disabled:opacity-40 border border-cyan-600 rounded text-[11px] font-semibold text-cyan-300 transition-colors">
-              {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}</button>
+              {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2').length})`}</button>
           )}
         </div>
 
@@ -3000,29 +3099,55 @@ function HomePageInner() {
                   if (a.status !== 'open' && b.status !== 'open') return (b.closedDate ?? '').localeCompare(a.closedDate ?? '');
                   return 0;
                 }).map((t, i, arr) => {
-                  const rps = t.entryPrice - t.stopLoss;
-                  const riskPct = t.entryPrice > 0 ? (rps / t.entryPrice * 100) : 0;
-                  const unrealPnl = t.status === 'open' && t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice * 100) : null;
-                  const unrealR = t.status === 'open' && t.currentPrice && rps > 0 ? ((t.currentPrice - t.entryPrice) / rps) : null;
+                  // validSL: SL must be positive AND below entry (guards against inverted SL corruption)
+                  const validSL = t.stopLoss > 0 && t.stopLoss < t.entryPrice;
+                  const rps = validSL ? (t.entryPrice - t.stopLoss) : 0;
+                  const riskPct = validSL && t.entryPrice > 0 ? (rps / t.entryPrice * 100) : 0;
+                  // Reference price: for open trades use CMP, for closed use the actual exit price
+                  const refPrice = t.status === 'open' ? (t.currentPrice ?? null) : (t.closedPrice ?? null);
+                  // P&L: partial exits (hit_t1/hit_t2) use the validator's weighted pnlPct
+                  // (50%@T1 + 50%@live, or 50%@T1+30%@T2+20%@live) stored after validation.
+                  // All other statuses: recompute simply from the reference price.
+                  const displayPnl = (() => {
+                    if (!t.entryPrice) return null;
+                    if ((t.status === 'hit_t1' || t.status === 'hit_t2') && t.pnlPct != null) {
+                      return t.pnlPct; // weighted P&L from validator
+                    }
+                    return refPrice ? (refPrice - t.entryPrice) / t.entryPrice * 100 : null;
+                  })();
+                  const displayR = refPrice && t.entryPrice > 0 && validSL
+                    ? ((refPrice - t.entryPrice) / rps)
+                    : null;
+                  const unrealPnl = displayPnl; // alias used below for the '*' live indicator
                   const toT1Pct = t.status === 'open' && t.currentPrice && t.target1 > 0 ? ((t.target1 - t.currentPrice) / t.currentPrice * 100) : null;
-                  const displayPnl = t.pnlPct ?? unrealPnl;
-                  const displayR = t.pnlR ?? unrealR;
-                  // Sequence: W/L markers for closed trades
-                  const seqMark = t.status !== 'open' ? ((t.pnlPct ?? 0) >= 0 ? 'W' : 'L') : '·';
+                  // Sequence: W/L markers for closed trades (use computed displayPnl, not stored pnlPct)
+                  const seqMark = t.status !== 'open' ? ((displayPnl ?? 0) >= 0 ? 'W' : 'L') : '·';
                   return (
                   <tr key={i} className={`border-b border-slate-800/30 hover:bg-slate-800/20 ${t.status !== 'open' ? '' : 'opacity-80'}`}>
                     <td className="px-2 py-1 font-mono text-slate-200">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                     <td className="px-2 py-1 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : (t.pnlPct ?? 0) > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : (displayPnl ?? 0) > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
                         {t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : t.status === 'hit_t3' ? 'T3' : t.status === 'stopped' ? 'STOP' : t.status === 'expired' ? 'EXP' : 'CLOSE'}
                       </span>
                     </td>
                     <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
-                    <td className={`px-2 py-1 text-right font-mono ${riskPct <= 2 ? 'text-emerald-500' : riskPct <= 3 ? 'text-amber-500' : 'text-red-500'}`} title={`Risk: ${riskPct.toFixed(1)}%`}>₹{t.stopLoss.toFixed(0)}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${!validSL ? 'text-orange-500' : riskPct <= 2 ? 'text-emerald-500' : riskPct <= 3 ? 'text-amber-500' : 'text-red-500'}`} title={!validSL ? (t.stopLoss >= t.entryPrice ? '⚠ SL above entry — set a valid stop-loss' : '⚠ No stop-loss set') : `Risk: ${riskPct.toFixed(1)}%`}>{validSL ? `₹${t.stopLoss.toFixed(0)}` : '⚠ —'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t1' ? 'text-emerald-400 font-bold' : 'text-emerald-700'}`}>{t.target1 > 0 ? `₹${t.target1.toFixed(2)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t2' ? 'text-emerald-400 font-bold' : 'text-emerald-800'}`}>{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t3' ? 'text-yellow-300 font-bold' : 'text-yellow-900'}`}>{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
-                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.closedPrice ? ((t.pnlPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400') : t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.closedPrice ? `₹${t.closedPrice.toFixed(2)}` : t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
+                    <td className={`px-2 py-1 text-right font-mono font-semibold ${t.closedPrice ? ((t.pnlPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400') : t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}
+                      title={!t.closedPrice && t.currentPrice && t.cmpDate ? `Data as of ${t.cmpDate}${t.cmpDate < (t.entryDate ?? '') ? ' ⚠ STALE — before entry date' : ''}` : undefined}>
+                      {t.closedPrice ? `₹${t.closedPrice.toFixed(2)}` : t.currentPrice ? (
+                        <span>
+                          ₹{t.currentPrice.toFixed(0)}
+                          {t.cmpDate && (
+                            <span className={`block text-[9px] font-normal leading-none mt-0.5 ${t.cmpDate < (t.entryDate ?? '') ? 'text-orange-400 font-bold' : 'text-slate-500'}`}>
+                              {t.cmpDate < (t.entryDate ?? '') ? '⚠ ' : ''}{t.cmpDate?.slice(5)}
+                            </span>
+                          )}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td className={`px-2 py-1 text-right font-mono font-semibold ${displayPnl !== null && displayPnl !== undefined ? (displayPnl >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
                       {displayPnl !== null && displayPnl !== undefined ? `${displayPnl >= 0 ? '+' : ''}${displayPnl.toFixed(1)}%` : '—'}
                       {t.status === 'open' && unrealPnl !== null ? ' *' : ''}
@@ -3093,7 +3218,7 @@ function HomePageInner() {
                   )}
                   <span className="text-slate-500">{s.totalScanned} stocks</span>
                   <span className="text-emerald-500 font-semibold">{s.actionableCount} BUY</span>
-                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '5-Set' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
+                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '6-Set' : s.paramSet === 'ors_prime_reversal' ? 'ORS↩' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
                   {/* Compare with previous session */}
                   {i < sessions.length - 1 && (
                     <button onClick={() => { setSessionDiff(compareSessions(sessions[i + 1], s)); }}
@@ -3974,6 +4099,7 @@ function HomePageInner() {
                         'optimized_elite_10plus': 'E10+',
                         'optimized_ultraselective_8plus': 'US8+',
                         'sniper_95plus': 'S95+',
+                        'ors_prime_reversal': 'ORS↩',
                       };
                       return (
                         <div key={sig.symbol} className="flex items-center gap-2 bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors text-xs" onClick={() => setSelectedSymbol(sig.symbol)}>
@@ -4708,7 +4834,8 @@ function HomePageInner() {
                             disabled={scanning || trackedTrades.filter(t => t.status === 'open').length === 0}
                             onClick={async () => {
                               if (scanningRef.current) return;
-                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'open');
+                              // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
+                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2');
                               if (openTrades.length === 0) return;
                               setScanning(true); scanningRef.current = true; setProgress(0); setTotal(openTrades.length);
                               try {
@@ -4728,7 +4855,10 @@ function HomePageInner() {
                                       if (idx >= 0) {
                                         let u = applyValidation(updated[idx], result);
                                         const lastCandle = candles[candles.length - 1];
-                                        if (lastCandle && lastCandle.c > 0) u = { ...u, currentPrice: lastCandle.c };
+                                        if (lastCandle && lastCandle.c > 0) {
+                                          const latestCmpDate3 = new Date((lastCandle.ts + 19800) * 1000).toISOString().slice(0, 10);
+                                          u = { ...u, currentPrice: lastCandle.c, cmpDate: latestCmpDate3 };
+                                        }
                                         const maxH = Math.max(...sinceEntry.map(c => c.h));
                                         if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
                                         updated[idx] = u;
@@ -5425,6 +5555,28 @@ function HomePageInner() {
         {/* ── Focus Tab ── */}
         {activeTab === 'focus' && (
           <div className="flex-1 overflow-auto p-4">
+
+            {/* ── 1. Consecutive Loss / Drawdown Alert ── */}
+            {(() => {
+              const closed = trackedTrades.filter(t => t.status !== 'open').slice().reverse();
+              let streak = 0;
+              for (const t of closed) {
+                if ((t.pnlPct ?? 0) < 0) streak++; else break;
+              }
+              if (streak < 2) return null;
+              return (
+                <div className={`flex items-center gap-3 mb-3 px-4 py-2.5 rounded-lg border text-xs font-medium ${streak >= 3 ? 'bg-red-950/60 border-red-700 text-red-300' : 'bg-amber-950/60 border-amber-700 text-amber-300'}`}>
+                  <span className="text-base">{streak >= 3 ? '🛑' : '⚠️'}</span>
+                  <span>
+                    <span className="font-bold">{streak} consecutive losses.</span>
+                    {streak >= 3
+                      ? ' Consider pausing until market conditions improve. No new full-size trades.'
+                      : ' Trade half-size on the next signal until a win resets the streak.'}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Context bar */}
             <div className="flex items-center gap-4 mb-4 text-xs">
               {marketRegime && (
@@ -5445,6 +5597,20 @@ function HomePageInner() {
               )}
               <span className="text-slate-600 ml-auto">{results.length > 0 ? `${results.length} scanned` : 'No scan yet'}</span>
             </div>
+
+            {/* ── 2. Sector Strength Strip ── */}
+            {sectorFlows.length > 0 && (
+              <div className="mb-4">
+                <div className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold mb-1.5">Sector Rotation</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {sectorFlows.slice(0, 10).map(sf => (
+                    <span key={sf.sector} className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${sf.flowLabel === 'inflow' ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : sf.flowLabel === 'outflow' ? 'bg-red-900/30 border-red-800 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                      {sf.flowLabel === 'inflow' ? '▲' : sf.flowLabel === 'outflow' ? '▼' : '—'} {sf.sector}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Top signals */}
             {(() => {
@@ -5488,16 +5654,48 @@ function HomePageInner() {
                     const maxRisk = qty * risk;
                     const isTracked = trackedTrades.some(t => t.symbol === r.symbol);
                     const sector = getSectorTag(r.symbol);
+                    const signalSectorFlow = sectorFlows.find(sf => sf.sector === sector);
+
+                    // ── 3. Entry timing quality (gap/chase warning) ──
+                    const plannedEntry = r.priceEngine.plannedEntry;
+                    const cmp = r.lastClose;
+                    const chaseGapPct = plannedEntry > 0 ? ((cmp - plannedEntry) / plannedEntry) * 100 : 0;
+                    const isChasingEntry = chaseGapPct > 1.5;
+
+                    // ── 4. Plain-English narrative (top 3 bullets) ──
+                    const narBullets: string[] = [];
+                    if (r.zone) {
+                      const tight = r.zone.zoneTightnessPct <= 5 ? 'extremely tight' : r.zone.zoneTightnessPct <= 10 ? 'tight' : 'moderate';
+                      narBullets.push(`${r.zone.windowLength}-day ${tight} zone (${r.zone.zoneTightnessPct.toFixed(1)}% range) — compression coiled for breakout`);
+                    }
+                    const volDesc = r.exactVolVsPre5 >= 3 ? `${r.exactVolVsPre5.toFixed(1)}× pre-5 avg` : r.exactVolRatio20 >= 2 ? `${r.exactVolRatio20.toFixed(1)}× 20-day avg` : null;
+                    if (volDesc) narBullets.push(`Breakout volume ${volDesc} — institutional participation confirmed`);
+                    if (r.closeLoc >= 70 && r.bodyPct >= 40) narBullets.push(`Strong candle: close at ${r.closeLoc.toFixed(0)}% of range, body ${r.bodyPct.toFixed(0)}% — buyers in control`);
+                    else if (r.momentum?.emaAligned && r.momentum?.higherLowConfirmed) narBullets.push('EMAs aligned bullish + higher-low structure — trend confirmed on daily');
+                    if (narBullets.length < 3 && r.stats?.ttmSqueezeFired) narBullets.push('TTM Squeeze just fired — momentum released from tight compression');
+                    if (narBullets.length < 3 && r.ultraPrecisionScore >= 60) narBullets.push(`UltraPrecision Score ${r.ultraPrecisionScore}/100 — top-tier candle quality`);
 
                     return (
                       <div key={r.symbol} className="bg-slate-800/40 rounded-lg overflow-hidden border border-slate-700/50">
+                        {/* Gap/Chase Warning Banner */}
+                        {isChasingEntry && (
+                          <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-950/60 border-b border-amber-800/50 text-xs text-amber-300">
+                            <span>⚠️</span>
+                            <span><span className="font-bold">Chasing entry</span> — CMP ₹{cmp.toFixed(2)} is {chaseGapPct.toFixed(1)}% above planned entry ₹{plannedEntry.toFixed(2)}. Stop unchanged → R:R degraded. Consider waiting for pullback or reduce size.</span>
+                          </div>
+                        )}
+
                         {/* Header */}
                         <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/30">
                           <span className="text-lg font-bold text-slate-100 font-mono">{idx + 1}.</span>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-bold text-slate-100 text-base">{r.symbol}</span>
-                              {sector && <span className="text-xs text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">{sector}</span>}
+                              {sector && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${signalSectorFlow?.flowLabel === 'inflow' ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : signalSectorFlow?.flowLabel === 'outflow' ? 'bg-red-900/20 border-red-800 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                                  {signalSectorFlow?.flowLabel === 'inflow' ? '▲' : signalSectorFlow?.flowLabel === 'outflow' ? '▼' : ''} {sector}
+                                </span>
+                              )}
                               <span className={`text-xs font-semibold ${STAGE_CONFIG[r.stage].color}`}>{STAGE_CONFIG[r.stage].label}</span>
                             </div>
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
@@ -5519,6 +5717,18 @@ function HomePageInner() {
                             <div className="text-xs text-slate-500">Conviction</div>
                           </div>
                         </div>
+
+                        {/* ── Plain-English "Why This Signal" ── */}
+                        {narBullets.length > 0 && (
+                          <div className="px-4 py-2 bg-slate-900/30 border-b border-slate-700/20 space-y-0.5">
+                            {narBullets.slice(0, 3).map((b, i) => (
+                              <div key={i} className="flex items-start gap-2 text-[11px] text-slate-400">
+                                <span className="text-indigo-400 mt-px shrink-0">{'›'}</span>
+                                <span>{b}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Trade details */}
                         <div className="grid grid-cols-4 gap-0 text-xs">
@@ -5575,6 +5785,43 @@ function HomePageInner() {
                       </div>
                     );
                   })}
+
+                  {/* ── 5. Near-Miss / Tomorrow's Watchlist ── */}
+                  {(() => {
+                    const allChecked = filteredResults.filter(r => !['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+                    const nearMiss = allChecked
+                      .map(r => {
+                        const cl = r.checklist ?? [];
+                        const met = cl.filter((c: { pass: boolean }) => c.pass).length;
+                        const total = cl.length;
+                        const missed = total - met;
+                        const failedNames = cl.filter((c: { pass: boolean; label?: string }) => !c.pass).map((c: { label?: string }) => c.label ?? '').filter(Boolean).slice(0, 2);
+                        return { r, met, total, missed, failedNames };
+                      })
+                      .filter(x => x.total > 0 && x.missed >= 1 && x.missed <= 2)
+                      .sort((a, b) => b.met - a.met)
+                      .slice(0, 5);
+
+                    if (nearMiss.length === 0) return null;
+                    return (
+                      <div className="bg-slate-800/20 rounded-lg p-3 mt-2 border border-slate-700/30">
+                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">👀 Near-Miss — Tomorrow's Watchlist</div>
+                        <div className="space-y-1.5">
+                          {nearMiss.map(({ r, met, total, failedNames }) => (
+                            <div key={r.symbol} className="flex items-center gap-3 text-xs">
+                              <span className="font-mono font-semibold text-slate-300 w-28 shrink-0">{r.symbol.replace('.NS','').replace('.BO','')}</span>
+                              <span className="text-slate-600">{met}/{total} checks</span>
+                              <span className="text-amber-500/80 flex-1">Missing: {failedNames.join(', ') || `${total - met} condition${total - met > 1 ? 's' : ''}`}</span>
+                              <button onClick={() => {
+                                const exists = watchlist.some(w => w.symbol === r.symbol);
+                                if (!exists) { const item = { symbol: r.symbol, note: 'Near-miss', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                              }} className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] text-amber-400 shrink-0">⭐ Watch</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Rolling validation stats */}
                   {trackedTrades.length >= 3 && (
