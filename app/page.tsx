@@ -1727,10 +1727,9 @@ function HomePageInner() {
           closes: flowTail.map(k => k.c),
           avgTurnover20: result.avgTurnover20 ?? 0,
         });
-        // Cache candles for sparkline + validation
+        // Cache candles for sparkline + validation (batched — setCandleCache called once post-scan)
         const sliced = candles.slice(-60);
         freshCandleMap[result.symbol] = sliced;
-        setCandleCache(prev => ({ ...prev, [result.symbol]: sliced }));
         newResults.push(result);
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
@@ -1760,6 +1759,7 @@ function HomePageInner() {
     );
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     flushResults();
+    setCandleCache(prev => ({ ...prev, ...freshCandleMap }));
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
     // Flag pattern + Guppy Coiled overlay detection on qualifying signals
