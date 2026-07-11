@@ -31,6 +31,21 @@ const SECTOR_SHORT: Record<string, string> = {
   'Transport Services': 'TRN',
 };
 
+// Sub-sector overrides for Banking — PSU and private banks diverge sharply
+// during risk-on/risk-off shifts. Lumping them into 'FIN' collapses that
+// signal. These checks run BEFORE the broad industryMap so the Brain's
+// sector scorecard tracks them as separate learning populations.
+const PSB_SYMBOLS = new Set([
+  'SBIN','PNB','BANKBARODA','CANBK','UNIONBANK','IOB','BANKINDIA',
+  'MAHABANK','CENTRALBK','PSB','J&KBANK','UCO','INDIANB',
+]);
+const PVB_SYMBOLS = new Set([
+  'HDFCBANK','ICICIBANK','AXISBANK','KOTAKBANK','INDUSINDBK','YESBANK',
+  'FEDERALBNK','IDFCFIRSTB','BANDHANBNK','RBLBANK','AUBANK','DCBBANK',
+  'KARURVYSYA','CUB','KTKBANK','NAINITALB','TMBLSM',
+  'UJJIVANSF','EQUITASBNK','SURYODAY','ESAFSFB','UTKARSHBNK',
+]);
+
 let _sectorCache: Map<string, string> | null = null;
 
 function buildSectorCache(): Map<string, string> {
@@ -46,12 +61,16 @@ function buildSectorCache(): Map<string, string> {
 }
 
 export function getSectorTag(symbol: string): string {
+  const clean = symbol.replace('.NS', '').replace('.BO', '');
+  // Sub-sector overrides checked first — Brain learns PSU vs Private bank
+  // win rates separately, which is the only way to capture divergent regime behaviour
+  if (PSB_SYMBOLS.has(clean)) return 'BNK-PSU';
+  if (PVB_SYMBOLS.has(clean)) return 'BNK-PVT';
   // Primary: industry map (808 stocks with NSE-official industry)
   const indTag = getIndustryTag(symbol);
   if (indTag) return indTag;
   // Fallback: sector preset membership
   const cache = buildSectorCache();
-  const clean = symbol.replace('.NS', '').replace('.BO', '');
   return cache.get(clean) ?? '';
 }
 

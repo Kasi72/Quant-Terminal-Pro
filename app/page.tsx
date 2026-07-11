@@ -54,7 +54,7 @@ import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { SECTOR_PRESETS } from '@/lib/sectorPresets';
 import { THEMATIC_PRESETS } from '@/lib/thematicPresets';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignalsByBrainV2, getSetupQualityMatrix } from '@/lib/adaptiveBrain';
+import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignalsByBrainV2, getSetupQualityMatrix, getNSECalendarContext } from '@/lib/adaptiveBrain';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
@@ -1368,6 +1368,9 @@ function HomePageInner() {
   const [showFlowSettings, setShowFlowSettings] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
+  const [fiiSellStreak, setFiiSellStreak] = useState<number>(() => {
+    try { return Math.max(0, parseInt(localStorage.getItem('qtp_fii_streak') || '0') || 0); } catch { return 0; }
+  });
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
@@ -1889,7 +1892,7 @@ function HomePageInner() {
     setPcaMap(newPcaMap);
     // Adaptive Brain — compute insights + per-signal adjusted scores
     try {
-      const bi = computeBrainInsights(trackedTradesRef.current);
+      const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as any);
       setBrainInsights(bi);
       const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}> = {};
       const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
@@ -1921,10 +1924,18 @@ function HomePageInner() {
         const pm = bi.premortem(r, { sector: getSectorTag(r.symbol), conviction: computeConviction(r) });
         newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '', confidence: adj.confidence, premortem: pm };
       }
-      // Engine 2: Thompson ranking for priority order
+      // Engine 2: Thompson ranking for priority order — multi-factor (sector + stock + ATR + pattern + conviction tier)
       if (buySignals.length > 1) {
-        const extraMap: Record<string, {sector: string}> = {};
-        for (const r of buySignals) extraMap[r.symbol] = { sector: getSectorTag(r.symbol) };
+        const extraMap: Record<string, {sector: string; atrState?: string; candlePattern?: string; conviction?: number}> = {};
+        for (const r of buySignals) {
+          const atrI = detectATRState(r);
+          extraMap[r.symbol] = {
+            sector: getSectorTag(r.symbol),
+            atrState: atrI.explosion ? 'EXPLOSION' : (atrI.state ?? undefined),
+            candlePattern: r.stats?.candlePattern ?? undefined,
+            conviction: computeConviction(r),
+          };
+        }
         const ranked = bi.thompsonRank(buySignals, extraMap);
         for (const r of ranked) {
           if (newBrainScores[r.symbol]) newBrainScores[r.symbol].priority = r.priority;
@@ -2118,7 +2129,7 @@ function HomePageInner() {
           }
           // Brain v3 — 5-Engine Intelligence in Telegram
           try {
-            const brainTg = computeBrainInsights(trackedTradesRef.current);
+            const brainTg = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as any);
             const atrInfoTg = detectATRState(r);
             const brainAdj = brainTg.adjustScore(r, {
               sector: getSectorTag(r.symbol), clenowScore: freshClenowMap[r.symbol]?.score, hasFlag: !!flagInfo, hasCoiled: !!guppyInfo,
@@ -2143,8 +2154,11 @@ function HomePageInner() {
             const otherBuys = newResults.filter(x => x.symbol !== r.symbol && ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(x.stage));
             if (otherBuys.length > 0) {
               const allBuys = [r, ...otherBuys];
-              const extraMap: Record<string, {sector: string}> = {};
-              for (const b of allBuys) extraMap[b.symbol] = { sector: getSectorTag(b.symbol) };
+              const extraMap: Record<string, {sector: string; atrState?: string; candlePattern?: string; conviction?: number}> = {};
+              for (const b of allBuys) {
+                const atrI = detectATRState(b);
+                extraMap[b.symbol] = { sector: getSectorTag(b.symbol), atrState: atrI.explosion ? 'EXPLOSION' : (atrI.state ?? undefined), candlePattern: b.stats?.candlePattern ?? undefined, conviction: computeConviction(b) };
+              }
               const ranked = brainTg.thompsonRank(allBuys, extraMap);
               const myRank = ranked.find((x: {symbol: string; badge: string}) => x.symbol === r.symbol);
               if (myRank) msg += `🏆 Thompson Priority: <b>${myRank.badge}</b> of ${ranked.length} signals\n`;
@@ -4214,8 +4228,29 @@ function HomePageInner() {
               const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior, brainInsights?.confidence);
               const sysExpectancy = brainInsights?.expectancy;
               const brainConf = brainInsights?.confidence;
+              const calCtx = getNSECalendarContext(fiiSellStreak);
               return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
+                  {/* NSE Calendar Banners — shown when structural market events are active */}
+                  {(calCtx.isExpiryWeek || calCtx.isBudgetWeek || fiiSellStreak >= 3) && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {calCtx.isExpiryWeek && (
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400" title="F&O monthly expiry week — IV crush creates false breakouts, reliability drops ~15-20%. Reduce position size.">
+                          📅 F&amp;O EXPIRY {calCtx.daysToExpiry === 0 ? 'TODAY' : `in ${calCtx.daysToExpiry}d`} — reduced signal reliability
+                        </div>
+                      )}
+                      {calCtx.isBudgetWeek && (
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400" title="Union Budget week — binary outcome risk. All setups should be half-sized. Avoid holding through the announcement.">
+                          📋 BUDGET WEEK — half-size all trades
+                        </div>
+                      )}
+                      {fiiSellStreak >= 3 && (
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400" title="FII net sellers — institutional headwind compresses upside on breakouts. Favour defensive setups.">
+                          🔴 FII NET SELL ×{fiiSellStreak}d — institutional headwind
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal Command — Ranked by Expected P&L</div>
@@ -4225,7 +4260,17 @@ function HomePageInner() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-600">{ranked.length} signal{ranked.length !== 1 ? 's' : ''}</div>
+                    <div className="flex items-center gap-2">
+                      {/* FII Sell Streak toggle — user sets this daily based on NSE FII/DII data */}
+                      <div className="flex items-center gap-1" title="Set to NSE's FII net sell day count. Penalises brain scores when institutions are offloading.">
+                        <span className="text-[9px] text-slate-600">FII sell</span>
+                        <button onClick={() => { const v = Math.max(0, fiiSellStreak - 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }} className="text-[9px] w-4 h-4 flex items-center justify-center rounded bg-slate-700/60 text-slate-400 hover:text-slate-200">−</button>
+                        <span className="text-[9px] font-mono w-3 text-center" style={{color: fiiSellStreak >= 5 ? '#ef4444' : fiiSellStreak >= 3 ? '#fb923c' : '#94a3b8'}}>{fiiSellStreak}</span>
+                        <button onClick={() => { const v = Math.min(15, fiiSellStreak + 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }} className="text-[9px] w-4 h-4 flex items-center justify-center rounded bg-slate-700/60 text-slate-400 hover:text-slate-200">+</button>
+                        <span className="text-[9px] text-slate-600">d</span>
+                      </div>
+                      <div className="text-[10px] text-slate-600">{ranked.length} signal{ranked.length !== 1 ? 's' : ''}</div>
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     {ranked.slice(0, 8).map((sig: ReturnType<typeof rankSignalsByBrainV2>[number], idx: number) => {
@@ -4291,7 +4336,7 @@ function HomePageInner() {
                     })}
                   </div>
                   <div className="mt-2 text-[10px] text-slate-700">
-                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% (scales with live data confidence: {brainConf ?? 'LOW'}) · PM = premortem similar-trade WR · click row to chart
+                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% (confidence: {brainConf ?? 'LOW'}) · Thompson: 5 factors (sector · stock · ATR · pattern · conv tier) · PM = premortem WR · FII sell streak adjusts all scores
                   </div>
                 </div>
               );
