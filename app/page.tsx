@@ -451,12 +451,12 @@ const COLUMNS: ColDef[] = [
     cellClass: () => 'text-slate-500 text-xs' },
   { key: 'conviction', label: 'Conv', width: 60, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Conviction Score (0-100)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite score measuring how STRONG the breakout signal is. Combines param conditions met, zone quality, candle quality, and volume confirmation.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite score measuring how STRONG the breakout signal is. Combines breakout stage tier, inflection score, momentum quality, and confidence level.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">80+</span></div><div><div class="rt-desc">Exceptional — nearly all conditions met across param sets. Trade with full size.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">60-79</span></div><div><div class="rt-desc">Strong — majority of conditions met. Standard position size.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">40-59</span></div><div><div class="rt-desc">Moderate — some conditions missing. Reduced size or wait for improvement.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;40</span></div><div><div class="rt-desc">Weak — too many conditions failing. Monitor only, do not trade.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">Weighted avg of: conditions met ratio (40%), inflection score (30%), candle quality (15%), volume confirmation (15%)</div><div class="rt-hit hit-green">Higher conviction = more conditions aligned = stronger setup</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">Stage tier (0-30) + Inflection×0.25 (0-25) + Momentum×0.20 (0-20) + Confidence×0.15 (0-15) + TradeValid (+10). Capped at 100.</div><div class="rt-hit hit-green">Higher conviction = more dimensions aligned = stronger setup</div></div></div>',
     fmt: r => '',  // rendered custom in cell
     numVal: r => computeConviction(r),
     cellClass: () => '' },
@@ -489,7 +489,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Detects</span></div><div><div class="rt-desc">EMA alignment converging · Volume dry-up then tick-up · ATR contracting then expanding · Price testing zone highs · Higher lows forming inside zone</div><div class="rt-hit hit-green">Higher score = more compressed energy about to release</div></div></div>',
     fmt: r => r.inflectionScore.toFixed(0),
     numVal: r => r.inflectionScore,
-    cellClass: r => r.inflectionScore >= 60 ? 'text-yellow-300 font-semibold' : r.inflectionScore >= 45 ? 'text-emerald-400' : 'text-slate-400' },
+    cellClass: r => r.inflectionScore >= 80 ? 'text-green-300 font-semibold' : r.inflectionScore >= 60 ? 'text-emerald-400' : r.inflectionScore >= 40 ? 'text-yellow-300' : 'text-slate-400' },
   { key: 'confidence', label: 'Conf%',      width: 68,  align: 'right',
     headerTipHtml: '<div class="rt-hdr">Confidence Percentage (0-100%)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How RELIABLE the signal classification is. Measures agreement across all 5 param sets and consistency of the inflection score.</div></div></div>'
@@ -941,7 +941,7 @@ const COLUMNS: ColDef[] = [
       if (state === 'HIGH_VOL') return '🔥 MOMEN';
       return '—';
     },
-    numVal: r => { const { explosion } = detectATRState(r); return explosion ? 3 : detectATRState(r).state === 'SWEET_SPOT' ? 2 : detectATRState(r).state === 'BUILDING' ? 1 : 0; },
+    numVal: r => { const { state, explosion } = detectATRState(r); if (explosion) return 4; if (state === 'HIGH_VOL') return 3; if (state === 'DEEP_COMPRESSION') return 2; if (state === 'SWEET_SPOT') return 1; return 0; },
     cellClass: r => {
       const { state, explosion } = detectATRState(r);
       if (explosion) return 'text-[#39FF14] font-bold bg-green-900/30 px-1 rounded';
