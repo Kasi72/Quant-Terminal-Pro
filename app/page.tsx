@@ -1368,7 +1368,7 @@ function HomePageInner() {
   const [showFlowSettings, setShowFlowSettings] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
-  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
+  const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}>>({});
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -1918,7 +1918,8 @@ function HomePageInner() {
                      setupQual.tier === 'AVERAGE'? `AVERAGE — reduce 0.75× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
                                                    `WEAK — half size (${setupQual.expectedPnl.toFixed(1)}% avg)`;
         }
-        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '' };
+        const pm = bi.premortem(r, { sector: getSectorTag(r.symbol), conviction: computeConviction(r) });
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '', confidence: adj.confidence, premortem: pm };
       }
       // Engine 2: Thompson ranking for priority order
       if (buySignals.length > 1) {
@@ -3240,7 +3241,7 @@ function HomePageInner() {
                     <td className="px-2 py-1 font-mono text-slate-200">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                     <td className="px-2 py-1 text-center">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${t.status === 'open' ? 'bg-amber-900/30 text-amber-400' : (displayPnl ?? 0) > 0 ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
-                        {t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : t.status === 'hit_t3' ? 'T3' : t.status === 'stopped' ? 'STOP' : t.status === 'expired' ? 'EXP' : 'CLOSE'}
+                        {t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1' : t.status === 'hit_t2' ? 'T2' : t.status === 'hit_t3' ? 'T3' : t.status === 'stopped' ? 'STOP' : t.status === 'expired' ? 'EXP' : t.status === 'closed_early' ? 'EXIT' : 'CLOSE'}
                       </span>
                     </td>
                     <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
@@ -3923,7 +3924,23 @@ function HomePageInner() {
                         <tr className="border-b border-slate-800/40 group">
                           <td className="px-3 py-1.5 font-mono text-slate-200 cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedSymbol(t.symbol)} title="Click to open details">{t.symbol.replace('.NS','').replace('.BO','')}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
-                          <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{t.stopLoss.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono" title={(() => {
+                            const stopDist = t.entryPrice > 0 ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100 : 0;
+                            const avgMAE = Math.abs(brainInsights?.avgMAE ?? 0);
+                            if (avgMAE > 0 && stopDist < avgMAE) return `⚠ Stop distance (${stopDist.toFixed(1)}%) < your avg MAE (${avgMAE.toFixed(1)}%) — stop is inside normal noise range`;
+                            return `Stop distance: ${stopDist.toFixed(1)}%`;
+                          })()}>
+                            <span className={(() => {
+                              const stopDist = t.entryPrice > 0 ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100 : 0;
+                              const avgMAE = Math.abs(brainInsights?.avgMAE ?? 0);
+                              return avgMAE > 0 && stopDist < avgMAE ? 'text-amber-400' : 'text-red-400';
+                            })()}>₹{t.stopLoss.toFixed(0)}</span>
+                            {(() => {
+                              const stopDist = t.entryPrice > 0 ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100 : 0;
+                              const avgMAE = Math.abs(brainInsights?.avgMAE ?? 0);
+                              return avgMAE > 0 && stopDist < avgMAE ? <span className="text-[8px] text-amber-400 ml-0.5">⚠</span> : null;
+                            })()}
+                          </td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-mono">₹{t.target1.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
                           <td className="px-2 py-1.5 text-slate-600">{t.sector || '—'}</td>
@@ -4020,6 +4037,7 @@ function HomePageInner() {
                           stopped: { label: '✗ Stopped', color: 'bg-red-900/40 text-red-300' },
                           expired: { label: '⏳ Expired', color: 'bg-amber-900/40 text-amber-300' },
                           manual_close: { label: '◉ Manual', color: 'bg-slate-700/40 text-slate-300' },
+                          closed_early: { label: '↗ Early Exit', color: 'bg-cyan-900/40 text-cyan-300' },
                         };
                         const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
                         const cGLog = t.gateLog;
@@ -4193,12 +4211,21 @@ function HomePageInner() {
             {(() => {
               const buySignals = results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
               if (!buySignals.length) return null;
-              const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior);
+              const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior, brainInsights?.confidence);
+              const sysExpectancy = brainInsights?.expectancy;
+              const brainConf = brainInsights?.confidence;
               return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal Command — Ranked by Expected P&L</div>
-                    <div className="text-[10px] text-slate-600">{ranked.length} active signal{ranked.length !== 1 ? 's' : ''}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal Command — Ranked by Expected P&L</div>
+                      {sysExpectancy != null && brainInsights && brainInsights.totalTrades >= 5 && (
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{color: sysExpectancy >= 0 ? '#22d3ee' : '#ef4444', backgroundColor: sysExpectancy >= 0 ? '#22d3ee15' : '#ef444415'}} title={`System expectancy = (${(brainInsights.baseWinRate)}% WR × avg win ${brainInsights.avgWinPnl?.toFixed(1)}%) − (${100 - brainInsights.baseWinRate}% loss rate × avg loss ${brainInsights.avgLossPnl?.toFixed(1)}%)`}>
+                          E = {sysExpectancy >= 0 ? '+' : ''}{sysExpectancy.toFixed(2)}% / trade
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-600">{ranked.length} signal{ranked.length !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="space-y-1.5">
                     {ranked.slice(0, 8).map((sig: ReturnType<typeof rankSignalsByBrainV2>[number], idx: number) => {
@@ -4246,11 +4273,26 @@ function HomePageInner() {
                               {rel.n}× {rel.wr}%
                             </span>
                           )}
+                          {/* premortem badge */}
+                          {(() => {
+                            const pm = brainScores[sig.symbol]?.premortem;
+                            if (!pm) return null;
+                            const pmColor = pm.verdict === 'FAVORABLE' ? '#22d3ee' : pm.verdict === 'MIXED' ? '#facc15' : '#ef4444';
+                            const pmBg = pm.verdict === 'FAVORABLE' ? '#22d3ee15' : pm.verdict === 'MIXED' ? '#facc1515' : '#ef444415';
+                            return (
+                              <span className="text-[9px] font-mono font-bold px-1 rounded" style={{color: pmColor, backgroundColor: pmBg}}
+                                title={`${pm.matches.length} similar past trade${pm.matches.length !== 1 ? 's' : ''}: ${pm.winRate}% WR — ${pm.verdict}`}>
+                                PM {pm.winRate}%
+                              </span>
+                            );
+                          })()}
                         </div>
                       );
                     })}
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-700">Composite rank = 60% brain score + 40% backtest expected P&L · click any row to view chart</div>
+                  <div className="mt-2 text-[10px] text-slate-700">
+                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% (scales with live data confidence: {brainConf ?? 'LOW'}) · PM = premortem similar-trade WR · click row to chart
+                  </div>
                 </div>
               );
             })()}
@@ -5319,6 +5361,7 @@ function HomePageInner() {
                                 stopped: { label: '✗ SL', color: 'bg-red-900/40 text-red-300' },
                                 expired: { label: '⏳ EXP', color: 'bg-amber-900/40 text-amber-300' },
                                 manual_close: { label: '◉ MAN', color: 'bg-slate-700/40 text-slate-300' },
+                                closed_early: { label: '↗ EXIT', color: 'bg-cyan-900/40 text-cyan-300' },
                               };
                               const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
                               const stgCfg = STAGE_CONFIG[t.stage];
@@ -5372,7 +5415,20 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>
                                   <td className="px-1 py-1.5 text-center">
-                                    <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                      {t.status === 'open' && t.currentPrice && t.entryPrice > 0 && (
+                                        <button
+                                          onClick={() => {
+                                            const exitPnlPct = ((t.currentPrice! - t.entryPrice) / t.entryPrice) * 100;
+                                            const exitPricePct = t.target1 > t.entryPrice ? ((t.currentPrice! - t.entryPrice) / (t.target1 - t.entryPrice)) * 100 : 0;
+                                            const updated = trackedTrades.map(x => x === t ? { ...x, status: 'closed_early' as const, pnlPct: Math.round(exitPnlPct * 100) / 100, closedPrice: t.currentPrice, closedDate: new Date().toISOString().slice(0, 10), exitPricePct: Math.round(exitPricePct) } : x);
+                                            setTrackedTrades(updated); syncTradesToCloud(updated);
+                                          }}
+                                          className="text-[9px] px-1 py-0.5 rounded bg-cyan-900/40 text-cyan-400 hover:bg-cyan-800/60 font-bold"
+                                          title={`Mark closed early at CMP ₹${t.currentPrice?.toFixed(0)} — records exit quality for Brain learning`}>↗ Exit</button>
+                                      )}
+                                      <button onClick={() => removeTrade(t)} className="text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -5711,7 +5767,46 @@ function HomePageInner() {
                   })()}
 
                   {/* ═══════════════════════════════════════════ */}
-                  {/* SECTION 5: ENGINE REFERENCE                */}
+                  {/* SECTION 5: EXIT BEHAVIOR ANALYSIS          */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {brainInsights && (() => {
+                    const eb = brainInsights.analyzeExitBehavior?.();
+                    if (!eb) return null;
+                    const typeColor = eb.sellerType === 'SELL_TOO_SOON' ? 'text-amber-400' : eb.sellerType === 'HOLD_TOO_LONG' ? 'text-red-400' : eb.sellerType === 'PATIENT_HOLDER' ? 'text-emerald-400' : 'text-cyan-400';
+                    const typeIcon = eb.sellerType === 'SELL_TOO_SOON' ? '⏩' : eb.sellerType === 'HOLD_TOO_LONG' ? '⏳' : eb.sellerType === 'PATIENT_HOLDER' ? '🎯' : '⚖';
+                    return (
+                      <div className="bg-slate-800/40 rounded-lg p-3">
+                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                          <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
+                          Exit Behavior Analysis
+                          <span className={`ml-auto text-[10px] font-bold ${typeColor}`}>{typeIcon} {eb.sellerType.replace(/_/g,' ')}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-2">
+                          <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                            <div className="text-[10px] text-slate-500 uppercase">T2 Capture</div>
+                            <div className={`text-xl font-bold ${eb.t2CaptureRate >= 50 ? 'text-emerald-400' : eb.t2CaptureRate >= 30 ? 'text-amber-400' : 'text-red-400'}`}>{eb.t2CaptureRate}%</div>
+                            <div className="text-[10px] text-slate-600">{eb.t2Hits} of {eb.reachedT1} T1 hits</div>
+                          </div>
+                          <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                            <div className="text-[10px] text-slate-500 uppercase">MFE Gap</div>
+                            <div className={`text-xl font-bold ${Math.abs(eb.avgMFEGap) < 1 ? 'text-emerald-400' : Math.abs(eb.avgMFEGap) < 3 ? 'text-amber-400' : 'text-red-400'}`}>{eb.avgMFEGap > 0 ? '+' : ''}{eb.avgMFEGap.toFixed(1)}%</div>
+                            <div className="text-[10px] text-slate-600">left on table / winner</div>
+                          </div>
+                          <div className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
+                            <div className="text-[10px] text-slate-500 uppercase">Expire Rate</div>
+                            <div className={`text-xl font-bold ${eb.expireRate <= 20 ? 'text-emerald-400' : eb.expireRate <= 40 ? 'text-amber-400' : 'text-red-400'}`}>{eb.expireRate}%</div>
+                            <div className="text-[10px] text-slate-600">{eb.expiredCount} expired trades</div>
+                          </div>
+                        </div>
+                        <div className={`text-[10px] px-2.5 py-1.5 rounded ${eb.sellerType === 'SELL_TOO_SOON' ? 'bg-amber-900/20 border border-amber-800/30 text-amber-300' : eb.sellerType === 'HOLD_TOO_LONG' ? 'bg-red-900/20 border border-red-800/30 text-red-300' : eb.sellerType === 'PATIENT_HOLDER' ? 'bg-emerald-900/20 border border-emerald-800/30 text-emerald-300' : 'bg-slate-700/30 border border-slate-700/40 text-slate-400'}`}>
+                          {eb.advice}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 6: ENGINE REFERENCE                */}
                   {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5 border border-slate-700/30">
                     <div><b className="text-slate-500">Engine:</b> Level 3 bar-by-bar sequential (stop checked before target)</div>

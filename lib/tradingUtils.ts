@@ -108,7 +108,8 @@ export interface TrackedTrade {
   rsRank?: number;
   volumeBadge?: string;
   regimeAtEntry?: string;
-  status: 'open' | 'hit_t1' | 'hit_t2' | 'hit_t3' | 'stopped' | 'expired' | 'manual_close';
+  status: 'open' | 'hit_t1' | 'hit_t2' | 'hit_t3' | 'stopped' | 'expired' | 'manual_close' | 'closed_early';
+  exitPricePct?: number;  // % of T1 distance captured when closed early (exit quality metric)
   currentPrice?: number;
   cmpDate?: string;       // IST date of the candle that sourced currentPrice (YYYY-MM-DD)
   highestPrice?: number;
@@ -144,6 +145,7 @@ export interface WinRateStats {
   stopped: number;
   expired: number;
   manualClose: number;
+  closedEarly: number;
   winRate: number;
   avgWinPct: number;
   avgLossPct: number;
@@ -199,6 +201,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     stopped: trades.filter(t => t.status === 'stopped').length,
     expired: trades.filter(t => t.status === 'expired').length,
     manualClose: trades.filter(t => t.status === 'manual_close').length,
+    closedEarly: trades.filter(t => t.status === 'closed_early').length,
     winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
     avgWinPct: wins.length > 0 ? totalWinPct / wins.length : 0,
     avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,
