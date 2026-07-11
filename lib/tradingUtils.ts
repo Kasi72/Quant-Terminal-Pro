@@ -96,6 +96,9 @@ export interface TrackedTrade {
   paramSetKey: string;
   sector: string;
   conviction: number;
+  edgeScore?: number;       // composite signal score at entry (0-100)
+  zoneExplosion?: string;   // zone explosion tier at entry (HIGH_CONVICTION/CONFIRMED)
+  monsterBadge?: string;    // monster badge type at entry (MRV/MOM/BRK)
   // P0: feature snapshot at entry — feeds Brain v3's Pattern Scorecard,
   // Golden/Weak Setups, Regime Scorecard, and ATR/pattern anomaly checks.
   // Without these, those panels silently have nothing to match against.
@@ -107,6 +110,7 @@ export interface TrackedTrade {
   regimeAtEntry?: string;
   status: 'open' | 'hit_t1' | 'hit_t2' | 'hit_t3' | 'stopped' | 'expired' | 'manual_close';
   currentPrice?: number;
+  cmpDate?: string;       // IST date of the candle that sourced currentPrice (YYYY-MM-DD)
   highestPrice?: number;
   lastCheckDate?: string;
   closedDate?: string;
@@ -226,12 +230,12 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     updated.closedDate = updated.lastCheckDate;
     updated.pnlPct = ((trade.disasterStop - trade.entryPrice) / trade.entryPrice) * 100;
     updated.pnlR = riskPerShare > 0 ? (trade.disasterStop - trade.entryPrice) / riskPerShare : -1;
-  } else if (currentPrice <= trade.stopLoss) {
+  } else if (riskPerShare > 0 && trade.stopLoss > 0 && currentPrice <= trade.stopLoss) {
     updated.status = 'stopped';
     updated.closedPrice = trade.stopLoss;
     updated.closedDate = updated.lastCheckDate;
     updated.pnlPct = ((trade.stopLoss - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.stopLoss - trade.entryPrice) / riskPerShare : -1;
+    updated.pnlR = (trade.stopLoss - trade.entryPrice) / riskPerShare;
   } else if (currentPrice >= trade.target3) {
     updated.status = 'hit_t3';
     updated.closedPrice = trade.target3;
@@ -250,7 +254,7 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     updated.closedDate = updated.lastCheckDate;
     updated.pnlPct = ((trade.target1 - trade.entryPrice) / trade.entryPrice) * 100;
     updated.pnlR = riskPerShare > 0 ? (trade.target1 - trade.entryPrice) / riskPerShare : 0;
-  } else if (daysHeld > 20) {
+  } else if (daysHeld >= 20) {
     updated.status = 'expired';
     updated.closedPrice = currentPrice;
     updated.closedDate = updated.lastCheckDate;

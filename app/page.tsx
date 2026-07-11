@@ -355,6 +355,24 @@ function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
   return null;
 }
 
+// Composite Edge Score (0–100): ranks all signals by backtested avg20d advantage.
+// StatsScore×0.25 + MomScore×0.20 + Zone(15) + Vol(10) + ATR(10) + DNA(10) + Monster(10) + Conv×0.10
+function computeEdgeScore(r: AnalysisResult): number {
+  const stats = (r.stats?.statsScore ?? 0) * 0.25;
+  const mom = (r.momentum?.momentumScore ?? 0) * 0.20;
+  const ze = detectZoneExplosion(r);
+  const zone = ze === 'HIGH_CONVICTION' ? 15 : ze === 'CONFIRMED' ? 10 : 0;
+  const vb = detectVolumeBadge(r);
+  const vol = vb === 'HIGH_CONVICTION' ? 10 : vb === 'CONFIRMED' ? 7 : 0;
+  const { state, explosion } = detectATRState(r);
+  const atr = explosion ? 10 : state === 'HIGH_VOL' ? 8 : state === 'DEEP_COMPRESSION' ? 6 : state === 'SWEET_SPOT' ? 4 : 0;
+  const dna = r.candleDNA?.tier === 'ELITE' ? 10 : r.candleDNA?.tier === 'STRONG' ? 8 : r.candleDNA?.tier === 'GOOD' ? 5 : 1;
+  const topBadge = r.monster?.badges?.[0];
+  const monster = topBadge?.type === 'MRV' ? 10 : topBadge?.type === 'MOM' ? 8 : topBadge?.type === 'BRK' ? 5 : 0;
+  const conv = computeConviction(r) * 0.10;
+  return Math.round(Math.min(stats + mom + zone + vol + atr + dna + monster + conv, 100));
+}
+
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
   try { return col.fmt(r); } catch { return '—'; }
 }
@@ -1387,6 +1405,7 @@ function HomePageInner() {
   const tradesLoadedRef = useRef(false); // prevents save effect from firing before cloud load
   trackedTradesRef.current = trackedTrades;
   const [showTracker, setShowTracker] = useState(false);
+  const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
   const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
   const [showTradeSheet, setShowTradeSheet] = useState<string | null>(null);
@@ -2299,6 +2318,17 @@ function HomePageInner() {
   // #7: Scan statistics
   const scanStats = useMemo(() => computeScanStats(results), [results]);
 
+  // Top picks ranked by EdgeScore — BUY/STRONG/ULTRA/PRE-BRK stages only, top 8
+  const topPicks = useMemo(() => {
+    const buySet = new Set<StageRating>(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
+    return [...results]
+      .filter(r => buySet.has(r.stage))
+      .map(r => ({ r, score: computeEdgeScore(r) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(x => x.r);
+  }, [results]);
+
   // Win rate stats (#2)
   const winStats = useMemo(() => computeWinRateStats(trackedTrades), [trackedTrades]);
 
@@ -2316,6 +2346,8 @@ function HomePageInner() {
     const atrInfo = detectATRState(r);
     const tf = tfAlignments.get(r.symbol);
     const rs = rsData.get(r.symbol);
+    const zeInfo = detectZoneExplosion(r);
+    const monsterBadgeType = r.monster?.badges?.[0]?.type;
 
     const trade: TrackedTrade = {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
@@ -2323,12 +2355,14 @@ function HomePageInner() {
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
       target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
-      conviction: computeConviction(r), status: 'open',
+      conviction: computeConviction(r), edgeScore: computeEdgeScore(r), status: 'open',
       candlePattern: r.stats?.candlePattern || undefined,
       atrState: atrInfo.explosion ? 'EXPLOSION' : (atrInfo.state || undefined),
       tfAlignment: tf?.alignment || undefined,
       rsRank: rs?.rsRank,
       volumeBadge: detectVolumeBadge(r) || undefined,
+      zoneExplosion: zeInfo || undefined,
+      monsterBadge: monsterBadgeType || undefined,
       regimeAtEntry: marketRegime?.label || undefined,
     };
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
@@ -5608,6 +5642,68 @@ function HomePageInner() {
                   </>)}
 
                   {/* ═══════════════════════════════════════════ */}
+                  {/* SECTION 5B: WHAT'S WORKING                 */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {(() => {
+                    const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                    const signalDefs: Array<{ name: string; icon: string; check: (t: TrackedTrade) => boolean }> = [
+                      { name: 'Zone Explosion', icon: '💎', check: t => t.zoneExplosion === 'HIGH_CONVICTION' },
+                      { name: 'Zone Confirmed',  icon: '🎯', check: t => t.zoneExplosion === 'CONFIRMED' },
+                      { name: 'ATR Explosion',   icon: '💥', check: t => t.atrState === 'EXPLOSION' },
+                      { name: 'Vol Thrust',      icon: '🔥', check: t => t.volumeBadge === 'HIGH_CONVICTION' },
+                      { name: 'Vol Confirmed',   icon: '✓',  check: t => t.volumeBadge === 'CONFIRMED' },
+                      { name: 'Monster MRV',     icon: '👾', check: t => t.monsterBadge === 'MRV' },
+                      { name: 'Monster MOM',     icon: '🚀', check: t => t.monsterBadge === 'MOM' },
+                      { name: 'Conv 70+',        icon: '⚡', check: t => t.conviction >= 70 },
+                      { name: 'EdgeScore 65+',   icon: '📈', check: t => (t.edgeScore ?? 0) >= 65 },
+                    ];
+                    const rows = signalDefs.map(def => {
+                      const matching = closed.filter(def.check);
+                      if (matching.length < 2) return null;
+                      const wins = matching.filter(t => (t.pnlPct ?? 0) > 0);
+                      const wr = (wins.length / matching.length) * 100;
+                      const avgPnl = matching.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / matching.length;
+                      return { name: def.name, icon: def.icon, n: matching.length, wins: wins.length, wr, avgPnl };
+                    }).filter((x): x is { name: string; icon: string; n: number; wins: number; wr: number; avgPnl: number } => x !== null)
+                      .sort((a, b) => b.wr - a.wr);
+                    return (
+                      <div className="bg-slate-800/30 rounded-lg overflow-hidden">
+                        <div className="px-3 py-2 bg-slate-800/50 flex items-center gap-2">
+                          <span className="text-xs text-slate-300 font-semibold">📊 What's Working — Signal Attribution</span>
+                          <span className="text-[10px] text-slate-600 ml-auto">{closed.length} closed trades</span>
+                        </div>
+                        <div className="px-3 pb-3 pt-2">
+                          {closed.length < 3 ? (
+                            <div className="text-[10px] text-slate-600 text-center py-2">Need 3+ closed trades to see which signals are working for you</div>
+                          ) : rows.length === 0 ? (
+                            <div className="text-[10px] text-slate-600 text-center py-2">No signals with 2+ trades yet — keep tracking</div>
+                          ) : (
+                            <>
+                              <div className="text-[10px] text-slate-600 mb-2">Win rate per signal present at entry — min 2 trades shown</div>
+                              <div className="space-y-1.5">
+                                {rows.map(row => (
+                                  <div key={row.name} className="flex items-center gap-2 text-[10px]">
+                                    <span className="w-3 text-center">{row.icon}</span>
+                                    <span className="w-28 text-slate-400 font-medium truncate">{row.name}</span>
+                                    <div className="flex-1 bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                      <div className={`h-full rounded-full ${row.wr >= 60 ? 'bg-emerald-500' : row.wr >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                        style={{ width: `${Math.max(row.wr, 3)}%` }} />
+                                    </div>
+                                    <span className={`w-10 text-right font-mono font-bold ${row.wr >= 60 ? 'text-emerald-400' : row.wr >= 40 ? 'text-yellow-300' : 'text-red-400'}`}>{row.wr.toFixed(0)}%</span>
+                                    <span className={`w-12 text-right font-mono ${row.avgPnl >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{row.avgPnl >= 0 ? '+' : ''}{row.avgPnl.toFixed(1)}%</span>
+                                    <span className="text-slate-600 w-8 text-right">{row.wins}/{row.n}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="text-[9px] text-slate-700 mt-2 border-t border-slate-800 pt-1.5">Signals &gt;60% WR → full size. Red rows → half-size or wait for more confirmation before entry.</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ═══════════════════════════════════════════ */}
                   {/* SECTION 5: ENGINE REFERENCE                */}
                   {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5 border border-slate-700/30">
@@ -6183,6 +6279,75 @@ function HomePageInner() {
                 </button>
               ))}
               <span className="ml-auto text-[10px] text-slate-600">{visibleColumns.length} cols</span>
+            </div>
+          )}
+
+          {/* ── Today's Edge: Top Picks ranked shortlist ── */}
+          {topPicks.length > 0 && (
+            <div className="flex-shrink-0 border-b border-slate-800/50 bg-[#0d1117]">
+              <button
+                onClick={() => setShowTopPicks(v => !v)}
+                className="flex items-center gap-2 w-full px-4 py-1.5 hover:bg-slate-800/20 transition-colors text-left group"
+              >
+                <span className="text-[11px] font-bold text-indigo-400">⚡ TODAY'S EDGE</span>
+                <span className="text-[10px] text-slate-600">— top {topPicks.length} setups ranked by composite signal strength</span>
+                <span className="ml-auto text-[10px] text-slate-600 group-hover:text-slate-400">{showTopPicks ? '▲ hide' : '▼ show'}</span>
+              </button>
+              {showTopPicks && (
+                <div className="flex gap-2 px-4 pb-2.5 pt-0.5 overflow-x-auto">
+                  {topPicks.map((r, i) => {
+                    const es = computeEdgeScore(r);
+                    const ze = detectZoneExplosion(r);
+                    const { state: atrSt, explosion: atrExp } = detectATRState(r);
+                    const vb = detectVolumeBadge(r);
+                    const topBadge = r.monster?.badges?.[0];
+                    const conv = computeConviction(r);
+                    const stageShort = r.stage === 'ULTRA_STRONG_BUY' ? 'ULTRA' : r.stage === 'STRONG_BUY' ? 'STRONG' : r.stage === 'BUY' ? 'BUY' : 'PRE-BRK';
+                    const esColor = es >= 70 ? 'text-green-300' : es >= 50 ? 'text-indigo-300' : es >= 35 ? 'text-yellow-300' : 'text-slate-400';
+                    const barColor = es >= 70 ? 'bg-green-500' : es >= 50 ? 'bg-indigo-500' : es >= 35 ? 'bg-yellow-500' : 'bg-slate-600';
+                    return (
+                      <div key={r.symbol}
+                        onClick={() => setSelectedSymbol(r.symbol)}
+                        className="flex-shrink-0 w-[11.5rem] bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/60 hover:border-slate-600 rounded-lg px-3 py-2 cursor-pointer transition-all group">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[10px] font-bold text-slate-600">#{i + 1}</span>
+                          <span className="text-[13px] font-mono font-bold text-slate-100 group-hover:text-indigo-300 transition-colors truncate">{r.symbol.replace('.NS', '').replace('.BO', '')}</span>
+                          <span className={`ml-auto text-[9px] font-bold ${STAGE_CONFIG[r.stage].color}`}>{stageShort}</span>
+                        </div>
+                        <div className="mb-1.5">
+                          <div className="flex justify-between items-center mb-0.5">
+                            <span className="text-[9px] text-slate-600">Edge</span>
+                            <span className={`text-[11px] font-bold ${esColor}`}>{es}</span>
+                          </div>
+                          <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+                            <div className={`h-full ${barColor} rounded-full`} style={{ width: `${es}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-1.5 min-h-[14px]">
+                          {ze === 'HIGH_CONVICTION' && <span className="text-[8px] bg-cyan-900/50 text-cyan-300 border border-cyan-700/50 px-1 rounded">💎Zone</span>}
+                          {ze === 'CONFIRMED' && !atrExp && <span className="text-[8px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-1 rounded">Zone✓</span>}
+                          {atrExp && <span className="text-[8px] bg-green-900/50 text-[#39FF14] border border-green-700/50 px-1 rounded">💥ATR</span>}
+                          {!atrExp && atrSt === 'HIGH_VOL' && <span className="text-[8px] bg-purple-900/40 text-purple-300 border border-purple-700/40 px-1 rounded">HiVol</span>}
+                          {vb === 'HIGH_CONVICTION' && <span className="text-[8px] bg-orange-900/50 text-orange-300 border border-orange-700/50 px-1 rounded">🔥Vol</span>}
+                          {vb === 'CONFIRMED' && <span className="text-[8px] bg-yellow-900/40 text-yellow-300 border border-yellow-700/40 px-1 rounded">Vol✓</span>}
+                          {r.candleDNA?.tier === 'ELITE' && <span className="text-[8px] bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-700/40 px-1 rounded">Elite</span>}
+                          {topBadge && <span className="text-[8px] bg-pink-900/40 text-pink-300 border border-pink-700/40 px-1 rounded">{topBadge.type}</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-700/40 text-[9px]">
+                          <span className="text-slate-600">Conv</span>
+                          <span className={`font-bold ${conv >= 60 ? 'text-yellow-300' : conv >= 40 ? 'text-emerald-400' : 'text-slate-400'}`}>{conv}</span>
+                          <span className="text-slate-700 mx-0.5">·</span>
+                          <span className="text-slate-600">R:R</span>
+                          <span className={`font-bold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{r.priceEngine.rewardRisk.toFixed(1)}</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); trackTrade(r); }}
+                            className="ml-auto text-[8px] text-slate-600 hover:text-emerald-400 border border-slate-700 hover:border-emerald-600 rounded px-1 py-0.5 transition-colors">+Track</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
