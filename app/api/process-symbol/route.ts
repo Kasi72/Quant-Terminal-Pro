@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       session_id, symbol,
       clusters_passed: 0, passed_deployable: false,
       passed_high_precision: false, passed_elite: false,
-      passed_ultra_selective: false, last_close: 0,
+      passed_ultra_selective: false, passed_ors_prime: false, last_close: 0,
     });
     await supabase.rpc('increment_processed', { sid: session_id });
     return NextResponse.json({ ok: false, error: `Insufficient candle data for ${symbol}` });
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       session_id, symbol,
       clusters_passed: 0, passed_deployable: false,
       passed_high_precision: false, passed_elite: false,
-      passed_ultra_selective: false, last_close: 0,
+      passed_ultra_selective: false, passed_ors_prime: false, last_close: 0,
     });
     await supabase.rpc('increment_processed', { sid: session_id });
     return NextResponse.json({ ok: false, error: String(err) });

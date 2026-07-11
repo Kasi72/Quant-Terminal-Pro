@@ -342,6 +342,32 @@ export function computeSectorFlowScores(
   return { scores, breadth };
 }
 
+// ── Kill switch + ranking integration (Sprint 2) ─────────────────────────────
+
+// One-line disable when the data source misbehaves — no formula surgery at 9:20 AM.
+export const SECTOR_FLOW_ENABLED = true;
+
+// Conviction adjustment for Focus Tab ranking. Bounded ±8 points so sector flow
+// tilts the ordering without dominating the technical score. Stale/missing data
+// and low-liquidity scores contribute exactly 0 (enforced circuit breaker).
+export function sectorFlowConvictionBoost(sf: SectorFlowScore | undefined): number {
+  if (!SECTOR_FLOW_ENABLED || !sf) return 0;
+  if (sf.freshness !== 'fresh') return 0;          // circuit breaker: stale data never ranks
+  if (sf.liquidityConfidence < 0.3) return 0;      // illiquid outliers never rank
+  if (sf.score >= 1.5) return Math.min(8, Math.round(sf.score * 3));
+  if (sf.score <= -1.5) return Math.max(-8, Math.round(sf.score * 3));
+  return 0;
+}
+
+// Coverage report: how much of the scanned universe got a sector flow score.
+export function sectorFlowCoverage(
+  scannedCount: number,
+  scores: Map<string, SectorFlowScore> | Record<string, SectorFlowScore>,
+): { covered: number; total: number; pct: number } {
+  const covered = scores instanceof Map ? scores.size : Object.keys(scores).length;
+  return { covered, total: scannedCount, pct: scannedCount > 0 ? Math.round((covered / scannedCount) * 100) : 0 };
+}
+
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 export function sectorFlowBadgeColor(s: SectorFlowScore): string {

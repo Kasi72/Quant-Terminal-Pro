@@ -42,7 +42,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 import { fetchOHLCVClient } from '@/lib/fetchClient';
-import { fetchSectorIndexData, computeSectorFlowScores, sectorFlowBadgeColor, sectorFlowLabel, type SectorFlowScore, type SectorBreadth, type StockSeries } from '@/lib/sectorFlow';
+import { fetchSectorIndexData, computeSectorFlowScores, sectorFlowBadgeColor, sectorFlowLabel, sectorFlowConvictionBoost, sectorFlowCoverage, type SectorFlowScore, type SectorBreadth, type StockSeries } from '@/lib/sectorFlow';
+import { fetchBulkFlowScores, bulkFlowConvictionBoost, bulkFlowLabel, bulkFlowColor, type BulkFlowScore, type BulkIngestionHealth } from '@/lib/bulkFlow';
 import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
@@ -1337,6 +1338,8 @@ function HomePageInner() {
   const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}>>({});
   const [sectorFlowMap, setSectorFlowMap] = useState<Record<string, SectorFlowScore>>({});
   const [sectorBreadthList, setSectorBreadthList] = useState<SectorBreadth[]>([]);
+  const [bulkFlowMap, setBulkFlowMap] = useState<Record<string, BulkFlowScore>>({});
+  const [bulkHealth, setBulkHealth] = useState<BulkIngestionHealth | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
@@ -1757,6 +1760,15 @@ function HomePageInner() {
       // sector flow is additive — never fail the scan over it
       setSectorFlowMap({});
       setSectorBreadthList([]);
+    }
+    // Bulk Deal Flow (Phase 3): batched read of precomputed daily scores from Supabase
+    try {
+      const { scores: bfScores, health } = await fetchBulkFlowScores(newResults.map(r => r.symbol));
+      setBulkFlowMap(bfScores);
+      setBulkHealth(health);
+    } catch {
+      setBulkFlowMap({});
+      setBulkHealth(null);
     }
     // Clenow momentum score — computed per-symbol in processOne before candle slice
     setClenowMap(freshClenowMap);
@@ -5605,6 +5617,14 @@ function HomePageInner() {
               );
             })()}
 
+            {/* Bulk deal feed health banner */}
+            {bulkHealth?.failing && (
+              <div className="flex items-center gap-2 mb-3 px-4 py-2 rounded-lg border bg-orange-950/60 border-orange-700 text-orange-300 text-xs">
+                <span>📡</span>
+                <span><span className="font-bold">Bulk deal feed degraded</span> — last successful BSE ingestion: {bulkHealth.lastSuccessDate ?? 'never'}. Bulk scores are excluded from ranking until the feed recovers.</span>
+              </div>
+            )}
+
             {/* Context bar */}
             <div className="flex items-center gap-4 mb-4 text-xs">
               {marketRegime && (
@@ -5629,7 +5649,19 @@ function HomePageInner() {
             {/* ── 2. Sector Strength Strip ── */}
             {sectorFlows.length > 0 && (
               <div className="mb-4">
-                <div className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold mb-1.5">Sector Rotation</div>
+                <div className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold mb-1.5">
+                  Sector Rotation
+                  {(() => {
+                    const cov = sectorFlowCoverage(results.length, sectorFlowMap);
+                    if (cov.total === 0) return null;
+                    return (
+                      <span className={`ml-2 normal-case font-normal ${cov.pct >= 85 ? 'text-emerald-600' : cov.pct >= 70 ? 'text-slate-500' : 'text-amber-500'}`}
+                        title={`${cov.covered}/${cov.total} scanned stocks have a sector flow score. Below 70% the sector signal loses reliability.`}>
+                        flow coverage {cov.pct}%
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {sectorFlows.slice(0, 10).map(sf => {
                     const br = sectorBreadthList.find(b => b.sector === sf.sector || b.indexName.toUpperCase().includes(sf.sector.toUpperCase()));
@@ -5648,9 +5680,16 @@ function HomePageInner() {
 
             {/* Top signals */}
             {(() => {
+              // Sprint 2+3: conviction + bounded sector-flow (±8) and bulk-flow (±6)
+              // adjustments. Stale/missing/illiquid data contributes 0 via the
+              // circuit breakers inside each boost function.
+              const flowAdjusted = (r: AnalysisResult) =>
+                computeConviction(r)
+                + sectorFlowConvictionBoost(sectorFlowMap[r.symbol])
+                + bulkFlowConvictionBoost(bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')]);
               const topSignals = filteredResults
                 .filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid)
-                .sort((a, b) => computeConviction(b) - computeConviction(a))
+                .sort((a, b) => flowAdjusted(b) - flowAdjusted(a))
                 .slice(0, 5);
 
               if (topSignals.length === 0 && results.length === 0) {
@@ -5741,6 +5780,17 @@ function HomePageInner() {
                                   <span className={`${sectorFlowBadgeColor(sf)} cursor-help`}
                                     title={`5D stock: ${sf.stockRet5d >= 0 ? '+' : ''}${sf.stockRet5d.toFixed(1)}% · 5D sector: ${sf.sectorRet5d >= 0 ? '+' : ''}${sf.sectorRet5d.toFixed(1)}% · Relative: ${sf.rel5d >= 0 ? '+' : ''}${sf.rel5d.toFixed(1)}% · Rank ${sf.sectorRank}/${sf.sectorSize} (${sf.normalization}-normalized) · Data: ${sf.freshness}`}>
                                     {sf.score >= 1 ? '▲' : sf.score <= -1 ? '▼' : '◆'} {sectorFlowLabel(sf)}
+                                  </span>
+                                );
+                              })()}
+                              {(() => {
+                                const bf = bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')];
+                                if (!bf) return null;
+                                const conflict = bf.netBuyValue > 0 && (sectorFlowMap[r.symbol]?.score ?? 0) < -1;
+                                return (
+                                  <span className={`${bulkFlowColor(bf)} cursor-help`}
+                                    title={`Disclosed bulk deal ${bf.dealDate} · z=${bf.abnormalityZ?.toFixed(1) ?? 'n/a'} · credibility ${(bf.clientCredibility * 100).toFixed(0)}% · confidence: ${bf.confidence}${bf.flags.length ? ` · flags: ${bf.flags.join(', ')}` : ''}${conflict ? ' · ⚠ CONFLICT: bulk buying but sector-relative weakness' : ''}`}>
+                                    💰 {bulkFlowLabel(bf)}{conflict ? ' ⚠' : ''}
                                   </span>
                                 );
                               })()}
