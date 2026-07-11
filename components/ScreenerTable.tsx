@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 // ── Tier derivation ────────────────────────────────────────────────────────────
-type Tier = 'Ultra' | 'Elite' | 'HighPrecision' | 'Deployable' | null;
+type Tier = 'OrsConfirmed' | 'OrsSignal' | 'Ultra' | 'Elite' | 'HighPrecision' | 'Deployable' | null;
 
 interface DerivedRow extends ScreeningResult {
   tier: Tier;
@@ -31,10 +31,13 @@ interface DerivedRow extends ScreeningResult {
 }
 
 const TIER_WIN_RATE: Record<string, number> = {
+  OrsConfirmed: 74, OrsSignal: 70,
   Ultra: 90, Elite: 82, HighPrecision: 78, Deployable: 72,
 };
 
 const TIER_COLOR: Record<string, string> = {
+  OrsConfirmed:  'bg-purple-500/30 text-purple-200 border-purple-400/60',
+  OrsSignal:     'bg-purple-500/15 text-purple-300 border-purple-500/40',
   Ultra:         'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
   Elite:         'bg-orange-500/20 text-orange-300 border-orange-500/40',
   HighPrecision: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
@@ -47,6 +50,8 @@ const TIER_LABEL: Record<string, string> = {
 };
 
 const ROW_BORDER: Record<string, string> = {
+  OrsConfirmed: 'border-l-2 border-purple-400',
+  OrsSignal: 'border-l-2 border-purple-300',
   Ultra: 'border-l-2 border-yellow-400',
   Elite: 'border-l-2 border-orange-400',
   HighPrecision: 'border-l-2 border-teal-400',
@@ -54,7 +59,9 @@ const ROW_BORDER: Record<string, string> = {
 };
 
 function deriveRow(r: ScreeningResult): DerivedRow {
-  const tier: Tier = r.passed_ultra_selective ? 'Ultra'
+  const tier: Tier = r.ors_confirmed ? 'OrsConfirmed'
+    : r.passed_ors_prime ? 'OrsSignal'
+    : r.passed_ultra_selective ? 'Ultra'
     : r.passed_elite ? 'Elite'
     : r.passed_high_precision ? 'HighPrecision'
     : r.passed_deployable ? 'Deployable'
@@ -216,9 +223,20 @@ export default function ScreenerTable({ results }: { results: ScreeningResult[] 
       header: 'Paramsets',
       cell: (i) => {
         const v = i.getValue();
-        const color = v === 4 ? 'text-yellow-300' : v === 3 ? 'text-orange-300' : v === 2 ? 'text-teal-300' : v === 1 ? 'text-blue-300' : 'text-slate-600';
-        return <span className={`font-bold text-sm ${color}`}>{v}/4</span>;
+        const color = v >= 5 ? 'text-purple-300' : v === 4 ? 'text-yellow-300' : v === 3 ? 'text-orange-300' : v === 2 ? 'text-teal-300' : v === 1 ? 'text-blue-300' : 'text-slate-600';
+        return <span className={`font-bold text-sm ${color}`}>{v}/5</span>;
       },
+    }),
+    ch.accessor('passed_ors_prime', {
+      header: 'ORS↩',
+      cell: (i) => {
+        const r = i.row.original;
+        if (!i.getValue()) return <span className="text-slate-600 text-xs">–</span>;
+        return r.ors_confirmed
+          ? <span className="text-purple-300 font-bold text-xs" title={`Confirmed entry · ORS score ${r.ors_score ?? 0} · DD ${r.ors_dd_from_swing_high?.toFixed(1) ?? '?'}%`}>✓✓ Confirmed</span>
+          : <span className="text-purple-400 text-xs" title={`Signal · ORS score ${r.ors_score ?? 0} · DD ${r.ors_dd_from_swing_high?.toFixed(1) ?? '?'}%`}>✓ Signal</span>;
+      },
+      enableColumnFilter: false,
     }),
     ch.accessor('candle_quality_score', {
       header: 'Quality',

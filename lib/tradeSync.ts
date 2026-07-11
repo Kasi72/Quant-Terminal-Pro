@@ -104,7 +104,7 @@ export function loadTradesFromLocal(): TrackedTrade[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const valid = parsed.filter(
-          (t: any) => t && t.symbol && t.entryPrice > 0 && t.stopLoss > 0 && t.status && t.entryDate,
+          (t: any) => t && t.symbol && t.entryPrice > 0 && t.status && t.entryDate,
         );
         if (valid.length > best.length) best = valid;
       }

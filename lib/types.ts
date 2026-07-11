@@ -38,6 +38,12 @@ export interface ScreeningResult {
   passed_high_precision: boolean;
   passed_elite: boolean;
   passed_ultra_selective: boolean;
+  passed_ors_prime: boolean;
   clusters_passed: number;
+  // ORS-specific metrics (populated when passed_ors_prime = true)
+  ors_score?: number;
+  ors_dd_from_swing_high?: number;
+  ors_dist_ema20?: number;
+  ors_confirmed?: boolean;
   error?: string;
 }

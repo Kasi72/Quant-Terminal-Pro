@@ -31,7 +31,7 @@ export interface ValidationResult {
 }
 
 // d is the candle's date string (YYYY-MM-DD) — optional for backward compatibility
-interface Candle { h: number; l: number; c: number; o?: number; v?: number; d?: string; }
+interface Candle { h: number; l: number; c: number; o?: number; v?: number; d?: string; ts?: number; }
 
 // ─── ATR helper ──────────────────────────────────────────────────────────────
 // Computes a 14-period ATR from available candles ending at idx.
@@ -55,9 +55,9 @@ function obv5Slope(candles: Candle[], idx: number): number {
   if (window < 2) return 0;
   let obv = 0;
   const obvArr: number[] = [];
-  for (let j = idx - window; j <= idx; j++) {
+  for (let j = idx - window + 1; j <= idx; j++) {
     const vol = candles[j].v ?? 0;
-    const pc = candles[j - 1]?.c ?? candles[j].c;
+    const pc = candles[j - 1].c;
     if (candles[j].c > pc) obv += vol;
     else if (candles[j].c < pc) obv -= vol;
     obvArr.push(obv);
@@ -88,8 +88,9 @@ function advanceDateStr(base: string, days: number): string {
 
 // ─── Candle date resolver ─────────────────────────────────────────────────────
 function candleDate(candle: Candle, fallbackBase: string, dayIndex: number): string {
-  return (candle.d && candle.d.length >= 10) ? candle.d.slice(0, 10)
-    : advanceDateStr(fallbackBase, dayIndex);
+  if (candle.d && candle.d.length >= 10) return candle.d.slice(0, 10);
+  if (candle.ts) return new Date((candle.ts + 19800) * 1000).toISOString().slice(0, 10);
+  return advanceDateStr(fallbackBase, dayIndex);
 }
 
 // ─── 20-bar volume average ────────────────────────────────────────────────────
@@ -161,10 +162,11 @@ export function validateTrade(
   if (!Array.isArray(candlesSinceEntry) || candlesSinceEntry.length === 0) return defaultResult;
 
   const entry   = trade.entryPrice;
-  const riskPerShare = Math.max(entry - trade.stopLoss, 0.01);
+  const validStop = trade.stopLoss > 0 && trade.stopLoss < entry;
+  const riskPerShare = validStop ? entry - trade.stopLoss : entry * 0.05;
 
   // ── Live stop level — updated by trail logic ──────────────────────────────
-  let dynamicStop = trade.stopLoss;   // rises over time; never falls
+  let dynamicStop = validStop ? trade.stopLoss : 0;   // 0 = no stop when SL missing/inverted
 
   // ── State ─────────────────────────────────────────────────────────────────
   const gateLog: GateLogEntry[] = [];
@@ -172,6 +174,11 @@ export function validateTrade(
   let mfePrice = entry, maePrice = entry;
   let status: ValidationResult['status'] = 'open';
   let closedPrice = 0, closedDate = '';
+
+  // Effective T1: whichever is LOWER — the planned T1 price or +5% from entry.
+  // "Whichever is earlier" means the lower price threshold gets hit first.
+  const plannedT1 = (trade.target1 && trade.target1 > entry) ? trade.target1 : Infinity;
+  const effectiveT1 = Math.min(plannedT1, entry * 1.05);
 
   // Partial exit state
   let t1Hit = false, t2Hit = false;
@@ -236,8 +243,20 @@ export function validateTrade(
     const gapDownOpen   = open < dynamicStop;                  // #2 gap-down
     const intradayBreak = !gapDownOpen && lo <= dynamicStop;   // #1 intraday low
     const stopBreached  = gapDownOpen || intradayBreak;
+    let preT1Stop = 0; // captures dynamicStop when T1 and stop trigger on same bar
 
     if (stopBreached) {
+      // ── DAY-1 FORTRESS: Never stop on the very first bar after entry ──────
+      // On i=0, avgVol20 and OBV return 0 (no prior bars in sinceEntry),
+      // making Gate 2 and Gate 4 blind. A gap-down below stop is still fatal
+      // (position would have been filled at open at a loss), but intraday dips
+      // on day 1 must wait for a confirmation candle.
+      if (i === 0 && !gapDownOpen) {
+        if (hi > mfePrice) mfePrice = hi;
+        if (lo < maePrice) maePrice = lo;
+        continue; // shield day-1 intraday dip unconditionally
+      }
+
       // ── #2 GAP-DOWN: immediate exit at open, no gates (even on i=0) ───
       if (gapDownOpen) {
         closedPrice = open;
@@ -250,8 +269,9 @@ export function validateTrade(
           gatesTested: [{ gate: 'G-GAP Gap-Down Bypass', passed: true, reason: `Open ₹${open.toFixed(2)} < stop ₹${dynamicStop.toFixed(2)} — SL-M filled at open` }],
           result: 'STOPPED',
         });
+        if (open < maePrice) maePrice = open;
         exitBarIdx = i;
-        break; // MFE/MAE intentionally NOT updated — position exited at open
+        break;
       }
 
       // Position still alive past gap-down check — update MFE/MAE with this bar's extremes
@@ -264,11 +284,11 @@ export function validateTrade(
       // (price went up then came back). T1 hit is handled in target section
       // below — here we just note whether T1 was already pending same bar.
       // gap-up open at or above T1 also counts — price already cleared T1 at open
-      const t1InRange = !t1Hit && trade.target1 && hi >= trade.target1;
+      const t1InRange = !t1Hit && effectiveT1 < Infinity && hi >= effectiveT1;
       if (t1InRange) {
         // Breakout bias: T1 fills first on this bar. Let the target section
         // below handle T1; skip stop cascade this iteration.
-        // (T1 hit code later in this same loop iteration will set t1Hit=true)
+        preT1Stop = dynamicStop; // save stop level before T1 moves it to breakeven
       } else {
         // ── #1 INTRADAY STOP — run full gate cascade ──
         const dipBelowStop = dynamicStop > 0 ? (dynamicStop - lo) / dynamicStop * 100 : 0;
@@ -401,7 +421,7 @@ export function validateTrade(
         // If the previous candle was green, this is an isolated red dip,
         // not a sustained breakdown. Shield.
         if (!blocked) {
-          const prevWasGreen = prev ? (prev.o ?? prev.c) <= prev.c : false;
+          const prevWasGreen = prev ? (prev.o ?? prev.c) <= prev.c : true;
           logEntry.gatesTested.push({
             gate: 'G5 Consec Red',
             passed: !prevWasGreen,
@@ -473,18 +493,24 @@ export function validateTrade(
     // TARGET CHECKS — cascade upward, don't break until T3
     // ════════════════════════════════════════════════════════════════════════
 
-    if (!t1Hit && trade.target1 && trade.target1 > 0 && hi >= trade.target1) {
+    if (!t1Hit && effectiveT1 < Infinity && hi >= effectiveT1) {
       t1Hit       = true;
       t1HitBar    = i;
       status      = 'hit_t1';
-      closedPrice = trade.target1;
+      closedPrice = effectiveT1;
       closedDate  = cDate;
       // Advance dynamic stop to breakeven immediately
       if (entry > dynamicStop) {
         dynamicStop = entry;
-        trailLog.push({ day: i, newStop: dynamicStop, reason: `T1 hit at ₹${trade.target1.toFixed(2)} — stop moved to breakeven ₹${entry.toFixed(2)}` });
+        trailLog.push({ day: i, newStop: dynamicStop, reason: `T1 hit at ₹${effectiveT1.toFixed(2)} — stop moved to breakeven ₹${entry.toFixed(2)}` });
       }
       highestCloseSinceT1 = close;
+      // If stop was also breached on this bar, close remainder at original stop
+      if (preT1Stop > 0) {
+        closedPrice = preT1Stop;
+        exitBarIdx  = i;
+        break; // trade fully resolved: 50% @ T1, 50% @ stop
+      }
       // Continue — don't break, check T2 on same bar
     }
 
@@ -518,6 +544,42 @@ export function validateTrade(
     if (t2Hit && close > highestCloseSinceT2) highestCloseSinceT2 = close;
   } // end bar loop
 
+  // ── FALSE-STOP OVERRIDE ───────────────────────────────────────────────────
+  // If the bar loop exited as 'stopped' but the LATEST close in the dataset
+  // is materially above entry (≥ +2%), the stop was a false positive — likely
+  // a bad data spike or a gate cascade failure on an intraday wick that
+  // recovered the same session. Reset to open so the live CMP shows correctly.
+  if (status === 'stopped') {
+    const lastClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
+    if (lastClose > entry * 1.02) {
+      status = 'open';
+      closedDate = '';
+      exitBarIdx = -1;
+      for (const c of candlesSinceEntry) {
+        if (c.h > mfePrice) mfePrice = c.h;
+        if (c.l < maePrice) maePrice = c.l;
+      }
+      closedPrice = lastClose;
+    }
+  }
+
+  // ── RUNNING T1/T2 MARK-TO-MARKET ──────────────────────────────────────────
+  // When T1 (or T2) fired but the remaining position hasn't hit a stop or
+  // next target yet (trade is still running), closedPrice holds the T1/T2
+  // exit level for the booked tranche. The open tranche's value is the latest
+  // close — use it so CMP and the weighted P&L reflect the live price.
+  const lastCandleClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
+  if (status === 'hit_t1' && !t2Hit && exitBarIdx < 0 && lastCandleClose > 0) {
+    // 50% booked at effectiveT1, 50% marked at current price
+    closedPrice = lastCandleClose;
+    closedDate = ''; // still running
+  }
+  if (status === 'hit_t2' && exitBarIdx < 0 && lastCandleClose > 0) {
+    // 50%@T1 + 30%@T2 booked, 20% marked at current price
+    closedPrice = lastCandleClose;
+    closedDate = '';
+  }
+
   // ── Time expiry: > 20 days still open ────────────────────────────────────
   // daysHeld: use exit bar index when trade closed early, else total candles
   const daysHeld = exitBarIdx >= 0 ? exitBarIdx + 1 : candlesSinceEntry.length;
@@ -543,7 +605,7 @@ export function validateTrade(
   //   expired:                                   100% @ last close
 
   let weightedExitPrice: number;
-  const T1 = trade.target1 ?? entry;
+  const T1 = effectiveT1 < Infinity ? effectiveT1 : (trade.target1 ?? entry);
   const T2 = trade.target2 ?? entry;
   const T3 = trade.target3 ?? entry;
 
@@ -588,7 +650,15 @@ export function validateTrade(
 // ─── Apply validation to tracked trade ───────────────────────────────────────
 
 export function applyValidation(trade: TrackedTrade, result: ValidationResult): TrackedTrade {
-  if (trade.status !== 'open') return trade;
+  // Allow re-processing when:
+  //  • false-stop: stored 'stopped' but fresh result says 'open' (data spike recovered)
+  //  • corrected outcome: stored 'stopped' but fresh T1/T2 fired (gate fixed, re-evaluate)
+  //  • running partial: stored 'hit_t1'/'hit_t2' needs mark-to-market refresh on open tranche
+  const needsUpdate =
+    trade.status === 'stopped' ||        // always re-examine stopped trades
+    trade.status === 'hit_t1' ||         // open T1 tranche needs live price
+    trade.status === 'hit_t2';           // open T2 tranche needs live price
+  if (trade.status !== 'open' && !needsUpdate) return trade;
   if (result.status === 'open') {
     return {
       ...trade,

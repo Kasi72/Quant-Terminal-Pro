@@ -40,6 +40,8 @@ Deno.serve(async (req) => {
         passed_high_precision: false,
         passed_elite: false,
         passed_ultra_selective: false,
+        passed_ors_prime: false,
+        ors_score: 0,
       });
     }
     processed++;
@@ -413,12 +415,31 @@ function clusterUltraSelective(p: Params): boolean {
   );
 }
 
+function clusterOrsPrime(p: Params): boolean {
+  // ORS-Prime: oversold-reversal fingerprint
+  // Candle-level checks use the same p fields computed in the edge function
+  const red = p.close_loc <= 50 && p.body_pct >= 45; // proxy: low close + body
+  return (
+    p.avg_turnover_20 >= 1 * CRORE &&
+    p.rsi2 <= 5 &&
+    p.close_loc <= 35 &&
+    p.body_pct >= 45 &&
+    p.upper_wick_pct <= 20 &&
+    p.signal_range_pct >= 3.5 &&
+    red
+    // Note: EMA20 dist, swing-high drawdown, z-score require raw candles —
+    // not available in edge function params. Full ORS check runs in compute.ts.
+    // This is a best-effort proxy for the batch screener.
+  );
+}
+
 function runClusters(p: Params) {
   const passed_deployable = clusterDeployable(p);
   const passed_high_precision = clusterHighPrecision(p);
   const passed_elite = clusterElite(p);
   const passed_ultra_selective = clusterUltraSelective(p);
-  const clusters_passed = [passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective]
+  const passed_ors_prime = clusterOrsPrime(p);
+  const clusters_passed = [passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective, passed_ors_prime]
     .filter(Boolean).length;
-  return { passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective, clusters_passed };
+  return { passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective, passed_ors_prime, clusters_passed };
 }

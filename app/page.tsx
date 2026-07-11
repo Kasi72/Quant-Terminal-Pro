@@ -2476,7 +2476,13 @@ function HomePageInner() {
           const lastCandle = nc[nc.length - 1];
           const prevCandle = nc[nc.length - 2];
           const currentVix = vc && vc.length > 0 ? vc[vc.length - 1].c : 0;
-          if (lastCandle && prevCandle && prevCandle.c > 0) {
+          // Data freshness guard: only show gap alert when last Nifty candle is from today (IST).
+          // Without this, weekend/pre-market fetches would show yesterday's open vs day-before close — a stale, irrelevant gap.
+          const istMs = 19800000; // UTC+5:30 in milliseconds
+          const todayIST = new Date(Date.now() + istMs).toISOString().slice(0, 10);
+          const lastCandleDateIST = lastCandle ? new Date(lastCandle.ts * 1000 + istMs).toISOString().slice(0, 10) : '';
+          const gapIsFresh = lastCandleDateIST === todayIST;
+          if (gapIsFresh && lastCandle && prevCandle && prevCandle.c > 0) {
             const gapPct = ((lastCandle.o - prevCandle.c) / prevCandle.c) * 100;
             if (gapPct > 0.5 && currentVix > 0 && currentVix < 15) {
               setGapAlert({ type: 'bullish', gapPct, vix: currentVix, confidence: 93.2, prevClose: prevCandle.c, todayOpen: lastCandle.o });
@@ -2638,7 +2644,8 @@ function HomePageInner() {
               + (marketRegime.vix > 0 ? `<div class="rt-row"><div><span class="rt-badge ${marketRegime.vix < 20 ? 'bg-emerald' : 'bg-orange'}">VIX</span></div><div><div class="rt-desc">${marketRegime.vix.toFixed(1)} ${marketRegime.vix < 12 ? '(complacent)' : marketRegime.vix < 16 ? '(low fear)' : marketRegime.vix < 22 ? '(moderate)' : marketRegime.vix < 30 ? '(elevated)' : marketRegime.vix < 45 ? '(high fear)' : '(PANIC)'}</div></div></div>`
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.vixROC < 0 ? 'bg-emerald' : 'bg-orange'}">VIX ROC</span></div><div><div class="rt-desc">5d change: ${marketRegime.factors.vixROC >= 0 ? '+' : ''}${marketRegime.factors.vixROC.toFixed(1)}%</div></div></div>`
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.vixVsSma < 0 ? 'bg-teal' : 'bg-orange'}">VIX/SMA</span></div><div><div class="rt-desc">${marketRegime.factors.vixVsSma >= 0 ? '+' : ''}${marketRegime.factors.vixVsSma.toFixed(1)}% vs 20d avg</div></div></div>` : '')
-              + `<div class="rt-row"><div><span class="rt-badge bg-neon">Sizing</span></div><div><div class="rt-desc">Position: ×${marketRegime.sizingMultiplier}</div></div></div>`}>
+              + `<div class="rt-row"><div><span class="rt-badge bg-neon">Sizing</span></div><div><div class="rt-desc">Position: ×${marketRegime.sizingMultiplier}</div></div></div>`
+              + (() => { const ts = niftyCandles?.[niftyCandles.length-1]?.ts; const d = ts ? new Date(ts*1000+19800000).toISOString().slice(0,10) : ''; const today = new Date(Date.now()+19800000).toISOString().slice(0,10); const fresh = d===today; return `<div class="rt-row"><div><span class="rt-badge ${fresh?'bg-teal':'bg-orange'}">Data</span></div><div><div class="rt-desc">As of: ${d||'unavailable'}</div><div class="rt-hit ${fresh?'hit-green':'hit-amber'}">${fresh?'Today\'s live data':'Prior session — click \'Check Market\' to refresh'}</div></div></div>`; })()}>
             {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}{marketRegime.vix > 0 ? ` · VIX ${marketRegime.vix.toFixed(1)}` : ''} · ×{marketRegime.sizingMultiplier}
           </div>
           {/* Signal Regime — trading decision derived from existing regime state */}
@@ -2689,7 +2696,7 @@ function HomePageInner() {
               data-tip-html={`<div class="rt-hdr">Gap + VIX Morning Alert (Gift Nifty Proxy)</div>`
                 + `<div class="rt-row"><div><span class="rt-badge ${gapAlert.type==='bullish'?'bg-emerald':'bg-orange'}">Gap</span></div><div><div class="rt-desc">Today open: Rs.${gapAlert.todayOpen.toFixed(0)} vs prev close: Rs.${gapAlert.prevClose.toFixed(0)} = ${gapAlert.gapPct>=0?'+':''}${gapAlert.gapPct.toFixed(2)}%</div></div></div>`
                 + `<div class="rt-row"><div><span class="rt-badge ${gapAlert.vix<16?'bg-teal':'bg-orange'}">VIX</span></div><div><div class="rt-desc">India VIX: ${gapAlert.vix.toFixed(1)} ${gapAlert.vix<15?'(low fear — calm)':gapAlert.vix<20?'(moderate)':'(elevated — anxiety)'}</div></div></div>`
-                + `<div class="rt-row"><div><span class="rt-badge bg-neon">Backtest</span></div><div><div class="rt-desc">10yr Nifty+VIX backtest: this combo was ${gapAlert.type==='bullish'?'bullish':'bearish'} ${gapAlert.confidence.toFixed(1)}% of the time</div><div class="rt-hit hit-green">Based on ${gapAlert.confidence>90?'103':gapAlert.confidence>80?'87':gapAlert.confidence>70?'303':'852'} historical occurrences</div></div></div>`}>
+                + `<div class="rt-row"><div><span class="rt-badge bg-neon">Backtest</span></div><div><div class="rt-desc">10yr Nifty daily data: this opening gap + VIX combo resolved ${gapAlert.type==='bullish'?'bullish':'bearish'} ${gapAlert.confidence.toFixed(1)}% of sessions next day</div><div class="rt-hit hit-green">Historical base rate · Not a guarantee — verify with live Gift Nifty before trading</div></div></div>`}>
               {gapAlert.type === 'bullish' ? '📈' : '📉'} Gap {gapAlert.gapPct >= 0 ? '+' : ''}{gapAlert.gapPct.toFixed(2)}% · VIX {gapAlert.vix.toFixed(1)} · {gapAlert.confidence.toFixed(0)}% {gapAlert.type === 'bullish' ? 'Bullish' : 'Bearish'}
             </div>
           )}
@@ -2837,8 +2844,8 @@ function HomePageInner() {
         )}
         {marketBreadth && (
           <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${marketBreadth.pct >= 60 ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : marketBreadth.pct >= 40 ? 'bg-yellow-900/30 border-yellow-700 text-yellow-300' : 'bg-red-900/30 border-red-700 text-red-300'}`}
-            title={`${marketBreadth.above200} of ${marketBreadth.total} stocks above 200 SMA — ${marketBreadth.pct >= 60 ? 'Healthy market' : marketBreadth.pct >= 40 ? 'Mixed market' : 'Weak market'}`}>
-            Breadth {marketBreadth.pct.toFixed(0)}%
+            title={`Scan breadth: ${marketBreadth.above200} of ${marketBreadth.total} scanned stocks above 200 SMA (current scan universe only, not full Nifty 500) — ${marketBreadth.pct >= 60 ? 'Healthy' : marketBreadth.pct >= 40 ? 'Mixed' : 'Weak'}`}>
+            Scan {marketBreadth.pct.toFixed(0)}%
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">

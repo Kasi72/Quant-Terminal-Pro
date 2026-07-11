@@ -12,6 +12,7 @@ const PARAM_SET_KEYS: ParamSetKey[] = [
   'optimized_elite_10plus',
   'optimized_ultraselective_8plus',
   'sniper_95plus',
+  'ors_prime_reversal',
 ];
 
 const PARAM_SET_LABELS: Record<string, string> = {
@@ -20,6 +21,7 @@ const PARAM_SET_LABELS: Record<string, string> = {
   optimized_elite_10plus:         'Elite',
   optimized_ultraselective_8plus: 'Ultra',
   sniper_95plus:                  'Sniper',
+  ors_prime_reversal:             'ORS↩Prime',
 };
 
 const STAGE_RANK: Record<StageRating, number> = {

@@ -16,13 +16,16 @@ function parseRaw(json: Record<string, unknown>): Candle[] {
     const l = quotes.low?.[i] ?? null;
     const v = quotes.volume?.[i] ?? null;
     const o = quotes.open?.[i] ?? null;
-    if (c != null && h != null && l != null && v != null && o != null
-      && Number.isFinite(c) && Number.isFinite(h) && Number.isFinite(l)
-      && Number.isFinite(v) && Number.isFinite(o)
-      && h > 0 && c > 0 && l > 0 && v >= 0
-      && h >= l && h >= o && h >= c && l <= o && l <= c) {
-      candles.push({ ts: timestamps[i], o, h: Math.max(h, o, c), l: Math.min(l, o, c), c, v });
-    }
+    if (c == null || h == null || l == null || v == null || o == null) continue;
+    if (!Number.isFinite(c) || !Number.isFinite(h) || !Number.isFinite(l) ||
+        !Number.isFinite(v) || !Number.isFinite(o)) continue;
+    if (c <= 0 || v < 0) continue;
+    // Normalize before validating — Yahoo Finance NSE data occasionally has close > high
+    // or open < low around corporate actions / circuit limits. Clamp rather than drop.
+    const adjH = Math.max(h, o, c);
+    const adjL = Math.min(l, o, c);
+    if (adjH <= 0 || adjL <= 0 || adjL > adjH) continue;
+    candles.push({ ts: timestamps[i], o, h: adjH, l: adjL, c, v });
   }
   return candles;
 }

@@ -86,12 +86,7 @@ function computeATR14(candles: Candle[]): number[] {
       }
       atr[i] = sum / 14;
     } else {
-      const prevTR = Math.max(
-        candles[i - 1].h - candles[i - 1].l,
-        Math.abs(candles[i - 1].h - candles[i - 2].c),
-        Math.abs(candles[i - 1].l - candles[i - 2].c),
-      );
-      atr[i] = (atr[i - 1] * 13 + prevTR) / 14;
+      atr[i] = (atr[i - 1] * 13 + tr) / 14;
     }
   }
   return atr;
@@ -147,6 +142,11 @@ export interface ComputedParams {
   passed_high_precision: boolean;
   passed_elite: boolean;
   passed_ultra_selective: boolean;
+  passed_ors_prime: boolean;
+  ors_score: number;
+  ors_dd_from_swing_high: number;
+  ors_dist_ema20: number;
+  ors_confirmed: boolean;
   clusters_passed: number;
 }
 
@@ -321,7 +321,118 @@ export function computeParams(candles: Candle[]): ComputedParams {
     p.rsi2 >= 55 && p.volatility_expansion_ratio >= 1.50
   );
 
-  const clusters_passed = [passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective]
+  // ── ORS-Prime Reversal cluster ────────────────────────────────────────────
+  // Signal candle = last candle; uses same candle array already computed above.
+  const ors_rsi2 = rsi2;  // already computed
+  // RSI14 (14-period)
+  let g14 = 0, l14 = 0;
+  for (let i = Math.max(1, n - 13); i < n; i++) {
+    const d = candles[i].c - candles[i - 1].c;
+    if (d > 0) g14 += d; else l14 -= d;
+  }
+  const ors_rsi14 = l14 === 0 ? 100 : 100 - 100 / (1 + g14 / l14);
+
+  // EMA20 at signal candle
+  const ema20Vals: number[] = [];
+  { const k = 2 / 21; let v = candles[0].c; for (let i = 0; i < n; i++) { v = i === 0 ? candles[i].c : candles[i].c * k + v * (1 - k); ema20Vals.push(v); } }
+  const ors_ema20 = ema20Vals[n - 1];
+  const ors_dist_ema20 = ors_ema20 > 0 ? (sig.c - ors_ema20) / ors_ema20 * 100 : 0;
+
+  // 60d swing-high drawdown
+  let swHi = -Infinity;
+  for (let i = Math.max(0, n - 61); i < n - 1; i++) if (candles[i].h > swHi) swHi = candles[i].h;
+  const ors_dd_from_swing_high = swHi > 0 ? (swHi - sig.c) / swHi * 100 : 0;
+
+  // 252d z-score
+  const zStart = Math.max(0, n - 252);
+  let zSum = 0, zCnt = 0;
+  for (let i = zStart; i < n; i++) { zSum += candles[i].c; zCnt++; }
+  const zMean = zCnt ? zSum / zCnt : sig.c;
+  let zVar = 0;
+  for (let i = zStart; i < n; i++) { const d = candles[i].c - zMean; zVar += d * d; }
+  const zStd = zCnt > 1 ? Math.sqrt(zVar / (zCnt - 1)) : 0;
+  const ors_z_score = zStd > 0 ? (sig.c - zMean) / zStd : 0;
+
+  // Volume dry-up
+  const ors_v5avg = mean(candles.slice(n - 6, n - 1).map(c => c.v));
+  const ors_vol20avg = mean(candles.slice(n - 21, n - 1).map(c => c.v));
+  const ors_vol_dry_up = ors_vol20avg > 0 ? ors_v5avg / ors_vol20avg : 1;
+
+  // Swing-low pivot (6-bar)
+  let minLo6 = Infinity;
+  for (let i = Math.max(0, n - 7); i < n - 1; i++) if (candles[i].l < minLo6) minLo6 = candles[i].l;
+  const ors_is_sw_lo = sig.l <= minLo6;
+
+  // ORS score
+  const ors_body_pct = body_pct;
+  const ors_rPct = signal_range_pct;
+  const ors_up_wick = upper_wick_pct;
+  let ors_score = 0;
+  if (ors_rsi2 <= 3) ors_score += 30; else if (ors_rsi2 <= 5) ors_score += 25;
+  else if (ors_rsi2 <= 10) ors_score += 20; else if (ors_rsi2 <= 15) ors_score += 12;
+  if (ors_rsi14 <= 30) ors_score += 15; else if (ors_rsi14 <= 38) ors_score += 10; else if (ors_rsi14 <= 45) ors_score += 5;
+  if (ors_rPct >= 5) ors_score += 10; else if (ors_rPct >= 3.5) ors_score += 7; else if (ors_rPct >= 2.4) ors_score += 4;
+  if (ors_dist_ema20 <= -8) ors_score += 10; else if (ors_dist_ema20 <= -5) ors_score += 7; else if (ors_dist_ema20 <= -2) ors_score += 4;
+  if (ors_body_pct >= 60) ors_score += 8; else if (ors_body_pct >= 45) ors_score += 5; else if (ors_body_pct >= 35) ors_score += 2;
+  if (ors_up_wick <= 10) ors_score += 7; else if (ors_up_wick <= 20) ors_score += 5; else if (ors_up_wick <= 30) ors_score += 2;
+  if (ors_is_sw_lo) ors_score += 5;
+  if (ors_vol_dry_up <= 0.70) ors_score += 5; else if (ors_vol_dry_up <= 0.85) ors_score += 3;
+  if (ors_dd_from_swing_high >= 30) ors_score += 10; else if (ors_dd_from_swing_high >= 25) ors_score += 8;
+  else if (ors_dd_from_swing_high >= 20) ors_score += 6; else if (ors_dd_from_swing_high >= 15) ors_score += 3;
+  if (ors_z_score <= -3.0) ors_score += 12; else if (ors_z_score <= -2.5) ors_score += 8; else if (ors_z_score <= -2.0) ors_score += 5;
+  ors_score = Math.min(ors_score, 100);
+
+  // Signal gate
+  const ors_red = sig.c < sig.o;
+  const ors_close_loc = close_loc;
+  const passed_ors_signal = (
+    ors_red &&
+    ors_rsi2 <= 5 &&
+    ors_rsi14 <= 38 &&
+    ors_close_loc <= 35 &&
+    ors_body_pct >= 45 &&
+    ors_up_wick <= 20 &&
+    ors_rPct >= 3.5 &&
+    ors_dist_ema20 <= -3.0 &&
+    ors_dd_from_swing_high >= 30 &&
+    ors_is_sw_lo &&
+    ors_score >= 72
+  );
+
+  // Confirmation: previous candle was ORS signal AND current candle is green
+  // (In compute.ts we only have the full candle array — check if n>=2)
+  let ors_confirmed = false;
+  if (n >= 2 && sig.c > sig.o) {
+    // Check prev candle ORS gates
+    const prev = candles[n - 2]; const prevRange = prev.h - prev.l;
+    if (prevRange > 0 && prev.c > 0) {
+      let pg14 = 0, pl14 = 0;
+      for (let i = Math.max(1, n - 14); i < n - 1; i++) { const d = candles[i].c - candles[i - 1].c; if (d > 0) pg14 += d; else pl14 -= d; }
+      const prevRsi14 = pl14 === 0 ? 100 : 100 - 100 / (1 + pg14 / pl14);
+      let pg2 = 0, pl2 = 0;
+      for (let i = Math.max(1, n - 2); i < n - 1; i++) { const d = candles[i].c - candles[i - 1].c; if (d > 0) pg2 += d; else pl2 -= d; }
+      const prevRsi2 = pl2 === 0 ? 100 : 100 - 100 / (1 + pg2 / pl2);
+      const prevBodyPct = Math.abs(prev.c - prev.o) / prevRange * 100;
+      const prevUpWick = (prev.h - Math.max(prev.o, prev.c)) / prevRange * 100;
+      const prevRPct = prevRange / prev.c * 100;
+      const prevCloseLoc = (prev.c - prev.l) / prevRange * 100;
+      const prevDistE20 = ema20Vals[n - 2] > 0 ? (prev.c - ema20Vals[n - 2]) / ema20Vals[n - 2] * 100 : 0;
+      let prevSwHi = -Infinity;
+      for (let i = Math.max(0, n - 62); i < n - 2; i++) if (candles[i].h > prevSwHi) prevSwHi = candles[i].h;
+      const prevDd = prevSwHi > 0 ? (prevSwHi - prev.c) / prevSwHi * 100 : 0;
+      let prevMinLo = Infinity;
+      for (let i = Math.max(0, n - 8); i < n - 2; i++) if (candles[i].l < prevMinLo) prevMinLo = candles[i].l;
+      ors_confirmed = (
+        prev.c < prev.o && prevRsi2 <= 5 && prevRsi14 <= 38 && prevCloseLoc <= 35 &&
+        prevBodyPct >= 45 && prevUpWick <= 20 && prevRPct >= 3.5 &&
+        prevDistE20 <= -3.0 && prevDd >= 30 && prev.l <= prevMinLo
+      );
+    }
+  }
+
+  const passed_ors_prime = passed_ors_signal || ors_confirmed;
+
+  const clusters_passed = [passed_deployable, passed_high_precision, passed_elite, passed_ultra_selective, passed_ors_prime]
     .filter(Boolean).length;
 
   return {
@@ -352,6 +463,11 @@ export function computeParams(candles: Candle[]): ComputedParams {
     passed_high_precision,
     passed_elite,
     passed_ultra_selective,
+    passed_ors_prime,
+    ors_score,
+    ors_dd_from_swing_high: +ors_dd_from_swing_high.toFixed(1),
+    ors_dist_ema20: +ors_dist_ema20.toFixed(2),
+    ors_confirmed,
     clusters_passed,
   };
 }
