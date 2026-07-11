@@ -1891,7 +1891,7 @@ function HomePageInner() {
     try {
       const bi = computeBrainInsights(trackedTradesRef.current);
       setBrainInsights(bi);
-      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}> = {};
+      const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}> = {};
       const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
       for (const r of buySignals) {
         const cl = freshClenowMap[r.symbol];
