@@ -197,7 +197,7 @@ export interface MomentumEnhancements {
   volDryUpScore: number;       // 0-4: consecutive declining volume in pre-5
   obvSlope10: number;          // normalized OBV slope over pre-10
   adx14: number;               // Average Directional Index
-  adxInRange: boolean;         // 15 <= adx14 <= 35
+  adxInRange: boolean;         // adx14 > 40
   gapAdjustedRR: number;       // reward:risk accounting for gap
   momentumScore: number;       // composite 0-100
   rsNifty20: number;           // relative strength vs Nifty 50 (20-day)
@@ -640,7 +640,7 @@ function computeMomentumEnhancements(
 
   // ADX
   const adx14 = computeADX14(candles);
-  const adxInRange = adx14 >= 15 && adx14 <= 35;
+  const adxInRange = adx14 > 40;
 
   // Gap-adjusted R:R
   let gapAdjustedRR = 0;
