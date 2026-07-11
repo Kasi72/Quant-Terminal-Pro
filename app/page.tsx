@@ -1012,8 +1012,9 @@ const COLUMNS: ColDef[] = [
       const ago   = adv.utbotBarsAgo === 0 ? 'today' : `${adv.utbotBarsAgo}d ago`;
       const lag   = `lag:${adv.utbotLag}`;
       const entry = adv.utbotEntry > 0 ? ` ₹${adv.utbotEntry.toFixed(1)}` : '';
-      // APEX = UT Bot (BOTH or EARLY) + VRAM OVERSOLD + FER EFFICIENT — the ~85% WR10 setup
-      const apex  = (m === 'BOTH' || m === 'EARLY') &&
+      // APEX = UT Bot BOTH (confluence) + VRAM OVERSOLD + FER EFFICIENT — the ~85% WR10 setup
+      // EARLY-only is NOT APEX: its base WR is 57%, not 85%. BOTH confluence required.
+      const apex  = m === 'BOTH' &&
                     adv.vramTier === 'OVERSOLD' && adv.ferTier === 'EFFICIENT';
       if (apex) return `★ APEX · ${ago} · ${lag}${entry}`;
       const icon  = m === 'BOTH' ? '⚡ ' : '';
@@ -1023,7 +1024,7 @@ const COLUMNS: ColDef[] = [
       const adv = r.advanced;
       if (!adv) return 0;
       const m   = adv.utbotMode;
-      const apex = (m === 'BOTH' || m === 'EARLY') &&
+      const apex = m === 'BOTH' &&
                    adv.vramTier === 'OVERSOLD' && adv.ferTier === 'EFFICIENT';
       if (apex) return 10;
       return m === 'BOTH' ? 3 : m === 'PRECISION' ? 2 : m === 'EARLY' ? 1 : 0;
@@ -1034,7 +1035,7 @@ const COLUMNS: ColDef[] = [
       const ago = adv?.utbotBarsAgo ?? 99;
       if (!m || m === 'NONE') return 'text-slate-600 text-xs';
       const fresh = ago <= 1;
-      const apex  = (m === 'BOTH' || m === 'EARLY') &&
+      const apex  = m === 'BOTH' &&
                     adv?.vramTier === 'OVERSOLD' && adv?.ferTier === 'EFFICIENT';
       // APEX gets a solid green background — unmissable even when scanning 500 rows
       if (apex) return `text-xs font-black ${fresh
@@ -1089,8 +1090,8 @@ const COLUMNS: ColDef[] = [
     } },
   { key: 'adv_mwc', label: 'MWC', width: 65, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Momentum Wave Convergence (0-4) — CONTRARIAN: low score = not yet chased</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Score 0 — CONTRARIAN +0.9pp</span></div><div><div class="rt-desc">No momentum wave aligned. Backtest shows Score 0 has +0.94pp 20d edge — stock has NOT been chased yet. Contrarian sweet spot: uncrowded, ignored by trend followers.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Score 1-2 — MIXED</span></div><div><div class="rt-desc">Partial alignment. Modest positive edge. Some interest building but not yet overbought.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Score 0-1 — CONTRARIAN +0.9pp</span></div><div><div class="rt-desc">No or minimal momentum wave aligned. Backtest shows Score 0-1 = contrarian sweet spot (+0.94pp 20d edge) — stock has NOT been chased yet. Uncrowded, ignored by trend followers.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Score 2 — MIXED</span></div><div><div class="rt-desc">Partial alignment. Modest positive edge. Some interest building but not yet overbought.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-dim">Score 3-4 — CROWDED −1.4pp</span></div><div><div class="rt-desc">All timeframes aligned and accelerating = everyone is already long. Score 4 shows −1.38pp 20d edge — momentum is priced in. Avoid for new entries.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Checks</span></div><div><div class="rt-desc">+1 each: ROC5&gt;ROC20 (accelerating), ROC20&gt;ROC60 (medium outpacing long), ROC5&gt;0 (short-term up), ROC5 slope rising vs 3 bars ago. High score = chased; low score = opportunity.</div></div></div>',
     fmt: r => r.advanced ? `${r.advanced.mwcScore}/4` : '—',
