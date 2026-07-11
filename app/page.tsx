@@ -42,6 +42,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 import { fetchOHLCVClient } from '@/lib/fetchClient';
+import { fetchSectorIndexData, computeSectorFlowScores, sectorFlowBadgeColor, sectorFlowLabel, type SectorFlowScore, type SectorBreadth, type StockSeries } from '@/lib/sectorFlow';
 import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
@@ -1334,6 +1335,8 @@ function HomePageInner() {
   const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
   const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}>>({});
+  const [sectorFlowMap, setSectorFlowMap] = useState<Record<string, SectorFlowScore>>({});
+  const [sectorBreadthList, setSectorBreadthList] = useState<SectorBreadth[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
@@ -1632,6 +1635,11 @@ function HomePageInner() {
       flushTimer = setTimeout(() => { flushTimer = null; if (!abortRef.current) flushResults(); }, 300);
     }
 
+    // Sector Flow (Phase 2): fetch 13 sector indices in parallel with the stock scan.
+    // fetchSectorIndexData never throws — failed indices come back as stale/missing.
+    const sectorIndexPromise = fetchSectorIndexData();
+    const stockSeriesForFlow: StockSeries[] = [];
+
     // Feature #4: Fetch Nifty 50 + VIX candles (every scan — keeps regime/VIX fresh)
     let niftyData: Candle[] | null = niftyCandles;
     try {
@@ -1681,6 +1689,14 @@ function HomePageInner() {
           const quality = cl.r2 >= 0.7 ? 'SMOOTH' : cl.r2 >= 0.4 ? 'MODERATE' : 'CHOPPY';
           freshClenowMap[result.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
         }
+        // Sector Flow: capture close series tail (dates in IST) for post-scan divergence pass
+        const flowTail = candles.slice(-15);
+        stockSeriesForFlow.push({
+          symbol: result.symbol,
+          dates: flowTail.map(k => new Date((k.ts + 19800) * 1000).toISOString().slice(0, 10)),
+          closes: flowTail.map(k => k.c),
+          avgTurnover20: result.avgTurnover20 ?? 0,
+        });
         // Cache candles for sparkline + validation
         const sliced = candles.slice(-60);
         freshCandleMap[result.symbol] = sliced;
@@ -1730,6 +1746,18 @@ function HomePageInner() {
     }
     setFlagMap(newFlagMap);
     setGuppyCoilMap(newGuppyCoilMap);
+    // Sector Flow (Phase 2, shadow mode): compute divergence scores post-scan —
+    // normalization needs all peers, so this can't run inside processOne.
+    try {
+      const sectorIndexData = await sectorIndexPromise;
+      const { scores, breadth } = computeSectorFlowScores(stockSeriesForFlow, sectorIndexData);
+      setSectorFlowMap(Object.fromEntries(scores));
+      setSectorBreadthList(breadth);
+    } catch {
+      // sector flow is additive — never fail the scan over it
+      setSectorFlowMap({});
+      setSectorBreadthList([]);
+    }
     // Clenow momentum score — computed per-symbol in processOne before candle slice
     setClenowMap(freshClenowMap);
     // PCA Super-Score v2 — re-derived weights, validated on 456 Nifty 500 stocks
@@ -5603,11 +5631,17 @@ function HomePageInner() {
               <div className="mb-4">
                 <div className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold mb-1.5">Sector Rotation</div>
                 <div className="flex flex-wrap gap-1.5">
-                  {sectorFlows.slice(0, 10).map(sf => (
-                    <span key={sf.sector} className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${sf.flowLabel === 'inflow' ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : sf.flowLabel === 'outflow' ? 'bg-red-900/30 border-red-800 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
-                      {sf.flowLabel === 'inflow' ? '▲' : sf.flowLabel === 'outflow' ? '▼' : '—'} {sf.sector}
-                    </span>
-                  ))}
+                  {sectorFlows.slice(0, 10).map(sf => {
+                    const br = sectorBreadthList.find(b => b.sector === sf.sector || b.indexName.toUpperCase().includes(sf.sector.toUpperCase()));
+                    return (
+                      <span key={sf.sector}
+                        title={br ? `${br.breadthPct}% of ${br.count} scanned stocks beating their sector index over 5d — ${br.breadthPct >= 60 ? 'broad rotation' : br.breadthPct <= 35 ? 'narrow (heavyweights only)' : 'mixed'}` : undefined}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${br ? 'cursor-help' : ''} ${sf.flowLabel === 'inflow' ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300' : sf.flowLabel === 'outflow' ? 'bg-red-900/30 border-red-800 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                        {sf.flowLabel === 'inflow' ? '▲' : sf.flowLabel === 'outflow' ? '▼' : '—'} {sf.sector}
+                        {br && <span className={br.breadthPct >= 60 ? 'text-emerald-400' : br.breadthPct <= 35 ? 'text-amber-400' : 'text-slate-500'}> {br.breadthPct}%</span>}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -5700,6 +5734,16 @@ function HomePageInner() {
                             </div>
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
                               <span>CMP ₹{r.lastClose.toFixed(2)}</span>
+                              {(() => {
+                                const sf = sectorFlowMap[r.symbol];
+                                if (!sf) return null;
+                                return (
+                                  <span className={`${sectorFlowBadgeColor(sf)} cursor-help`}
+                                    title={`5D stock: ${sf.stockRet5d >= 0 ? '+' : ''}${sf.stockRet5d.toFixed(1)}% · 5D sector: ${sf.sectorRet5d >= 0 ? '+' : ''}${sf.sectorRet5d.toFixed(1)}% · Relative: ${sf.rel5d >= 0 ? '+' : ''}${sf.rel5d.toFixed(1)}% · Rank ${sf.sectorRank}/${sf.sectorSize} (${sf.normalization}-normalized) · Data: ${sf.freshness}`}>
+                                    {sf.score >= 1 ? '▲' : sf.score <= -1 ? '▼' : '◆'} {sectorFlowLabel(sf)}
+                                  </span>
+                                );
+                              })()}
                               <span>Candle: <span className={detectOnsetCandle(r) ? 'text-[#39FF14] font-bold' : r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{detectOnsetCandle(r) ? `★ ${r.stats.candlePatternFull}` : r.stats.candlePatternFull}</span></span>
                               {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
