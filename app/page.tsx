@@ -1340,6 +1340,13 @@ function HomePageInner() {
   const [sectorBreadthList, setSectorBreadthList] = useState<SectorBreadth[]>([]);
   const [bulkFlowMap, setBulkFlowMap] = useState<Record<string, BulkFlowScore>>({});
   const [bulkHealth, setBulkHealth] = useState<BulkIngestionHealth | null>(null);
+  // Sprint 4+5: flow filter / kill switches / weight tuning / settings panel
+  const [focusFlowFilter, setFocusFlowFilter] = useState<'all'|'bulk'|'bulk_high'|'sector_in'|'synergy'>('all');
+  const [sectorFlowOn, setSectorFlowOn] = useState(() => { try { return localStorage.getItem('qtp_sf_on') !== 'false'; } catch { return true; } });
+  const [bulkFlowOn, setBulkFlowOn] = useState(() => { try { return localStorage.getItem('qtp_bf_on') !== 'false'; } catch { return true; } });
+  const [sectorFlowW, setSectorFlowW] = useState(() => { try { return parseFloat(localStorage.getItem('qtp_sf_w') ?? '1'); } catch { return 1; } });
+  const [bulkFlowW, setBulkFlowW] = useState(() => { try { return parseFloat(localStorage.getItem('qtp_bf_w') ?? '1'); } catch { return 1; } });
+  const [showFlowSettings, setShowFlowSettings] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number}>>({});
@@ -1751,10 +1758,12 @@ function HomePageInner() {
     setGuppyCoilMap(newGuppyCoilMap);
     // Sector Flow (Phase 2, shadow mode): compute divergence scores post-scan —
     // normalization needs all peers, so this can't run inside processOne.
+    let freshSectorMap: Record<string, SectorFlowScore> = {};
     try {
       const sectorIndexData = await sectorIndexPromise;
       const { scores, breadth } = computeSectorFlowScores(stockSeriesForFlow, sectorIndexData);
-      setSectorFlowMap(Object.fromEntries(scores));
+      freshSectorMap = Object.fromEntries(scores);
+      setSectorFlowMap(freshSectorMap);
       setSectorBreadthList(breadth);
     } catch {
       // sector flow is additive — never fail the scan over it
@@ -1762,14 +1771,36 @@ function HomePageInner() {
       setSectorBreadthList([]);
     }
     // Bulk Deal Flow (Phase 3): batched read of precomputed daily scores from Supabase
+    let freshBulkMap: Record<string, BulkFlowScore> = {};
     try {
       const { scores: bfScores, health } = await fetchBulkFlowScores(newResults.map(r => r.symbol));
+      freshBulkMap = bfScores;
       setBulkFlowMap(bfScores);
       setBulkHealth(health);
     } catch {
       setBulkFlowMap({});
       setBulkHealth(null);
     }
+    // Sprint 5: shadow validation log — save per-scan flow snapshot to localStorage
+    try {
+      const cov = sectorFlowCoverage(newResults.length, freshSectorMap);
+      const synergyCount = newResults.filter(r => {
+        const sf = freshSectorMap[r.symbol];
+        const bf = freshBulkMap[r.symbol.replace(/\.(NS|BO)$/i, '')];
+        return (sf?.score ?? 0) > 0 && (bf?.finalScore ?? 0) > 60;
+      }).length;
+      const shadowEntry = {
+        date: new Date().toISOString().slice(0, 10),
+        scanCount: newResults.length,
+        sectorCovPct: cov.pct,
+        bulkCount: Object.keys(freshBulkMap).length,
+        synergyCount,
+      };
+      const prev: typeof shadowEntry[] = JSON.parse(localStorage.getItem('qtp_shadow_log') ?? '[]');
+      localStorage.setItem('qtp_shadow_log', JSON.stringify(
+        [shadowEntry, ...prev.filter(e => e.date !== shadowEntry.date)].slice(0, 30)
+      ));
+    } catch { /* shadow log is best-effort */ }
     // Clenow momentum score — computed per-symbol in processOne before candle slice
     setClenowMap(freshClenowMap);
     // PCA Super-Score v2 — re-derived weights, validated on 456 Nifty 500 stocks
@@ -5646,6 +5677,95 @@ function HomePageInner() {
               <span className="text-slate-600 ml-auto">{results.length > 0 ? `${results.length} scanned` : 'No scan yet'}</span>
             </div>
 
+            {/* ── Sprint 5: Flow Settings Panel ── */}
+            <div className="mb-3">
+              <button
+                onClick={() => setShowFlowSettings(v => !v)}
+                className="flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wider font-semibold"
+              >
+                <span>{showFlowSettings ? '▼' : '▶'}</span> Flow Intelligence Settings
+              </button>
+              {showFlowSettings && (
+                <div className="mt-2 p-3 bg-slate-900/60 border border-slate-800 rounded-lg space-y-3">
+                  {/* Kill switches */}
+                  <div className="flex gap-4 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => { const v = !sectorFlowOn; setSectorFlowOn(v); try { localStorage.setItem('qtp_sf_on', v ? 'true' : 'false'); } catch {} }}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${sectorFlowOn ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${sectorFlowOn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </div>
+                      <span className="text-[11px] text-slate-400">Sector Flow</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => { const v = !bulkFlowOn; setBulkFlowOn(v); try { localStorage.setItem('qtp_bf_on', v ? 'true' : 'false'); } catch {} }}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${bulkFlowOn ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${bulkFlowOn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </div>
+                      <span className="text-[11px] text-slate-400">Bulk Flow</span>
+                    </label>
+                  </div>
+                  {/* Weight sliders */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-500 w-24">Sector weight</span>
+                      <input type="range" min={0.5} max={2} step={0.1} value={sectorFlowW}
+                        onChange={e => { const v = parseFloat(e.target.value); setSectorFlowW(v); try { localStorage.setItem('qtp_sf_w', String(v)); } catch {} }}
+                        className="flex-1 accent-indigo-500 h-1" />
+                      <span className="text-[10px] text-slate-400 w-8 text-right">{sectorFlowW.toFixed(1)}×</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-500 w-24">Bulk weight</span>
+                      <input type="range" min={0.5} max={2} step={0.1} value={bulkFlowW}
+                        onChange={e => { const v = parseFloat(e.target.value); setBulkFlowW(v); try { localStorage.setItem('qtp_bf_w', String(v)); } catch {} }}
+                        className="flex-1 accent-indigo-500 h-1" />
+                      <span className="text-[10px] text-slate-400 w-8 text-right">{bulkFlowW.toFixed(1)}×</span>
+                    </div>
+                  </div>
+                  {/* Shadow comparison table */}
+                  {(() => {
+                    try {
+                      const log: Array<{date: string; scanCount: number; sectorCovPct: number; bulkCount: number; synergyCount: number}> =
+                        JSON.parse(localStorage.getItem('qtp_shadow_log') ?? '[]');
+                      if (log.length === 0) return <p className="text-[10px] text-slate-600 italic">Run scans to build the 20-session comparison table.</p>;
+                      return (
+                        <div>
+                          <div className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold mb-1">Shadow Log ({log.length} sessions)</div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px] text-slate-400 border-collapse">
+                              <thead>
+                                <tr className="text-slate-600 border-b border-slate-800">
+                                  <th className="text-left pr-3 pb-1 font-normal">Date</th>
+                                  <th className="text-right pr-3 pb-1 font-normal">Scanned</th>
+                                  <th className="text-right pr-3 pb-1 font-normal">SF Cov%</th>
+                                  <th className="text-right pr-3 pb-1 font-normal">Bulk</th>
+                                  <th className="text-right pb-1 font-normal">⚡Synergy</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {log.map((e, i) => (
+                                  <tr key={e.date} className={i % 2 === 0 ? 'bg-slate-900/30' : ''}>
+                                    <td className="pr-3 py-0.5">{e.date}</td>
+                                    <td className="text-right pr-3 py-0.5 tabular-nums">{e.scanCount}</td>
+                                    <td className={`text-right pr-3 py-0.5 tabular-nums ${e.sectorCovPct >= 85 ? 'text-emerald-500' : e.sectorCovPct >= 70 ? 'text-slate-400' : 'text-amber-500'}`}>{e.sectorCovPct}%</td>
+                                    <td className="text-right pr-3 py-0.5 tabular-nums">{e.bulkCount}</td>
+                                    <td className={`text-right py-0.5 tabular-nums ${e.synergyCount > 0 ? 'text-yellow-400 font-bold' : 'text-slate-600'}`}>{e.synergyCount}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+                </div>
+              )}
+            </div>
+
             {/* ── 2. Sector Strength Strip ── */}
             {sectorFlows.length > 0 && (
               <div className="mb-4">
@@ -5680,17 +5800,31 @@ function HomePageInner() {
 
             {/* Top signals */}
             {(() => {
-              // Sprint 2+3: conviction + bounded sector-flow (±8) and bulk-flow (±6)
-              // adjustments. Stale/missing/illiquid data contributes 0 via the
-              // circuit breakers inside each boost function.
+              // Sprint 4+5: conviction + weighted sector/bulk flow boosts with kill switches.
+              // Circuit breakers inside each boost function ensure stale/missing data → 0.
+              const isSynergy = (r: AnalysisResult) => {
+                const sf = sectorFlowMap[r.symbol];
+                const bf = bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')];
+                return (sf?.score ?? 0) > 0 && (bf?.finalScore ?? 0) > 60;
+              };
               const flowAdjusted = (r: AnalysisResult) =>
                 computeConviction(r)
-                + sectorFlowConvictionBoost(sectorFlowMap[r.symbol])
-                + bulkFlowConvictionBoost(bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')]);
+                + (sectorFlowOn ? sectorFlowConvictionBoost(sectorFlowMap[r.symbol]) * sectorFlowW : 0)
+                + (bulkFlowOn ? bulkFlowConvictionBoost(bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')]) * bulkFlowW : 0);
               const topSignals = filteredResults
                 .filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid)
+                .filter(r => {
+                  if (focusFlowFilter === 'all') return true;
+                  const bf = bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')];
+                  const sf = sectorFlowMap[r.symbol];
+                  if (focusFlowFilter === 'bulk') return !!bf;
+                  if (focusFlowFilter === 'bulk_high') return bf && bf.finalScore >= 75;
+                  if (focusFlowFilter === 'sector_in') return sf && sf.score > 0;
+                  if (focusFlowFilter === 'synergy') return isSynergy(r);
+                  return true;
+                })
                 .sort((a, b) => flowAdjusted(b) - flowAdjusted(a))
-                .slice(0, 5);
+                .slice(0, focusFlowFilter !== 'all' ? 20 : 5);
 
               if (topSignals.length === 0 && results.length === 0) {
                 return (
@@ -5716,8 +5850,27 @@ function HomePageInner() {
 
               return (
                 <div className="space-y-3">
+                  {/* Sprint 4: Flow filter chips */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      ['all', 'All Signals'],
+                      ['bulk', '💰 Has Bulk'],
+                      ['bulk_high', '💰 Bulk ≥75'],
+                      ['sector_in', '▲ Sector In'],
+                      ['synergy', '⚡ Synergy'],
+                    ] as const).map(([key, label]) => (
+                      <button key={key}
+                        onClick={() => setFocusFlowFilter(key)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${focusFlowFilter === key ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                    Today's Top {topSignals.length} Signal{topSignals.length > 1 ? 's' : ''}
+                    {focusFlowFilter === 'all'
+                      ? `Today's Top ${topSignals.length} Signal${topSignals.length > 1 ? 's' : ''}`
+                      : `${topSignals.length} Signal${topSignals.length !== 1 ? 's' : ''} · ${(['all','bulk','bulk_high','sector_in','synergy'] as const).find(k => k === focusFlowFilter) === 'bulk' ? 'Has Bulk Deal' : focusFlowFilter === 'bulk_high' ? 'Bulk ≥75' : focusFlowFilter === 'sector_in' ? 'Sector Inflow' : '⚡ Synergy'}`
+                    }
                   </div>
                   {topSignals.map((r, idx) => {
                     const conv = computeConviction(r);
@@ -5794,6 +5947,12 @@ function HomePageInner() {
                                   </span>
                                 );
                               })()}
+                              {/* Sprint 5: Synergy badge — sector inflow + bulk deal agree */}
+                              {isSynergy(r) && (
+                                <span className="text-yellow-300 font-bold" title="Sector inflow AND disclosed bulk buying align — dual confirmation">
+                                  ⚡ SYNERGY
+                                </span>
+                              )}
                               <span>Candle: <span className={detectOnsetCandle(r) ? 'text-[#39FF14] font-bold' : r.stats.candlePatternType === 'bullish' ? 'text-emerald-400' : r.stats.candlePatternType === 'bearish' ? 'text-red-400' : 'text-slate-400'}>{detectOnsetCandle(r) ? `★ ${r.stats.candlePatternFull}` : r.stats.candlePatternFull}</span></span>
                               {r.stats.guppyCompressed && <span className="text-yellow-300">Guppy: {r.stats.guppySpreadPct.toFixed(1)}%</span>}
                               {r.stats.ttmSqueezeFired && <span className="text-green-400">TTM 🟢</span>}
