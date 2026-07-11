@@ -5811,8 +5811,11 @@ function HomePageInner() {
                 computeConviction(r)
                 + (sectorFlowOn ? sectorFlowConvictionBoost(sectorFlowMap[r.symbol]) * sectorFlowW : 0)
                 + (bulkFlowOn ? bulkFlowConvictionBoost(bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')]) * bulkFlowW : 0);
-              const topSignals = filteredResults
-                .filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid)
+              // BUY-stage, tradeable signals BEFORE the flow filter — drives whether
+              // the filter chips should appear at all.
+              const baseSignals = filteredResults
+                .filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.priceEngine.tradeValid);
+              const topSignals = baseSignals
                 .filter(r => {
                   if (focusFlowFilter === 'all') return true;
                   const bf = bulkFlowMap[r.symbol.replace(/\.(NS|BO)$/i, '')];
@@ -5826,7 +5829,26 @@ function HomePageInner() {
                 .sort((a, b) => flowAdjusted(b) - flowAdjusted(a))
                 .slice(0, focusFlowFilter !== 'all' ? 20 : 5);
 
-              if (topSignals.length === 0 && results.length === 0) {
+              // Reusable filter chip row — shown whenever there are base signals to filter.
+              const filterChips = (
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ['all', 'All Signals'],
+                    ['bulk', '💰 Has Bulk'],
+                    ['bulk_high', '💰 Bulk ≥75'],
+                    ['sector_in', '▲ Sector In'],
+                    ['synergy', '⚡ Synergy'],
+                  ] as const).map(([key, label]) => (
+                    <button key={key}
+                      onClick={() => setFocusFlowFilter(key)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${focusFlowFilter === key ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              );
+
+              if (results.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-600">
                     <div className="text-5xl mb-4">⚡</div>
@@ -5836,7 +5858,8 @@ function HomePageInner() {
                 );
               }
 
-              if (topSignals.length === 0) {
+              // Scan ran but nothing cleared the BUY-stage bar — genuinely nothing to filter.
+              if (baseSignals.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-600">
                     <div className="text-4xl mb-3">✓</div>
@@ -5846,26 +5869,30 @@ function HomePageInner() {
                 );
               }
 
+              // There ARE base signals but the active flow filter removed them all — keep the
+              // chips visible so the user can widen or reset the filter (no dead end).
+              if (topSignals.length === 0) {
+                return (
+                  <div className="space-y-3">
+                    {filterChips}
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-600">
+                      <div className="text-3xl mb-2">🔍</div>
+                      <div className="text-sm">No signals match this flow filter</div>
+                      <div className="text-xs text-slate-700 mt-1">
+                        {baseSignals.length} BUY signal{baseSignals.length !== 1 ? 's' : ''} available —
+                        <button onClick={() => setFocusFlowFilter('all')} className="text-indigo-400 hover:text-indigo-300 ml-1 underline">show all</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               const regimeMult = marketRegime?.sizingMultiplier ?? 1;
 
               return (
                 <div className="space-y-3">
                   {/* Sprint 4: Flow filter chips */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {([
-                      ['all', 'All Signals'],
-                      ['bulk', '💰 Has Bulk'],
-                      ['bulk_high', '💰 Bulk ≥75'],
-                      ['sector_in', '▲ Sector In'],
-                      ['synergy', '⚡ Synergy'],
-                    ] as const).map(([key, label]) => (
-                      <button key={key}
-                        onClick={() => setFocusFlowFilter(key)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${focusFlowFilter === key ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'}`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  {filterChips}
                   <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
                     {focusFlowFilter === 'all'
                       ? `Today's Top ${topSignals.length} Signal${topSignals.length > 1 ? 's' : ''}`
