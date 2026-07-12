@@ -179,7 +179,7 @@ async function narrate(env: Env): Promise<{ narration: string }> {
   const stageCounts: Record<string, number> = {};
   for (const e of events) stageCounts[e.best_stage] = (stageCounts[e.best_stage] ?? 0) + 1;
 
-  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+  const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
     messages: [
       {
         role: 'system',
