@@ -26,6 +26,7 @@ interface EventPayload {
   zoneTightness:   number | null;
   zoneLen:         number | null;
   closePrice:      number | null;
+  shapeVec:        number[] | null;
 }
 
 interface SavePayload {
@@ -85,13 +86,16 @@ export async function POST(req: NextRequest) {
     move_pct:        e.movePct,
     vol_mult:        e.volMult,
     close_price:     e.closePrice,
+    shape_vec:       e.shapeVec,
   }));
 
-  // Batch insert in chunks of 200
+  // Batch upsert in chunks of 200 — re-saving the same run updates rows
+  // instead of duplicating them (unique index on run_date, symbol, n_before)
   let stored = 0;
   for (let i = 0; i < rows.length; i += 200) {
     const chunk = rows.slice(i, i + 200);
-    const { error } = await sb.from('pbfb_uc_events').insert(chunk);
+    const { error } = await sb.from('pbfb_uc_events')
+      .upsert(chunk, { onConflict: 'run_date,symbol,n_before' });
     if (!error) stored += chunk.length;
   }
 

@@ -56,6 +56,7 @@ interface EventRow {
   rsi2: number | null;
   zone_len: number | null;
   zone_tightness: number | null;
+  shape_vec: number[] | null;
 }
 
 // Per-feature scales so cosine distance weights all 9 dimensions comparably.
@@ -67,14 +68,22 @@ const SCALES: Record<keyof EventFeatures, number> = {
 };
 const FEATURE_ORDER = Object.keys(SCALES) as (keyof EventFeatures)[];
 
-// Vectorize requires >= 32 dims. Zero-padding beyond the 9 real features
-// preserves cosine similarity exactly; dims 9-31 are reserved for future
-// candle-shape (DTW) features.
+// Vector layout (32 dims, Vectorize minimum):
+//   0-8   scaled FAS features
+//   9-28  candle-shape fingerprint (10 normalized closes + 10 volume ratios),
+//         downweighted so 20 shape dims don't drown out the 9 feature dims
+//   29-31 reserved
 const VECTOR_DIMS = 32;
+const SHAPE_OFFSET = 9;
+const SHAPE_LEN = 20;
+const SHAPE_WEIGHT = 0.6;
 
-function toVector(f: EventFeatures): number[] {
+function toVector(f: EventFeatures, shape?: number[] | null): number[] {
   const v = new Array<number>(VECTOR_DIMS).fill(0);
   FEATURE_ORDER.forEach((k, i) => { v[i] = (f[k] ?? 0) / SCALES[k]; });
+  if (shape && shape.length === SHAPE_LEN) {
+    shape.forEach((s, i) => { v[SHAPE_OFFSET + i] = Number(s) * SHAPE_WEIGHT; });
+  }
   return v;
 }
 
@@ -128,7 +137,7 @@ async function supabaseGet(env: Env, path: string): Promise<unknown> {
 async function ingest(env: Env): Promise<{ ingested: number }> {
   const rows = await supabaseGet(
     env,
-    'pbfb_uc_events?select=id,run_date,symbol,best_stage,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness&n_before=eq.1&order=created_at.desc&limit=1000',
+    'pbfb_uc_events?select=id,run_date,symbol,best_stage,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&order=created_at.desc&limit=1000',
   ) as EventRow[];
 
   let ingested = 0;
@@ -136,7 +145,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
     const chunk = rows.slice(i, i + 100);
     await env.VECTORIZE.upsert(chunk.map(r => ({
       id: r.id,
-      values: toVector(rowToFeatures(r)),
+      values: toVector(rowToFeatures(r), r.shape_vec),
       metadata: {
         symbol: r.symbol, run_date: r.run_date, best_stage: r.best_stage,
         classification: r.classification, move_pct: r.move_pct,
@@ -148,8 +157,8 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
 }
 
 // ── Similar: nearest historical fingerprints for a live event ───────────────
-async function similar(env: Env, features: EventFeatures, topK: number) {
-  const { matches } = await env.VECTORIZE.query(toVector(features), {
+async function similar(env: Env, features: EventFeatures, topK: number, shape?: number[] | null) {
+  const { matches } = await env.VECTORIZE.query(toVector(features, shape), {
     topK: Math.min(Math.max(topK, 1), 20),
     returnMetadata: 'all',
   });
@@ -211,9 +220,9 @@ export default {
         return json(await ingest(env));
       }
       if (req.method === 'POST' && pathname === '/similar') {
-        const body = await req.json() as { features?: EventFeatures; topK?: number };
+        const body = await req.json() as { features?: EventFeatures; shape?: number[] | null; topK?: number };
         if (!body.features) return json({ error: 'features required' }, 400);
-        return json(await similar(env, body.features, body.topK ?? 10));
+        return json(await similar(env, body.features, body.topK ?? 10, body.shape));
       }
       if (req.method === 'GET' && pathname === '/narrate') {
         return json(await narrate(env));

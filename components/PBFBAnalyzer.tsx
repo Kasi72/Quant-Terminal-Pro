@@ -66,6 +66,7 @@ interface ForensicResult {
   bestResult:   AnalysisResult | null;  // full snapshot N days before breakout
   anyZone:      boolean;
   classification: 'actionable' | 'on_radar' | 'zone_only' | 'missed';
+  shapeVec:     number[] | null;        // 20-dim candle-shape fingerprint (10 closes + 10 vol ratios, normalized)
 }
 
 interface FeatureCentroid {
@@ -127,6 +128,101 @@ function f0(n: number)  { return n.toFixed(0); }
 
 function metricColor(v: number, lo: number, hi: number): string {
   return v >= hi ? '#4ade80' : v >= lo ? '#fbbf24' : '#f87171';
+}
+
+// ─── Historical analogs (Vectorize nearest neighbours via brain worker) ──────
+
+interface AnalogMatch {
+  score: number;
+  symbol: string | null;
+  runDate: string | null;
+  bestStage: string | null;
+  classification: string | null;
+  movePct: number | null;
+}
+
+const CLASS_COLORS: Record<string, string> = {
+  actionable: '#4ade80', on_radar: '#fbbf24', zone_only: '#60a5fa', missed: '#f87171',
+};
+
+function AnalogPanel({ r }: { r: ForensicResult }) {
+  const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [matches, setMatches] = useState<AnalogMatch[]>([]);
+  const [hitRate, setHitRate] = useState<number | null>(null);
+
+  useEffect(() => {
+    const br = r.bestResult;
+    if (!br) { setState('unavailable'); return; }
+    let cancelled = false;
+    fetch('/api/brain-similar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        features: {
+          closeLoc: br.closeLoc, bodyPct: br.bodyPct, upperWickPct: br.upperWickPct,
+          volRatio20: br.exactVolRatio20, volPre5: br.exactVolVsPre5, rangeATR: br.exactRangeATR14,
+          rsi2: br.rsi2, zoneLen: br.zone?.windowLength ?? 0, zoneTightness: br.zone?.zoneTightnessPct ?? 0,
+        },
+        shape: r.shapeVec,
+        topK: 6,
+      }),
+    })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then((data: { matches: AnalogMatch[]; neighborHitRate: number | null }) => {
+        if (cancelled) return;
+        // Drop the event's own fingerprint if it was already saved + ingested
+        const filtered = data.matches.filter(m => !(m.symbol === r.symbol && m.score > 0.999)).slice(0, 5);
+        setMatches(filtered);
+        setHitRate(data.neighborHitRate);
+        setState('ready');
+      })
+      .catch(() => { if (!cancelled) setState('unavailable'); });
+    return () => { cancelled = true; };
+  }, [r]);
+
+  if (state === 'unavailable') return null;  // worker not configured / no snapshot — stay quiet
+
+  return (
+    <div className="col-span-3 border-t border-purple-900/30 pt-2 mt-1">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[9px] text-purple-400 uppercase font-semibold tracking-wider">🧬 Historical analogs</span>
+        {state === 'ready' && hitRate != null && matches.length > 0 && (
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+            style={{ color: hitRate >= 0.5 ? '#4ade80' : '#94a3b8', background: 'rgba(148,163,184,0.08)' }}>
+            {(hitRate * 100).toFixed(0)}% of neighbours were actionable
+          </span>
+        )}
+      </div>
+      {state === 'loading' ? (
+        <div className="text-[9px] text-slate-600 italic">Searching fingerprint index…</div>
+      ) : matches.length === 0 ? (
+        <div className="text-[9px] text-slate-600 italic">
+          No analogs in the brain yet — accumulate saved runs and they'll appear here.
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {matches.map((m, i) => (
+            <div key={i} className="flex items-center gap-2 bg-slate-800/50 border border-slate-700/40 rounded px-2 py-1">
+              <span className="font-mono text-[10px] text-slate-200 font-semibold">{m.symbol}</span>
+              <span className="text-[9px] text-slate-500">{m.runDate}</span>
+              {m.bestStage && (
+                <span className="text-[9px] font-semibold" style={{ color: stageColor(m.bestStage as StageRating) }}>
+                  {stageLabel(m.bestStage as StageRating)}
+                </span>
+              )}
+              <span className="text-[9px] font-mono" style={{ color: CLASS_COLORS[m.classification ?? ''] ?? '#94a3b8' }}>
+                {m.classification}
+              </span>
+              {m.movePct != null && (
+                <span className="text-[9px] font-mono text-slate-400">+{f1(Number(m.movePct))}%</span>
+              )}
+              <span className="text-[9px] font-mono text-purple-300">{(m.score * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Expanded pre-event detail panel ─────────────────────────────────────────
@@ -360,6 +456,9 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
           </div>
         )}
       </div>
+
+      {/* Full-width: nearest historical fingerprints from the brain worker */}
+      <AnalogPanel r={r} />
     </div>
   );
 }
@@ -383,6 +482,7 @@ export default function PBFBAnalyzer() {
   const [expanded, setExpanded]       = useState<string | null>(null);
   const [brainData,    setBrainData]    = useState<BrainData | null>(null);
   const [brainLoading, setBrainLoading] = useState(false);
+  const [narration,    setNarration]    = useState('');
   const [saveState,    setSaveState]    = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // UC hitter fetcher state
@@ -481,7 +581,17 @@ export default function PBFBAnalyzer() {
     setBrainLoading(true);
     try {
       const res = await fetch('/api/pbfb-intelligence');
-      if (res.ok) setBrainData(await res.json());
+      if (res.ok) {
+        const data: BrainData = await res.json();
+        setBrainData(data);
+        // Llama narration — only worth an AI call once the brain has real data
+        if (data.eventCount >= 10 && !narration) {
+          fetch('/api/brain-narrate')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.narration) setNarration(d.narration); })
+            .catch(() => {});
+        }
+      }
     } catch { /* silent */ }
     finally { setBrainLoading(false); }
   }
@@ -516,6 +626,7 @@ export default function PBFBAnalyzer() {
         zoneTightness:   r.bestResult?.zone?.zoneTightnessPct ?? null,
         zoneLen:         r.bestResult?.zone?.windowLength     ?? null,
         closePrice:      r.bestResult?.lastClose ?? null,
+        shapeVec:        r.shapeVec,
       })),
     };
     try {
@@ -546,6 +657,21 @@ export default function PBFBAnalyzer() {
     if (c.rangeATR > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.exactRangeATR14 - c.rangeATR)   / 2));
     if (c.rsi2 > 0)         diffs.push(Math.max(0, 1 - Math.abs(br.rsi2           - c.rsi2)        / 40));
     return diffs.length > 0 ? Math.round(diffs.reduce((a, b) => a + b) / diffs.length * 100) : null;
+  }
+
+  // 20-dim candle-shape fingerprint over the 10 candles ending at the signal day:
+  // 10 min-max-normalized closes (chart shape) + 10 max-normalized volumes (volume shape).
+  // Stored per event and ingested into Vectorize dims 9-28 by the brain worker.
+  function computeShapeVec(candles: Candle[]): number[] | null {
+    if (candles.length < 10) return null;
+    const win = candles.slice(-10);
+    const closes = win.map(c => c.c);
+    const vols   = win.map(c => c.v);
+    const cMin = Math.min(...closes), cMax = Math.max(...closes);
+    const vMax = Math.max(...vols);
+    const closeShape = closes.map(c => cMax > cMin ? (c - cMin) / (cMax - cMin) : 0.5);
+    const volShape   = vols.map(v => vMax > 0 ? v / vMax : 0);
+    return [...closeShape, ...volShape].map(x => Math.round(x * 1000) / 1000);
   }
 
   // ── Event detection ─────────────────────────────────────────────────────────
@@ -666,6 +792,7 @@ export default function PBFBAnalyzer() {
           symbol: ev.symbol, date: ev.date, movePct: ev.movePct, volMult: ev.volMult,
           isUCLock: ev.isUCLock, nBefore: nb,
           stages, bestStage, bestParamSet, bestResult, anyZone, classification,
+          shapeVec: computeShapeVec(truncated),
         });
       }
     }
@@ -1252,6 +1379,12 @@ export default function PBFBAnalyzer() {
                   {brainData.actionableCount} actionable detected ({(brainData.overallDetectionRate * 100).toFixed(1)}% rate)
                 </div>
               </div>
+
+              {narration && (
+                <div className="mb-3 px-2 py-1.5 bg-purple-950/30 border-l-2 border-purple-600/60 rounded-r text-[10px] text-purple-200/80 italic leading-relaxed">
+                  {narration}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 {/* Detection rate vs current */}
