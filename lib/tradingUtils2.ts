@@ -176,9 +176,24 @@ export function generateSparklineSVG(
   const bW = Math.max(1.5, slW - 0.8);
   const xOf = (i: number) => pad + i * slW;
 
+  // Precompute zone start index so candle loop and zone block share it
+  const zoneDur = zoneLen ?? 0;
+  const zoneStartIdx = zoneDur > 0 ? Math.max(0, n - zoneDur) : 0;
+
   // style="width:100%" with NO fixed height → browser preserves aspect ratio
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">`;
   svg += `<rect width="${W}" height="${H}" fill="#0d1117" rx="4"/>`;
+
+  // ── Y-axis price grid: 3 equidistant dashed lines + price labels ──
+  // Gives traders absolute price context without clutter
+  for (let gi = 1; gi <= 3; gi++) {
+    const gPrice = minP + range * (gi / 4);
+    const gy = toY(gPrice);
+    if (gy < pad + 4 || gy > pH - 8) continue;
+    svg += `<line x1="${pad}" y1="${gy}" x2="${cW}" y2="${gy}" stroke="#1e293b" stroke-width="0.5" stroke-dasharray="3,5" opacity="0.9"/>`;
+    svg += `<text x="${pad + 2}" y="${gy - 2}" font-size="7" fill="#334155" font-weight="bold">₹${Math.round(gPrice)}</text>`;
+  }
+
   svg += `<line x1="${pad}" y1="${pH + 1.5}" x2="${cW}" y2="${pH + 1.5}" stroke="#1e293b" stroke-width="0.7"/>`;
 
   // ── Compression zone — quality-scored, two-tier horizontal level lines ──
@@ -231,9 +246,11 @@ export function generateSparklineSVG(
       tier === 'FAIR'  ? '#fcd34d' :   // amber
                          '#94a3b8';    // slate
 
-    const ceilW  = tier === 'ELITE' ? 1.3 : tier === 'GOOD' ? 1.1 : 0.9;
-    const floorC = '#475569';   // always slate — floor is context, not signal
-    const floorW = 0.75;
+    // Both lines share the same color — the tier color — so they look matched.
+    // Ceiling is slightly heavier (dominant = breakout level); floor is slightly
+    // thinner (secondary = invalidation level). Same hue, just different weight.
+    const ceilW  = 1.1;
+    const floorW = 0.8;
 
     // ── PASS 1: zone-band fill (behind candles, zone x-span only) ──
     svg += `<rect x="${xZ0}" y="${zy1}" width="${Math.max(1, xZ1 - xZ0)}" `
@@ -241,31 +258,55 @@ export function generateSparklineSVG(
 
     // ── PASS 2: lines + markers + label (on top of candles) ──
 
-    // Floor — full chart width, receded
+    // Floor — full chart width, same color as ceiling, slightly thinner
     zoneOverlay +=
       `<line x1="${pad}" y1="${zy2}" x2="${cW}" y2="${zy2}" `
-    + `stroke="${floorC}" stroke-width="${floorW}"/>`;
+    + `stroke="${ceilColor}" stroke-width="${floorW}" opacity="0.75"/>`;
 
-    // Ceiling — full chart width, dominant
+    // Ceiling — full chart width, full opacity (breakout level = primary signal)
     zoneOverlay +=
       `<line x1="${pad}" y1="${zy1}" x2="${cW}" y2="${zy1}" `
     + `stroke="${ceilColor}" stroke-width="${ceilW}"/>`;
 
-    // Left-edge bracket: dashed vertical connector at zone start
-    // Shows exactly where compression began — like a TradingView "zone box" left wall
+    // Left-edge dashed vertical bracket at zone start
     if (xZ0 > pad + 4) {
       zoneOverlay +=
         `<line x1="${xZ0}" y1="${zy1}" x2="${xZ0}" y2="${zy2}" `
-      + `stroke="${ceilColor}" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.55"/>`;
+      + `stroke="${ceilColor}" stroke-width="0.7" stroke-dasharray="2,2" opacity="0.50"/>`;
+    }
+
+    // ── % to breakout — right end of ceiling line ──
+    // The single most-asked question for any compression setup
+    const sigClose = last[n - 1]?.c ?? 0;
+    if (sigClose > 0 && zoneHigh > sigClose) {
+      const pctToBrk = ((zoneHigh - sigClose) / sigClose) * 100;
+      if (pctToBrk < 15) {
+        const brkTxt = `+${pctToBrk.toFixed(1)}%`;
+        const brkTxtW = brkTxt.length * 5.5 + 4;
+        const brkX = Math.min(cW - brkTxtW - 2, xZ0 + 4);
+        const brkY = zy1 + 8;   // below ceiling — clears COMP pill which sits above
+        if (brkY + 4 < zy2) {   // only render when zone band is tall enough to fit
+          zoneOverlay += `<rect x="${brkX - 2}" y="${brkY - 9}" width="${brkTxtW + 2}" height="12" fill="#0d1117" rx="2"/>`;
+          zoneOverlay += `<text x="${brkX}" y="${brkY}" font-size="8.5" fill="${ceilColor}" font-weight="bold">${brkTxt}</text>`;
+        }
+      }
+    } else if (sigClose > 0 && zoneHigh <= sigClose) {
+      // Already above breakout level — show "BRK ✓"
+      const brkX = Math.min(cW - 38, xZ0 + 4);
+      const brkY = zy1 + 8;
+      if (brkY + 4 < zy2) {
+        zoneOverlay += `<rect x="${brkX - 2}" y="${brkY - 9}" width="40" height="12" fill="#0d1117" rx="2"/>`;
+        zoneOverlay += `<text x="${brkX}" y="${brkY}" font-size="8.5" fill="${ceilColor}" font-weight="bold">BRK✓</text>`;
+      }
     }
 
     // ── Annotation pill ──
-    // Content: tier label + duration + tightness + optional volume trend tag
+    const tightAbs  = Math.abs(tight);   // guard against edge-case negative values
     const shapeTag  = zoneShape === 'ASCENDING' ? ' ↗' : '';
     const volTag    = volDecl ? ' ↓V' : '';
     const tierLabel = tier === 'ELITE' ? '★ ' : tier === 'FAIR' ? '△ ' : '';
     const annText   =
-      `${tierLabel}COMP ${dur}d · ${tight.toFixed(1)}%${shapeTag}${volTag}`;
+      `${tierLabel}COMP ${dur}d · ${tightAbs.toFixed(1)}%${shapeTag}${volTag}`;
 
     // Pill colours match tier
     const pillBg  =
@@ -279,12 +320,26 @@ export function generateSparklineSVG(
 
     const pillW  = 116;
     const pillH  = 14;
+    // Dynamic empty-space detection: find where candle wicks actually end, then
+    // place the pill in the largest genuinely clear gap rather than guessing
+    // zone-relative positions that can still land on dense candle clusters.
+    const allHY = Math.min(...last.map(c => toY(c.h)));   // highest wick (smallest Y)
+    const allLY = Math.max(...last.map(c => toY(c.l)));   // lowest wick (largest Y)
     const spaceAbove = zy1 - pad;
     const spaceBelow = pH - pad - zy2;
-    const annY = spaceAbove >= pillH + 5 ? zy1 - pillH - 4
-               : spaceBelow >= pillH + 5 ? zy2 + 4
-               : zy1 + 5;
-    const annX = Math.min(Math.max(xZ0, pad + 1), cW - pillW - 2);
+    const annY =
+      allLY + pillH + 4 < pH - 2  ? allLY + 2 :          // below all wicks  (best)
+      allHY > pad + pillH + 4      ? allHY - pillH - 2 :  // above all wicks
+      spaceAbove >= pillH + 3      ? zy1 - pillH - 3 :    // above ceiling
+      spaceBelow >= pillH + 3      ? zy2 + 3 :            // below floor
+                                     zy1 - pillH - 2;     // last resort
+    const sigCandleX = xOf(n - 1);
+    // Prefer ending the pill 2px before zone start so it sits in the dimmed pre-zone area.
+    // Fall back to clearing the signal candle when the zone is too wide to allow that.
+    const annXIdeal = xZ0 - pillW - 2;
+    const annX = annXIdeal >= pad + 1
+      ? annXIdeal
+      : Math.max(pad + 1, sigCandleX - pillW - 6);
 
     zoneOverlay +=
       `<rect x="${annX}" y="${annY}" width="${pillW}" height="${pillH}" `
@@ -305,36 +360,64 @@ export function generateSparklineSVG(
     if (lo < last[i-1].l && lo < last[i-2].l && lo < last[i-3].l &&
         lo < last[i+1].l && lo < last[i+2].l && lo < last[i+3].l) plIdxs.push(i);
   }
-  for (const i of phIdxs.slice(-2)) {
-    const cx = xOf(i) + bW / 2;
-    const wy = toY(last[i].h);
-    if (wy > pad + 16) {
-      svg += `<polygon points="${cx-4},${wy-9} ${cx+4},${wy-9} ${cx},${wy-4}" fill="#fb923c"/>`;
-      svg += `<text x="${cx}" y="${wy - 11}" text-anchor="middle" font-size="8" fill="#fb923c" font-weight="bold">PH</text>`;
+  { // PH markers — skip inside compression zone, suppress labels that are too close
+    let prevPhX = -999;
+    for (const i of phIdxs.slice(-2)) {
+      if (i >= zoneStartIdx) continue;    // zone candles have their own ceiling line
+      const cx = xOf(i) + bW / 2;
+      const wy = toY(last[i].h);
+      if (wy > pad + 16) {
+        svg += `<polygon points="${cx-4},${wy-9} ${cx+4},${wy-9} ${cx},${wy-4}" fill="#fb923c"/>`;
+        if (cx - prevPhX >= 24) {
+          svg += `<text x="${cx}" y="${wy - 11}" text-anchor="middle" font-size="8" fill="#fb923c" font-weight="bold">PH</text>`;
+          prevPhX = cx;
+        }
+      }
     }
   }
-  for (const i of plIdxs.slice(-2)) {
-    const cx = xOf(i) + bW / 2;
-    const wy = toY(last[i].l);
-    if (wy < pH - pad - 16) {
-      svg += `<polygon points="${cx-4},${wy+9} ${cx+4},${wy+9} ${cx},${wy+4}" fill="#38bdf8"/>`;
-      svg += `<text x="${cx}" y="${wy + 20}" text-anchor="middle" font-size="8" fill="#38bdf8" font-weight="bold">PL</text>`;
+  { // PL markers — skip inside compression zone, suppress labels that are too close
+    let prevPlX = -999;
+    for (const i of plIdxs.slice(-2)) {
+      if (i >= zoneStartIdx) continue;    // zone floor line already marks support
+      const cx = xOf(i) + bW / 2;
+      const wy = toY(last[i].l);
+      if (wy < pH - pad - 16) {
+        svg += `<polygon points="${cx-4},${wy+9} ${cx+4},${wy+9} ${cx},${wy+4}" fill="#38bdf8"/>`;
+        if (cx - prevPlX >= 24) {
+          svg += `<text x="${cx}" y="${wy + 20}" text-anchor="middle" font-size="8" fill="#38bdf8" font-weight="bold">PL</text>`;
+          prevPlX = cx;
+        }
+      }
     }
   }
 
-  // ── Level lines with right-side pill labels ──
-  const drawLevel = (price: number, col: string, label: string, dash: string) => {
-    const ly = toY(price);
-    if (ly < 2 || ly > pH - 2) return;
-    svg += `<line x1="${pad}" y1="${ly}" x2="${cW}" y2="${ly}" stroke="${col}" stroke-width="1" stroke-dasharray="${dash}"/>`;
-    // Dark pill background + readable text
-    svg += `<rect x="${cW + 2}" y="${ly - 9}" width="${lW - 3}" height="18" fill="#0a0f1e" rx="3"/>`;
-    svg += `<text x="${cW + 4}" y="${ly - 1}" font-size="8.5" fill="${col}" font-weight="bold">${label}</text>`;
-    svg += `<text x="${cW + 4}" y="${ly + 9}" font-size="9" fill="${col}">₹${price.toFixed(0)}</text>`;
-  };
-  if (target1 && target1 > 0) drawLevel(target1, '#2dd4bf', 'T1', '5,3');
-  if (entry && entry > 0) drawLevel(entry, '#4ade80', 'ENT', '3,2');
-  if (stop && stop > 0) drawLevel(stop, '#f87171', 'SL', '3,2');
+  // ── Level lines with right-side pill labels + collision detection ──
+  // Levels that land within 18px of each other in Y get nudged apart
+  const levelPills: { price: number; col: string; label: string; dash: string }[] = [];
+  if (target1 && target1 > 0) levelPills.push({ price: target1, col: '#2dd4bf', label: 'T1',  dash: '5,3' });
+  if (entry  && entry  > 0) levelPills.push({ price: entry,  col: '#4ade80', label: 'ENT', dash: '3,2' });
+  if (stop   && stop   > 0) levelPills.push({ price: stop,   col: '#f87171', label: 'SL',  dash: '3,2' });
+
+  // Sort descending by price (highest line first in SVG y-space)
+  levelPills.sort((a, b) => b.price - a.price);
+
+  // Assign pill Y positions: nudge down for collisions, then clamp to chart bounds
+  const pillYs: number[] = [];
+  for (const lv of levelPills) {
+    const rawY = toY(lv.price);
+    let py = rawY;
+    for (const used of pillYs) {
+      if (Math.abs(py - used) < 22) py = used + 22;
+    }
+    py = Math.max(pad + 10, Math.min(pH - 10, py));
+    pillYs.push(py);
+
+    if (rawY < 2 || rawY > pH - 2) continue;
+    svg += `<line x1="${pad}" y1="${rawY}" x2="${cW}" y2="${rawY}" stroke="${lv.col}" stroke-width="1" stroke-dasharray="${lv.dash}"/>`;
+    svg += `<rect x="${cW + 2}" y="${py - 9}" width="${lW - 3}" height="18" fill="#0a0f1e" rx="3"/>`;
+    svg += `<text x="${cW + 4}" y="${py - 1}" font-size="8.5" fill="${lv.col}" font-weight="bold">${lv.label}</text>`;
+    svg += `<text x="${cW + 4}" y="${py + 8}" font-size="8.5" fill="${lv.col}">₹${lv.price.toFixed(0)}</text>`;
+  }
 
   // ── EMA50 (slate) then EMA20 (amber) on top ──
   const buildEma = (k: number): string[] => {
@@ -353,6 +436,7 @@ export function generateSparklineSVG(
   if (e20.length > 1) svg += `<polyline points="${e20.join(' ')}" fill="none" stroke="#f59e0b" stroke-width="1.3" opacity="0.85"/>`;
 
   // ── Volume histogram ──
+  // Zone bars brighter than pre-zone bars so the declining-volume pattern is legible
   const vols = last.map(c => c.v ?? 0);
   const hasVol = vols.some(v => v > 0);
   const maxVol = Math.max(...vols, 1);
@@ -360,10 +444,16 @@ export function generateSparklineSVG(
   const avgVol = priorVols.length ? priorVols.reduce((a, b) => a + b, 0) / priorVols.length : 0;
   if (hasVol) {
     for (let i = 0; i < n; i++) {
-      const c = last[i]; const isSig = i === n - 1;
-      const bHv = Math.max(1.5, ((c.v ?? 0) / maxVol) * (vH - 3));
-      const isG = c.c >= c.o;
-      svg += `<rect x="${xOf(i)}" y="${vBot - bHv}" width="${bW}" height="${bHv}" fill="${isG ? (isSig ? '#4ade80' : '#166534') : (isSig ? '#f87171' : '#7f1d1d')}"/>`;
+      const c = last[i];
+      const isSig    = i === n - 1;
+      const inZone   = i >= zoneStartIdx;
+      const isG      = c.c >= c.o;
+      const bHv      = Math.max(1.5, ((c.v ?? 0) / maxVol) * (vH - 3));
+      // Pre-zone: dim; in-zone: mid; signal bar: bright
+      const volCol = isG
+        ? (isSig ? '#4ade80' : inZone ? '#22c55e' : '#15803d')
+        : (isSig ? '#f87171' : inZone ? '#ef4444' : '#b91c1c');
+      svg += `<rect x="${xOf(i)}" y="${vBot - bHv}" width="${bW}" height="${bHv}" fill="${volCol}" opacity="${inZone ? 1 : 0.6}"/>`;
     }
     if (avgVol > 0) {
       const avy = vBot - (avgVol / maxVol) * (vH - 3);
@@ -372,20 +462,30 @@ export function generateSparklineSVG(
     svg += `<text x="${pad + 2}" y="${vy0 + 10}" font-size="8" fill="#64748b">VOL</text>`;
   }
 
-  // ── Candles (on top of everything) ──
+  // ── Candles ──
+  // Pre-zone: dimmed (60% opacity) so eye snaps to the compression zone
+  // Zone candles: full brightness
+  // Signal candle: amber glow halo + brightest color
   for (let i = 0; i < n; i++) {
-    const c = last[i]; const x = xOf(i);
-    const isG = c.c >= c.o; const isSig = i === n - 1;
+    const c      = last[i];
+    const x      = xOf(i);
+    const isG    = c.c >= c.o;
+    const isSig  = i === n - 1;
+    const inZone = i >= zoneStartIdx;
+    const preZoneOpacity = 0.70;
+
     if (isSig) {
       const wt = Math.max(0, toY(c.h) - 3);
       const wb = Math.min(pH - 1, toY(c.l) + 3);
       svg += `<rect x="${x - 2}" y="${wt}" width="${bW + 4}" height="${Math.max(4, wb - wt)}" fill="none" stroke="#fbbf24" stroke-width="1.8" rx="1.5"/>`;
     }
-    const col = isG ? (isSig ? '#4ade80' : '#34d399') : (isSig ? '#f87171' : '#ef4444');
+    const col  = isG ? (isSig ? '#4ade80' : '#34d399') : (isSig ? '#f87171' : '#ef4444');
+    const op   = isSig ? 1 : inZone ? 0.88 : preZoneOpacity;
+    const wickW = isSig ? 1.2 : 0.8;   // thicker wicks — previously 0.6, near-invisible
     const bTop = toY(Math.max(c.o, c.c));
     const bBot = toY(Math.min(c.o, c.c));
-    svg += `<line x1="${x + bW / 2}" y1="${toY(c.h)}" x2="${x + bW / 2}" y2="${toY(c.l)}" stroke="${col}" stroke-width="${isSig ? 1.2 : 0.6}"/>`;
-    svg += `<rect x="${x}" y="${bTop}" width="${bW}" height="${Math.max(0.8, bBot - bTop)}" fill="${col}" opacity="${isSig ? 1 : 0.88}"/>`;
+    svg += `<line x1="${x + bW / 2}" y1="${toY(c.h)}" x2="${x + bW / 2}" y2="${toY(c.l)}" stroke="${col}" stroke-width="${wickW}" opacity="${op}"/>`;
+    svg += `<rect x="${x}" y="${bTop}" width="${bW}" height="${Math.max(0.8, bBot - bTop)}" fill="${col}" opacity="${op}"/>`;
   }
 
   // ── Zone border + label ON TOP of candles (fully visible) ──
@@ -402,8 +502,8 @@ export function generateSparklineSVG(
   if (lc) {
     const lcTxt = `₹${lc.toFixed(1)}`;
     const lcW = lcTxt.length * 6.2 + 6;   // rough char-width estimate
-    svg += `<rect x="${pad}" y="${pad}" width="${lcW}" height="14" fill="#0a0f1e" rx="3"/>`;
-    svg += `<text x="${pad + 4}" y="${pad + 11}" font-size="10" fill="#cbd5e1" font-weight="bold">${lcTxt}</text>`;
+    svg += `<rect x="${pad}" y="${pad}" width="${lcW}" height="14" fill="#1e293b" stroke="#334155" stroke-width="0.5" rx="3"/>`;
+    svg += `<text x="${pad + 4}" y="${pad + 11}" font-size="10" fill="#f1f5f9" font-weight="bold">${lcTxt}</text>`;
   }
 
   // ── EMA legend pills — bottom-left, just above the price/vol separator ──
