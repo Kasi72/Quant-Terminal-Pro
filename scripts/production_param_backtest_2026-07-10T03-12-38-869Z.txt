@@ -1,0 +1,72 @@
+==============================================================================================================
+PRODUCTION PARAM SET BACKTEST
+==============================================================================================================
+Data directory : C:\Users\drkkr\Downloads\NIFTY ALL1783
+CSV files      : 1616 found, 4 skipped for short history
+Date range     : 2021-07-02 to 2026-07-01
+Engine dir     : D:\Claude code\stock-screener\scripts\_compiled_current
+History window : 280 bars; min history 220; max hold 20; planned-entry window 3 bars
+Run at         : 2026-07-10T03:12:38.874Z
+
+Raw signal convention = signal close to future high. No entry fill, no stop ordering. This is useful, but easiest to inflate.
+Fair models use non-overlapping trades per stock/param/model and production priceEngine levels.
+Stop-first = conservative same-bar ordering. Target-first = optimistic same-bar ordering.
+
+RAW SIGNAL FORWARD EXCURSION
+--------------------------------------------------------------------------------------------------------------
+Param               Signals  Stocks  TradeValid   +3% 10d   +5% 10d   Wilson   +5% 20d   AvgMFE10   AvgMAE10
+Deployable               21      20        0.0%     52.4%     47.6%    28.3%     61.9%       4.8%      -4.8%
+HighPrecision          1526     819        0.2%     67.5%     48.0%    45.5%     62.4%       7.0%      -6.0%
+Elite                    19      19        0.0%     57.9%     31.6%    15.4%     52.6%       4.1%      -4.3%
+UltraSelective           41      40        0.0%     70.7%     51.2%    36.5%     65.9%       5.8%      -5.4%
+Sniper                   18      18        0.0%     66.7%     44.4%    24.6%     61.1%       5.7%      -4.2%
+
+PLANNEDSTOPFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable              17      17    47.1%    26.2%     -0.8%     -1.2%    0.76   -0.113      5.0%     -4.8%    33.3%
+HighPrecision         1063     683    45.9%    42.9%     -0.4%     -2.3%    0.87   -0.064      6.7%     -5.6%    40.8%
+Elite                   16      16    62.5%    38.6%      1.7%      4.9%    1.94    0.255      6.0%     -4.4%    80.0%
+UltraSelective          34      33    50.0%    34.1%     -0.2%      0.8%    0.92   -0.016      6.1%     -5.5%    45.5%
+Sniper                  15      15    53.3%    30.1%      0.9%      2.3%    1.43    0.133      6.1%     -4.3%    60.0%
+
+PLANNEDTARGETFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable              17      17    47.1%    26.2%     -0.9%     -1.2%    0.72   -0.130      4.8%     -4.8%    33.3%
+HighPrecision         1063     683    46.1%    43.1%     -0.8%     -2.2%    0.78   -0.110      6.0%     -5.6%    41.1%
+Elite                   16      16    62.5%    38.6%      1.3%      3.8%    1.75    0.204      5.8%     -4.4%    80.0%
+UltraSelective          34      33    50.0%    34.1%     -0.4%      0.8%    0.86   -0.046      5.7%     -5.5%    45.5%
+Sniper                  15      15    53.3%    30.1%      0.7%      2.3%    1.35    0.108      5.8%     -4.3%    60.0%
+
+NEXTOPENSTOPFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable              21      20    42.9%    24.5%     -0.7%     -1.2%    0.77   -0.102      4.8%     -4.4%    14.3%
+HighPrecision         1483     819    37.6%    35.2%     -0.5%     -4.1%    0.84   -0.097      6.2%     -5.1%    34.2%
+Elite                   19      19    57.9%    36.3%      1.4%      5.0%    1.73    0.222      6.1%     -4.4%    66.7%
+UltraSelective          41      40    48.8%    34.3%     -0.1%     -0.7%    0.97    0.013      6.2%     -5.1%    46.2%
+Sniper                  18      18    61.1%    38.6%      1.6%      2.8%    2.00    0.281      6.5%     -3.8%    50.0%
+
+NEXTOPENTARGETFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable              21      20    42.9%    24.5%     -0.8%     -1.2%    0.74   -0.116      4.7%     -4.4%    14.3%
+HighPrecision         1483     819    37.8%    35.3%     -0.7%     -4.0%    0.77   -0.135      5.8%     -5.1%    34.4%
+Elite                   19      19    57.9%    36.3%      1.2%      4.6%    1.58    0.175      6.0%     -4.4%    66.7%
+UltraSelective          41      40    48.8%    34.3%     -0.3%     -0.7%    0.89   -0.030      5.9%     -5.1%    46.2%
+Sniper                  18      18    61.1%    38.6%      1.4%      2.8%    1.91    0.258      6.2%     -3.8%    50.0%
+
+EXIT BREAKDOWN, CONSERVATIVE PLANNED ENTRY
+--------------------------------------------------------------------------------------------------------------
+Deployable         stop:8 stop_t2:5 time:2 hit_t3:1 stop_t1:1
+HighPrecision      stop:469 hit_t3:129 stop_t1:124 stop_t2:121 time:85 stop_gap:40 stop_gap_t2:36 hit_t1:35 stop_gap_t1:13 hit_t2:11
+Elite              stop_t2:6 stop:4 time:2 hit_t3:2 hit_t1:1 hit_t2:1
+UltraSelective     stop:9 stop_t1:6 stop_t2:5 stop_gap:5 time:4 hit_t1:3 hit_t2:1 hit_t3:1
+Sniper             stop_t2:4 stop:4 time:4 hit_t3:1 hit_t1:1 stop_gap_t1:1
+
+FILES
+--------------------------------------------------------------------------------------------------------------
+JSON    : D:\Claude code\stock-screener\scripts\production_param_backtest_2026-07-10T03-12-38-869Z.json
+Summary : D:\Claude code\stock-screener\scripts\production_param_backtest_2026-07-10T03-12-38-869Z.txt
+==============================================================================================================

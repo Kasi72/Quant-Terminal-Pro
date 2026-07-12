@@ -1,0 +1,104 @@
+{
+  "variants": {
+    "grid_v13": {
+      "label": "Grid-v13 (live)",
+      "params": {
+        "name": "Ultra-Selective Grid-v13 8+",
+        "tag": "56.8% WR",
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 95,
+        "maxPre10AvgRangeATR": 1.3,
+        "maxPre10ExpansionCount": 1,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 0.95,
+        "minZoneLen": 6,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 18,
+        "maxPre10AvgVolRatio": 1,
+        "maxPre5AvgVolRatio": 1.1,
+        "maxPre10HighVolCount": 1,
+        "highVolMultiplier": 1.5,
+        "maxPre10RedVolBias": 1.5,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1,
+        "maxExactRangeATR14": 6,
+        "minExactVolRatio20": 1.5,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 63,
+        "maxUpperWickPct": 15,
+        "minBodyPct": 30,
+        "maxCandleRisk": 8.5,
+        "minUltraPrecisionScore": 60,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.1,
+        "minCandleQualityScore": 2,
+        "maxCloseAboveZonePct": null
+      }
+    },
+    "chatgpt_v12": {
+      "label": "ChatGPT forensic v12",
+      "params": {
+        "name": "UltraSelective ChatGPT forensic",
+        "tag": "61.1% WR",
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 95,
+        "maxPre10AvgRangeATR": 1.3,
+        "maxPre10ExpansionCount": 0,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 0.95,
+        "minZoneLen": 8,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 15,
+        "maxPre10AvgVolRatio": 0.9,
+        "maxPre5AvgVolRatio": 0.95,
+        "maxPre10HighVolCount": 0,
+        "highVolMultiplier": 1.5,
+        "maxPre10RedVolBias": 0.8,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1.2,
+        "maxExactRangeATR14": 6,
+        "minExactVolRatio20": 0.8,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 65,
+        "maxUpperWickPct": 20,
+        "minBodyPct": 60,
+        "maxCandleRisk": 8.5,
+        "minUltraPrecisionScore": 0,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.4,
+        "minCandleQualityScore": 3,
+        "maxCloseAboveZonePct": null
+      }
+    }
+  },
+  "summaries": {
+    "grid_v13": {
+      "n": 407,
+      "wr": 64.61916461916462,
+      "wilson": 59.85681156539516,
+      "pf": 2.094122346352863,
+      "avgMfe": 9.744098530047852,
+      "avgMae": -7.416868583450574,
+      "stocks": 325,
+      "oosN": 123,
+      "oosWr": 49.59349593495935,
+      "oosPf": 1.022112022362391
+    },
+    "chatgpt_v12": {
+      "n": 54,
+      "wr": 70.37037037037037,
+      "wilson": 57.17217482621141,
+      "pf": 3.655952287210742,
+      "avgMfe": 10.000952413269179,
+      "avgMae": -5.574472690483641,
+      "stocks": 48,
+      "oosN": 17,
+      "oosWr": 70.58823529411765,
+      "oosPf": 4.237440619519598
+    }
+  },
+  "tradeCounts": {
+    "grid_v13": 407,
+    "chatgpt_v12": 54
+  }
+}

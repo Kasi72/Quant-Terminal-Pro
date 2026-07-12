@@ -1,0 +1,23 @@
+
+====================================================================================================================================
+FORENSIC PARAM VARIANT VALIDATION
+====================================================================================================================================
+Data: D:\Claude code\stock-screener\scripts\_bt_smoke
+Files: 12, skipped: 0, date range: 2021-07-02 to 2026-07-01
+Variants: D:\Claude code\stock-screener\scripts\deployable_highprecision_forensic_variants.json
+
+NEXT-OPEN STOP-FIRST
+------------------------------------------------------------------------------------------------------------------------------------
+Variant                          Signals  Trades  Stocks      WR   Wilson      Avg      PF     AvgR      MFE      MAE   OOSn   OOSWR   OOSAvg   OOSPF
+deployable_forensic_d6                 0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+deployable_forensic_d5                 0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+highprecision_forensic_hp2             0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+highprecision_forensic_hp1             0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+
+PLANNED ENTRY WITHIN 3 DAYS, STOP-FIRST
+------------------------------------------------------------------------------------------------------------------------------------
+Variant                          Signals  Trades  Stocks      WR   Wilson      Avg      PF     AvgR      MFE      MAE   OOSn   OOSWR   OOSAvg   OOSPF
+deployable_forensic_d6                 0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+deployable_forensic_d5                 0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+highprecision_forensic_hp2             0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00
+highprecision_forensic_hp1             0       0       0    0.0%     0.0%    0.00%    0.00    0.000     0.0%     0.0%      0    0.0%    0.00%    0.00

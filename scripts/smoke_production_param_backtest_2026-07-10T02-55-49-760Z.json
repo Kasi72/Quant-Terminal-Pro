@@ -1,0 +1,1231 @@
+{
+  "meta": {
+    "dataDir": "D:\\Claude code\\stock-screener\\scripts\\_bt_smoke",
+    "engineDir": "D:\\Claude code\\stock-screener\\scripts\\_compiled_current",
+    "fileCount": 12,
+    "skipped": 0,
+    "minDate": "2021-07-02",
+    "maxDate": "2026-07-01",
+    "historyWindow": 280,
+    "minHistory": 220,
+    "maxHold": 20,
+    "entryWindow": 3,
+    "workers": 2,
+    "runAt": "2026-07-10T02:55:49.761Z",
+    "elapsedSec": 18,
+    "jsonFile": "D:\\Claude code\\stock-screener\\scripts\\smoke_production_param_backtest_2026-07-10T02-55-49-760Z.json",
+    "summaryFile": "D:\\Claude code\\stock-screener\\scripts\\smoke_production_param_backtest_2026-07-10T02-55-49-760Z.txt"
+  },
+  "results": {
+    "optimized_deployable_20plus": {
+      "label": "Deployable",
+      "rawSummary": {
+        "n": 0,
+        "tradeValid": 0,
+        "tradeValidPct": 0,
+        "hit3_10": 0,
+        "hit3_10Pct": 0,
+        "hit5_10": 0,
+        "hit5_10Pct": 0,
+        "hit5_10Wilson": 0,
+        "hit5_20": 0,
+        "hit5_20Pct": 0,
+        "avgMfe10": 0,
+        "avgMae10": 0,
+        "uniqueStocks": 0
+      },
+      "rawSignals": [],
+      "plannedStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "plannedTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      }
+    },
+    "optimized_highprecision_15plus": {
+      "label": "HighPrecision",
+      "rawSummary": {
+        "n": 6,
+        "tradeValid": 0,
+        "tradeValidPct": 0,
+        "hit3_10": 3,
+        "hit3_10Pct": 50,
+        "hit5_10": 1,
+        "hit5_10Pct": 16.666666666666664,
+        "hit5_10Wilson": 3.0052585871730284,
+        "hit5_20": 1,
+        "hit5_20Pct": 16.666666666666664,
+        "avgMfe10": 4.8025106156106885,
+        "avgMae10": -7.984339033601334,
+        "uniqueStocks": 4
+      },
+      "rawSignals": [
+        {
+          "sym": "63MOONS",
+          "date": "2023-01-19",
+          "idx": 386,
+          "stage": "ULTRA_STRONG_BUY",
+          "inflectionScore": 75.59667630701779,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 177.65,
+          "fwd10": {
+            "mfe": 15.282859555305379,
+            "mae": -11.061075147762457,
+            "hit3": true,
+            "hit5": true,
+            "day3": 10,
+            "day5": 10,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 23.782718829158455,
+            "mae": -11.061075147762457,
+            "hit3": true,
+            "hit5": true,
+            "day3": 10,
+            "day5": 10,
+            "hitT1": false
+          }
+        },
+        {
+          "sym": "63MOONS",
+          "date": "2023-05-09",
+          "idx": 457,
+          "stage": "STRONG_BUY",
+          "inflectionScore": 71.72420608476553,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 177.2,
+          "fwd10": {
+            "mfe": 3.837471783295718,
+            "mae": -7.054176072234764,
+            "hit3": true,
+            "hit5": false,
+            "day3": 10,
+            "day5": 0,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 3.837471783295718,
+            "mae": -8.577878103837467,
+            "hit3": true,
+            "hit5": false,
+            "day3": 10,
+            "day5": 0,
+            "hitT1": false
+          }
+        },
+        {
+          "sym": "20MICRONS",
+          "date": "2022-12-07",
+          "idx": 355,
+          "stage": "ULTRA_STRONG_BUY",
+          "inflectionScore": 76.92832694701475,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 97.19,
+          "fwd10": {
+            "mfe": 3.1896285626093306,
+            "mae": -9.610042185410025,
+            "hit3": true,
+            "hit5": false,
+            "day3": 4,
+            "day5": 0,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 3.1896285626093306,
+            "mae": -18.263195802037245,
+            "hit3": true,
+            "hit5": false,
+            "day3": 4,
+            "day5": 0,
+            "hitT1": false
+          }
+        },
+        {
+          "sym": "360ONE",
+          "date": "2022-10-16",
+          "idx": 320,
+          "stage": "ULTRA_STRONG_BUY",
+          "inflectionScore": 82.62910926822396,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 1882.65,
+          "fwd10": {
+            "mfe": 0.9215733142113461,
+            "mae": -9.398985472605107,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 0.9215733142113461,
+            "mae": -9.398985472605107,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          }
+        },
+        {
+          "sym": "360ONE",
+          "date": "2022-11-28",
+          "idx": 349,
+          "stage": "ULTRA_STRONG_BUY",
+          "inflectionScore": 79.53118926733471,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 1865.05,
+          "fwd10": {
+            "mfe": 2.729149352564279,
+            "mae": -6.160692742821901,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 2.729149352564279,
+            "mae": -7.423393474705775,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          }
+        },
+        {
+          "sym": "3MINDIA",
+          "date": "2023-01-30",
+          "idx": 393,
+          "stage": "ULTRA_STRONG_BUY",
+          "inflectionScore": 80.99469053312357,
+          "confidence": 100,
+          "tradeValid": false,
+          "close": 23329.05,
+          "fwd10": {
+            "mfe": 2.8543811256780773,
+            "mae": -4.621062580773754,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          },
+          "fwd20": {
+            "mfe": 2.8543811256780773,
+            "mae": -7.840224955581129,
+            "hit3": false,
+            "hit5": false,
+            "day3": 0,
+            "day5": 0,
+            "hitT1": false
+          }
+        }
+      ],
+      "plannedStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "plannedTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenStopFirst": {
+        "summary": {
+          "n": 6,
+          "wins": 0,
+          "losses": 6,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": -4.209363773759744,
+          "medianPnl": -4.100080445099077,
+          "avgR": -1,
+          "profitFactor": 0,
+          "avgMfe": 1.7608312541743247,
+          "avgMae": -5.749974404917933,
+          "avgDays": 4,
+          "uniqueStocks": 4,
+          "byStatus": {
+            "stop": 6
+          },
+          "inSample": {
+            "n": 4,
+            "winRate": 0,
+            "avgPnl": -4.310850740051277
+          },
+          "outSample": {
+            "n": 2,
+            "winRate": 0,
+            "avgPnl": -4.006389841176677
+          }
+        },
+        "trades": [
+          {
+            "sym": "63MOONS",
+            "signalDate": "2023-01-19",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 75.59667630701779,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 387,
+            "exitIdx": 387,
+            "entryDate": "2023-01-22",
+            "exitDate": "2023-01-22",
+            "entry": 179,
+            "stop": 171.15,
+            "t1": 199.85,
+            "t2": 207.65,
+            "t3": 219.35,
+            "riskPct": 4.385474860335192,
+            "pnl": -4.385474860335192,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 1,
+            "mfe": 0.47486033519552756,
+            "mae": -6.145251396648044,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "63MOONS",
+            "signalDate": "2023-05-09",
+            "stage": "STRONG_BUY",
+            "inflectionScore": 71.72420608476553,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 458,
+            "exitIdx": 461,
+            "entryDate": "2023-05-10",
+            "exitDate": "2023-05-15",
+            "entry": 175.7,
+            "stop": 170.1,
+            "t1": 195.6,
+            "t2": 201.95,
+            "t3": 211.5,
+            "riskPct": 3.1872509960159334,
+            "pnl": -3.1872509960159334,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 4,
+            "mfe": 2.5327262379055306,
+            "mae": -3.3579965850882054,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "20MICRONS",
+            "signalDate": "2022-12-07",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 76.92832694701475,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 356,
+            "exitIdx": 358,
+            "entryDate": "2022-12-08",
+            "exitDate": "2022-12-12",
+            "entry": 97.78,
+            "stop": 94.05,
+            "t1": 108.25,
+            "t2": 111.8,
+            "t3": 117.15,
+            "riskPct": 3.814686029862962,
+            "pnl": -3.814686029862962,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 3,
+            "mfe": 1.5647371650644317,
+            "mae": -5.174882389036615,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "360ONE",
+            "signalDate": "2022-10-16",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 82.62910926822396,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 321,
+            "exitIdx": 324,
+            "entryDate": "2022-10-17",
+            "exitDate": "2022-10-20",
+            "entry": 1882.65,
+            "stop": 1781.45,
+            "t1": 2047.7,
+            "t2": 2113.95,
+            "t3": 2213.25,
+            "riskPct": 5.375401694420102,
+            "pnl": -5.375401694420102,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 4,
+            "mfe": 0.9215733142113461,
+            "mae": -8.10825166653388,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "360ONE",
+            "signalDate": "2022-11-28",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 79.53118926733471,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 350,
+            "exitIdx": 350,
+            "entryDate": "2022-11-29",
+            "exitDate": "2022-11-29",
+            "entry": 1874.4,
+            "stop": 1805.65,
+            "t1": 2067,
+            "t2": 2130.2,
+            "t3": 2225,
+            "riskPct": 3.667840375586854,
+            "pnl": -3.667840375586854,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 1,
+            "mfe": 2.2167093469910344,
+            "mae": -3.8732394366197256,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "3MINDIA",
+            "signalDate": "2023-01-30",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 80.99469053312357,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": false,
+            "entryIdx": 394,
+            "exitIdx": 404,
+            "entryDate": "2023-01-31",
+            "exitDate": "2023-02-14",
+            "entry": 23329.05,
+            "stop": 22203.3,
+            "t1": 24776.1,
+            "t2": 25254.8,
+            "t3": 25972.9,
+            "riskPct": 4.825528686337421,
+            "pnl": -4.825528686337421,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 11,
+            "mfe": 2.8543811256780773,
+            "mae": -7.840224955581129,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          }
+        ]
+      },
+      "nextOpenTargetFirst": {
+        "summary": {
+          "n": 6,
+          "wins": 0,
+          "losses": 6,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": -4.209363773759744,
+          "medianPnl": -4.100080445099077,
+          "avgR": -1,
+          "profitFactor": 0,
+          "avgMfe": 1.7608312541743247,
+          "avgMae": -5.749974404917933,
+          "avgDays": 4,
+          "uniqueStocks": 4,
+          "byStatus": {
+            "stop": 6
+          },
+          "inSample": {
+            "n": 4,
+            "winRate": 0,
+            "avgPnl": -4.310850740051277
+          },
+          "outSample": {
+            "n": 2,
+            "winRate": 0,
+            "avgPnl": -4.006389841176677
+          }
+        },
+        "trades": [
+          {
+            "sym": "63MOONS",
+            "signalDate": "2023-01-19",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 75.59667630701779,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 387,
+            "exitIdx": 387,
+            "entryDate": "2023-01-22",
+            "exitDate": "2023-01-22",
+            "entry": 179,
+            "stop": 171.15,
+            "t1": 199.85,
+            "t2": 207.65,
+            "t3": 219.35,
+            "riskPct": 4.385474860335192,
+            "pnl": -4.385474860335192,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 1,
+            "mfe": 0.47486033519552756,
+            "mae": -6.145251396648044,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "63MOONS",
+            "signalDate": "2023-05-09",
+            "stage": "STRONG_BUY",
+            "inflectionScore": 71.72420608476553,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 458,
+            "exitIdx": 461,
+            "entryDate": "2023-05-10",
+            "exitDate": "2023-05-15",
+            "entry": 175.7,
+            "stop": 170.1,
+            "t1": 195.6,
+            "t2": 201.95,
+            "t3": 211.5,
+            "riskPct": 3.1872509960159334,
+            "pnl": -3.1872509960159334,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 4,
+            "mfe": 2.5327262379055306,
+            "mae": -3.3579965850882054,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "20MICRONS",
+            "signalDate": "2022-12-07",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 76.92832694701475,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 356,
+            "exitIdx": 358,
+            "entryDate": "2022-12-08",
+            "exitDate": "2022-12-12",
+            "entry": 97.78,
+            "stop": 94.05,
+            "t1": 108.25,
+            "t2": 111.8,
+            "t3": 117.15,
+            "riskPct": 3.814686029862962,
+            "pnl": -3.814686029862962,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 3,
+            "mfe": 1.5647371650644317,
+            "mae": -5.174882389036615,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "360ONE",
+            "signalDate": "2022-10-16",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 82.62910926822396,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 321,
+            "exitIdx": 324,
+            "entryDate": "2022-10-17",
+            "exitDate": "2022-10-20",
+            "entry": 1882.65,
+            "stop": 1781.45,
+            "t1": 2047.7,
+            "t2": 2113.95,
+            "t3": 2213.25,
+            "riskPct": 5.375401694420102,
+            "pnl": -5.375401694420102,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 4,
+            "mfe": 0.9215733142113461,
+            "mae": -8.10825166653388,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "360ONE",
+            "signalDate": "2022-11-28",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 79.53118926733471,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 350,
+            "exitIdx": 350,
+            "entryDate": "2022-11-29",
+            "exitDate": "2022-11-29",
+            "entry": 1874.4,
+            "stop": 1805.65,
+            "t1": 2067,
+            "t2": 2130.2,
+            "t3": 2225,
+            "riskPct": 3.667840375586854,
+            "pnl": -3.667840375586854,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 1,
+            "mfe": 2.2167093469910344,
+            "mae": -3.8732394366197256,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          },
+          {
+            "sym": "3MINDIA",
+            "signalDate": "2023-01-30",
+            "stage": "ULTRA_STRONG_BUY",
+            "inflectionScore": 80.99469053312357,
+            "confidence": 100,
+            "tradeValid": false,
+            "filled": true,
+            "model": "next_open",
+            "targetFirst": true,
+            "entryIdx": 394,
+            "exitIdx": 404,
+            "entryDate": "2023-01-31",
+            "exitDate": "2023-02-14",
+            "entry": 23329.05,
+            "stop": 22203.3,
+            "t1": 24776.1,
+            "t2": 25254.8,
+            "t3": 25972.9,
+            "riskPct": 4.825528686337421,
+            "pnl": -4.825528686337421,
+            "pnlR": -1,
+            "status": "stop",
+            "days": 11,
+            "mfe": 2.8543811256780773,
+            "mae": -7.840224955581129,
+            "t1Hit": false,
+            "t2Hit": false,
+            "t3Hit": false
+          }
+        ]
+      }
+    },
+    "optimized_elite_10plus": {
+      "label": "Elite",
+      "rawSummary": {
+        "n": 0,
+        "tradeValid": 0,
+        "tradeValidPct": 0,
+        "hit3_10": 0,
+        "hit3_10Pct": 0,
+        "hit5_10": 0,
+        "hit5_10Pct": 0,
+        "hit5_10Wilson": 0,
+        "hit5_20": 0,
+        "hit5_20Pct": 0,
+        "avgMfe10": 0,
+        "avgMae10": 0,
+        "uniqueStocks": 0
+      },
+      "rawSignals": [],
+      "plannedStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "plannedTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      }
+    },
+    "optimized_ultraselective_8plus": {
+      "label": "UltraSelective",
+      "rawSummary": {
+        "n": 0,
+        "tradeValid": 0,
+        "tradeValidPct": 0,
+        "hit3_10": 0,
+        "hit3_10Pct": 0,
+        "hit5_10": 0,
+        "hit5_10Pct": 0,
+        "hit5_10Wilson": 0,
+        "hit5_20": 0,
+        "hit5_20Pct": 0,
+        "avgMfe10": 0,
+        "avgMae10": 0,
+        "uniqueStocks": 0
+      },
+      "rawSignals": [],
+      "plannedStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "plannedTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      }
+    },
+    "sniper_95plus": {
+      "label": "Sniper",
+      "rawSummary": {
+        "n": 0,
+        "tradeValid": 0,
+        "tradeValidPct": 0,
+        "hit3_10": 0,
+        "hit3_10Pct": 0,
+        "hit5_10": 0,
+        "hit5_10Pct": 0,
+        "hit5_10Wilson": 0,
+        "hit5_20": 0,
+        "hit5_20Pct": 0,
+        "avgMfe10": 0,
+        "avgMae10": 0,
+        "uniqueStocks": 0
+      },
+      "rawSignals": [],
+      "plannedStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "plannedTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenStopFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      },
+      "nextOpenTargetFirst": {
+        "summary": {
+          "n": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "wilson": 0,
+          "avgPnl": 0,
+          "medianPnl": 0,
+          "avgR": 0,
+          "profitFactor": 0,
+          "avgMfe": 0,
+          "avgMae": 0,
+          "avgDays": 0,
+          "uniqueStocks": 0,
+          "byStatus": {},
+          "inSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          },
+          "outSample": {
+            "n": 0,
+            "winRate": 0,
+            "avgPnl": 0
+          }
+        },
+        "trades": []
+      }
+    }
+  }
+}

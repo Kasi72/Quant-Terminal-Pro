@@ -1,0 +1,244 @@
+{
+  "meta": {
+    "dataDir": "C:\\Users\\drkkr\\Downloads\\NIFTY ALL1783",
+    "files": 1616,
+    "skipped": 4,
+    "minDate": "2021-07-02",
+    "maxDate": "2026-07-01",
+    "variantsFile": "D:\\Claude code\\stock-screener\\scripts\\deployable_highprecision_forensic_variants.json",
+    "runAt": "2026-07-10T12:10:52.260Z"
+  },
+  "variants": {
+    "deployable_forensic_d6": {
+      "baseKey": "optimized_deployable_20plus",
+      "params": {
+        "maxPre10AvgRangeATR": 1.15,
+        "minZoneLen": 4,
+        "maxZoneTightnessPct": 12,
+        "maxPre10RedVolBias": 0.8,
+        "minExactVolRatio20": 1.3,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 40,
+        "minBodyPct": 50,
+        "maxCandleRisk": 10,
+        "maxCloseAboveZonePct": 6
+      },
+      "forensic": {
+        "maxCusumPos": 0.04,
+        "requireBullishPattern": true
+      }
+    },
+    "deployable_forensic_d5": {
+      "baseKey": "optimized_deployable_20plus",
+      "params": {
+        "maxATRPct14Pctl120": 25,
+        "maxPre10AvgRangeATR": 0.9,
+        "minZoneLen": 4,
+        "maxZoneTightnessPct": 8,
+        "maxPre10RedVolBias": 1,
+        "minExactVolRatio20": 1.5,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 75,
+        "maxUpperWickPct": 30,
+        "minBodyPct": 20,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 1.4
+      },
+      "forensic": {
+        "minCandleDnaLowerTail": 5
+      }
+    },
+    "highprecision_forensic_hp2": {
+      "baseKey": "optimized_highprecision_15plus",
+      "params": {
+        "maxZoneTightnessPct": 5,
+        "maxPre10RedVolBias": 1.1,
+        "minExactRangeATR14": 0.8,
+        "minExactVolRatio20": 1.1,
+        "minExactVolVsPre5": 2,
+        "minCloseLoc": 50,
+        "maxUpperWickPct": 10,
+        "minBodyPct": 50,
+        "maxCandleRisk": 5,
+        "minVolatilityExpansionRatio": 1.4,
+        "maxCloseAboveZonePct": 4
+      },
+      "forensic": {
+        "maxBodyATR": 1.6
+      }
+    },
+    "highprecision_forensic_hp1": {
+      "baseKey": "optimized_highprecision_15plus",
+      "params": {
+        "maxATRPct14Pctl120": 25,
+        "maxPre10AvgRangeATR": 0.9,
+        "maxZoneTightnessPct": 12,
+        "maxPre10RedVolBias": 1.1,
+        "minExactRangeATR14": 1.2,
+        "minExactVolRatio20": 1.3,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 50,
+        "maxUpperWickPct": 15,
+        "minBodyPct": 60,
+        "minVolatilityExpansionRatio": 1.4,
+        "maxCloseAboveZonePct": 10
+      },
+      "forensic": {
+        "maxUpperToLowerWickRatio": 1.2,
+        "minMarubozuScore": 45,
+        "maxBbWidthPctl": 50,
+        "minSharpe20": 0.5
+      }
+    }
+  },
+  "rows": {
+    "deployable_forensic_d6": {
+      "nextOpen": {
+        "n": 41,
+        "stocks": 40,
+        "wr": 68.29268292682927,
+        "wilson": 53.01551434425416,
+        "avg": 2.0806262341017674,
+        "pf": 2.241325972678407,
+        "avgR": 0.3523441755650368,
+        "mfe": 7.173274240235606,
+        "mae": -3.744831959108284,
+        "oos": {
+          "n": 13,
+          "wr": 61.53846153846154,
+          "avg": 1.0922538184931114,
+          "pf": 1.4396375108417392
+        }
+      },
+      "planned": {
+        "n": 37,
+        "stocks": 36,
+        "wr": 64.86486486486487,
+        "wilson": 48.75872951756956,
+        "avg": 1.669893404285157,
+        "pf": 1.9014768184366735,
+        "avgR": 0.2548041006770993,
+        "mfe": 6.823220264806451,
+        "mae": -4.098189868238099,
+        "oos": {
+          "n": 12,
+          "wr": 58.333333333333336,
+          "avg": 0.36160415845563226,
+          "pf": 1.1316283186985585
+        }
+      },
+      "signals": 41
+    },
+    "deployable_forensic_d5": {
+      "nextOpen": {
+        "n": 43,
+        "stocks": 42,
+        "wr": 65.11627906976744,
+        "wilson": 50.1715070970981,
+        "avg": 1.545285360434696,
+        "pf": 1.7764895978835127,
+        "avgR": 0.27623836914282207,
+        "mfe": 7.001180924356504,
+        "mae": -4.170889773374771,
+        "oos": {
+          "n": 13,
+          "wr": 69.23076923076923,
+          "avg": 1.8343295880503174,
+          "pf": 1.9931706597330998
+        }
+      },
+      "planned": {
+        "n": 38,
+        "stocks": 38,
+        "wr": 68.42105263157895,
+        "wilson": 52.54394356005149,
+        "avg": 1.6546265467499095,
+        "pf": 1.903716876846008,
+        "avgR": 0.26595420531173325,
+        "mfe": 6.763376856447491,
+        "mae": -4.26456481296387,
+        "oos": {
+          "n": 12,
+          "wr": 75,
+          "avg": 1.7788003003945538,
+          "pf": 2.0941098339824586
+        }
+      },
+      "signals": 43
+    },
+    "highprecision_forensic_hp2": {
+      "nextOpen": {
+        "n": 80,
+        "stocks": 75,
+        "wr": 62.5,
+        "wilson": 51.5485228513904,
+        "avg": 1.3296317180723392,
+        "pf": 1.66520611715904,
+        "avgR": 0.2575852935113642,
+        "mfe": 6.416817448832136,
+        "mae": -3.8377611031818004,
+        "oos": {
+          "n": 24,
+          "wr": 62.5,
+          "avg": 1.2928847449685208,
+          "pf": 1.7007027804861987
+        }
+      },
+      "planned": {
+        "n": 74,
+        "stocks": 69,
+        "wr": 62.16216216216216,
+        "wilson": 50.77124892691529,
+        "avg": 1.1105477402562973,
+        "pf": 1.5524095633249613,
+        "avgR": 0.18253870014958098,
+        "mfe": 6.149641798157228,
+        "mae": -4.006636214122519,
+        "oos": {
+          "n": 23,
+          "wr": 56.52173913043478,
+          "avg": 0.4249967514524287,
+          "pf": 1.1983803132438031
+        }
+      },
+      "signals": 81
+    },
+    "highprecision_forensic_hp1": {
+      "nextOpen": {
+        "n": 111,
+        "stocks": 104,
+        "wr": 53.153153153153156,
+        "wilson": 43.920421730166765,
+        "avg": 0.5191854388283941,
+        "pf": 1.1969138194454607,
+        "avgR": 0.07112064236706798,
+        "mfe": 6.874616750072413,
+        "mae": -4.5341879804084,
+        "oos": {
+          "n": 34,
+          "wr": 50,
+          "avg": -0.3431409701918996,
+          "pf": 0.8804033569593214
+        }
+      },
+      "planned": {
+        "n": 95,
+        "stocks": 90,
+        "wr": 58.94736842105262,
+        "wilson": 48.895235205697276,
+        "avg": 0.8554666940391862,
+        "pf": 1.3437931397478222,
+        "avgR": 0.12882789343468248,
+        "mfe": 7.24237920719639,
+        "mae": -4.640468729359441,
+        "oos": {
+          "n": 29,
+          "wr": 55.172413793103445,
+          "avg": -0.15537807779760726,
+          "pf": 0.9412308232327677
+        }
+      },
+      "signals": 113
+    }
+  }
+}

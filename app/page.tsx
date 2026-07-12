@@ -2622,16 +2622,17 @@ function HomePageInner() {
           className={`ml-2 border-2 rounded-md text-[13px] font-semibold px-3 py-1.5 focus:outline-none cursor-pointer shadow-md transition-all ${scanAll ? 'bg-cyan-950 border-cyan-400 text-cyan-100 focus:border-cyan-300' : 'bg-slate-950 border-indigo-500 text-indigo-100 focus:border-indigo-300'}`}
           style={{colorScheme:'dark'}}
         >
-          <option value="ALL4">★ All 5 Param Sets (Multi-Scan)</option>
+          <option value="ALL4">★ All 6 Param Sets (Multi-Scan)</option>
           {PARAM_SET_OPTIONS.map(o => (
             <option key={o.key} value={o.key}>{o.name} [{o.tag}]</option>
           ))}
         </select>
-        {/* Feature #3: Lookback */}
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-slate-600">Lookback:</span>
+        {/* Feature #3: Lookback — disabled in multi-scan mode */}
+        <div className="flex items-center gap-1 text-xs" data-tip={scanAll ? 'Lookback N/A in 6-Set mode' : undefined} data-tip-color={scanAll ? 'slate' : undefined}>
+          <span className={scanAll ? 'text-slate-700' : 'text-slate-600'}>Lookback:</span>
           <select value={lookback} onChange={e => setLookback(Number(e.target.value))}
-            className="bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 px-1 py-0.5 focus:outline-none cursor-pointer">
+            disabled={scanAll}
+            className={`bg-slate-800 border border-slate-700 rounded text-xs px-1 py-0.5 focus:outline-none transition-colors ${scanAll ? 'text-slate-700 cursor-not-allowed opacity-40' : 'text-slate-300 cursor-pointer'}`}>
             <option value={1}>1d</option>
             <option value={3}>3d</option>
             <option value={5}>5d</option>
@@ -2895,7 +2896,7 @@ function HomePageInner() {
         <div className="flex items-center gap-1 shrink-0">
           <button disabled={scanning} data-tip="Clear results and start a fresh scan" data-tip-color="red" onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; setResults([]); setSelectedSymbol(null); setStageFilter('ALL'); setGlobalSearch(''); setColFilters({}); setErrCount(0); setLastErr(''); }}
             className="h-7 px-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded text-[11px] font-medium text-slate-200 transition-colors">New Scan</button>
-          <button disabled={scanning} data-tip="Load sample data to explore the screener without scanning" data-tip-color="indigo" onClick={() => { setResults(generateDemoData(paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
+          <button disabled={scanning} data-tip="Load sample data to explore the screener without scanning" data-tip-color="indigo" onClick={() => { setResults(generateDemoData(scanAll ? 'optimized_deployable_20plus' : paramSetKey)); setSelectedSymbol(null); setStageFilter('ALL'); setColFilters({}); }}
             className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
           {lastScanSymbols.length > 0 && (
             <button disabled={scanning} data-tip={`Rescan same ${lastScanSymbols.length} stocks from last scan`} data-tip-color="green"
@@ -6505,7 +6506,7 @@ function HomePageInner() {
               <div className="text-xs text-slate-700">
                 Click{' '}
                 <span className="text-indigo-500 cursor-pointer"
-                  onClick={() => setResults(generateDemoData(paramSetKey))}>Demo Mode</span>
+                  onClick={() => setResults(generateDemoData(scanAll ? 'optimized_deployable_20plus' : paramSetKey))}>Demo Mode</span>
                 {' '}to see sample results
               </div>
               {lastErr && errCount > 0 && (

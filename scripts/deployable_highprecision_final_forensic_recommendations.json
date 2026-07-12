@@ -1,0 +1,95 @@
+{
+  "deployable_forensic_d6": {
+    "baseKey": "optimized_deployable_20plus",
+    "validatedNextOpen": {
+      "trades": 41,
+      "winRatePct": 68.3,
+      "avgProfitPct": 2.08,
+      "profitFactor": 2.24,
+      "oosTrades": 13,
+      "oosWinRatePct": 61.5,
+      "oosAvgProfitPct": 1.09,
+      "oosProfitFactor": 1.44
+    },
+    "params": {
+      "minAvgTurnover20": 10000000,
+      "maxATRPct14Pctl120": 50,
+      "maxPre10AvgRangeATR": 1.15,
+      "maxPre10ExpansionCount": 1,
+      "expansionATRMultiplier": 1.1,
+      "zoneRangeATRThreshold": 1,
+      "minZoneLen": 4,
+      "maxZoneLen": 25,
+      "maxZoneTightnessPct": 12,
+      "maxPre10AvgVolRatio": 0.9,
+      "maxPre5AvgVolRatio": 0.9,
+      "maxPre10HighVolCount": 2,
+      "highVolMultiplier": 1.35,
+      "maxPre10RedVolBias": 0.8,
+      "breakoutMultiplier": 1.001,
+      "minExactRangeATR14": 1.8,
+      "maxExactRangeATR14": 5,
+      "minExactVolRatio20": 1.3,
+      "minExactVolVsPre5": 2,
+      "minCloseLoc": 40,
+      "maxUpperWickPct": 18,
+      "minBodyPct": 50,
+      "maxCandleRisk": 10,
+      "minUltraPrecisionScore": 45,
+      "minRSI2": 50,
+      "minVolatilityExpansionRatio": 2,
+      "minCandleQualityScore": 2,
+      "maxCloseAboveZonePct": 6
+    },
+    "forensic": {
+      "maxCusumPos": 0.04,
+      "requireBullishPattern": true
+    }
+  },
+  "highprecision_forensic_hp2": {
+    "baseKey": "optimized_highprecision_15plus",
+    "validatedNextOpen": {
+      "trades": 80,
+      "winRatePct": 62.5,
+      "avgProfitPct": 1.33,
+      "profitFactor": 1.67,
+      "oosTrades": 24,
+      "oosWinRatePct": 62.5,
+      "oosAvgProfitPct": 1.29,
+      "oosProfitFactor": 1.7
+    },
+    "params": {
+      "minAvgTurnover20": 10000000,
+      "maxATRPct14Pctl120": 85,
+      "maxPre10AvgRangeATR": 1,
+      "maxPre10ExpansionCount": 2,
+      "expansionATRMultiplier": 1.1,
+      "zoneRangeATRThreshold": 1,
+      "minZoneLen": 5,
+      "maxZoneLen": 25,
+      "maxZoneTightnessPct": 5,
+      "maxPre10AvgVolRatio": 0.9,
+      "maxPre5AvgVolRatio": 1.1,
+      "maxPre10HighVolCount": 4,
+      "highVolMultiplier": 1.35,
+      "maxPre10RedVolBias": 1.1,
+      "breakoutMultiplier": 1.001,
+      "minExactRangeATR14": 0.8,
+      "maxExactRangeATR14": 5,
+      "minExactVolRatio20": 1.1,
+      "minExactVolVsPre5": 2,
+      "minCloseLoc": 50,
+      "maxUpperWickPct": 10,
+      "minBodyPct": 50,
+      "maxCandleRisk": 5,
+      "minUltraPrecisionScore": 50,
+      "minRSI2": 50,
+      "minVolatilityExpansionRatio": 1.4,
+      "minCandleQualityScore": null,
+      "maxCloseAboveZonePct": 4
+    },
+    "forensic": {
+      "maxBodyATR": 1.6
+    }
+  }
+}

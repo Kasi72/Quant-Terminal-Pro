@@ -1,0 +1,391 @@
+{
+  "meta": {
+    "dataDir": "D:\\Claude code\\stock-screener\\scripts\\_bt_smoke",
+    "engineDir": "D:\\Claude code\\stock-screener\\scripts\\_compiled_current",
+    "files": 12,
+    "skipped": 0,
+    "minDate": "2021-07-02",
+    "maxDate": "2026-07-01",
+    "runAt": "2026-07-10T03:31:51.194Z"
+  },
+  "tuned": {
+    "optimized_deployable_20plus": {
+      "base": {
+        "n": 0,
+        "wins": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "axes": {
+        "minExactVolVsPre5": [
+          3,
+          3.5,
+          4,
+          4.5
+        ],
+        "minCloseLoc": [
+          65,
+          70,
+          75,
+          80
+        ],
+        "maxUpperWickPct": [
+          3,
+          8,
+          13,
+          18
+        ],
+        "minBodyPct": [
+          70,
+          75,
+          80,
+          85
+        ],
+        "maxCandleRisk": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "minVolatilityExpansionRatio": [
+          2,
+          2.25,
+          2.5,
+          2.8
+        ],
+        "maxPre10RedVolBias": [
+          0.9,
+          1.1,
+          1.2,
+          1.3
+        ],
+        "maxCloseAboveZonePct": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "combos": 65536,
+      "top": []
+    },
+    "optimized_highprecision_15plus": {
+      "base": {
+        "n": 6,
+        "wins": 0,
+        "wr": 0,
+        "avg": -4.209363773759744,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 4,
+          "wr": 0,
+          "avg": -4.310850740051277,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 2,
+          "wr": 0,
+          "avg": -4.006389841176677,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "axes": {
+        "maxATRPct14Pctl120": [
+          55,
+          65,
+          75,
+          85
+        ],
+        "minExactVolRatio20": [
+          1.5,
+          1.7,
+          1.9,
+          2.2
+        ],
+        "minExactVolVsPre5": [
+          2.5,
+          3,
+          3.5,
+          4
+        ],
+        "minCloseLoc": [
+          55,
+          60,
+          65,
+          70
+        ],
+        "maxUpperWickPct": [
+          25,
+          30,
+          35,
+          40
+        ],
+        "minBodyPct": [
+          20,
+          25,
+          30,
+          35
+        ],
+        "maxPre10RedVolBias": [
+          1.6,
+          1.8,
+          1.9,
+          2
+        ],
+        "maxCloseAboveZonePct": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "combos": 65536,
+      "top": []
+    },
+    "optimized_elite_10plus": {
+      "base": {
+        "n": 0,
+        "wins": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "axes": {
+        "minExactVolRatio20": [
+          1.8,
+          2,
+          2.2,
+          2.5
+        ],
+        "minExactVolVsPre5": [
+          2,
+          2.5,
+          3,
+          3.5
+        ],
+        "minCloseLoc": [
+          55,
+          60,
+          65,
+          70
+        ],
+        "maxUpperWickPct": [
+          5,
+          10,
+          15,
+          20
+        ],
+        "minBodyPct": [
+          35,
+          40,
+          45,
+          50
+        ],
+        "maxCandleRisk": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "minVolatilityExpansionRatio": [
+          1.4,
+          1.65,
+          1.9,
+          2.2
+        ],
+        "maxPre10RedVolBias": [
+          0.7000000000000001,
+          0.9000000000000001,
+          1,
+          1.1
+        ]
+      },
+      "combos": 65536,
+      "top": []
+    },
+    "optimized_ultraselective_8plus": {
+      "base": {
+        "n": 0,
+        "wins": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "axes": {
+        "minExactVolRatio20": [
+          1.1,
+          1.3,
+          1.5,
+          1.8
+        ],
+        "minExactVolVsPre5": [
+          3,
+          3.5,
+          4,
+          4.5
+        ],
+        "minCloseLoc": [
+          30,
+          35,
+          40,
+          45
+        ],
+        "maxUpperWickPct": [
+          10,
+          15,
+          20,
+          25
+        ],
+        "minBodyPct": [
+          70,
+          75,
+          80,
+          85
+        ],
+        "minVolatilityExpansionRatio": [
+          2.4,
+          2.65,
+          2.9,
+          3.2
+        ],
+        "minCandleQualityScore": [
+          4,
+          5,
+          6
+        ],
+        "maxATRPct14Pctl120": [
+          10,
+          20,
+          30
+        ]
+      },
+      "combos": 36864,
+      "top": []
+    },
+    "sniper_95plus": {
+      "base": {
+        "n": 0,
+        "wins": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "axes": {
+        "minExactVolRatio20": [
+          1.8,
+          2,
+          2.2,
+          2.5
+        ],
+        "minCloseLoc": [
+          75,
+          80,
+          85,
+          90
+        ],
+        "maxUpperWickPct": [
+          5,
+          10,
+          15,
+          20
+        ],
+        "minBodyPct": [
+          50,
+          55,
+          60,
+          65
+        ],
+        "maxPre10RedVolBias": [
+          0.5,
+          0.7,
+          0.8,
+          0.9
+        ],
+        "minVolatilityExpansionRatio": [
+          2,
+          2.25,
+          2.5,
+          2.8
+        ],
+        "maxCandleRisk": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "maxCloseAboveZonePct": [
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "combos": 65536,
+      "top": []
+    }
+  }
+}

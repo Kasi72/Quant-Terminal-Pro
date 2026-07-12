@@ -1,0 +1,16 @@
+======================================================================================================================================================
+DEPLOYABLE + HIGHPRECISION FORENSIC HYPER-TUNE RESULTS
+======================================================================================================================================================
+Data: C:\Users\drkkr\Downloads\NIFTY ALL1783
+Files: 1616; skipped=4; date=2021-07-02 to 2026-07-01
+Candidate collection: broadly relaxed cluster gates, PRE_BREAKOUT + BUY family, next-open stop-first simulation.
+Search: 35000 random combinations per cluster over core params + forensic overlays; per-symbol overlapping trades de-duped.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Deployable | relaxed candidates=165248 | combos tested=35001
+Baseline core: n=7, WR=28.6%, avg=-3.30%, PF=0.27, Wilson=8.2%, OOS n=3, OOS WR=0.0%, OOS avg=-6.26%, OOS PF=0.00
+Rank     Score     n      WR      Avg      PF   Wilson   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------------------------------------
+HighPrecision | relaxed candidates=165248 | combos tested=35001
+Baseline core: n=1003, WR=38.1%, avg=-0.62%, PF=0.81, Wilson=35.1%, OOS n=301, OOS WR=34.9%, OOS avg=-1.24%, OOS PF=0.65
+Rank     Score     n      WR      Avg      PF   Wilson   OOSn   OOSWR   OOSAvg   OOSPF  Changes

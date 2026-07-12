@@ -1,0 +1,145 @@
+========================================================================================================================
+GRID SEARCH RESULTS  —  Top 20 per param set
+Generated: 2026-07-10T17:20:56.226Z
+Candidate records: 11,64,429  |  Pass 1: 7.9s  Pass 2: 610.0s
+Composite score = WilsonWR × ProfitFactor  (higher is better; min ${MIN_TRADES_FOR_SCORE} trades)
+========================================================================================================================
+
+── HIGHPRECISION  (6,561 combos, 6561 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+  # 1  n= 1163  WR=51.16%  Wil=48.29%  PF=1.593  Comp=  76.93  Stk= 702  Hit20d=63.5%  | CandleQualityScore=1  BodyPct=20  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  # 2  n= 1163  WR=51.16%  Wil=48.29%  PF=1.593  Comp=  76.93  Stk= 702  Hit20d=63.5%  | CandleQualityScore=2  BodyPct=20  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  # 3  n= 1190  WR=51.01%  Wil=48.17%  PF= 1.59  Comp= 76.597  Stk= 709  Hit20d=63.4%  | CandleQualityScore=2  BodyPct=20  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  # 4  n=  648  WR=52.47%  Wil=48.62%  PF=1.566  Comp= 76.157  Stk= 485  Hit20d=64%  | CandleQualityScore=3  BodyPct=20  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  # 5  n=  648  WR=52.47%  Wil=48.62%  PF=1.566  Comp= 76.157  Stk= 485  Hit20d=64%  | CandleQualityScore=3  BodyPct=20  VolatilityExpansionRatio=1.2  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  # 6  n=  648  WR=52.47%  Wil=48.62%  PF=1.566  Comp= 76.157  Stk= 485  Hit20d=64%  | CandleQualityScore=3  BodyPct=20  VolatilityExpansionRatio=1.4  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  # 7  n= 1105  WR=50.95%  Wil=   48%  PF=1.586  Comp= 76.118  Stk= 678  Hit20d=63.3%  | CandleQualityScore=3  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  # 8  n= 1097  WR=50.96%  Wil=   48%  PF=1.584  Comp=  76.04  Stk= 675  Hit20d=63.3%  | CandleQualityScore=1  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  # 9  n= 1097  WR=50.96%  Wil=   48%  PF=1.584  Comp=  76.04  Stk= 675  Hit20d=63.3%  | CandleQualityScore=2  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  #10  n= 1097  WR=50.96%  Wil=   48%  PF=1.584  Comp=  76.04  Stk= 675  Hit20d=63.3%  | CandleQualityScore=3  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  #11  n= 1149  WR=   51%  Wil=48.11%  PF=1.579  Comp= 75.991  Stk= 694  Hit20d=63.4%  | CandleQualityScore=3  BodyPct=20  VolatilityExpansionRatio=1  CloseLoc=65  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  #12  n= 1106  WR= 50.9%  Wil=47.96%  PF=1.583  Comp= 75.942  Stk= 679  Hit20d=63.2%  | CandleQualityScore=1  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  #13  n= 1106  WR= 50.9%  Wil=47.96%  PF=1.583  Comp= 75.942  Stk= 679  Hit20d=63.2%  | CandleQualityScore=2  BodyPct=40  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=20  ExactRangeATR14=0.8  ExactVolVsPre5=2  ExactVolRatio20=1.2
+  #14  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=1  BodyPct=30  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #15  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=2  BodyPct=30  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #16  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=3  BodyPct=30  VolatilityExpansionRatio=1  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #17  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=1  BodyPct=30  VolatilityExpansionRatio=1.2  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #18  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=2  BodyPct=30  VolatilityExpansionRatio=1.2  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #19  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=3  BodyPct=30  VolatilityExpansionRatio=1.2  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+  #20  n=  640  WR= 52.5%  Wil=48.63%  PF=1.561  Comp= 75.914  Stk= 480  Hit20d=63.9%  | CandleQualityScore=1  BodyPct=30  VolatilityExpansionRatio=1.4  CloseLoc=55  UpperWickPct=25  ExactRangeATR14=1.6  ExactVolVsPre5=2  ExactVolRatio20=1.8
+
+  ★ Best combo for HighPrecision:
+      minCandleQualityScore: 1
+      minBodyPct: 20
+      minVolatilityExpansionRatio: 1
+      minCloseLoc: 65
+      maxUpperWickPct: 20
+      minExactRangeATR14: 0.8
+      minExactVolVsPre5: 2
+      minExactVolRatio20: 1.2
+    → n=1163  WR=51.16%  Wilson=48.29%  PF=1.593  Composite=76.93
+
+── ELITE  (2,187 combos, 2187 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+  # 1  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=25  VolatilityExpansionRatio=1.1  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 2  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=32  VolatilityExpansionRatio=1.1  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 3  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=25  VolatilityExpansionRatio=1.3  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 4  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=32  VolatilityExpansionRatio=1.3  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 5  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=25  VolatilityExpansionRatio=1.5  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 6  n=  215  WR= 58.6%  Wil=51.93%  PF=1.974  Comp=102.523  Stk= 193  Hit20d=70.7%  | BodyPct=32  VolatilityExpansionRatio=1.5  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 7  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.1  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 8  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.3  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  # 9  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.5  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #10  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=25  VolatilityExpansionRatio=1.1  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #11  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=32  VolatilityExpansionRatio=1.1  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #12  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.1  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #13  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=25  VolatilityExpansionRatio=1.3  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #14  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=32  VolatilityExpansionRatio=1.3  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #15  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.3  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #16  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=25  VolatilityExpansionRatio=1.5  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #17  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=32  VolatilityExpansionRatio=1.5  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #18  n=  214  WR=58.41%  Wil=51.72%  PF=1.968  Comp=101.769  Stk= 192  Hit20d=70.6%  | BodyPct=40  VolatilityExpansionRatio=1.5  CloseLoc=65  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2  ExactVolRatio20=1.5
+  #19  n=  208  WR=58.17%  Wil=51.38%  PF=1.957  Comp=100.549  Stk= 190  Hit20d=70.7%  | BodyPct=25  VolatilityExpansionRatio=1.1  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2.5  ExactVolRatio20=1.5
+  #20  n=  208  WR=58.17%  Wil=51.38%  PF=1.957  Comp=100.549  Stk= 190  Hit20d=70.7%  | BodyPct=32  VolatilityExpansionRatio=1.1  CloseLoc=57  UpperWickPct=13  ExactRangeATR14=1.8  ExactVolVsPre5=2.5  ExactVolRatio20=1.5
+
+  ★ Best combo for Elite:
+      minBodyPct: 25
+      minVolatilityExpansionRatio: 1.1
+      minCloseLoc: 57
+      maxUpperWickPct: 13
+      minExactRangeATR14: 1.8
+      minExactVolVsPre5: 2
+      minExactVolRatio20: 1.5
+    → n=215  WR=58.6%  Wilson=51.93%  PF=1.974  Composite=102.523
+
+── ULTRASELECTIVE  (1,458 combos, 1458 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+  # 1  n=  505  WR=55.25%  Wil=50.89%  PF=1.936  Comp= 98.527  Stk= 394  Hit20d=69.1%  | CandleQualityScore=2  VolatilityExpansionRatio=1.1  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  # 2  n=  500  WR=   55%  Wil=50.62%  PF=1.919  Comp= 97.146  Stk= 392  Hit20d=68.8%  | CandleQualityScore=3  VolatilityExpansionRatio=1.1  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  # 3  n=  501  WR=55.09%  Wil=50.71%  PF=1.915  Comp= 97.093  Stk= 392  Hit20d=68.9%  | CandleQualityScore=2  VolatilityExpansionRatio=1.1  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  # 4  n=  299  WR=56.52%  Wil=50.86%  PF=1.898  Comp=  96.53  Stk= 257  Hit20d=68.2%  | CandleQualityScore=2  VolatilityExpansionRatio=1.1  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  # 5  n=  469  WR=54.58%  Wil=50.06%  PF=1.924  Comp= 96.314  Stk= 368  Hit20d=68.4%  | CandleQualityScore=2  VolatilityExpansionRatio=1.5  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  # 6  n=  499  WR=54.91%  Wil=50.52%  PF=1.904  Comp= 96.216  Stk= 391  Hit20d=68.7%  | CandleQualityScore=3  VolatilityExpansionRatio=1.1  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  # 7  n=  298  WR=56.38%  Wil= 50.7%  PF=1.892  Comp= 95.926  Stk= 257  Hit20d=68.1%  | CandleQualityScore=3  VolatilityExpansionRatio=1.1  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  # 8  n=  298  WR=56.38%  Wil= 50.7%  PF=1.892  Comp= 95.926  Stk= 257  Hit20d=68.1%  | CandleQualityScore=2  VolatilityExpansionRatio=1.1  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  # 9  n=  298  WR=56.38%  Wil= 50.7%  PF=1.892  Comp= 95.926  Stk= 257  Hit20d=68.1%  | CandleQualityScore=3  VolatilityExpansionRatio=1.1  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #10  n=  468  WR=54.49%  Wil=49.96%  PF=1.917  Comp= 95.765  Stk= 367  Hit20d=68.4%  | CandleQualityScore=3  VolatilityExpansionRatio=1.5  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  #11  n=  498  WR=54.82%  Wil=50.43%  PF=1.897  Comp= 95.674  Stk= 389  Hit20d=68.7%  | CandleQualityScore=2  VolatilityExpansionRatio=1.3  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+  #12  n=  298  WR=56.38%  Wil= 50.7%  PF=1.884  Comp= 95.499  Stk= 256  Hit20d=68.1%  | CandleQualityScore=2  VolatilityExpansionRatio=1.3  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #13  n=  291  WR=56.36%  Wil=50.61%  PF=1.884  Comp= 95.343  Stk= 251  Hit20d=68.4%  | CandleQualityScore=2  VolatilityExpansionRatio=1.5  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #14  n=  291  WR=56.36%  Wil=50.61%  PF=1.884  Comp= 95.343  Stk= 251  Hit20d=68.4%  | CandleQualityScore=3  VolatilityExpansionRatio=1.5  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #15  n=  291  WR=56.36%  Wil=50.61%  PF=1.884  Comp= 95.343  Stk= 251  Hit20d=68.4%  | CandleQualityScore=2  VolatilityExpansionRatio=1.5  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #16  n=  291  WR=56.36%  Wil=50.61%  PF=1.884  Comp= 95.343  Stk= 251  Hit20d=68.4%  | CandleQualityScore=3  VolatilityExpansionRatio=1.5  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #17  n=  297  WR=56.23%  Wil=50.54%  PF=1.878  Comp= 94.897  Stk= 256  Hit20d=68%  | CandleQualityScore=3  VolatilityExpansionRatio=1.3  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #18  n=  297  WR=56.23%  Wil=50.54%  PF=1.878  Comp= 94.897  Stk= 256  Hit20d=68%  | CandleQualityScore=2  VolatilityExpansionRatio=1.3  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #19  n=  297  WR=56.23%  Wil=50.54%  PF=1.878  Comp= 94.897  Stk= 256  Hit20d=68%  | CandleQualityScore=3  VolatilityExpansionRatio=1.3  CloseLoc=70  UpperWickPct=15  ExactVolVsPre5=2  ExactVolRatio20=1.5  ATRPct14Pctl120=95
+  #20  n=  496  WR=54.64%  Wil=50.24%  PF=1.887  Comp= 94.785  Stk= 388  Hit20d=68.5%  | CandleQualityScore=3  VolatilityExpansionRatio=1.3  CloseLoc=63  UpperWickPct=15  ExactVolVsPre5=1  ExactVolRatio20=1  ATRPct14Pctl120=95
+
+  ★ Best combo for UltraSelective:
+      minCandleQualityScore: 2
+      minVolatilityExpansionRatio: 1.1
+      minCloseLoc: 63
+      maxUpperWickPct: 15
+      minExactVolVsPre5: 1
+      minExactVolRatio20: 1
+      maxATRPct14Pctl120: 95
+    → n=505  WR=55.25%  Wilson=50.89%  PF=1.936  Composite=98.527
+
+── SNIPER  (2,187 combos, 2187 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+  # 1  n=  426  WR=52.82%  Wil=48.07%  PF=1.861  Comp= 89.454  Stk= 342  Hit20d=66.9%  | BodyPct=22  VolatilityExpansionRatio=0.8  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 2  n=  426  WR=52.82%  Wil=48.07%  PF=1.861  Comp= 89.454  Stk= 342  Hit20d=66.9%  | BodyPct=22  VolatilityExpansionRatio=1  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 3  n=  426  WR=52.82%  Wil=48.07%  PF=1.861  Comp= 89.454  Stk= 342  Hit20d=66.9%  | BodyPct=22  VolatilityExpansionRatio=1.2  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 4  n=  432  WR=52.78%  Wil=48.07%  PF=1.855  Comp= 89.161  Stk= 346  Hit20d=66.9%  | BodyPct=15  VolatilityExpansionRatio=0.8  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 5  n=  432  WR=52.78%  Wil=48.07%  PF=1.855  Comp= 89.161  Stk= 346  Hit20d=66.9%  | BodyPct=15  VolatilityExpansionRatio=1  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 6  n=  432  WR=52.78%  Wil=48.07%  PF=1.855  Comp= 89.161  Stk= 346  Hit20d=66.9%  | BodyPct=15  VolatilityExpansionRatio=1.2  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 7  n=  422  WR=52.61%  Wil=47.84%  PF=1.854  Comp= 88.681  Stk= 338  Hit20d=66.8%  | BodyPct=22  VolatilityExpansionRatio=0.8  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 8  n=  422  WR=52.61%  Wil=47.84%  PF=1.854  Comp= 88.681  Stk= 338  Hit20d=66.8%  | BodyPct=22  VolatilityExpansionRatio=1  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  # 9  n=  422  WR=52.61%  Wil=47.84%  PF=1.854  Comp= 88.681  Stk= 338  Hit20d=66.8%  | BodyPct=22  VolatilityExpansionRatio=1.2  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #10  n=  428  WR=52.57%  Wil=47.84%  PF=1.848  Comp= 88.398  Stk= 342  Hit20d=66.8%  | BodyPct=15  VolatilityExpansionRatio=0.8  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #11  n=  428  WR=52.57%  Wil=47.84%  PF=1.848  Comp= 88.398  Stk= 342  Hit20d=66.8%  | BodyPct=15  VolatilityExpansionRatio=1  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #12  n=  428  WR=52.57%  Wil=47.84%  PF=1.848  Comp= 88.398  Stk= 342  Hit20d=66.8%  | BodyPct=15  VolatilityExpansionRatio=1.2  CloseLoc=70  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #13  n=  434  WR=52.53%  Wil=47.83%  PF=1.837  Comp= 87.866  Stk= 350  Hit20d=66.6%  | BodyPct=22  VolatilityExpansionRatio=0.8  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #14  n=  434  WR=52.53%  Wil=47.83%  PF=1.837  Comp= 87.866  Stk= 350  Hit20d=66.6%  | BodyPct=22  VolatilityExpansionRatio=1  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #15  n=  434  WR=52.53%  Wil=47.83%  PF=1.837  Comp= 87.866  Stk= 350  Hit20d=66.6%  | BodyPct=22  VolatilityExpansionRatio=1.2  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #16  n=  440  WR= 52.5%  Wil=47.83%  PF=1.831  Comp= 87.604  Stk= 354  Hit20d=66.6%  | BodyPct=15  VolatilityExpansionRatio=0.8  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #17  n=  440  WR= 52.5%  Wil=47.83%  PF=1.831  Comp= 87.604  Stk= 354  Hit20d=66.6%  | BodyPct=15  VolatilityExpansionRatio=1  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #18  n=  440  WR= 52.5%  Wil=47.83%  PF=1.831  Comp= 87.604  Stk= 354  Hit20d=66.6%  | BodyPct=15  VolatilityExpansionRatio=1.2  CloseLoc=58  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=2
+  #19  n=  276  WR=53.62%  Wil=47.73%  PF= 1.82  Comp= 86.866  Stk= 239  Hit20d=66.3%  | BodyPct=22  VolatilityExpansionRatio=0.8  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=3
+  #20  n=  276  WR=53.62%  Wil=47.73%  PF= 1.82  Comp= 86.866  Stk= 239  Hit20d=66.3%  | BodyPct=22  VolatilityExpansionRatio=1  CloseLoc=64  UpperWickPct=12  ExactRangeATR14=1.2  ExactVolRatio20=1.2  ExactVolVsPre5=3
+
+  ★ Best combo for Sniper:
+      minBodyPct: 22
+      minVolatilityExpansionRatio: 0.8
+      minCloseLoc: 64
+      maxUpperWickPct: 12
+      minExactRangeATR14: 1.2
+      minExactVolRatio20: 1.2
+      minExactVolVsPre5: 2
+    → n=426  WR=52.82%  Wilson=48.07%  PF=1.861  Composite=89.454
+
+========================================================================================================================

@@ -1,0 +1,2468 @@
+{
+  "meta": {
+    "stamp": "2026-07-10T17-20-56-239Z",
+    "recordCount": 1164429,
+    "pass1Sec": "7.9",
+    "pass2Sec": "610.0"
+  },
+  "gridResults": {
+    "highprecision": {
+      "label": "HighPrecision",
+      "totalCombos": 6561,
+      "tested": 6561,
+      "top": [
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1163,
+          "stocks": 702,
+          "wr5_10": 51.16,
+          "wilson": 48.29,
+          "pf": 1.593,
+          "composite": 76.93,
+          "hit5_20": 63.5,
+          "avgMfe10": 7.37,
+          "avgMae10": -5.92
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1163,
+          "stocks": 702,
+          "wr5_10": 51.16,
+          "wilson": 48.29,
+          "pf": 1.593,
+          "composite": 76.93,
+          "hit5_20": 63.5,
+          "avgMfe10": 7.37,
+          "avgMae10": -5.92
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1190,
+          "stocks": 709,
+          "wr5_10": 51.01,
+          "wilson": 48.17,
+          "pf": 1.59,
+          "composite": 76.597,
+          "hit5_20": 63.4,
+          "avgMfe10": 7.34,
+          "avgMae10": -5.88
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 648,
+          "stocks": 485,
+          "wr5_10": 52.47,
+          "wilson": 48.62,
+          "pf": 1.566,
+          "composite": 76.157,
+          "hit5_20": 64,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 648,
+          "stocks": 485,
+          "wr5_10": 52.47,
+          "wilson": 48.62,
+          "pf": 1.566,
+          "composite": 76.157,
+          "hit5_20": 64,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 648,
+          "stocks": 485,
+          "wr5_10": 52.47,
+          "wilson": 48.62,
+          "pf": 1.566,
+          "composite": 76.157,
+          "hit5_20": 64,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1105,
+          "stocks": 678,
+          "wr5_10": 50.95,
+          "wilson": 48,
+          "pf": 1.586,
+          "composite": 76.118,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.95
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1097,
+          "stocks": 675,
+          "wr5_10": 50.96,
+          "wilson": 48,
+          "pf": 1.584,
+          "composite": 76.04,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.96
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1097,
+          "stocks": 675,
+          "wr5_10": 50.96,
+          "wilson": 48,
+          "pf": 1.584,
+          "composite": 76.04,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.96
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1097,
+          "stocks": 675,
+          "wr5_10": 50.96,
+          "wilson": 48,
+          "pf": 1.584,
+          "composite": 76.04,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.96
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1149,
+          "stocks": 694,
+          "wr5_10": 51,
+          "wilson": 48.11,
+          "pf": 1.579,
+          "composite": 75.991,
+          "hit5_20": 63.4,
+          "avgMfe10": 7.36,
+          "avgMae10": -5.95
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1106,
+          "stocks": 679,
+          "wr5_10": 50.9,
+          "wilson": 47.96,
+          "pf": 1.583,
+          "composite": 75.942,
+          "hit5_20": 63.2,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.95
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1106,
+          "stocks": 679,
+          "wr5_10": 50.9,
+          "wilson": 47.96,
+          "pf": 1.583,
+          "composite": 75.942,
+          "hit5_20": 63.2,
+          "avgMfe10": 7.35,
+          "avgMae10": -5.95
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 640,
+          "stocks": 480,
+          "wr5_10": 52.5,
+          "wilson": 48.63,
+          "pf": 1.561,
+          "composite": 75.914,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.56,
+          "avgMae10": -6.28
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1.4,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 25,
+            "minExactRangeATR14": 1.6,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.8
+          },
+          "n": 649,
+          "stocks": 486,
+          "wr5_10": 52.39,
+          "wilson": 48.54,
+          "pf": 1.563,
+          "composite": 75.893,
+          "hit5_20": 63.9,
+          "avgMfe10": 7.55,
+          "avgMae10": -6.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minBodyPct": 20,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 55,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1165,
+          "stocks": 698,
+          "wr5_10": 50.9,
+          "wilson": 48.03,
+          "pf": 1.579,
+          "composite": 75.867,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.34,
+          "avgMae10": -5.92
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 1,
+            "minBodyPct": 30,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 20,
+            "minExactRangeATR14": 0.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.2
+          },
+          "n": 1128,
+          "stocks": 688,
+          "wr5_10": 50.98,
+          "wilson": 48.06,
+          "pf": 1.576,
+          "composite": 75.739,
+          "hit5_20": 63.3,
+          "avgMfe10": 7.34,
+          "avgMae10": -5.96
+        }
+      ]
+    },
+    "elite": {
+      "label": "Elite",
+      "totalCombos": 2187,
+      "tested": 2187,
+      "top": [
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 215,
+          "stocks": 193,
+          "wr5_10": 58.6,
+          "wilson": 51.93,
+          "pf": 1.974,
+          "composite": 102.523,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.38,
+          "avgMae10": -5.7
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 214,
+          "stocks": 192,
+          "wr5_10": 58.41,
+          "wilson": 51.72,
+          "pf": 1.968,
+          "composite": 101.769,
+          "hit5_20": 70.6,
+          "avgMfe10": 8.39,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 208,
+          "stocks": 190,
+          "wr5_10": 58.17,
+          "wilson": 51.38,
+          "pf": 1.957,
+          "composite": 100.549,
+          "hit5_20": 70.7,
+          "avgMfe10": 8.41,
+          "avgMae10": -5.8
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 57,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        },
+        {
+          "params": {
+            "minBodyPct": 25,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        },
+        {
+          "params": {
+            "minBodyPct": 32,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        },
+        {
+          "params": {
+            "minBodyPct": 40,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 65,
+            "maxUpperWickPct": 13,
+            "minExactRangeATR14": 1.8,
+            "minExactVolVsPre5": 2.5,
+            "minExactVolRatio20": 1.5
+          },
+          "n": 207,
+          "stocks": 189,
+          "wr5_10": 57.97,
+          "wilson": 51.16,
+          "pf": 1.95,
+          "composite": 99.777,
+          "hit5_20": 70.5,
+          "avgMfe10": 8.43,
+          "avgMae10": -5.82
+        }
+      ]
+    },
+    "ultraselective": {
+      "label": "UltraSelective",
+      "totalCombos": 1458,
+      "tested": 1458,
+      "top": [
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 505,
+          "stocks": 394,
+          "wr5_10": 55.25,
+          "wilson": 50.89,
+          "pf": 1.936,
+          "composite": 98.527,
+          "hit5_20": 69.1,
+          "avgMfe10": 7.73,
+          "avgMae10": -5.34
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 500,
+          "stocks": 392,
+          "wr5_10": 55,
+          "wilson": 50.62,
+          "pf": 1.919,
+          "composite": 97.146,
+          "hit5_20": 68.8,
+          "avgMfe10": 7.73,
+          "avgMae10": -5.34
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 501,
+          "stocks": 392,
+          "wr5_10": 55.09,
+          "wilson": 50.71,
+          "pf": 1.915,
+          "composite": 97.093,
+          "hit5_20": 68.9,
+          "avgMfe10": 7.7,
+          "avgMae10": -5.34
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 299,
+          "stocks": 257,
+          "wr5_10": 56.52,
+          "wilson": 50.86,
+          "pf": 1.898,
+          "composite": 96.53,
+          "hit5_20": 68.2,
+          "avgMfe10": 8.05,
+          "avgMae10": -5.71
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 469,
+          "stocks": 368,
+          "wr5_10": 54.58,
+          "wilson": 50.06,
+          "pf": 1.924,
+          "composite": 96.314,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.7,
+          "avgMae10": -5.26
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 499,
+          "stocks": 391,
+          "wr5_10": 54.91,
+          "wilson": 50.52,
+          "pf": 1.904,
+          "composite": 96.216,
+          "hit5_20": 68.7,
+          "avgMfe10": 7.7,
+          "avgMae10": -5.34
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 298,
+          "stocks": 257,
+          "wr5_10": 56.38,
+          "wilson": 50.7,
+          "pf": 1.892,
+          "composite": 95.926,
+          "hit5_20": 68.1,
+          "avgMfe10": 8.06,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 298,
+          "stocks": 257,
+          "wr5_10": 56.38,
+          "wilson": 50.7,
+          "pf": 1.892,
+          "composite": 95.926,
+          "hit5_20": 68.1,
+          "avgMfe10": 8.06,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 298,
+          "stocks": 257,
+          "wr5_10": 56.38,
+          "wilson": 50.7,
+          "pf": 1.892,
+          "composite": 95.926,
+          "hit5_20": 68.1,
+          "avgMfe10": 8.06,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 468,
+          "stocks": 367,
+          "wr5_10": 54.49,
+          "wilson": 49.96,
+          "pf": 1.917,
+          "composite": 95.765,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.69,
+          "avgMae10": -5.25
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 498,
+          "stocks": 389,
+          "wr5_10": 54.82,
+          "wilson": 50.43,
+          "pf": 1.897,
+          "composite": 95.674,
+          "hit5_20": 68.7,
+          "avgMfe10": 7.69,
+          "avgMae10": -5.37
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 298,
+          "stocks": 256,
+          "wr5_10": 56.38,
+          "wilson": 50.7,
+          "pf": 1.884,
+          "composite": 95.499,
+          "hit5_20": 68.1,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.73
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 291,
+          "stocks": 251,
+          "wr5_10": 56.36,
+          "wilson": 50.61,
+          "pf": 1.884,
+          "composite": 95.343,
+          "hit5_20": 68.4,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 291,
+          "stocks": 251,
+          "wr5_10": 56.36,
+          "wilson": 50.61,
+          "pf": 1.884,
+          "composite": 95.343,
+          "hit5_20": 68.4,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 291,
+          "stocks": 251,
+          "wr5_10": 56.36,
+          "wilson": 50.61,
+          "pf": 1.884,
+          "composite": 95.343,
+          "hit5_20": 68.4,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 291,
+          "stocks": 251,
+          "wr5_10": 56.36,
+          "wilson": 50.61,
+          "pf": 1.884,
+          "composite": 95.343,
+          "hit5_20": 68.4,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.72
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 297,
+          "stocks": 256,
+          "wr5_10": 56.23,
+          "wilson": 50.54,
+          "pf": 1.878,
+          "composite": 94.897,
+          "hit5_20": 68,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.73
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 297,
+          "stocks": 256,
+          "wr5_10": 56.23,
+          "wilson": 50.54,
+          "pf": 1.878,
+          "composite": 94.897,
+          "hit5_20": 68,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.73
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1.5,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 297,
+          "stocks": 256,
+          "wr5_10": 56.23,
+          "wilson": 50.54,
+          "pf": 1.878,
+          "composite": 94.897,
+          "hit5_20": 68,
+          "avgMfe10": 8.03,
+          "avgMae10": -5.73
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 496,
+          "stocks": 388,
+          "wr5_10": 54.64,
+          "wilson": 50.24,
+          "pf": 1.887,
+          "composite": 94.785,
+          "hit5_20": 68.5,
+          "avgMfe10": 7.68,
+          "avgMae10": -5.37
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 467,
+          "stocks": 366,
+          "wr5_10": 54.39,
+          "wilson": 49.85,
+          "pf": 1.901,
+          "composite": 94.776,
+          "hit5_20": 68.3,
+          "avgMfe10": 7.66,
+          "avgMae10": -5.25
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 467,
+          "stocks": 366,
+          "wr5_10": 54.39,
+          "wilson": 49.85,
+          "pf": 1.901,
+          "composite": 94.776,
+          "hit5_20": 68.3,
+          "avgMfe10": 7.66,
+          "avgMae10": -5.25
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 389,
+          "stocks": 314,
+          "wr5_10": 55.27,
+          "wilson": 50.3,
+          "pf": 1.883,
+          "composite": 94.699,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.88,
+          "avgMae10": -5.56
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 389,
+          "stocks": 314,
+          "wr5_10": 55.27,
+          "wilson": 50.3,
+          "pf": 1.883,
+          "composite": 94.699,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.88,
+          "avgMae10": -5.56
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 389,
+          "stocks": 314,
+          "wr5_10": 55.27,
+          "wilson": 50.3,
+          "pf": 1.883,
+          "composite": 94.699,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.88,
+          "avgMae10": -5.56
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 389,
+          "stocks": 314,
+          "wr5_10": 55.27,
+          "wilson": 50.3,
+          "pf": 1.883,
+          "composite": 94.699,
+          "hit5_20": 68.4,
+          "avgMfe10": 7.88,
+          "avgMae10": -5.56
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 0.6,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 441,
+          "stocks": 347,
+          "wr5_10": 55.56,
+          "wilson": 50.89,
+          "pf": 1.855,
+          "composite": 94.389,
+          "hit5_20": 68.9,
+          "avgMfe10": 7.78,
+          "avgMae10": -5.66
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 3,
+            "minVolatilityExpansionRatio": 1.5,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 0.6,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 441,
+          "stocks": 347,
+          "wr5_10": 55.56,
+          "wilson": 50.89,
+          "pf": 1.855,
+          "composite": 94.389,
+          "hit5_20": 68.9,
+          "avgMfe10": 7.78,
+          "avgMae10": -5.66
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.1,
+            "minCloseLoc": 63,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 2,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 407,
+          "stocks": 327,
+          "wr5_10": 55.28,
+          "wilson": 50.43,
+          "pf": 1.868,
+          "composite": 94.199,
+          "hit5_20": 68.3,
+          "avgMfe10": 7.85,
+          "avgMae10": -5.6
+        },
+        {
+          "params": {
+            "minCandleQualityScore": 2,
+            "minVolatilityExpansionRatio": 1.3,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 15,
+            "minExactVolVsPre5": 1,
+            "minExactVolRatio20": 1,
+            "maxATRPct14Pctl120": 95
+          },
+          "n": 495,
+          "stocks": 387,
+          "wr5_10": 54.55,
+          "wilson": 50.14,
+          "pf": 1.872,
+          "composite": 93.861,
+          "hit5_20": 68.5,
+          "avgMfe10": 7.65,
+          "avgMae10": -5.37
+        }
+      ]
+    },
+    "sniper": {
+      "label": "Sniper",
+      "totalCombos": 2187,
+      "tested": 2187,
+      "top": [
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 426,
+          "stocks": 342,
+          "wr5_10": 52.82,
+          "wilson": 48.07,
+          "pf": 1.861,
+          "composite": 89.454,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.64,
+          "avgMae10": -5.2
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 426,
+          "stocks": 342,
+          "wr5_10": 52.82,
+          "wilson": 48.07,
+          "pf": 1.861,
+          "composite": 89.454,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.64,
+          "avgMae10": -5.2
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 426,
+          "stocks": 342,
+          "wr5_10": 52.82,
+          "wilson": 48.07,
+          "pf": 1.861,
+          "composite": 89.454,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.64,
+          "avgMae10": -5.2
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 432,
+          "stocks": 346,
+          "wr5_10": 52.78,
+          "wilson": 48.07,
+          "pf": 1.855,
+          "composite": 89.161,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 432,
+          "stocks": 346,
+          "wr5_10": 52.78,
+          "wilson": 48.07,
+          "pf": 1.855,
+          "composite": 89.161,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 432,
+          "stocks": 346,
+          "wr5_10": 52.78,
+          "wilson": 48.07,
+          "pf": 1.855,
+          "composite": 89.161,
+          "hit5_20": 66.9,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 422,
+          "stocks": 338,
+          "wr5_10": 52.61,
+          "wilson": 47.84,
+          "pf": 1.854,
+          "composite": 88.681,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 422,
+          "stocks": 338,
+          "wr5_10": 52.61,
+          "wilson": 47.84,
+          "pf": 1.854,
+          "composite": 88.681,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 422,
+          "stocks": 338,
+          "wr5_10": 52.61,
+          "wilson": 47.84,
+          "pf": 1.854,
+          "composite": 88.681,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.63,
+          "avgMae10": -5.21
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 428,
+          "stocks": 342,
+          "wr5_10": 52.57,
+          "wilson": 47.84,
+          "pf": 1.848,
+          "composite": 88.398,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.61,
+          "avgMae10": -5.22
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 428,
+          "stocks": 342,
+          "wr5_10": 52.57,
+          "wilson": 47.84,
+          "pf": 1.848,
+          "composite": 88.398,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.61,
+          "avgMae10": -5.22
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 70,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 428,
+          "stocks": 342,
+          "wr5_10": 52.57,
+          "wilson": 47.84,
+          "pf": 1.848,
+          "composite": 88.398,
+          "hit5_20": 66.8,
+          "avgMfe10": 7.61,
+          "avgMae10": -5.22
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 434,
+          "stocks": 350,
+          "wr5_10": 52.53,
+          "wilson": 47.83,
+          "pf": 1.837,
+          "composite": 87.866,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.58,
+          "avgMae10": -5.18
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 434,
+          "stocks": 350,
+          "wr5_10": 52.53,
+          "wilson": 47.83,
+          "pf": 1.837,
+          "composite": 87.866,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.58,
+          "avgMae10": -5.18
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 434,
+          "stocks": 350,
+          "wr5_10": 52.53,
+          "wilson": 47.83,
+          "pf": 1.837,
+          "composite": 87.866,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.58,
+          "avgMae10": -5.18
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 440,
+          "stocks": 354,
+          "wr5_10": 52.5,
+          "wilson": 47.83,
+          "pf": 1.831,
+          "composite": 87.604,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.57,
+          "avgMae10": -5.19
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 440,
+          "stocks": 354,
+          "wr5_10": 52.5,
+          "wilson": 47.83,
+          "pf": 1.831,
+          "composite": 87.604,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.57,
+          "avgMae10": -5.19
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 2
+          },
+          "n": 440,
+          "stocks": 354,
+          "wr5_10": 52.5,
+          "wilson": 47.83,
+          "pf": 1.831,
+          "composite": 87.604,
+          "hit5_20": 66.6,
+          "avgMfe10": 7.57,
+          "avgMae10": -5.19
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 276,
+          "stocks": 239,
+          "wr5_10": 53.62,
+          "wilson": 47.73,
+          "pf": 1.82,
+          "composite": 86.866,
+          "hit5_20": 66.3,
+          "avgMfe10": 8,
+          "avgMae10": -5.53
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 276,
+          "stocks": 239,
+          "wr5_10": 53.62,
+          "wilson": 47.73,
+          "pf": 1.82,
+          "composite": 86.866,
+          "hit5_20": 66.3,
+          "avgMfe10": 8,
+          "avgMae10": -5.53
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 276,
+          "stocks": 239,
+          "wr5_10": 53.62,
+          "wilson": 47.73,
+          "pf": 1.82,
+          "composite": 86.866,
+          "hit5_20": 66.3,
+          "avgMfe10": 8,
+          "avgMae10": -5.53
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 282,
+          "stocks": 245,
+          "wr5_10": 53.55,
+          "wilson": 47.72,
+          "pf": 1.81,
+          "composite": 86.385,
+          "hit5_20": 66,
+          "avgMfe10": 7.94,
+          "avgMae10": -5.49
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 282,
+          "stocks": 245,
+          "wr5_10": 53.55,
+          "wilson": 47.72,
+          "pf": 1.81,
+          "composite": 86.385,
+          "hit5_20": 66,
+          "avgMfe10": 7.94,
+          "avgMae10": -5.49
+        },
+        {
+          "params": {
+            "minBodyPct": 22,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 282,
+          "stocks": 245,
+          "wr5_10": 53.55,
+          "wilson": 47.72,
+          "pf": 1.81,
+          "composite": 86.385,
+          "hit5_20": 66,
+          "avgMfe10": 7.94,
+          "avgMae10": -5.49
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 279,
+          "stocks": 241,
+          "wr5_10": 53.41,
+          "wilson": 47.54,
+          "pf": 1.804,
+          "composite": 85.749,
+          "hit5_20": 65.9,
+          "avgMfe10": 7.97,
+          "avgMae10": -5.54
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 279,
+          "stocks": 241,
+          "wr5_10": 53.41,
+          "wilson": 47.54,
+          "pf": 1.804,
+          "composite": 85.749,
+          "hit5_20": 65.9,
+          "avgMfe10": 7.97,
+          "avgMae10": -5.54
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 64,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 279,
+          "stocks": 241,
+          "wr5_10": 53.41,
+          "wilson": 47.54,
+          "pf": 1.804,
+          "composite": 85.749,
+          "hit5_20": 65.9,
+          "avgMfe10": 7.97,
+          "avgMae10": -5.54
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 0.8,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 285,
+          "stocks": 247,
+          "wr5_10": 53.33,
+          "wilson": 47.54,
+          "pf": 1.794,
+          "composite": 85.299,
+          "hit5_20": 65.6,
+          "avgMfe10": 7.9,
+          "avgMae10": -5.5
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 285,
+          "stocks": 247,
+          "wr5_10": 53.33,
+          "wilson": 47.54,
+          "pf": 1.794,
+          "composite": 85.299,
+          "hit5_20": 65.6,
+          "avgMfe10": 7.9,
+          "avgMae10": -5.5
+        },
+        {
+          "params": {
+            "minBodyPct": 15,
+            "minVolatilityExpansionRatio": 1.2,
+            "minCloseLoc": 58,
+            "maxUpperWickPct": 12,
+            "minExactRangeATR14": 1.2,
+            "minExactVolRatio20": 1.2,
+            "minExactVolVsPre5": 3
+          },
+          "n": 285,
+          "stocks": 247,
+          "wr5_10": 53.33,
+          "wilson": 47.54,
+          "pf": 1.794,
+          "composite": 85.299,
+          "hit5_20": 65.6,
+          "avgMfe10": 7.9,
+          "avgMae10": -5.5
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+========================================================================================================================
+PRODUCTION PARAM HYPER-OPTIMIZER RESULTS
+========================================================================================================================
+Data: D:\Claude code\stock-screener\scripts\_bt_smoke
+Files: 12, skipped short history: 0
+Date range: 2021-07-02 to 2026-07-01
+Method: current production signals, stricter-threshold grid, 70/30 chronological split, next-open stop-first simulation.
+Objective: OOS WR + OOS avg profit + OOS/all profit factor + Wilson lower bound, with trade-count penalties.
+
+------------------------------------------------------------------------------------------------------------------------
+Deployable  | collected=0 | combos=65536
+Baseline all: n=0, WR=0.0%, avg=0.00%, PF=0.00, Wilson=0.0% | OOS: n=0, WR=0.0%, avg=0.00%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------
+HighPrecision  | collected=6 | combos=65536
+Baseline all: n=6, WR=0.0%, avg=-4.21%, PF=0.00, Wilson=0.0% | OOS: n=2, WR=0.0%, avg=-4.01%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------
+Elite  | collected=0 | combos=65536
+Baseline all: n=0, WR=0.0%, avg=0.00%, PF=0.00, Wilson=0.0% | OOS: n=0, WR=0.0%, avg=0.00%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------
+UltraSelective  | collected=0 | combos=36864
+Baseline all: n=0, WR=0.0%, avg=0.00%, PF=0.00, Wilson=0.0% | OOS: n=0, WR=0.0%, avg=0.00%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------
+Sniper  | collected=0 | combos=65536
+Baseline all: n=0, WR=0.0%, avg=0.00%, PF=0.00, Wilson=0.0% | OOS: n=0, WR=0.0%, avg=0.00%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+
+JSON: D:\Claude code\stock-screener\scripts\smoke_production_param_tuning_2026-07-10T03-31-51-194Z.json
+TXT : D:\Claude code\stock-screener\scripts\smoke_production_param_tuning_2026-07-10T03-31-51-194Z.txt
+========================================================================================================================

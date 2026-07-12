@@ -1,0 +1,30 @@
+name = "pbfb-brain-worker"
+main = "src/index.ts"
+compatibility_date = "2026-07-12"
+compatibility_flags = ["nodejs_compat"]
+account_id = "0449377bae2c27adb078217c5ebfe807"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# Llama narrations — free tier: 10k neurons/day
+[ai]
+binding = "AI"
+
+# Event fingerprint index — free tier: 30k queries/mo, 5M stored dims
+# 32 dims = Vectorize minimum; 9 real features zero-padded (dims 9-31 reserved)
+# Create once with:
+#   npx wrangler vectorize create pbfb-fingerprints --dimensions=32 --metric=cosine
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "pbfb-fingerprints"
+
+# Nightly sync: 13:30 UTC = 19:00 IST, Mon-Fri (after the evening UC scan window)
+[triggers]
+crons = ["30 13 * * 1-5"]
+
+# Secrets (set via `npx wrangler secret put <NAME>` — never in this file):
+#   SUPABASE_URL               — https://cmkfqlppbwyrhjmooqbq.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  — server-side only
+#   WORKER_TOKEN               — shared secret the Vercel app sends as x-worker-token

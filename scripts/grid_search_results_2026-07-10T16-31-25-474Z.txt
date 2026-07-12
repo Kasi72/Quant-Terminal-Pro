@@ -1,0 +1,20 @@
+========================================================================================================================
+GRID SEARCH RESULTS  —  Top 20 per param set
+Generated: 2026-07-10T16:31:25.462Z
+Candidate records: 11,64,429  |  Pass 1: 4.2s  Pass 2: 681.9s
+Composite score = WilsonWR × ProfitFactor  (higher is better; min ${MIN_TRADES_FOR_SCORE} trades)
+========================================================================================================================
+
+── ELITE V12  (9,600 combos, 0 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+
+── ULTRASELECTIVE V12  (5,120 combos, 0 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+
+── SNIPER V12  (6,144 combos, 0 passed min-trade floor) ──
+   Rank     n     WR%  Wilson%      PF  Composite  Stocks  Hit20d%  Variable params
+   --------------------------------------------------------------------------------------------------------------------
+
+========================================================================================================================

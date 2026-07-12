@@ -1,0 +1,72 @@
+==============================================================================================================
+PRODUCTION PARAM SET BACKTEST
+==============================================================================================================
+Data directory : D:\Claude code\stock-screener\scripts\_bt_smoke
+CSV files      : 12 found, 0 skipped for short history
+Date range     : 2021-07-02 to 2026-07-01
+Engine dir     : D:\Claude code\stock-screener\scripts\_compiled_current
+History window : 280 bars; min history 220; max hold 20; planned-entry window 3 bars
+Run at         : 2026-07-10T02:55:49.761Z
+
+Raw signal convention = signal close to future high. No entry fill, no stop ordering. This is useful, but easiest to inflate.
+Fair models use non-overlapping trades per stock/param/model and production priceEngine levels.
+Stop-first = conservative same-bar ordering. Target-first = optimistic same-bar ordering.
+
+RAW SIGNAL FORWARD EXCURSION
+--------------------------------------------------------------------------------------------------------------
+Param               Signals  Stocks  TradeValid   +3% 10d   +5% 10d   Wilson   +5% 20d   AvgMFE10   AvgMAE10
+Deployable                0       0        0.0%      0.0%      0.0%     0.0%      0.0%       0.0%       0.0%
+HighPrecision             6       4        0.0%     50.0%     16.7%     3.0%     16.7%       4.8%      -8.0%
+Elite                     0       0        0.0%      0.0%      0.0%     0.0%      0.0%       0.0%       0.0%
+UltraSelective            0       0        0.0%      0.0%      0.0%     0.0%      0.0%       0.0%       0.0%
+Sniper                    0       0        0.0%      0.0%      0.0%     0.0%      0.0%       0.0%       0.0%
+
+PLANNEDSTOPFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable               0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+HighPrecision            0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Elite                    0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+UltraSelective           0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Sniper                   0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+
+PLANNEDTARGETFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable               0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+HighPrecision            0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Elite                    0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+UltraSelective           0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Sniper                   0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+
+NEXTOPENSTOPFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable               0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+HighPrecision            6       4     0.0%     0.0%     -4.2%     -4.1%    0.00   -1.000      1.8%     -5.7%     0.0%
+Elite                    0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+UltraSelective           0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Sniper                   0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+
+NEXTOPENTARGETFIRST
+--------------------------------------------------------------------------------------------------------------
+Param               Trades  Stocks       WR   Wilson    AvgPnl    MedPnl      PF     AvgR    AvgMFE    AvgMAE   OOS WR
+Deployable               0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+HighPrecision            6       4     0.0%     0.0%     -4.2%     -4.1%    0.00   -1.000      1.8%     -5.7%     0.0%
+Elite                    0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+UltraSelective           0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+Sniper                   0       0     0.0%     0.0%      0.0%      0.0%    0.00    0.000      0.0%      0.0%     0.0%
+
+EXIT BREAKDOWN, CONSERVATIVE PLANNED ENTRY
+--------------------------------------------------------------------------------------------------------------
+Deployable         no trades
+HighPrecision      no trades
+Elite              no trades
+UltraSelective     no trades
+Sniper             no trades
+
+FILES
+--------------------------------------------------------------------------------------------------------------
+JSON    : D:\Claude code\stock-screener\scripts\smoke_production_param_backtest_2026-07-10T02-55-49-760Z.json
+Summary : D:\Claude code\stock-screener\scripts\smoke_production_param_backtest_2026-07-10T02-55-49-760Z.txt
+==============================================================================================================

@@ -316,7 +316,10 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
   };
   if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(orsR.stage)) {
     passedSets.push('ors_prime_reversal');
-    if (!best || stageRank[orsR.stage] > stageRank[best.stage]) best = orsR;
+    if (!best || stageRank[orsR.stage] > stageRank[best.stage] ||
+       (stageRank[orsR.stage] === stageRank[best.stage] && orsR.inflectionScore > best.inflectionScore)) {
+      best = orsR;
+    }
   }
   // Set full breakdown on best result
   best!.clusterBreakdown = breakdown;
@@ -2693,6 +2696,12 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         elite: { met: Math.round(rnd(seed + 62, isActionable ? 17 : 8, 21)), total: 21 },
         ultraSelective: { met: Math.round(rnd(seed + 63, isActionable ? 16 : 7, 20)), total: 20 },
         sniper: { met: Math.round(rnd(seed + 64, isActionable ? 17 : 5, 21)), total: 21 },
+        orsReversal: {
+          met: Math.round(rnd(seed + 65, isActionable ? 6 : 2, 10)),
+          total: 10,
+          score: isActionable ? Math.round(rnd(seed + 66, 60, 88)) : Math.round(rnd(seed + 66, 30, 65)),
+          confirmed: isActionable && rnd(seed + 67, 0, 1) > 0.6,
+        },
       },
       monster: { badges: [], topProbability: 0 },
       dayChangePct: rnd(seed + 70, -4, 6),

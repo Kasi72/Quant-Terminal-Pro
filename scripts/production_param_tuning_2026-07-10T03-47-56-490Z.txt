@@ -1,0 +1,108 @@
+========================================================================================================================
+PRODUCTION PARAM HYPER-OPTIMIZER RESULTS
+========================================================================================================================
+Data: C:\Users\drkkr\Downloads\NIFTY ALL1783
+Files: 1616, skipped short history: 4
+Date range: 2021-07-02 to 2026-07-01
+Method: current production signals, stricter-threshold grid, 70/30 chronological split, next-open stop-first simulation.
+Objective: OOS WR + OOS avg profit + OOS/all profit factor + Wilson lower bound, with trade-count penalties.
+
+------------------------------------------------------------------------------------------------------------------------
+Deployable  | collected=21 | combos=65536
+Baseline all: n=13, WR=38.5%, avg=-1.38%, PF=0.58, Wilson=17.7% | OOS: n=4, WR=0.0%, avg=-4.41%, PF=0.00
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+1       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5
+2       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minVolatilityExpansionRatio:2->2.25
+3       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->70
+4       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->70; minVolatilityExpansionRatio:2->2.25
+5       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->75
+6       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->75; minVolatilityExpansionRatio:2->2.25
+7       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->80
+8       -16.20    11   45.5%   -0.44%    0.84      4   25.0%   -1.25%    0.54  minExactVolVsPre5:3->3.5; minCloseLoc:65->80; minVolatilityExpansionRatio:2->2.25
+9       -33.10    11   45.5%   -1.05%    0.68      4   25.0%   -2.93%    0.34  minBodyPct:70->75
+10      -33.10    11   45.5%   -1.05%    0.68      4   25.0%   -2.93%    0.34  minBodyPct:70->75; minVolatilityExpansionRatio:2->2.25
+Recommended changes:
+  minExactVolVsPre5: 3 -> 3.5
+------------------------------------------------------------------------------------------------------------------------
+HighPrecision  | collected=1526 | combos=65536
+Baseline all: n=1256, WR=37.9%, avg=-0.55%, PF=0.83, Wilson=35.3% | OOS: n=377, WR=34.7%, avg=-0.84%, PF=0.74
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+1        27.99   316   40.5%   -0.40%    0.87     95   41.1%   -0.11%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+2        27.99   316   40.5%   -0.40%    0.87     95   41.1%   -0.11%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; minCloseLoc:55->60; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+3        27.99   316   40.5%   -0.40%    0.87     95   41.1%   -0.11%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; minCloseLoc:55->65; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+4        27.99   316   40.5%   -0.40%    0.87     95   41.1%   -0.11%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; minCloseLoc:55->65; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+5        27.84   349   39.5%   -0.51%    0.84    105   41.9%   -0.14%    0.95  minExactVolRatio20:1.5->1.9; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+6        27.84   349   39.5%   -0.51%    0.84    105   41.9%   -0.14%    0.95  minExactVolRatio20:1.5->1.9; minCloseLoc:55->60; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+7        27.84   349   39.5%   -0.51%    0.84    105   41.9%   -0.14%    0.95  minExactVolRatio20:1.5->1.9; minCloseLoc:55->65; maxUpperWickPct:40->35; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+8        27.84   349   39.5%   -0.51%    0.84    105   41.9%   -0.14%    0.95  minExactVolRatio20:1.5->1.9; minCloseLoc:55->65; minBodyPct:20->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+9        27.66   325   40.3%   -0.38%    0.88     98   40.8%   -0.13%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; maxUpperWickPct:40->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+10       27.66   325   40.3%   -0.38%    0.88     98   40.8%   -0.13%    0.96  maxATRPct14Pctl120:85->65; minExactVolRatio20:1.5->1.9; minCloseLoc:55->60; maxUpperWickPct:40->35; maxPre10RedVolBias:2->1.6; maxCloseAboveZonePct:6->3
+Recommended changes:
+  maxATRPct14Pctl120: 85 -> 65
+  minExactVolRatio20: 1.5 -> 1.9
+  maxUpperWickPct: 40 -> 35
+  minBodyPct: 20 -> 35
+  maxPre10RedVolBias: 2 -> 1.6
+  maxCloseAboveZonePct: 6 -> 3
+------------------------------------------------------------------------------------------------------------------------
+Elite  | collected=19 | combos=65536
+Baseline all: n=19, WR=57.9%, avg=1.43%, PF=1.73, Wilson=36.3% | OOS: n=6, WR=66.7%, avg=1.83%, PF=1.89
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+1       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15
+2       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minVolatilityExpansionRatio:1.4->1.65
+3       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minVolatilityExpansionRatio:1.4->1.9
+4       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->40
+5       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->40; minVolatilityExpansionRatio:1.4->1.65
+6       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->40; minVolatilityExpansionRatio:1.4->1.9
+7       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->45
+8       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->45; minVolatilityExpansionRatio:1.4->1.65
+9       117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->45; minVolatilityExpansionRatio:1.4->1.9
+10      117.15    12   75.0%    3.41%    4.33      4  100.0%    6.25%     Inf  minExactVolRatio20:1.8->2.2; maxUpperWickPct:20->15; minBodyPct:35->50
+Recommended changes:
+  minExactVolRatio20: 1.8 -> 2.2
+  maxUpperWickPct: 20 -> 15
+------------------------------------------------------------------------------------------------------------------------
+UltraSelective  | collected=41 | combos=36864
+Baseline all: n=41, WR=48.8%, avg=-0.08%, PF=0.97, Wilson=34.3% | OOS: n=13, WR=46.2%, avg=-0.36%, PF=0.85
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+1       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; maxUpperWickPct:25->15; minBodyPct:70->75; maxATRPct14Pctl120:30->20
+2       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; maxUpperWickPct:25->15; minBodyPct:70->75; minCandleQualityScore:4->5; maxATRPct14Pctl120:30->20
+3       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->35; maxUpperWickPct:25->15; minBodyPct:70->75; maxATRPct14Pctl120:30->20
+4       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->35; maxUpperWickPct:25->15; minBodyPct:70->75; minCandleQualityScore:4->5; maxATRPct14Pctl120:30->20
+5       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->40; maxUpperWickPct:25->15; minBodyPct:70->75; maxATRPct14Pctl120:30->20
+6       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->40; maxUpperWickPct:25->15; minBodyPct:70->75; minCandleQualityScore:4->5; maxATRPct14Pctl120:30->20
+7       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->45; maxUpperWickPct:25->15; minBodyPct:70->75; maxATRPct14Pctl120:30->20
+8       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.5; minExactVolVsPre5:3->3.5; minCloseLoc:30->45; maxUpperWickPct:25->15; minBodyPct:70->75; minCandleQualityScore:4->5; maxATRPct14Pctl120:30->20
+9       103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.8; minExactVolVsPre5:3->3.5; maxUpperWickPct:25->15; minBodyPct:70->75; maxATRPct14Pctl120:30->20
+10      103.84    16   68.8%    1.93%    1.96      5  100.0%    4.61%     Inf  minExactVolRatio20:1.1->1.8; minExactVolVsPre5:3->3.5; maxUpperWickPct:25->15; minBodyPct:70->75; minCandleQualityScore:4->5; maxATRPct14Pctl120:30->20
+Recommended changes:
+  minExactVolRatio20: 1.1 -> 1.5
+  minExactVolVsPre5: 3 -> 3.5
+  maxUpperWickPct: 25 -> 15
+  minBodyPct: 70 -> 75
+  maxATRPct14Pctl120: 30 -> 20
+------------------------------------------------------------------------------------------------------------------------
+Sniper  | collected=18 | combos=65536
+Baseline all: n=15, WR=60.0%, avg=1.96%, PF=2.33, Wilson=35.7% | OOS: n=5, WR=40.0%, avg=0.18%, PF=1.07
+Top candidates:
+Rank     Score     n      WR      Avg      PF   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+1        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minBodyPct:50->60
+2        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minBodyPct:50->60; minVolatilityExpansionRatio:2->2.25
+3        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minCloseLoc:75->80; minBodyPct:50->60
+4        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minCloseLoc:75->80; minBodyPct:50->60; minVolatilityExpansionRatio:2->2.25
+5        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2
+6        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2; minVolatilityExpansionRatio:2->2.25
+7        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2; minBodyPct:50->55
+8        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2; minBodyPct:50->55; minVolatilityExpansionRatio:2->2.25
+9        18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2; minBodyPct:50->60
+10       18.58    14   57.1%    1.55%    1.98      5   40.0%    0.18%    1.07  minExactVolRatio20:1.8->2; minBodyPct:50->60; minVolatilityExpansionRatio:2->2.25
+Recommended changes:
+  minBodyPct: 50 -> 60
+
+JSON: D:\Claude code\stock-screener\scripts\production_param_tuning_2026-07-10T03-47-56-490Z.json
+TXT : D:\Claude code\stock-screener\scripts\production_param_tuning_2026-07-10T03-47-56-490Z.txt
+========================================================================================================================

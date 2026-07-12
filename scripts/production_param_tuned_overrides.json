@@ -1,0 +1,29 @@
+{
+  "paramOverrides": {
+    "optimized_deployable_20plus": {
+      "minExactVolVsPre5": 3.5
+    },
+    "optimized_highprecision_15plus": {
+      "maxATRPct14Pctl120": 65,
+      "minExactVolRatio20": 1.9,
+      "maxUpperWickPct": 35,
+      "minBodyPct": 35,
+      "maxPre10RedVolBias": 1.6,
+      "maxCloseAboveZonePct": 3
+    },
+    "optimized_elite_10plus": {
+      "minExactVolRatio20": 2.2,
+      "maxUpperWickPct": 15
+    },
+    "optimized_ultraselective_8plus": {
+      "maxATRPct14Pctl120": 20,
+      "minExactVolRatio20": 1.5,
+      "minExactVolVsPre5": 3.5,
+      "maxUpperWickPct": 15,
+      "minBodyPct": 75
+    },
+    "sniper_95plus": {
+      "minBodyPct": 60
+    }
+  }
+}

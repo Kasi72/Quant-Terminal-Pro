@@ -1,0 +1,83 @@
+{
+  "deployable_forensic_d6": {
+    "baseKey": "optimized_deployable_20plus",
+    "params": {
+      "maxPre10AvgRangeATR": 1.15,
+      "minZoneLen": 4,
+      "maxZoneTightnessPct": 12,
+      "maxPre10RedVolBias": 0.8,
+      "minExactVolRatio20": 1.3,
+      "minExactVolVsPre5": 2,
+      "minCloseLoc": 40,
+      "minBodyPct": 50,
+      "maxCandleRisk": 10,
+      "maxCloseAboveZonePct": 6
+    },
+    "forensic": {
+      "maxCusumPos": 0.04,
+      "requireBullishPattern": true
+    }
+  },
+  "deployable_forensic_d5": {
+    "baseKey": "optimized_deployable_20plus",
+    "params": {
+      "maxATRPct14Pctl120": 25,
+      "maxPre10AvgRangeATR": 0.9,
+      "minZoneLen": 4,
+      "maxZoneTightnessPct": 8,
+      "maxPre10RedVolBias": 1,
+      "minExactVolRatio20": 1.5,
+      "minExactVolVsPre5": 2,
+      "minCloseLoc": 75,
+      "maxUpperWickPct": 30,
+      "minBodyPct": 20,
+      "maxCandleRisk": 7,
+      "minVolatilityExpansionRatio": 1.4
+    },
+    "forensic": {
+      "minCandleDnaLowerTail": 5
+    }
+  },
+  "highprecision_forensic_hp2": {
+    "baseKey": "optimized_highprecision_15plus",
+    "params": {
+      "maxZoneTightnessPct": 5,
+      "maxPre10RedVolBias": 1.1,
+      "minExactRangeATR14": 0.8,
+      "minExactVolRatio20": 1.1,
+      "minExactVolVsPre5": 2,
+      "minCloseLoc": 50,
+      "maxUpperWickPct": 10,
+      "minBodyPct": 50,
+      "maxCandleRisk": 5,
+      "minVolatilityExpansionRatio": 1.4,
+      "maxCloseAboveZonePct": 4
+    },
+    "forensic": {
+      "maxBodyATR": 1.6
+    }
+  },
+  "highprecision_forensic_hp1": {
+    "baseKey": "optimized_highprecision_15plus",
+    "params": {
+      "maxATRPct14Pctl120": 25,
+      "maxPre10AvgRangeATR": 0.9,
+      "maxZoneTightnessPct": 12,
+      "maxPre10RedVolBias": 1.1,
+      "minExactRangeATR14": 1.2,
+      "minExactVolRatio20": 1.3,
+      "minExactVolVsPre5": 1.5,
+      "minCloseLoc": 50,
+      "maxUpperWickPct": 15,
+      "minBodyPct": 60,
+      "minVolatilityExpansionRatio": 1.4,
+      "maxCloseAboveZonePct": 10
+    },
+    "forensic": {
+      "maxUpperToLowerWickRatio": 1.2,
+      "minMarubozuScore": 45,
+      "maxBbWidthPctl": 50,
+      "minSharpe20": 0.5
+    }
+  }
+}

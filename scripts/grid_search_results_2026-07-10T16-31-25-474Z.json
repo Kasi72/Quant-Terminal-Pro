@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "stamp": "2026-07-10T16-31-25-474Z",
+    "recordCount": 1164429,
+    "pass1Sec": "4.2",
+    "pass2Sec": "681.9"
+  },
+  "gridResults": {
+    "elite": {
+      "label": "Elite v12",
+      "totalCombos": 9600,
+      "tested": 0,
+      "top": []
+    },
+    "ultraselective": {
+      "label": "UltraSelective v12",
+      "totalCombos": 5120,
+      "tested": 0,
+      "top": []
+    },
+    "sniper": {
+      "label": "Sniper v12",
+      "totalCombos": 6144,
+      "tested": 0,
+      "top": []
+    }
+  }
+}

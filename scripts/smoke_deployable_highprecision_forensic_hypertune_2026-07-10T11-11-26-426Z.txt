@@ -1,0 +1,16 @@
+======================================================================================================================================================
+DEPLOYABLE + HIGHPRECISION FORENSIC HYPER-TUNE RESULTS
+======================================================================================================================================================
+Data: D:\Claude code\stock-screener\scripts\_bt_smoke
+Files: 12; skipped=0; date=2021-07-02 to 2026-07-01
+Candidate collection: broadly relaxed cluster gates, PRE_BREAKOUT + BUY family, next-open stop-first simulation.
+Search: 200 random combinations per cluster over core params + forensic overlays; per-symbol overlapping trades de-duped.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Deployable | relaxed candidates=957 | combos tested=201
+Baseline core: n=0, WR=0.0%, avg=0.00%, PF=0.00, Wilson=0.0%, OOS n=0, OOS WR=0.0%, OOS avg=0.00%, OOS PF=0.00
+Rank     Score     n      WR      Avg      PF   Wilson   OOSn   OOSWR   OOSAvg   OOSPF  Changes
+------------------------------------------------------------------------------------------------------------------------------------------------------
+HighPrecision | relaxed candidates=957 | combos tested=201
+Baseline core: n=6, WR=0.0%, avg=-4.71%, PF=0.00, Wilson=0.0%, OOS n=2, OOS WR=0.0%, OOS avg=-5.50%, OOS PF=0.00
+Rank     Score     n      WR      Avg      PF   Wilson   OOSn   OOSWR   OOSAvg   OOSPF  Changes

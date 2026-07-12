@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "dataDir": "D:\\Claude code\\stock-screener\\scripts\\_bt_smoke",
+    "files": 12,
+    "skipped": 0,
+    "minDate": "2021-07-02",
+    "maxDate": "2026-07-01",
+    "randomCombos": 200,
+    "runAt": "2026-07-10T11:11:26.430Z"
+  },
+  "tuned": {
+    "optimized_deployable_20plus": {
+      "base": {
+        "n": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "stocks": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "tested": 201,
+      "top": []
+    },
+    "optimized_highprecision_15plus": {
+      "base": {
+        "n": 6,
+        "wr": 0,
+        "avg": -4.70603517638454,
+        "pf": 0,
+        "wilson": 0,
+        "stocks": 5,
+        "is": {
+          "n": 4,
+          "wr": 0,
+          "avg": -4.310850740051277,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 2,
+          "wr": 0,
+          "avg": -5.496404049051065,
+          "pf": 0,
+          "wilson": 0
+        }
+      },
+      "tested": 201,
+      "top": []
+    }
+  }
+}

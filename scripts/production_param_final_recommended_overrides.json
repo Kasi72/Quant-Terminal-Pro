@@ -1,0 +1,48 @@
+{
+  "optimized_deployable_20plus": {
+    "minExactVolVsPre5": 3.5
+  },
+  "optimized_highprecision_15plus": {
+    "maxATRPct14Pctl120": 60,
+    "maxZoneTightnessPct": 6,
+    "maxPre10RedVolBias": 1.3,
+    "minExactRangeATR14": 1.2,
+    "minExactVolRatio20": 1.3,
+    "minExactVolVsPre5": 1.5,
+    "minCloseLoc": 45,
+    "maxUpperWickPct": 12,
+    "minBodyPct": 60,
+    "maxCandleRisk": 12,
+    "minVolatilityExpansionRatio": 1.4,
+    "maxCloseAboveZonePct": 8
+  },
+  "optimized_elite_10plus": {
+    "minExactVolRatio20": 2.2,
+    "maxUpperWickPct": 15
+  },
+  "optimized_ultraselective_8plus": {
+    "maxATRPct14Pctl120": 95,
+    "maxPre10AvgRangeATR": 1.3,
+    "maxZoneTightnessPct": 15,
+    "maxPre10RedVolBias": 0.8,
+    "minExactRangeATR14": 1.2,
+    "minExactVolRatio20": 0.8,
+    "minExactVolVsPre5": 1.5,
+    "minCloseLoc": 65,
+    "maxUpperWickPct": 20,
+    "minBodyPct": 60,
+    "minVolatilityExpansionRatio": 1.4,
+    "minCandleQualityScore": 3
+  },
+  "sniper_95plus": {
+    "maxATRPct14Pctl120": 40,
+    "maxPre10AvgRangeATR": 1.15,
+    "maxPre10RedVolBias": 1.6,
+    "minExactVolRatio20": 1.5,
+    "minExactVolVsPre5": 3.5,
+    "minCloseLoc": 65,
+    "maxUpperWickPct": 15,
+    "minBodyPct": 20,
+    "minVolatilityExpansionRatio": 1
+  }
+}

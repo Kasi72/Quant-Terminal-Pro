@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "dataDir": "D:\\Claude code\\stock-screener\\scripts\\_bt_smoke",
+    "files": 12,
+    "skipped": 0,
+    "minDate": "2021-07-02",
+    "maxDate": "2026-07-01",
+    "randomCombos": 5000,
+    "runAt": "2026-07-10T08:42:37.591Z"
+  },
+  "tuned": {
+    "optimized_deployable_20plus": {
+      "base": {
+        "n": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "stocks": 0
+      },
+      "axes": {
+        "maxATRPct14Pctl120": 8,
+        "maxPre10AvgRangeATR": 7,
+        "minZoneLen": 5,
+        "maxZoneTightnessPct": 7,
+        "maxPre10RedVolBias": 7,
+        "minExactVolRatio20": 7,
+        "minExactVolVsPre5": 7,
+        "minCloseLoc": 7,
+        "maxUpperWickPct": 8,
+        "minBodyPct": 7,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 8,
+        "maxCloseAboveZonePct": 7
+      },
+      "tested": 5001,
+      "top": []
+    },
+    "optimized_highprecision_15plus": {
+      "base": {
+        "n": 6,
+        "wr": 0,
+        "avg": -4.70603517638454,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 4,
+          "wr": 0,
+          "avg": -4.310850740051277,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 2,
+          "wr": 0,
+          "avg": -5.496404049051065,
+          "pf": 0,
+          "wilson": 0
+        },
+        "stocks": 5
+      },
+      "axes": {
+        "maxATRPct14Pctl120": 8,
+        "maxPre10AvgRangeATR": 7,
+        "maxZoneTightnessPct": 7,
+        "maxPre10RedVolBias": 7,
+        "minExactRangeATR14": 7,
+        "minExactVolRatio20": 7,
+        "minExactVolVsPre5": 7,
+        "minCloseLoc": 7,
+        "maxUpperWickPct": 8,
+        "minBodyPct": 7,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 8,
+        "maxCloseAboveZonePct": 7
+      },
+      "tested": 5001,
+      "top": []
+    },
+    "optimized_elite_10plus": {
+      "base": {
+        "n": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "stocks": 0
+      },
+      "axes": {
+        "minAvgTurnover20": 5,
+        "maxATRPct14Pctl120": 8,
+        "maxPre10AvgRangeATR": 7,
+        "maxPre10RedVolBias": 7,
+        "minExactVolRatio20": 7,
+        "minExactVolVsPre5": 7,
+        "minCloseLoc": 7,
+        "maxUpperWickPct": 8,
+        "minBodyPct": 7,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 8,
+        "maxCloseAboveZonePct": 7
+      },
+      "tested": 5001,
+      "top": []
+    },
+    "optimized_ultraselective_8plus": {
+      "base": {
+        "n": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "stocks": 0
+      },
+      "axes": {
+        "maxATRPct14Pctl120": 8,
+        "maxPre10AvgRangeATR": 7,
+        "maxZoneTightnessPct": 7,
+        "maxPre10RedVolBias": 7,
+        "minExactRangeATR14": 7,
+        "minExactVolRatio20": 7,
+        "minExactVolVsPre5": 7,
+        "minCloseLoc": 7,
+        "maxUpperWickPct": 8,
+        "minBodyPct": 7,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 8,
+        "minCandleQualityScore": 6
+      },
+      "tested": 5001,
+      "top": []
+    },
+    "sniper_95plus": {
+      "base": {
+        "n": 0,
+        "wr": 0,
+        "avg": 0,
+        "pf": 0,
+        "wilson": 0,
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "avg": 0,
+          "pf": 0,
+          "wilson": 0
+        },
+        "stocks": 0
+      },
+      "axes": {
+        "maxATRPct14Pctl120": 8,
+        "maxPre10AvgRangeATR": 7,
+        "maxPre10RedVolBias": 7,
+        "minExactVolRatio20": 7,
+        "minExactVolVsPre5": 7,
+        "minCloseLoc": 7,
+        "maxUpperWickPct": 8,
+        "minBodyPct": 7,
+        "maxCandleRisk": 7,
+        "minVolatilityExpansionRatio": 8,
+        "maxCloseAboveZonePct": 7
+      },
+      "tested": 5001,
+      "top": []
+    }
+  }
+}
