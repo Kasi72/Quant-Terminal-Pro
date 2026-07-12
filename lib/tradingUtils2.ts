@@ -278,29 +278,29 @@ export function generateSparklineSVG(
     // ── % to breakout — right end of ceiling line ──
     // The single most-asked question for any compression setup
     const sigClose = last[n - 1]?.c ?? 0;
-    const sigCandleLeft = xOf(n - 1);   // left edge of signal candle — text must not reach here
-    if (sigClose > 0 && zoneHigh > sigClose) {
-      const pctToBrk = ((zoneHigh - sigClose) / sigClose) * 100;
-      if (pctToBrk < 15) {
-        const brkTxt = `+${pctToBrk.toFixed(1)}%`;
+    const sigCandleLeft = xOf(n - 1);
+    if (sigClose > 0) {
+      const isBrkOut = zoneHigh <= sigClose;
+      const pctToBrk = isBrkOut ? 0 : ((zoneHigh - sigClose) / sigClose) * 100;
+      if (isBrkOut || pctToBrk < 15) {
+        const brkTxt  = isBrkOut ? 'BRK✓' : `+${pctToBrk.toFixed(1)}%`;
         const brkTxtW = brkTxt.length * 5.5 + 4;
-        const brkX = Math.max(pad + 2, Math.min(
+        const brkX    = Math.max(pad + 2, Math.min(
           cW - brkTxtW - 2,
           Math.min(xZ0 + 4, sigCandleLeft - brkTxtW - 4),
         ));
-        const brkY = zy1 + 8;   // below ceiling — clears COMP pill which sits above
-        if (brkY + 4 < zy2) {   // only render when zone band is tall enough to fit
+        // Dynamic Y: above ceiling → below floor → inside zone (wide only) → omit
+        // This avoids covering tight zone candles regardless of zone height.
+        const brkH = 12;
+        const brkY: number | null =
+          zy1 - pad  >= brkH + 2  ? zy1 - 5          :   // above ceiling line
+          pH  - zy2  >= brkH + 2  ? zy2 + brkH + 2   :   // below floor line
+          zy2 - zy1  >= brkH + 6  ? zy1 + brkH - 2   :   // inside zone (loose zones only)
+          null;                                            // no room — omit cleanly
+        if (brkY !== null) {
           zoneOverlay += `<rect x="${brkX - 2}" y="${brkY - 9}" width="${brkTxtW + 2}" height="12" fill="#0d1117" rx="2"/>`;
           zoneOverlay += `<text x="${brkX}" y="${brkY}" font-size="8.5" fill="${ceilColor}" font-weight="bold">${brkTxt}</text>`;
         }
-      }
-    } else if (sigClose > 0 && zoneHigh <= sigClose) {
-      // Already above breakout level — show "BRK ✓"
-      const brkX = Math.max(pad + 2, Math.min(cW - 38, Math.min(xZ0 + 4, sigCandleLeft - 44)));
-      const brkY = zy1 + 8;
-      if (brkY + 4 < zy2) {
-        zoneOverlay += `<rect x="${brkX - 2}" y="${brkY - 9}" width="40" height="12" fill="#0d1117" rx="2"/>`;
-        zoneOverlay += `<text x="${brkX}" y="${brkY}" font-size="8.5" fill="${ceilColor}" font-weight="bold">BRK✓</text>`;
       }
     }
 
@@ -490,7 +490,7 @@ export function generateSparklineSVG(
       const wt = Math.max(pad, toY(c.h) - 5);
       const wb = Math.min(pH - 3, toY(c.l) + 5);
       const haloX = Math.max(pad, x - 3);
-      const haloW = Math.min(cW - 2 - haloX, bW + 6);
+      const haloW = Math.min(bW + 6, cW + 4 - haloX);  // halo renders on top of pills, so ~4px into gap is fine
       svg += `<rect x="${haloX}" y="${wt}" width="${haloW}" height="${Math.max(6, wb - wt)}" fill="none" stroke="#fbbf24" stroke-width="2.5" rx="2"/>`;
     }
     const col  = isG ? (isSig ? '#4ade80' : '#34d399') : (isSig ? '#f87171' : '#ef4444');
