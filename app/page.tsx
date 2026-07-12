@@ -6922,6 +6922,11 @@ function HomePageInner() {
                   selectedResult.zone?.zoneLow,
                   selectedResult.priceEngine.tradeValid ? selectedResult.priceEngine.plannedEntry : undefined,
                   selectedResult.priceEngine.tradeValid ? selectedResult.priceEngine.tacticalStop : undefined,
+                  selectedResult.priceEngine.tradeValid ? selectedResult.priceEngine.target5 : undefined,
+                  selectedResult.zone?.windowLength,
+                  selectedResult.zone?.zoneTightnessPct,
+                  selectedResult.zone?.zoneATRRatio,
+                  selectedResult.zone?.zoneShape,
                 ) }} />
               )}
 
