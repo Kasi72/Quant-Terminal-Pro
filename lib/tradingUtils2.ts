@@ -287,7 +287,7 @@ export function generateSparklineSVG(
         const brkTxtW = brkTxt.length * 5.5 + 4;
         const brkX    = Math.max(pad + 2, Math.min(
           cW - brkTxtW - 2,
-          Math.min(xZ0 + 4, sigCandleLeft - brkTxtW - 4),
+          Math.min(xZ0 + 4, sigCandleLeft - brkTxtW - 8),
         ));
         // Dynamic Y: above ceiling → below floor → inside zone (wide only) → omit
         // This avoids covering tight zone candles regardless of zone height.
@@ -487,11 +487,11 @@ export function generateSparklineSVG(
     const preZoneOpacity = 0.70;
 
     if (isSig) {
-      const wt = Math.max(pad, toY(c.h) - 5);
-      const wb = Math.min(pH - 3, toY(c.l) + 5);
-      const haloX = Math.max(pad, x - 3);
-      const haloW = Math.min(bW + 6, cW + 4 - haloX);  // halo renders on top of pills, so ~4px into gap is fine
-      svg += `<rect x="${haloX}" y="${wt}" width="${haloW}" height="${Math.max(6, wb - wt)}" fill="none" stroke="#fbbf24" stroke-width="2.5" rx="2"/>`;
+      const wt    = Math.max(pad + 2, toY(c.h) - 2);   // tight 2px above wick
+      const wb    = Math.min(pH - 4,  toY(c.l) + 2);   // tight 2px below wick
+      const haloX = Math.max(pad, x - 2);
+      const haloW = Math.min(bW + 4, cW + 4 - haloX);
+      svg += `<rect x="${haloX}" y="${wt}" width="${haloW}" height="${Math.max(6, wb - wt)}" fill="none" stroke="#fbbf24" stroke-width="2" rx="2"/>`;
     }
     const col  = isG ? (isSig ? '#4ade80' : '#34d399') : (isSig ? '#f87171' : '#ef4444');
     const op   = isSig ? 1 : inZone ? 0.88 : preZoneOpacity;
