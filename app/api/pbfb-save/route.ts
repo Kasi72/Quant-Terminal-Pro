@@ -5,6 +5,7 @@ export const runtime = 'edge';
 
 interface EventPayload {
   symbol:          string;
+  eventDate:       string | null;
   nBefore:         number;
   bestStage:       string;
   bestParamSet:    string | null;
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
   const rows = body.events.map(e => ({
     run_date:        body.runDate,
     symbol:          e.symbol,
+    event_date:      e.eventDate,
     n_before:        e.nBefore,
     best_stage:      e.bestStage,
     best_param_set:  e.bestParamSet,
@@ -89,14 +91,20 @@ export async function POST(req: NextRequest) {
     shape_vec:       e.shapeVec,
   }));
 
-  // Batch upsert in chunks of 200 — re-saving the same run updates rows
-  // instead of duplicating them (unique index on run_date, symbol, n_before)
+  // Batch upsert in chunks of 200, keyed on the event itself — the same
+  // historical breakout re-detected on a later run updates instead of duplicating
   let stored = 0;
+  let firstError: string | null = null;
   for (let i = 0; i < rows.length; i += 200) {
     const chunk = rows.slice(i, i + 200);
     const { error } = await sb.from('pbfb_uc_events')
-      .upsert(chunk, { onConflict: 'run_date,symbol,n_before' });
+      .upsert(chunk, { onConflict: 'symbol,event_date,n_before' });
     if (!error) stored += chunk.length;
+    else if (!firstError) firstError = error.message;
+  }
+
+  if (stored === 0 && firstError) {
+    return NextResponse.json({ error: firstError }, { status: 500 });
   }
 
   return NextResponse.json({ runId: run.id, eventsStored: stored });

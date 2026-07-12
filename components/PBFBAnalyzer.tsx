@@ -46,7 +46,8 @@ interface UCHitter {
 interface BreakoutEvent {
   symbol:    string;
   eventIdx:  number;
-  date:      string;
+  date:      string;           // display format (en-IN)
+  dateISO:   string | null;    // YYYY-MM-DD for persistence
   movePct:   number;
   volMult:   number;
   isUCLock:  boolean;
@@ -56,6 +57,7 @@ interface BreakoutEvent {
 interface ForensicResult {
   symbol:       string;
   date:         string;
+  dateISO:      string | null;
   movePct:      number;
   volMult:      number;
   isUCLock:     boolean;
@@ -605,6 +607,7 @@ export default function PBFBAnalyzer() {
       activeN,
       events: results.map(r => ({
         symbol:       r.symbol,
+        eventDate:    r.dateISO,
         nBefore:      r.nBefore,
         bestStage:    r.bestStage,
         bestParamSet: r.bestParamSet,
@@ -697,12 +700,14 @@ export default function PBFBAnalyzer() {
       if (!volOk) continue;
 
       let date = `row-${i}`;
+      let dateISO: string | null = null;
       if (cur.ts) {
         const d = new Date(cur.ts * 1000);
         date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+        dateISO = d.toISOString().slice(0, 10);
       }
 
-      evts.push({ symbol, eventIdx: i, date, movePct, volMult: cur.v / v20, isUCLock, candles });
+      evts.push({ symbol, eventIdx: i, date, dateISO, movePct, volMult: cur.v / v20, isUCLock, candles });
       i += 10;  // skip ahead — don't count the same multi-day run twice
     }
     return evts;
@@ -789,7 +794,7 @@ export default function PBFBAnalyzer() {
           anyZone                   ? 'zone_only'  : 'missed';
 
         allResults.push({
-          symbol: ev.symbol, date: ev.date, movePct: ev.movePct, volMult: ev.volMult,
+          symbol: ev.symbol, date: ev.date, dateISO: ev.dateISO, movePct: ev.movePct, volMult: ev.volMult,
           isUCLock: ev.isUCLock, nBefore: nb,
           stages, bestStage, bestParamSet, bestResult, anyZone, classification,
           shapeVec: computeShapeVec(truncated),
