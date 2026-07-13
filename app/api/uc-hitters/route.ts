@@ -14,14 +14,10 @@ export interface UCHitter {
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-const MON_MIXED = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MON_UPPER = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-
 function parts(dateStr: string) {
   // dateStr = "YYYY-MM-DD"
   const [y, m, d] = dateStr.split('-');
-  const mi = parseInt(m, 10) - 1;
-  return { y, m, d: d.padStart(2, '0'), mi };
+  return { y, m, d: d.padStart(2, '0') };
 }
 
 // ── NSE headers ───────────────────────────────────────────────────────────────
@@ -90,29 +86,29 @@ async function unzipFirst(buf: Uint8Array): Promise<string | null> {
 
 // ── CSV parsers ───────────────────────────────────────────────────────────────
 
-// sec_bhavdata_full columns:
-//   SYMBOL,SERIES,DATE1,PREV_CLOSE,OPEN_PRICE,HIGH_PRICE,LOW_PRICE,LAST_PRICE,
-//   CLOSE_PRICE,AVG_PRICE,TTL_TRD_QNTY,TURNOVER_LACS,NO_OF_TRADES,DELIV_QTY,DELIV_PER
-function parseSecBhav(text: string, minPct: number): UCHitter[] {
+// UDiFF bhavcopy columns (current NSE format since 2024):
+//   TradDt,BizDt,Sgmt,Src,FinInstrmTp,FinInstrmId,ISIN,TckrSymb,SctySrs,XpryDt,
+//   FininstrmActlXpryDt,StrkPric,OptnTp,FinInstrmNm,OpnPric,HghPric,LwPric,
+//   ClsPric,LastPric,PrvsClsgPric,UndrlygPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,
+//   TtlTradgVol,TtlTrfVal,TtlNbOfTxsExctd,SsnId,NewBrdLotQty,Rmks,Rsvd1..4
+function parseBhav(text: string, minPct: number): UCHitter[] {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
-  const hdr = lines[0].split(',').map(h => h.trim().replace(/\r/g, '').toUpperCase());
-  const c = (n: string) => hdr.indexOf(n);
-  const iSym = c('SYMBOL'), iSer = c('SERIES'), iPrev = c('PREV_CLOSE'),
-        iHi  = c('HIGH_PRICE'), iCl = c('CLOSE_PRICE'), iVol = c('TTL_TRD_QNTY');
-  if (iSym < 0 || iCl < 0 || iPrev < 0) return [];
-  return filterRows(lines.slice(1), iSym, iSer, iPrev, iHi, iCl, iVol, minPct);
-}
-
-// CM bhavcopy (old/new ZIP) columns:
-//   SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,LAST,PREVCLOSE,TOTTRDQTY,...
-function parseCMBhav(text: string, minPct: number): UCHitter[] {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const hdr = lines[0].split(',').map(h => h.trim().replace(/\r/g, '').toUpperCase());
-  const c = (n: string) => hdr.indexOf(n);
-  const iSym = c('SYMBOL'), iSer = c('SERIES'), iPrev = c('PREVCLOSE'),
-        iHi  = c('HIGH'), iCl = c('CLOSE'), iVol = c('TOTTRDQTY');
+  const hdr = lines[0].split(',').map(h => h.trim().replace(/\r/g, ''));
+  const c = (...names: string[]) => {
+    for (const n of names) {
+      const i = hdr.findIndex(h => h.toUpperCase() === n.toUpperCase());
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  // UDiFF names first, then legacy names as fallback in case NSE ever re-serves older files
+  const iSym  = c('TckrSymb', 'SYMBOL');
+  const iSer  = c('SctySrs',  'SERIES');
+  const iPrev = c('PrvsClsgPric', 'PREV_CLOSE', 'PREVCLOSE');
+  const iHi   = c('HghPric',      'HIGH_PRICE', 'HIGH');
+  const iCl   = c('ClsPric',      'CLOSE_PRICE', 'CLOSE');
+  const iVol  = c('TtlTradgVol',  'TTL_TRD_QNTY', 'TOTTRDQTY');
   if (iSym < 0 || iCl < 0 || iPrev < 0) return [];
   return filterRows(lines.slice(1), iSym, iSer, iPrev, iHi, iCl, iVol, minPct);
 }
@@ -146,103 +142,87 @@ function filterRows(
   });
 }
 
-// ── Attempt 1: Public archive URLs (no auth) ──────────────────────────────────
+// ── Attempt 1: Public archive URL ─────────────────────────────────────────────
+// NSE now serves only ONE bhavcopy: UDiFF format, ZIP, filename uses YYYYMMDD.
+// Cookies are primed first — some Vercel edge regions get 403 without them.
 
-async function tryArchive(dateStr: string, minPct: number): Promise<{ hitters: UCHitter[]; source: string } | null> {
-  const { y, m, d, mi } = parts(dateStr);
-  const ddmmyyyy = `${d}${m}${y}`;
+async function tryArchive(dateStr: string, minPct: number, cookies: string): Promise<{ hitters: UCHitter[]; source: string } | null> {
+  const { y, m, d } = parts(dateStr);
+  const yyyymmdd = `${y}${m}${d}`;
+  const url = `https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_${yyyymmdd}_F_0000.csv.zip`;
 
-  const candidates: { url: string; parser: (t: string, p: number) => UCHitter[]; zip?: boolean }[] = [
-    // sec_bhavdata_full — plain CSV, preferred
-    { url: `https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_${d}${MON_MIXED[mi]}${y}.csv`, parser: parseSecBhav },
-    { url: `https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_${d}${MON_UPPER[mi]}${y}.csv`, parser: parseSecBhav },
-    // CM bhavcopy (new format, post-2024) — ZIP
-    { url: `https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_${ddmmyyyy}_F_0000.csv.zip`, parser: parseCMBhav, zip: true },
-    // CM bhavcopy (old format) — ZIP
-    { url: `https://nsearchives.nseindia.com/content/cm/cm${d}${MON_UPPER[mi]}${y}bhav.csv.zip`, parser: parseCMBhav, zip: true },
-  ];
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        ...NSE_BROWSER_HEADERS,
+        accept: 'application/zip,application/octet-stream,*/*',
+        referer: 'https://www.nseindia.com/all-reports',
+        ...(cookies ? { cookie: cookies } : {}),
+      },
+      signal: AbortSignal.timeout(12000),
+      next: { revalidate: 3600 },
+    });
+    if (!resp.ok) return null;
 
-  for (const { url, parser, zip } of candidates) {
-    try {
-      const resp = await fetch(url, {
-        headers: { ...NSE_BROWSER_HEADERS, accept: 'text/csv,application/zip,*/*' },
-        signal: AbortSignal.timeout(10000),
-        next: { revalidate: 3600 },
-      });
-      if (!resp.ok) continue;
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    const text = await unzipFirst(buf);
+    if (!text) return null;
 
-      let text: string | null;
-      if (zip) {
-        const buf = new Uint8Array(await resp.arrayBuffer());
-        text = await unzipFirst(buf);
-      } else {
-        text = await resp.text();
-      }
-
-      if (!text) continue;
-      const hitters = parser(text, minPct);
-      if (hitters.length > 0) return { hitters, source: url };
-    } catch { continue; }
-  }
+    const hitters = parseBhav(text, minPct);
+    if (hitters.length > 0) return { hitters, source: url };
+  } catch { /* fall through */ }
   return null;
 }
 
-// ── Attempt 2: NSE API with cookie auth ───────────────────────────────────────
+// ── Cookie priming ────────────────────────────────────────────────────────────
 
-async function tryNSEapi(dateStr: string, minPct: number): Promise<{ hitters: UCHitter[]; source: string } | null> {
-  const { y, m, d } = parts(dateStr);
-  const nseDate = `${d}-${m}-${y}`;  // DD-MM-YYYY
-
-  // Cookie preflight — visit a page that sets session cookies
-  let cookies = '';
+async function primeCookies(): Promise<string> {
   try {
-    const cr = await fetch('https://www.nseindia.com/market-data/live-equity-market', {
+    const cr = await fetch('https://www.nseindia.com/all-reports', {
       headers: { ...NSE_BROWSER_HEADERS, 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate' },
       signal: AbortSignal.timeout(6000), redirect: 'follow',
     });
     const setFn = (cr.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie;
-    cookies = setFn
+    return setFn
       ? setFn.call(cr.headers).map((c: string) => c.split(';')[0].trim()).join('; ')
       : extractCookies(cr.headers.get('set-cookie'));
-  } catch { return null; }
+  } catch { return ''; }
+}
 
+// ── Attempt 2: NSE merged-daily-reports API — authoritative link per date ─────
+// Returns the actual bhavcopy URL for a given date, so we don't have to guess
+// filenames if NSE ever changes them again.
+
+async function tryReportsApi(dateStr: string, minPct: number, cookies: string): Promise<{ hitters: UCHitter[]; source: string } | null> {
   if (!cookies) return null;
-
-  // Try NSE bhavcopy report download
-  const archives = JSON.stringify([{
-    name: 'CM - Bhavcopy of NSE', type: 'archives',
-    category: 'capital-market', section: 'equities',
-  }]);
-  const reportUrl = `https://www.nseindia.com/api/reports?archives=${encodeURIComponent(archives)}&date=${nseDate}&type=equity&mode=single`;
+  const { y, m, d } = parts(dateStr);
+  const apiDate = `${d}-${m}-${y}`; // DD-MM-YYYY
 
   try {
-    const resp = await fetch(reportUrl, {
-      headers: { ...NSE_API_HEADERS, cookie: cookies },
+    const listResp = await fetch(
+      `https://www.nseindia.com/api/merged-daily-reports?key=favCapital&date=${apiDate}`,
+      {
+        headers: { ...NSE_API_HEADERS, cookie: cookies, referer: 'https://www.nseindia.com/all-reports' },
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    if (!listResp.ok) return null;
+    const list = await listResp.json() as { name?: string; link?: string }[];
+    const bhav = list.find(r => (r.name ?? '').toLowerCase().includes('bhavcopy') && (r.link ?? '').endsWith('.zip'));
+    if (!bhav?.link) return null;
+
+    const resp = await fetch(bhav.link, {
+      headers: { ...NSE_BROWSER_HEADERS, cookie: cookies, referer: 'https://www.nseindia.com/all-reports' },
       signal: AbortSignal.timeout(12000),
-      redirect: 'follow',
     });
     if (!resp.ok) return null;
-
-    const ct = resp.headers.get('content-type') ?? '';
-    let text: string | null = null;
-
-    if (ct.includes('text') || ct.includes('csv')) {
-      text = await resp.text();
-    } else if (ct.includes('zip') || ct.includes('octet-stream')) {
-      const buf = new Uint8Array(await resp.arrayBuffer());
-      text = await unzipFirst(buf);
-    }
-
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    const text = await unzipFirst(buf);
     if (!text) return null;
 
-    // Try both parsers — we don't know which format NSE returns
-    const hitters = parseSecBhav(text, minPct).length > 0
-      ? parseSecBhav(text, minPct)
-      : parseCMBhav(text, minPct);
-
-    if (hitters.length > 0) return { hitters, source: 'nse-api-cookie' };
+    const hitters = parseBhav(text, minPct);
+    if (hitters.length > 0) return { hitters, source: bhav.link };
   } catch { /* fall through */ }
-
   return null;
 }
 
@@ -265,8 +245,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Attempt 1: public archive (fastest, no auth)
-  const archiveResult = await tryArchive(date, minPct);
+  // Prime session cookies once; both attempts reuse them
+  const cookies = await primeCookies();
+
+  // Attempt 1: guessed archive URL (fastest, one round trip after cookies)
+  const archiveResult = await tryArchive(date, minPct, cookies);
   if (archiveResult) {
     return NextResponse.json(
       { date, count: archiveResult.hitters.length, hitters: archiveResult.hitters, source: archiveResult.source },
@@ -274,8 +257,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Attempt 2: NSE API with cookies
-  const apiResult = await tryNSEapi(date, minPct);
+  // Attempt 2: ask NSE's own reports API for the authoritative link
+  const apiResult = await tryReportsApi(date, minPct, cookies);
   if (apiResult) {
     return NextResponse.json(
       { date, count: apiResult.hitters.length, hitters: apiResult.hitters, source: apiResult.source },
@@ -287,7 +270,7 @@ export async function GET(req: NextRequest) {
     {
       error: `No bhavcopy data found for ${date}. It may be a market holiday, or NSE's archive is unavailable. Try a different date.`,
       date,
-      tried: ['sec_bhavdata_full (mixed/upper)', 'BhavCopy_NSE_CM zip (new format)', 'cm...bhav.csv.zip (old format)', 'NSE reports API with cookies'],
+      tried: ['UDiFF BhavCopy zip', 'NSE merged-daily-reports API'],
     },
     { status: 404 }
   );
