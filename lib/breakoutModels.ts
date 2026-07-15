@@ -188,8 +188,9 @@ function avgVolRange(candles: Candle[], a: number, b: number): number {
   return n > 0 ? s / n : 0;
 }
 export function modelVCP(candles: Candle[], i: number, p: VCPParams, ctx?: SeriesCtx): BreakoutSignal {
-  if (i < p.maxBase + 1) return NONE;
-  const a = i - p.maxBase, b = i - 1;           // base window, strictly before i
+  const maxBase = Math.floor(p.maxBase);
+  if (i < maxBase + 1) return NONE;
+  const a = i - maxBase, b = i - 1;             // base window, strictly before i
   let baseHigh = 0, baseLow = Infinity;
   for (let j = a; j <= b; j++) { if (candles[j].h > baseHigh) baseHigh = candles[j].h; if (candles[j].l < baseLow) baseLow = candles[j].l; }
   if (baseHigh <= 0 || baseLow <= 0) return NONE;

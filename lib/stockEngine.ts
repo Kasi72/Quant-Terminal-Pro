@@ -1125,13 +1125,13 @@ function buildTradeEngine(
   // ENTRY (Weinstein + Kaufman adaptive buffer)
   // ══════════════════════════════════════════════════════════════════════
 
-  // 52-week highest high before the signal bar (up to 252 trading days back).
-  // Clearing this level on ≥1.5× vol is empirically the best breakout definition:
-  // 52.6–55.4% win rate, 2.8× the fitness of the crude max(sig.h, zone.zoneHigh)
-  // trigger (46% win rate) — measured across 1,617 NSE symbols × 5 years.
-  const N252 = Math.min(252, endIdx);
+  // GA-optimal lookback: N=299 (Donchian fitness 3.27, NewHigh fitness 3.11 — both
+  // converged independently vs N=252 coarse grid). VCP tier thresholds kept from
+  // coarse grid (GA VCP overfit: 2 signals, 100% WR — not statistically valid).
+  // GA run: scripts/ga_results_2026-07-15T07-37-10.json (392 symbols, horizon=20d)
+  const N_HH = Math.min(299, endIdx);
   let hh252 = 0;
-  for (let i = endIdx - N252; i < endIdx; i++) {
+  for (let i = endIdx - N_HH; i < endIdx; i++) {
     if (candles[i].h > hh252) hh252 = candles[i].h;
   }
   const breakoutLevel = tick(Math.max(hh252 > 0 ? hh252 : sig.h, zone.zoneHigh));

@@ -182,9 +182,10 @@ function avgVolRange(candles, a, b) {
     return n > 0 ? s / n : 0;
 }
 function modelVCP(candles, i, p, ctx) {
-    if (i < p.maxBase + 1)
+    const maxBase = Math.floor(p.maxBase);
+    if (i < maxBase + 1)
         return NONE;
-    const a = i - p.maxBase, b = i - 1; // base window, strictly before i
+    const a = i - maxBase, b = i - 1; // base window, strictly before i
     let baseHigh = 0, baseLow = Infinity;
     for (let j = a; j <= b; j++) {
         if (candles[j].h > baseHigh)
