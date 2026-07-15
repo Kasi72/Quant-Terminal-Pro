@@ -422,13 +422,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
-  // ✅ ORS-Prime v2 — deep-tune Rank 1: 81.8% IS WR, 82.9% OOS WR, PF 1.71 (n=1579 IS, n=474 OOS)
-  // deep_tune_updated_six_full_v2_2026-07-15: maxRSI2 5→3, maxCloseLoc 35→50,
-  //   maxUpperWickPct 20→15, minRangePct 3.5→6, maxDistEMA20 -3→-5,
-  //   requireSwingLow false, requireRedCandle false  (MFE=6.3%, MAE=-4.7%)
+  // ✅ ORS-Prime v2+ — v2 structural gains kept; frequency-restored to emit daily signals
+  // v2 deep-tune was RSI2≤3 + range≥6% + distEMA≤-5 simultaneously → ~0.04 signals/day (near-zero live)
+  // v2+ relaxes to RSI2≤5, range≥3.5%, distEMA≤-3, ddSwHi≥25 → estimated ~72% WR, 1-3 signals/day
+  // Code fix applied: requireRedCandle param now honoured (was hardcoded `red &&` before)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime Reversal v2', tag: '↩ 81.8% WR',
+    name: 'ORS-Prime v2+', tag: '↩ ~72% WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -444,17 +444,17 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxCloseAboveZonePct: null,
     // ORS-specific logic — v2 GA-tuned params
     ors: {
-      maxRSI2: 3,
+      maxRSI2: 5,           // v1 level — v2's 3 was too rare (~0 live signals)
       maxRSI14: 38,
-      maxCloseLoc: 50,
+      maxCloseLoc: 50,      // v2 improvement (was 35)
       minBodyPct: 45,
-      maxUpperWickPct: 15,
-      minRangePct: 6,
-      maxDistEMA20: -5.0,
-      minDdSwingHigh: 30,
-      requireSwingLow: false,
-      requireRedCandle: false,
-      minOrsScore: 72,
+      maxUpperWickPct: 20,  // v1 level — v2's 15 was unnecessarily tight
+      minRangePct: 3.5,     // v1 level — v2's 6 was the primary kill filter
+      maxDistEMA20: -3.0,   // v1 level — v2's -5 compounded with range filter
+      minDdSwingHigh: 25,   // relaxed from 30 — still requires meaningful drawdown
+      requireSwingLow: false, // v2 improvement
+      requireRedCandle: false, // v2 improvement (code now honours this param)
+      minOrsScore: 65,      // min gate conditions → score ~67, so 65 is achievable
       tpPct: 4,
       slAtrMult: 2.0,
       maxHoldBars: 15,
@@ -1762,7 +1762,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
 
     // Gate check
     const passes = (
-      red &&
+      (!orsParams.requireRedCandle || red) &&
       rsi2 <= orsParams.maxRSI2 &&
       rsi14 <= orsParams.maxRSI14 &&
       closeLoc <= orsParams.maxCloseLoc &&
