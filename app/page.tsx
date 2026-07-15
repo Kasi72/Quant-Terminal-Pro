@@ -3376,6 +3376,7 @@ function HomePageInner() {
                           t1R: rps > 0 ? (c.t1 - c.en) / rps : 0, t2R: rps > 0 && c.t2 ? (c.t2 - c.en) / rps : 0, t3R_mult: 0,
                           rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
                           failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0, tradeValid: c.tv,
+                          hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
                         },
                         conditionsMet: 0, totalConditions: 20, checklist: [],
                         momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: c.ms, rsNifty20: 1.0 },

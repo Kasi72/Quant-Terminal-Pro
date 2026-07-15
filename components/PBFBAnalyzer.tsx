@@ -341,6 +341,44 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
           </div>
         )}
 
+        {/* 52W Breakout level */}
+        <div className="border-t border-slate-700/40 pt-2 mt-2 space-y-1">
+          <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">52W Breakout model</div>
+          <div className="flex justify-between items-center">
+            <span className="text-slate-600">Tier</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{
+              background: br.priceEngine.breakoutTier === 'A+' ? '#14532d60'
+                : br.priceEngine.breakoutTier === 'A' ? '#1e3a5f60' : '#1e293b60',
+              color: br.priceEngine.breakoutTier === 'A+' ? '#4ade80'
+                : br.priceEngine.breakoutTier === 'A' ? '#60a5fa' : '#94a3b8',
+            }}>
+              {br.priceEngine.breakoutTier === 'A+' ? '★ A+  VCP near 52W'
+                : br.priceEngine.breakoutTier === 'A'  ? '✓ A   Near 52W high'
+                :                                        '  B   Zone only'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-600">Entry level</span>
+            <span className="font-mono text-emerald-400 font-semibold">₹{f2(br.priceEngine.breakoutLevel)}</span>
+          </div>
+          {br.priceEngine.hh252 > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-600">52W high</span>
+              <span className="font-mono text-slate-300">₹{f2(br.priceEngine.hh252)}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-slate-600">% below 52W</span>
+            <span className="font-mono" style={{
+              color: br.priceEngine.pctFrom52W <= 5  ? '#4ade80'
+                   : br.priceEngine.pctFrom52W <= 15 ? '#fbbf24'
+                   :                                   '#f87171',
+            }}>
+              {f1(br.priceEngine.pctFrom52W)}%
+            </span>
+          </div>
+        </div>
+
         {/* Separator */}
         <div className="border-t border-slate-700/40 pt-1.5 space-y-1 mt-2">
           <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider">Best param set result</div>
