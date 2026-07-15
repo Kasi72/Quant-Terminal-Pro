@@ -422,12 +422,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
-  // ✅ ORS-Prime v1 — forensic reversal edge: 70.4% OOS WR, PF 1.08 (1616 NSE stocks, 635 test trades)
-  // Strategy: oversold capitulation candle (RSI2≤5, red, dd≥30% from 60d high, below EMA20)
-  // Entry: open of bar after green-confirmation candle | Exit: +4% TP / 2×ATR SL / 15-bar max
+  // ✅ ORS-Prime v2 — deep-tune Rank 1: 81.8% IS WR, 82.9% OOS WR, PF 1.71 (n=1579 IS, n=474 OOS)
+  // deep_tune_updated_six_full_v2_2026-07-15: maxRSI2 5→3, maxCloseLoc 35→50,
+  //   maxUpperWickPct 20→15, minRangePct 3.5→6, maxDistEMA20 -3→-5,
+  //   requireSwingLow false, requireRedCandle false  (MFE=6.3%, MAE=-4.7%)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime Reversal v1', tag: '↩ 70% WR',
+    name: 'ORS-Prime Reversal v2', tag: '↩ 81.8% WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -441,18 +442,18 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 0, minRSI2: 0,
     minVolatilityExpansionRatio: null, minCandleQualityScore: null,
     maxCloseAboveZonePct: null,
-    // ORS-specific logic
+    // ORS-specific logic — v2 GA-tuned params
     ors: {
-      maxRSI2: 5,
+      maxRSI2: 3,
       maxRSI14: 38,
-      maxCloseLoc: 35,
+      maxCloseLoc: 50,
       minBodyPct: 45,
-      maxUpperWickPct: 20,
-      minRangePct: 3.5,
-      maxDistEMA20: -3.0,
+      maxUpperWickPct: 15,
+      minRangePct: 6,
+      maxDistEMA20: -5.0,
       minDdSwingHigh: 30,
-      requireSwingLow: true,
-      requireRedCandle: true,
+      requireSwingLow: false,
+      requireRedCandle: false,
       minOrsScore: 72,
       tpPct: 4,
       slAtrMult: 2.0,
