@@ -48,7 +48,9 @@ import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
+  computeSelfAdaptiveTrend,
   type AnalysisResult, type ParamSetKey, type StageRating, type MultiAnalysisResult, type Candle,
+  type SelfAdaptiveTrendResult,
 } from '@/lib/stockEngine';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { SECTOR_PRESETS } from '@/lib/sectorPresets';
@@ -965,6 +967,16 @@ const COLUMNS: ColDef[] = [
         ? 'text-purple-300 font-bold bg-purple-900/30 px-1 rounded animate-pulse'
         : 'text-purple-400 font-semibold';
     } },
+  { key: 'sat_signal', label: 'SAT Signal', width: 120, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Self-Adaptive Trend (SAT) Signal</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">BUY</span></div><div><div class="rt-desc">Trend just flipped from DOWN to UP on the self-learning supertrend. Strongest entry signal — trend reversal confirmed.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">BOUNCE↑</span></div><div><div class="rt-desc">Price dipped into the inner bounce zone and closed back above it during an uptrend — pullback-to-trend entry.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">UP</span></div><div><div class="rt-desc">Uptrend in progress. Trend line is below price and ratcheting up. No fresh signal this bar.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-red">SELL</span></div><div><div class="rt-desc">Trend flipped from UP to DOWN — exit/short signal.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Factor</span></div><div><div class="rt-desc">The learned ATR multiple shown beside the signal is how many normal price moves of room the system has learned to allow. Lower = tighter stops. Updates as more price history accumulates.</div></div></div>',
+    fmt: () => '',   // rendered custom in cell via satMap
+    numVal: () => 0,
+    cellClass: () => '' },
   { key: 'nearBrk', label: 'Near BRK', width: 90, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Near Breakout v2 — Tiered (56,340 obs, 456 Nifty 500 stocks)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🔥 IMMINENT (0-1%)</span></div><div><div class="rt-desc">Breaks out within 5 days: 63.7% of the time. Within 10 days: 74.1%. Avg 3.1 days to breakout.</div></div></div>'
@@ -1254,10 +1266,10 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'advanced' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
-  momentum: new Set(['symbol','stage','archetypeType','confluenceScore','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
   advanced: new Set(['symbol','stage','adv_utbot','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
   all: new Set(/* all keys — handled below */),
@@ -1402,6 +1414,7 @@ function HomePageInner() {
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
   const [guppyCoilMap, setGuppyCoilMap] = useState<Record<string, {avgSpread: number; minSpread: number}>>({});
   const [clenowMap, setClenowMap] = useState<Record<string, {score: number; r2: number; annReturn: number; quality: string}>>({});
+  const [satMap, setSatMap] = useState<Record<string, SelfAdaptiveTrendResult>>({});
   const [pcaMap, setPcaMap] = useState<Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}>>({});
   const [sectorFlowMap, setSectorFlowMap] = useState<Record<string, SectorFlowScore>>({});
   const [sectorBreadthList, setSectorBreadthList] = useState<SectorBreadth[]>([]);
@@ -1700,6 +1713,7 @@ function HomePageInner() {
     const newResults: AnalysisResult[] = [];
     const freshCandleMap: Record<string, Candle[]> = {};
     const freshClenowMap: Record<string, {score: number; r2: number; annReturn: number; quality: string}> = {};
+    const freshSatMap: Record<string, SelfAdaptiveTrendResult> = {};
     const newMultiResults: MultiAnalysisResult[] = [];
     const newFailed: Array<{sym: string; err: string}> = [];
     const CONCURRENCY = 6;
@@ -1769,6 +1783,10 @@ function HomePageInner() {
           const cl = computeClenowScore(candles, 125);
           const quality = cl.r2 >= 0.7 ? 'SMOOTH' : cl.r2 >= 0.4 ? 'MODERATE' : 'CHOPPY';
           freshClenowMap[result.symbol] = { score: cl.score, r2: cl.r2, annReturn: cl.annReturn, quality };
+        }
+        // Self-Adaptive Supertrend signal
+        if (candles.length >= 30) {
+          freshSatMap[result.symbol] = computeSelfAdaptiveTrend(candles);
         }
         // Sector Flow: capture close series tail (dates in IST) for post-scan divergence pass
         const flowTail = candles.slice(-15);
@@ -1874,6 +1892,7 @@ function HomePageInner() {
     } catch { /* shadow log is best-effort */ }
     // Clenow momentum score — computed per-symbol in processOne before candle slice
     setClenowMap(freshClenowMap);
+    setSatMap(freshSatMap);
     // PCA Super-Score v2 — re-derived weights, validated on 456 Nifty 500 stocks
     // Backtested 5,026 signals: OLD weights showed INVERTED decile spread
     // (top decile 49.4% WR vs bottom 55.7% WR). Fresh weights below produce a
@@ -6657,6 +6676,26 @@ function HomePageInner() {
                                   <span className="font-mono font-bold text-[11px]" style={{color}}>{bs.brain}</span>
                                   <span className="text-[9px]" style={{color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8'}}>{arrow}</span>
                                   {bs.priority === 1 && <span className="ml-0.5 px-0.5 bg-yellow-500/30 border border-yellow-500 rounded text-[7px] text-yellow-300 font-bold">#1</span>}
+                                </div>;
+                              })() : col.key === 'sat_signal' ? (() => {
+                                const s = satMap[row.symbol];
+                                if (!s || s.signal === 'NONE' || s.trend === 0) return <span className="text-slate-700">—</span>;
+                                const isBull = s.trend === 1;
+                                const factorVal = isBull ? s.bullishFactor : s.bearishFactor;
+                                const conf = isBull ? s.bullishConfidence : s.bearishConfidence;
+                                const confPct = Math.round(conf * 100);
+                                const signalLabels: Record<string, string> = { BUY: '▲ BUY', BOUNCE_UP: '↗ BOUNCE↑', UP: '▲ UP', SELL: '▼ SELL', BOUNCE_DOWN: '↘ BOUNCE↓', DOWN: '▼ DOWN' };
+                                const cellColor = s.signal === 'BUY' ? '#00ffbb' : s.signal === 'BOUNCE_UP' ? '#4ade80' : s.signal === 'UP' ? '#86efac' : s.signal === 'SELL' ? '#ff1100' : s.signal === 'BOUNCE_DOWN' ? '#f87171' : '#fca5a5';
+                                const label = signalLabels[s.signal] ?? s.signal;
+                                const samples = isBull ? s.bullishSamples : s.bearishSamples;
+                                const tipHtml = `<div class="rt-hdr">SAT — ${row.symbol.replace('.NS','').replace('.BO','')}</div>`
+                                  + `<div class="rt-row"><div><span class="rt-badge ${isBull ? 'bg-neon' : 'bg-red'}">${label}</span></div><div><div class="rt-desc">Trend: ${isBull ? 'UP ▲' : 'DOWN ▼'} | Supertrend: ₹${s.superTrend.toFixed(1)} | Distance: ${s.distancePct.toFixed(1)}% from price</div></div></div>`
+                                  + `<div class="rt-row"><div><span class="rt-badge bg-cyan">Learned Factor</span></div><div><div class="rt-desc">${factorVal.toFixed(2)}× ATR — learned from ${samples} past pullbacks (${confPct}% confident)</div></div></div>`
+                                  + `<div class="rt-row"><div><span class="rt-badge bg-yellow">Up Factor</span></div><div><div class="rt-desc">${s.bullishFactor.toFixed(2)}× ATR (${s.bullishSamples} samples)</div></div></div>`
+                                  + `<div class="rt-row"><div><span class="rt-badge bg-orange">Down Factor</span></div><div><div class="rt-desc">${s.bearishFactor.toFixed(2)}× ATR (${s.bearishSamples} samples)</div></div></div>`;
+                                return <div className="flex items-center gap-1 font-mono text-[10px] cursor-help" data-tip-html={tipHtml}>
+                                  <span className="font-bold" style={{color: cellColor}}>{label}</span>
+                                  <span className="text-[9px] text-slate-400">{factorVal.toFixed(1)}×{confPct < 100 ? <span className="text-slate-600"> {confPct}%</span> : ''}</span>
                                 </div>;
                               })() : col.key === 'clenow' ? (() => {
                                 const cl = clenowMap[row.symbol];

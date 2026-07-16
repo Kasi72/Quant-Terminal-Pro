@@ -1901,6 +1901,238 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   };
 }
 
+// ─── SELF-ADAPTIVE SUPERTREND ─────────────────────────────────────────────────
+
+export interface SelfAdaptiveTrendResult {
+  trend: 1 | -1 | 0;                     // 1=up, -1=down, 0=no signal yet
+  signal: 'BUY' | 'SELL' | 'BOUNCE_UP' | 'BOUNCE_DOWN' | 'UP' | 'DOWN' | 'NONE';
+  superTrend: number;                     // current trend line value
+  bullishFactor: number;                  // learned ATR multiple for uptrends
+  bearishFactor: number;                  // learned ATR multiple for downtrends
+  bullishConfidence: number;              // 0–1
+  bearishConfidence: number;              // 0–1
+  bullishSamples: number;
+  bearishSamples: number;
+  lastClose: number;
+  distancePct: number;                    // % distance from close to supertrend line
+}
+
+export function computeSelfAdaptiveTrend(
+  candles: Candle[],
+  atrLength = 10,
+  fallbackFactor = 3.0,
+  quantilePct = 85.0,
+  sampleLength = 150,
+  minSamples = 25,
+  factorSmoothing = 5,
+  minFactor = 0.75,
+  maxFactor = 6.0,
+): SelfAdaptiveTrendResult {
+  const NONE: SelfAdaptiveTrendResult = {
+    trend: 0, signal: 'NONE', superTrend: 0,
+    bullishFactor: fallbackFactor, bearishFactor: fallbackFactor,
+    bullishConfidence: 0, bearishConfidence: 0,
+    bullishSamples: 0, bearishSamples: 0,
+    lastClose: 0, distancePct: 0,
+  };
+  const n = candles.length;
+  if (n < Math.max(atrLength * 2, 30)) return NONE;
+
+  // ── ATR computation (Wilder's smoothed via EMA approach like Pine ta.atr) ──
+  const trArr: number[] = [];
+  for (let i = 1; i < n; i++) {
+    const c = candles[i], p = candles[i - 1];
+    trArr.push(Math.max(c.h - c.l, Math.abs(c.h - p.c), Math.abs(c.l - p.c)));
+  }
+  // RMA (Wilder EMA): alpha = 1/period
+  const alpha = 1 / atrLength;
+  const atrArr: number[] = [trArr[0]];
+  for (let i = 1; i < trArr.length; i++) {
+    atrArr.push(alpha * trArr[i] + (1 - alpha) * atrArr[i - 1]);
+  }
+  // atrArr[i] corresponds to candles[i+1]
+
+  // SMA of TR for bounce band (ta.sma(ta.tr, period))
+  const bounceSmaArr: number[] = [];
+  for (let i = 0; i < trArr.length; i++) {
+    const start = Math.max(0, i - atrLength + 1);
+    let s = 0;
+    for (let j = start; j <= i; j++) s += trArr[j];
+    bounceSmaArr.push(s / (i - start + 1));
+  }
+
+  // ── Quantile helper (linear interpolation) ──
+  const arrayQuantile = (arr: number[], pct: number): number => {
+    if (arr.length === 0) return NaN;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const rank = (pct / 100) * (sorted.length - 1);
+    const lo = Math.floor(rank), hi = Math.ceil(rank);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (rank - lo);
+  };
+
+  // ── EMA helper ──
+  const ema = (series: number[], period: number): number[] => {
+    const k = 2 / (period + 1);
+    const out: number[] = [series[0]];
+    for (let i = 1; i < series.length; i++) out.push(series[i] * k + out[i - 1] * (1 - k));
+    return out;
+  };
+
+  // ── Main loop ──
+  const bullishSampleBuffer: number[] = [];
+  const bearishSampleBuffer: number[] = [];
+
+  // We iterate from index 1 of candles (first candle with ATR available)
+  const startIdx = 1; // candles[1] = atrArr[0]
+
+  // State
+  let lowerBand = NaN, upperBand = NaN;
+  let trend = 0;
+  let trendExtreme = NaN;
+
+  // Collect factor targets per bar for EMA smoothing
+  const bullishFactorTargets: number[] = [];
+  const bearishFactorTargets: number[] = [];
+
+  // Track trend-flip and bounce signals bar by bar
+  let lastSignal: SelfAdaptiveTrendResult['signal'] = 'NONE';
+  let lastTrend = 0;
+  let lastSuperTrend = NaN;
+
+  for (let i = startIdx; i < n; i++) {
+    const atrIdx = i - 1; // atrArr index
+    const atr = atrArr[atrIdx];
+    if (!atr || atr <= 0) continue;
+    const bounceBw = bounceSmaArr[atrIdx];
+
+    const c = candles[i];
+    const prevClose = candles[i - 1].c;
+    const src = (c.h + c.l) / 2; // hl2
+
+    // Compute quantile-based factors from sample buffers
+    const bullQ = bullishSampleBuffer.length > 0 ? arrayQuantile(bullishSampleBuffer, quantilePct) : fallbackFactor;
+    const bearQ = bearishSampleBuffer.length > 0 ? arrayQuantile(bearishSampleBuffer, quantilePct) : fallbackFactor;
+
+    const bullConf = Math.min(bullishSampleBuffer.length / Math.max(1, minSamples), 1.0);
+    const bearConf = Math.min(bearishSampleBuffer.length / Math.max(1, minSamples), 1.0);
+
+    const boundedBullQ = Math.max(minFactor, Math.min(maxFactor, isNaN(bullQ) ? fallbackFactor : bullQ));
+    const boundedBearQ = Math.max(minFactor, Math.min(maxFactor, isNaN(bearQ) ? fallbackFactor : bearQ));
+
+    const bullTarget = fallbackFactor * (1 - bullConf) + boundedBullQ * bullConf;
+    const bearTarget = fallbackFactor * (1 - bearConf) + boundedBearQ * bearConf;
+
+    bullishFactorTargets.push(bullTarget);
+    bearishFactorTargets.push(bearTarget);
+
+    const bullFactorEmaArr = ema(bullishFactorTargets, factorSmoothing);
+    const bearFactorEmaArr = ema(bearishFactorTargets, factorSmoothing);
+    const bullFactor = bullFactorEmaArr[bullFactorEmaArr.length - 1];
+    const bearFactor = bearFactorEmaArr[bearFactorEmaArr.length - 1];
+
+    // Raw bands
+    const rawLower = src - bullFactor * atr;
+    const rawUpper = src + bearFactor * atr;
+
+    // Ratchet bands
+    const prevLower = lowerBand;
+    const prevUpper = upperBand;
+    lowerBand = isNaN(prevLower) ? rawLower : (rawLower > prevLower || prevClose < prevLower ? rawLower : prevLower);
+    upperBand = isNaN(prevUpper) ? rawUpper : (rawUpper < prevUpper || prevClose > prevUpper ? rawUpper : prevUpper);
+
+    // Trend determination
+    const prevTrend = trend;
+    if (trend === 0) {
+      trend = c.c >= src ? 1 : -1;
+    } else if (prevTrend === 1) {
+      trend = c.c < lowerBand ? -1 : 1;
+    } else {
+      trend = c.c > upperBand ? 1 : -1;
+    }
+
+    const superTrendVal = trend === 1 ? lowerBand : upperBand;
+    const bullishShift = trend === 1 && prevTrend === -1;
+    const bearishShift = trend === -1 && prevTrend === 1;
+
+    // Bounce lines
+    const bullBounceLine = (trend === 1 && !isNaN(bounceBw))
+      ? Math.max(superTrendVal, Math.min(superTrendVal + bounceBw, src)) : NaN;
+    const bearBounceLine = (trend === -1 && !isNaN(bounceBw))
+      ? Math.min(superTrendVal, Math.max(superTrendVal - bounceBw, src)) : NaN;
+
+    // Detect bounce reactions (need prev bar's bounce line)
+    // We track this via the final bar signals only
+    lastSignal = bullishShift ? 'BUY' : bearishShift ? 'SELL' : trend === 1 ? 'UP' : 'DOWN';
+
+    // Trend extreme tracking
+    if (trend !== prevTrend || isNaN(trendExtreme)) {
+      trendExtreme = trend === 1 ? c.h : c.l;
+    } else {
+      trendExtreme = trend === 1 ? Math.max(trendExtreme, c.h) : Math.min(trendExtreme, c.l);
+    }
+
+    // Adverse excursion collection
+    const bullAE = trend === 1 ? Math.max(trendExtreme - c.l, 0) / atr : NaN;
+    const bearAE = trend === -1 ? Math.max(c.h - trendExtreme, 0) / atr : NaN;
+    const confirmedBull = trend === 1 && prevTrend === 1 && i < n - 1; // isconfirmed = not last bar
+    const confirmedBear = trend === -1 && prevTrend === -1 && i < n - 1;
+
+    if (confirmedBull && !isNaN(bullAE)) {
+      bullishSampleBuffer.push(bullAE);
+      if (bullishSampleBuffer.length > sampleLength) bullishSampleBuffer.shift();
+    }
+    if (confirmedBear && !isNaN(bearAE)) {
+      bearishSampleBuffer.push(bearAE);
+      if (bearishSampleBuffer.length > sampleLength) bearishSampleBuffer.shift();
+    }
+
+    lastTrend = trend;
+    lastSuperTrend = superTrendVal;
+  }
+
+  // Final bar signal refinement — check for bounce on last bar
+  const endIdx = n - 1;
+  const lastC = candles[endIdx];
+  const lastSrc = (lastC.h + lastC.l) / 2;
+
+  // Bounce detection on the last two bars
+  if (endIdx >= 2 && lastSignal !== 'BUY' && lastSignal !== 'SELL') {
+    // Re-derive bounce lines for last two bars is expensive; approximate with final supertrend
+    const atrFinal = atrArr[endIdx - 1] || 0.01;
+    const bounceFinal = bounceSmaArr[endIdx - 1] || atrFinal;
+    if (lastTrend === 1) {
+      const bounceLine = Math.max(lastSuperTrend, Math.min(lastSuperTrend + bounceFinal, lastSrc));
+      if (lastC.c > bounceLine && candles[endIdx - 1].c <= bounceLine) lastSignal = 'BOUNCE_UP';
+    } else if (lastTrend === -1) {
+      const bounceLine = Math.min(lastSuperTrend, Math.max(lastSuperTrend - bounceFinal, lastSrc));
+      if (lastC.c < bounceLine && candles[endIdx - 1].c >= bounceLine) lastSignal = 'BOUNCE_DOWN';
+    }
+  }
+
+  const finalAtr = atrArr[endIdx - 1] || 0.01;
+  const distancePct = lastSuperTrend > 0 ? Math.abs(lastC.c - lastSuperTrend) / lastC.c * 100 : 0;
+
+  // Final factor values
+  const bullFactorFinal = bullishFactorTargets.length > 0
+    ? ema(bullishFactorTargets, factorSmoothing).at(-1)! : fallbackFactor;
+  const bearFactorFinal = bearishFactorTargets.length > 0
+    ? ema(bearishFactorTargets, factorSmoothing).at(-1)! : fallbackFactor;
+
+  return {
+    trend: lastTrend as 1 | -1 | 0,
+    signal: lastSignal,
+    superTrend: lastSuperTrend,
+    bullishFactor: bullFactorFinal,
+    bearishFactor: bearFactorFinal,
+    bullishConfidence: Math.min(bullishSampleBuffer.length / Math.max(1, minSamples), 1.0),
+    bearishConfidence: Math.min(bearishSampleBuffer.length / Math.max(1, minSamples), 1.0),
+    bullishSamples: bullishSampleBuffer.length,
+    bearishSamples: bearishSampleBuffer.length,
+    lastClose: lastC.c,
+    distancePct,
+  };
+}
+
 // ─── ARCHETYPE HELPERS ───────────────────────────────────────────────────────
 
 function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
