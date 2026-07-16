@@ -422,16 +422,20 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
-  // ✅ ORS-Prime v3 Rank 2 — deep_tune_updated_six_full_v3 (1616 stocks, 2021-2026)
-  // IS: n=2160 WR=81.3% Avg=1.09% PF=1.51 | OOS: n=648 WR=85.0% Avg=1.92% PF=2.30 MFE=6.3% MAE=-4.7%
-  // Key changes vs v1: RSI2 gate relaxed to 15 (score does the work), range tightened to 6%
-  //   (quality filter), distEMA20 tightened to -5 (must be meaningfully below EMA20),
-  //   body tightened to 55%, wick relaxed to 25%, requireSwingLow/RedCandle both false.
-  //   The score gate (≥72) ensures only deeply oversold stocks pass (RSI14≤30 + z-score pushes score over 72).
-  // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
+  // ✅ ORS-Prime v4 — hyper-tuned (orsHyperTune.js, 104K candidates, 27K gate combos + 1920 TP/SL combos)
+  // Gate sweep: IS n=1372 WR=85.6% Wil=83.9% | OOS n=557 WR=85.3% PF=1.97
+  // TP/SL sweep (TP=3% SL=3×ATR): IS n=1374 WR=92.0% | OOS n=557 WR=91.9% PF=2.22
+  // Key structural changes vs v3:
+  //   maxRSI14: 45 → 35  (dominant filter — only deeper market-wide oversold qualifies)
+  //   minRangePct: 6 → 8  (tighter range gate — only true capitulation candles)
+  //   maxDistEMA20: −5 → −10  (more extended below EMA20 = stronger oversold)
+  //   minOrsScore: 72 → 80  (higher composite bar)
+  //   slAtrMult: 2.0 → 3.0  (wider stop = fewer premature stops on volatile reversals)
+  //   maxHoldBars: 15 → 20  (allow trend to develop)
+  //   tpPct: 4 → 3  (faster capture — hyper-tune shows TP=3% dominates top-20 TP/SL combos)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime v3', tag: '↩ 85% OOS WR',
+    name: 'ORS-Prime v4', tag: '↩ 92% OOS WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -447,20 +451,20 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxCloseAboveZonePct: null,
     // ORS-specific logic — v2 GA-tuned params
     ors: {
-      maxRSI2: 15,          // v3: relax gate, score does the work (RSI14≤30 pushes score to 72+)
-      maxRSI14: 45,         // v3: slightly relaxed from 38
-      maxCloseLoc: 50,      // v2+ improvement (was 35 in v1)
-      minBodyPct: 55,       // v3: tightened from 45 (stronger body = cleaner cap candle)
-      maxUpperWickPct: 25,  // v3: slightly relaxed from 20
-      minRangePct: 6,       // v3: quality filter — only large-range capitulation days
-      maxDistEMA20: -5.0,   // v3: tightened — must be meaningfully below EMA20
-      minDdSwingHigh: 30,   // restored to v1 — requires real drawdown
+      maxRSI2: 15,          // v4: unchanged — RSI2 gate, score handles depth
+      maxRSI14: 35,         // v4: tightened from 45 — dominant discriminating factor
+      maxCloseLoc: 50,
+      minBodyPct: 55,
+      maxUpperWickPct: 25,
+      minRangePct: 8,       // v4: tightened from 6 — true capitulation candle (wide range)
+      maxDistEMA20: -10.0,  // v4: tightened from -5 — must be deeply below EMA20
+      minDdSwingHigh: 30,
       requireSwingLow: false,
       requireRedCandle: false,
-      minOrsScore: 72,      // v3: restored — achievable via RSI14≤30+z-score bonus
-      tpPct: 4,
-      slAtrMult: 2.0,
-      maxHoldBars: 15,
+      minOrsScore: 80,      // v4: tightened from 72 — higher composite bar
+      tpPct: 3,             // v4: tightened from 4 — faster capture dominates all top combos
+      slAtrMult: 3.0,       // v4: widened from 2.0 — prevents shake-outs on volatile reversals
+      maxHoldBars: 20,      // v4: extended from 15 — allows trend to develop
     },
   },
   // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,

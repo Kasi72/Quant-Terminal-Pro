@@ -1,0 +1,120 @@
+ORS Hyper-Tuner — Phase 1   2026-07-16T03:27:22.067Z
+Workers: 23  IS/OOS: 70/30  Exit keys: 1
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+CSV files: 1616
+
+Phase: collecting ORS candidates (relaxed gates)...
+  Processed 200/1616 symbols, 11714 candidates so far...
+  Processed 400/1616 symbols, 24900 candidates so far...
+  Processed 600/1616 symbols, 39077 candidates so far...
+  Processed 800/1616 symbols, 53307 candidates so far...
+  Processed 1000/1616 symbols, 65742 candidates so far...
+  Processed 1200/1616 symbols, 78857 candidates so far...
+  Processed 1400/1616 symbols, 92272 candidates so far...
+
+Collection complete: 104520 candidates (IS: 73164 | OOS: 31356)
+IS/OOS cutoff at signal rank 73164 (ts=2025-02-13)
+
+Phase 1 gate sweep: 27440 combos (8×7×7×7×10)
+Fixed gates: closeLoc≤50 body≥55% upWick≤25% dd≥30%
+Fixed exit: TP=4% SL=2×ATR hold≤15d
+
+Dispatching to 23 workers (1194 combos/worker)...
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ORS HYPER-TUNER RESULTS — Phase 1   (44s)
+Candidates: 104520 (IS: 73164 | OOS: 31356)   Workers: 23
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Rank  IS_N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_N  OOS_WR%  OOS_Avg%  OOS_PF  Params
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1   1362    85.6%     84.0%     1.67%   1.96    550     85.1%      1.64%    1.95  rsi2≤15 rsi14≤35 rng≥8% ema≤-10% score≥82
+   2   1362    85.6%     84.0%     1.67%   1.96    550     85.1%      1.64%    1.95  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥82
+   3   1341    85.6%     84.0%     1.68%   1.96    542     85.1%      1.64%    1.94  rsi2≤15 rsi14≤35 rng≥8% ema≤-10% score≥85
+   4   1341    85.6%     84.0%     1.68%   1.96    542     85.1%      1.64%    1.94  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥85
+   5   1372    85.6%     83.9%     1.67%   1.95    555     85.2%      1.67%    1.97  rsi2≤15 rsi14≤35 rng≥8% ema≤-10% score≥80
+   6   1372    85.6%     83.9%     1.67%   1.95    555     85.2%      1.67%    1.97  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥80
+   7   1259    85.6%     83.9%     1.67%   1.96    508     84.8%      1.58%    1.88  rsi2≤3 rsi14≤35 rng≥8% ema≤-10% score≥85
+   8   1374    85.5%     83.9%     1.66%   1.94    557     85.3%      1.67%    1.97  rsi2≤15 rsi14≤35 rng≥8% ema≤-10% score≥78
+   9   1374    85.5%     83.9%     1.66%   1.94    557     85.3%      1.67%    1.97  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥78
+  10   1332    85.5%     83.9%     1.66%   1.95    539     85.0%      1.63%    1.93  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥85
+  11   1358    85.5%     83.9%     1.65%   1.94    547     85.0%      1.63%    1.93  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥76
+  12   1410    85.5%     83.8%     1.65%   1.93    575     84.9%      1.61%    1.91  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥68
+  13   1461    85.4%     83.8%     1.66%   1.95    607     84.5%      1.55%    1.85  rsi2≤3 rsi14≤42 rng≥8% ema≤-7% score≥85
+  14   1362    85.5%     83.8%     1.65%   1.93    548     84.9%      1.60%    1.90  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥65
+  15   1362    85.5%     83.8%     1.65%   1.93    548     84.9%      1.60%    1.90  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥68
+  16   1362    85.5%     83.8%     1.65%   1.93    548     84.9%      1.60%    1.90  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥70
+  17   1362    85.5%     83.8%     1.65%   1.93    548     84.9%      1.60%    1.90  rsi2≤12 rsi14≤35 rng≥8% ema≤-10% score≥72
+  18   1388    85.4%     83.8%     1.65%   1.94    564     85.1%      1.66%    1.96  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥76
+  19   1401    85.4%     83.8%     1.64%   1.93    573     85.0%      1.63%    1.93  rsi2≤18 rsi14≤35 rng≥8% ema≤-10% score≥70
+  20   1440    85.4%     83.8%     1.65%   1.93    607     84.8%      1.62%    1.92  rsi2≤15 rsi14≤42 rng≥8% ema≤-10% score≥85
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+TOP 3 COMBOS — FULL DETAIL
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Rank 1:
+  IS:  n=1362  WR=85.6%  Wil=84.0%  Avg=1.67%  PF=1.96
+  OOS: n=550  WR=85.1%  Avg=1.64%  PF=1.95
+  Gate params (override v3):
+    maxRSI2: 15
+    maxRSI14: 35
+    minRangePct: 8
+    maxDistEMA20: -10
+    minOrsScore: 82
+  Fixed:
+    maxCloseLoc: 50
+    minBodyPct: 55
+    maxUpperWickPct: 25
+    minDdSwingHigh: 30
+
+Rank 2:
+  IS:  n=1362  WR=85.6%  Wil=84.0%  Avg=1.67%  PF=1.96
+  OOS: n=550  WR=85.1%  Avg=1.64%  PF=1.95
+  Gate params (override v3):
+    maxRSI2: 18
+    maxRSI14: 35
+    minRangePct: 8
+    maxDistEMA20: -10
+    minOrsScore: 82
+  Fixed:
+    maxCloseLoc: 50
+    minBodyPct: 55
+    maxUpperWickPct: 25
+    minDdSwingHigh: 30
+
+Rank 3:
+  IS:  n=1341  WR=85.6%  Wil=84.0%  Avg=1.68%  PF=1.96
+  OOS: n=542  WR=85.1%  Avg=1.64%  PF=1.94
+  Gate params (override v3):
+    maxRSI2: 15
+    maxRSI14: 35
+    minRangePct: 8
+    maxDistEMA20: -10
+    minOrsScore: 85
+  Fixed:
+    maxCloseLoc: 50
+    minBodyPct: 55
+    maxUpperWickPct: 25
+    minDdSwingHigh: 30
+
+★ BEST PARAMS JSON (copy into stockEngine.ts):
+{
+  "maxRSI2": 15,
+  "maxRSI14": 35,
+  "maxCloseLoc": 50,
+  "minBodyPct": 55,
+  "maxUpperWickPct": 25,
+  "minRangePct": 8,
+  "maxDistEMA20": -10,
+  "minDdSwingHigh": 30,
+  "requireSwingLow": false,
+  "requireRedCandle": false,
+  "minOrsScore": 82,
+  "tpPct": 4,
+  "slAtrMult": 2,
+  "maxHoldBars": 15
+}
+
+✅ Done in 44s. Results saved to: D:\Claude code\stock-screener\scripts\ors_hypertune_phase1_2026-07-16T03-27-22-06Z.txt
