@@ -422,13 +422,16 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
-  // ✅ ORS-Prime v2+ — v2 structural gains kept; frequency-restored to emit daily signals
-  // v2 deep-tune was RSI2≤3 + range≥6% + distEMA≤-5 simultaneously → ~0.04 signals/day (near-zero live)
-  // v2+ relaxes to RSI2≤5, range≥3.5%, distEMA≤-3, ddSwHi≥25 → estimated ~72% WR, 1-3 signals/day
-  // Code fix applied: requireRedCandle param now honoured (was hardcoded `red &&` before)
+  // ✅ ORS-Prime v3 Rank 2 — deep_tune_updated_six_full_v3 (1616 stocks, 2021-2026)
+  // IS: n=2160 WR=81.3% Avg=1.09% PF=1.51 | OOS: n=648 WR=85.0% Avg=1.92% PF=2.30 MFE=6.3% MAE=-4.7%
+  // Key changes vs v1: RSI2 gate relaxed to 15 (score does the work), range tightened to 6%
+  //   (quality filter), distEMA20 tightened to -5 (must be meaningfully below EMA20),
+  //   body tightened to 55%, wick relaxed to 25%, requireSwingLow/RedCandle both false.
+  //   The score gate (≥72) ensures only deeply oversold stocks pass (RSI14≤30 + z-score pushes score over 72).
+  // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime v2+', tag: '↩ ~72% WR',
+    name: 'ORS-Prime v3', tag: '↩ 85% OOS WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -444,17 +447,17 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxCloseAboveZonePct: null,
     // ORS-specific logic — v2 GA-tuned params
     ors: {
-      maxRSI2: 5,           // v1 level — v2's 3 was too rare (~0 live signals)
-      maxRSI14: 38,
-      maxCloseLoc: 50,      // v2 improvement (was 35)
-      minBodyPct: 45,
-      maxUpperWickPct: 20,  // v1 level — v2's 15 was unnecessarily tight
-      minRangePct: 3.5,     // v1 level — v2's 6 was the primary kill filter
-      maxDistEMA20: -3.0,   // v1 level — v2's -5 compounded with range filter
-      minDdSwingHigh: 25,   // relaxed from 30 — still requires meaningful drawdown
-      requireSwingLow: false, // v2 improvement
-      requireRedCandle: false, // v2 improvement (code now honours this param)
-      minOrsScore: 65,      // min gate conditions → score ~67, so 65 is achievable
+      maxRSI2: 15,          // v3: relax gate, score does the work (RSI14≤30 pushes score to 72+)
+      maxRSI14: 45,         // v3: slightly relaxed from 38
+      maxCloseLoc: 50,      // v2+ improvement (was 35 in v1)
+      minBodyPct: 55,       // v3: tightened from 45 (stronger body = cleaner cap candle)
+      maxUpperWickPct: 25,  // v3: slightly relaxed from 20
+      minRangePct: 6,       // v3: quality filter — only large-range capitulation days
+      maxDistEMA20: -5.0,   // v3: tightened — must be meaningfully below EMA20
+      minDdSwingHigh: 30,   // restored to v1 — requires real drawdown
+      requireSwingLow: false,
+      requireRedCandle: false,
+      minOrsScore: 72,      // v3: restored — achievable via RSI14≤30+z-score bonus
       tpPct: 4,
       slAtrMult: 2.0,
       maxHoldBars: 15,
