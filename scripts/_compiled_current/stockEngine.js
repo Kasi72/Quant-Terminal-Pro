@@ -217,13 +217,8 @@ exports.PARAM_SETS = {
     },
     // ✅ ORS-Prime v3 Rank 2 — deep_tune_updated_six_full_v3 (1616 stocks, 2021-2026)
     // IS: n=2160 WR=81.3% Avg=1.09% PF=1.51 | OOS: n=648 WR=85.0% Avg=1.92% PF=2.30 MFE=6.3% MAE=-4.7%
-    // Key changes vs v1: RSI2 gate relaxed to 15 (score does the work), range tightened to 6%
-    //   (quality filter), distEMA20 tightened to -5 (must be meaningfully below EMA20),
-    //   body tightened to 55%, wick relaxed to 25%, requireSwingLow/RedCandle both false.
-    //   The score gate (≥72) ensures only deeply oversold stocks pass (RSI14≤30 + z-score pushes score over 72).
-    // v4 hyper-tune explored (92% OOS WR) but rejected: smaller avg gain (+1.28% vs +1.92%),
-    //   wider-stop losers hit -19% MAE vs -14%, and tighter TP=3% vs 4% reduces per-trade R-multiple.
-    //   v3 has better R:R (PF=2.30) and higher avg gain — preferred for live trading.
+    // Chosen over v4 (91% WR): v3 has better R:R (PF=2.30 vs 2.22), higher avg gain (+1.92% vs +1.28%),
+    //   tighter losers (MAE -14% vs -19%), and higher per-trade R-multiple.
     // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
     // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
     ors_prime_reversal: {
@@ -243,17 +238,17 @@ exports.PARAM_SETS = {
         maxCloseAboveZonePct: null,
         // ORS-specific logic — v2 GA-tuned params
         ors: {
-            maxRSI2: 15, // v3: relax gate, score does the work (RSI14≤30 pushes score to 72+)
-            maxRSI14: 45, // v3: slightly relaxed from 38
-            maxCloseLoc: 50, // v2+ improvement (was 35 in v1)
-            minBodyPct: 55, // v3: tightened from 45 (stronger body = cleaner cap candle)
-            maxUpperWickPct: 25, // v3: slightly relaxed from 20
-            minRangePct: 6, // v3: quality filter — only large-range capitulation days
-            maxDistEMA20: -5.0, // v3: tightened — must be meaningfully below EMA20
-            minDdSwingHigh: 30, // restored to v1 — requires real drawdown
+            maxRSI2: 15,
+            maxRSI14: 45,
+            maxCloseLoc: 50,
+            minBodyPct: 55,
+            maxUpperWickPct: 25,
+            minRangePct: 6,
+            maxDistEMA20: -5.0,
+            minDdSwingHigh: 30,
             requireSwingLow: false,
             requireRedCandle: false,
-            minOrsScore: 72, // v3: restored — achievable via RSI14≤30+z-score bonus
+            minOrsScore: 72,
             tpPct: 4,
             slAtrMult: 2.0,
             maxHoldBars: 15,
