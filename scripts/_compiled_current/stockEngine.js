@@ -115,8 +115,10 @@ function analyzeStockMulti(candles, symbol) {
     };
     if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(orsR.stage)) {
         passedSets.push('ors_prime_reversal');
-        if (!best || stageRank[orsR.stage] > stageRank[best.stage])
+        if (!best || stageRank[orsR.stage] > stageRank[best.stage] ||
+            (stageRank[orsR.stage] === stageRank[best.stage] && orsR.inflectionScore > best.inflectionScore)) {
             best = orsR;
+        }
     }
     // Set full breakdown on best result
     best.clusterBreakdown = breakdown;
@@ -213,12 +215,16 @@ exports.PARAM_SETS = {
         minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
         maxCloseAboveZonePct: null,
     },
-    // ✅ ORS-Prime v1 — forensic reversal edge: 70.4% OOS WR, PF 1.08 (1616 NSE stocks, 635 test trades)
-    // Strategy: oversold capitulation candle (RSI2≤5, red, dd≥30% from 60d high, below EMA20)
-    // Entry: open of bar after green-confirmation candle | Exit: +4% TP / 2×ATR SL / 15-bar max
+    // ✅ ORS-Prime v3 Rank 2 — deep_tune_updated_six_full_v3 (1616 stocks, 2021-2026)
+    // IS: n=2160 WR=81.3% Avg=1.09% PF=1.51 | OOS: n=648 WR=85.0% Avg=1.92% PF=2.30 MFE=6.3% MAE=-4.7%
+    // Key changes vs v1: RSI2 gate relaxed to 15 (score does the work), range tightened to 6%
+    //   (quality filter), distEMA20 tightened to -5 (must be meaningfully below EMA20),
+    //   body tightened to 55%, wick relaxed to 25%, requireSwingLow/RedCandle both false.
+    //   The score gate (≥72) ensures only deeply oversold stocks pass (RSI14≤30 + z-score pushes score over 72).
+    // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
     // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
     ors_prime_reversal: {
-        name: 'ORS-Prime Reversal v1', tag: '↩ 70% WR',
+        name: 'ORS-Prime v3', tag: '↩ 85% OOS WR',
         // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
         minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
         maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -232,19 +238,19 @@ exports.PARAM_SETS = {
         minUltraPrecisionScore: 0, minRSI2: 0,
         minVolatilityExpansionRatio: null, minCandleQualityScore: null,
         maxCloseAboveZonePct: null,
-        // ORS-specific logic
+        // ORS-specific logic — v2 GA-tuned params
         ors: {
-            maxRSI2: 5,
-            maxRSI14: 38,
-            maxCloseLoc: 35,
-            minBodyPct: 45,
-            maxUpperWickPct: 20,
-            minRangePct: 3.5,
-            maxDistEMA20: -3.0,
-            minDdSwingHigh: 30,
-            requireSwingLow: true,
-            requireRedCandle: true,
-            minOrsScore: 72,
+            maxRSI2: 15, // v3: relax gate, score does the work (RSI14≤30 pushes score to 72+)
+            maxRSI14: 45, // v3: slightly relaxed from 38
+            maxCloseLoc: 50, // v2+ improvement (was 35 in v1)
+            minBodyPct: 55, // v3: tightened from 45 (stronger body = cleaner cap candle)
+            maxUpperWickPct: 25, // v3: slightly relaxed from 20
+            minRangePct: 6, // v3: quality filter — only large-range capitulation days
+            maxDistEMA20: -5.0, // v3: tightened — must be meaningfully below EMA20
+            minDdSwingHigh: 30, // restored to v1 — requires real drawdown
+            requireSwingLow: false,
+            requireRedCandle: false,
+            minOrsScore: 72, // v3: restored — achievable via RSI14≤30+z-score bonus
             tpPct: 4,
             slAtrMult: 2.0,
             maxHoldBars: 15,
@@ -431,7 +437,7 @@ function computeMomentumEnhancements(candles, endIdx, zone, priceEngine) {
     const obvSlope10 = computeOBVSlope10(candles, endIdx);
     // ADX
     const adx14 = computeADX14(candles);
-    const adxInRange = adx14 >= 15 && adx14 <= 35;
+    const adxInRange = adx14 > 40;
     // Gap-adjusted R:R
     let gapAdjustedRR = 0;
     if (priceEngine.plannedEntry > 0 && priceEngine.tacticalStop > 0 && priceEngine.tradeValid) {
@@ -780,6 +786,7 @@ function buildNullPriceEngine() {
         chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
         failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
         tradeValid: false,
+        hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
     };
 }
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -873,7 +880,21 @@ function buildTradeEngine(sig, prevCandle, zone, atr14, atrPct, stage, candles, 
     // ══════════════════════════════════════════════════════════════════════
     // ENTRY (Weinstein + Kaufman adaptive buffer)
     // ══════════════════════════════════════════════════════════════════════
-    const breakoutLevel = tick(Math.max(sig.h, zone.zoneHigh));
+    // GA-optimal lookback: N=299 (Donchian fitness 3.27, NewHigh fitness 3.11 — both
+    // converged independently vs N=252 coarse grid). VCP tier thresholds kept from
+    // coarse grid (GA VCP overfit: 2 signals, 100% WR — not statistically valid).
+    // GA run: scripts/ga_results_2026-07-15T07-37-10.json (392 symbols, horizon=20d)
+    const N_HH = Math.min(299, endIdx);
+    let hh252 = 0;
+    for (let i = endIdx - N_HH; i < endIdx; i++) {
+        if (candles[i].h > hh252)
+            hh252 = candles[i].h;
+    }
+    const breakoutLevel = tick(Math.max(hh252 > 0 ? hh252 : sig.h, zone.zoneHigh));
+    const pctFrom52W = hh252 > 0 && sig.c > 0 ? Math.max(0, (hh252 - sig.c) / sig.c * 100) : 100;
+    const breakoutTier = pctFrom52W <= 15 && zone.zoneTightnessPct <= 10 ? 'A+' // VCP tight coil near 52W high
+        : pctFrom52W <= 25 ? 'A' // at or approaching 52W high
+            : 'B'; // zone breakout, not near 52W
     // Kaufman Efficiency Ratio: measures how "efficient" recent price movement is.
     // ER = |close - close[N]| / sum(|close[i] - close[i-1]|) for i in last N bars.
     // High ER (trending) = tighter buffer. Low ER (noisy) = wider buffer.
@@ -1082,6 +1103,9 @@ function buildTradeEngine(sig, prevCandle, zone, atr14, atrPct, stage, candles, 
         timeStop5d: safe(timeStop5d),
         timeStop10d: safe(timeStop10d),
         tradeValid,
+        hh252: safe(hh252),
+        pctFrom52W: safe(pctFrom52W),
+        breakoutTier,
     };
 }
 // ─── BUILD CHECKLIST ──────────────────────────────────────────────────────────
@@ -1450,7 +1474,7 @@ function analyzeORS(candles) {
         const zScore = zScoreAt(i);
         const score = computeOrsScore({ rsi2, rsi14, rPct, distE20, bodyPct, upWick, isSwLo, volDryUp, ddFromSwHi, zScore });
         // Gate check
-        const passes = (red &&
+        const passes = ((!orsParams.requireRedCandle || red) &&
             rsi2 <= orsParams.maxRSI2 &&
             rsi14 <= orsParams.maxRSI14 &&
             closeLoc <= orsParams.maxCloseLoc &&
@@ -2127,6 +2151,7 @@ function generateDemoData(paramSetKey, count = 25) {
                 failedBreakoutLevel: zoneHigh,
                 timeStop3d: plannedEntry, timeStop5d: plannedEntry + riskPerShare, timeStop10d: plannedEntry + 2 * riskPerShare,
                 tradeValid: true,
+                hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
             };
         }
         else {
@@ -2142,6 +2167,7 @@ function generateDemoData(paramSetKey, count = 25) {
                 chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
                 failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
                 tradeValid: false,
+                hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
             };
         }
         const lastDate = new Date((baseTs - i * 86400) * 1000).toISOString().slice(0, 10);
@@ -2279,6 +2305,12 @@ function generateDemoData(paramSetKey, count = 25) {
                 elite: { met: Math.round(rnd(seed + 62, isActionable ? 17 : 8, 21)), total: 21 },
                 ultraSelective: { met: Math.round(rnd(seed + 63, isActionable ? 16 : 7, 20)), total: 20 },
                 sniper: { met: Math.round(rnd(seed + 64, isActionable ? 17 : 5, 21)), total: 21 },
+                orsReversal: {
+                    met: Math.round(rnd(seed + 65, isActionable ? 6 : 2, 10)),
+                    total: 10,
+                    score: isActionable ? Math.round(rnd(seed + 66, 60, 88)) : Math.round(rnd(seed + 66, 30, 65)),
+                    confirmed: isActionable && rnd(seed + 67, 0, 1) > 0.6,
+                },
             },
             monster: { badges: [], topProbability: 0 },
             dayChangePct: rnd(seed + 70, -4, 6),

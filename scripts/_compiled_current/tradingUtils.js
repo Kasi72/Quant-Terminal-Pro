@@ -119,6 +119,7 @@ function computeWinRateStats(trades) {
         stopped: trades.filter(t => t.status === 'stopped').length,
         expired: trades.filter(t => t.status === 'expired').length,
         manualClose: trades.filter(t => t.status === 'manual_close').length,
+        closedEarly: trades.filter(t => t.status === 'closed_early').length,
         winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
         avgWinPct: wins.length > 0 ? totalWinPct / wins.length : 0,
         avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,

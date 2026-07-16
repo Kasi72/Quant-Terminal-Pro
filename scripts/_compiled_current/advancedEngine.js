@@ -427,11 +427,10 @@ function computeUTBot(candles, endIdx, atr14) {
     const precFired = precSig.fired;
     const earlyFired = earlySig.fired;
     if (precFired && earlyFired) {
-        // Use the earlier of the two signals for lag/entry (prefer EARLY's values)
+        // Use the fresher signal's bar for lag/entry — older entry prices are stale
         const bestBarsAgo = Math.min(precSig.barsAgo, earlySig.barsAgo);
-        const bestLag = earlySig.lag;
-        const bestEntry = earlySig.entry;
-        return { utbotMode: 'BOTH', utbotBarsAgo: bestBarsAgo, utbotLag: bestLag, utbotEntry: bestEntry };
+        const fresher = precSig.barsAgo <= earlySig.barsAgo ? precSig : earlySig;
+        return { utbotMode: 'BOTH', utbotBarsAgo: bestBarsAgo, utbotLag: fresher.lag, utbotEntry: fresher.entry };
     }
     if (precFired)
         return { utbotMode: 'PRECISION', utbotBarsAgo: precSig.barsAgo, utbotLag: precSig.lag, utbotEntry: precSig.entry };
