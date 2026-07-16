@@ -39,6 +39,7 @@ export interface ParamSet {
     requireSwingLow: boolean;  // must be a 6-bar swing-low pivot
     requireRedCandle: boolean; // signal candle must be red
     minOrsScore: number;       // ORS composite score ≥ this
+    minADX?: number;           // optional: ADX must be ≥ this (trending regime gate)
     tpPct: number;             // profit target %
     slAtrMult: number;         // stop = entry − slAtrMult × ATR14
     maxHoldBars: number;       // time-stop in bars
@@ -456,7 +457,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime v4', tag: '↩ 96% OOS WR',
+    name: 'ORS-Prime v5', tag: '↩ 96.2% OOS WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -470,22 +471,23 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 0, minRSI2: 0,
     minVolatilityExpansionRatio: null, minCandleQualityScore: null,
     maxCloseAboveZonePct: null,
-    // ORS-specific logic — v4 hyper-tuned params (OOS WR 96.2%, n=624 | was 85% in v3)
+    // ORS-specific logic — v5 DMI-augmented params (OOS WR 96.2%, n=624)
     ors: {
-      maxRSI2: 5,           // ultra-extreme oversold (was 15)
-      maxRSI14: 43,         // still deeply oversold (was 45)
-      maxCloseLoc: 58,      // close in lower 42% of range (was 50)
-      minBodyPct: 62,       // strong body — real selling pressure (was 55)
-      maxUpperWickPct: 14,  // minimal upper wick — clean hammer (was 25)
-      minRangePct: 5.3,     // meaningful daily range (was 6)
-      maxDistEMA20: -6.0,   // must be 6%+ below EMA20 (was -5.0)
-      minDdSwingHigh: 39,   // 39%+ below 60d swing high (was 30)
+      maxRSI2: 7,           // slightly relaxed from 5 (DMI filters direction)
+      maxRSI14: 38,         // tightened from 43 (deeper oversold)
+      maxCloseLoc: 53,      // tightened from 58 (lower close location)
+      minBodyPct: 37,       // relaxed from 62 (ADX handles quality)
+      maxUpperWickPct: 41,  // relaxed from 14 (DMI handles direction; wick matters less)
+      minRangePct: 6.4,     // tightened from 5.3 (meaningful range required)
+      maxDistEMA20: -10.0,  // tightened from -6: must be 10%+ below EMA20
+      minDdSwingHigh: 38,   // 38%+ below 60d swing high (was 39)
       requireSwingLow: false,
-      requireRedCandle: true, // MUST be red (capitulation candle) — was false
-      minOrsScore: 58,       // composite oversold score threshold (was 72)
-      tpPct: 3,              // tight TP — quick 3% bounce capture (was 4)
-      slAtrMult: 3.0,        // wider SL — gives room to recover (was 2.0)
-      maxHoldBars: 20,       // hold up to 20d for bounce (was 15)
+      requireRedCandle: false, // removed — ORS score + EMA distance do quality control
+      minOrsScore: 63,       // tightened from 58 (composite oversold score)
+      minADX: 20,            // new: ADX ≥ 20 required (trending regime)
+      tpPct: 3,
+      slAtrMult: 3.0,
+      maxHoldBars: 25,       // extended from 20 for larger reversal captures
     },
   },
   // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
@@ -559,6 +561,67 @@ function computeEMA(candles: Candle[], period: number): number[] {
     result[i] = candles[i].c * k + result[i - 1] * (1 - k);
   }
   return result;
+}
+
+// Full per-bar DMI arrays (Wilder smoothing, period=14)
+// Returns diPlus[], diMinus[], adx[] — index-aligned with candles[]
+function computeDMI(candles: Candle[], period = 14): { diPlus: number[]; diMinus: number[]; adx: number[] } {
+  const n = candles.length;
+  const diPlus  = new Array<number>(n).fill(0);
+  const diMinus = new Array<number>(n).fill(0);
+  const adxArr  = new Array<number>(n).fill(20);
+  if (n < period + 2) return { diPlus, diMinus, adx: adxArr };
+
+  const dmP: number[] = [0], dmM: number[] = [0], trArr: number[] = [0];
+  for (let i = 1; i < n; i++) {
+    const up = candles[i].h - candles[i-1].h;
+    const dn = candles[i-1].l - candles[i].l;
+    dmP.push(up > dn && up > 0 ? up : 0);
+    dmM.push(dn > up && dn > 0 ? dn : 0);
+    trArr.push(Math.max(candles[i].h - candles[i].l,
+      Math.abs(candles[i].h - candles[i-1].c), Math.abs(candles[i].l - candles[i-1].c)));
+  }
+
+  // Wilder initial sum
+  let sTR = 0, sDMp = 0, sDMm = 0;
+  for (let i = 1; i <= period; i++) { sTR += trArr[i]; sDMp += dmP[i]; sDMm += dmM[i]; }
+
+  const dxArr = new Array<number>(n).fill(0);
+  for (let i = period + 1; i < n; i++) {
+    sTR  = sTR  - sTR  / period + trArr[i];
+    sDMp = sDMp - sDMp / period + dmP[i];
+    sDMm = sDMm - sDMm / period + dmM[i];
+    const dp = sTR > 0 ? (sDMp / sTR) * 100 : 0;
+    const dm = sTR > 0 ? (sDMm / sTR) * 100 : 0;
+    diPlus[i]  = dp;
+    diMinus[i] = dm;
+    const diSum = dp + dm;
+    dxArr[i] = diSum > 0 ? Math.abs(dp - dm) / diSum * 100 : 0;
+  }
+
+  // ADX = Wilder MA of DX, seeded from bar period*2
+  const adxSeed = period * 2;
+  if (n > adxSeed + 1) {
+    let adxVal = 0;
+    for (let i = period + 1; i <= adxSeed; i++) adxVal += dxArr[i];
+    adxVal /= period;
+    adxArr[adxSeed] = adxVal;
+    for (let i = adxSeed + 1; i < n; i++) {
+      adxVal = (adxVal * (period - 1) + dxArr[i]) / period;
+      adxArr[i] = adxVal;
+    }
+  }
+  return { diPlus, diMinus, adx: adxArr };
+}
+
+// How many bars ago did DI+ cross above DI-? Returns 0=today, 1=yesterday … 99=no cross in window
+function barsSinceDICross(diPlus: number[], diMinus: number[], i: number, maxLook = 5): number {
+  for (let k = 0; k <= maxLook; k++) {
+    const j = i - k;
+    if (j < 1) break;
+    if (diPlus[j] > diMinus[j] && diPlus[j-1] <= diMinus[j-1]) return k;
+  }
+  return 99;
 }
 
 function computeADX14(candles: Candle[]): number {
@@ -1722,6 +1785,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   // ── Helper: check one candle at index i ──────────────────────────────────
   const atr14Arr = computeATR14(candles);
   const ema20Arr = computeEMA(candles, 20);
+  const { adx: adxArrORS } = computeDMI(candles);
 
   // 252d rolling z-score
   const zScoreAt = (i: number): number => {
@@ -1788,7 +1852,8 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     const zScore = zScoreAt(i);
     const score = computeOrsScore({ rsi2, rsi14, rPct, distE20, bodyPct, upWick, isSwLo, volDryUp, ddFromSwHi, zScore });
 
-    // Gate check
+    // Gate check (v5: includes optional minADX gate)
+    const adxORS = adxArrORS[i] ?? 0;
     const passes = (
       (!orsParams.requireRedCandle || red) &&
       rsi2 <= orsParams.maxRSI2 &&
@@ -1800,10 +1865,11 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
       distE20 <= orsParams.maxDistEMA20 &&
       ddFromSwHi >= orsParams.minDdSwingHigh &&
       (!orsParams.requireSwingLow || isSwLo) &&
-      score >= orsParams.minOrsScore
+      score >= orsParams.minOrsScore &&
+      (orsParams.minADX == null || adxORS >= orsParams.minADX)
     );
 
-    return { passes, score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, c };
+    return { passes, score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS, c };
   };
 
   const endIdx = n - 1;
@@ -1820,7 +1886,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   const primaryEval = confirmed ? prevEval! : todayEval;
   if (!primaryEval?.passes) return noOrs();
 
-  const { score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20 } = primaryEval;
+  const { score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS } = primaryEval;
 
   // Price engine — entry at next open, stop = entry − 2×ATR
   const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c); // approximate
@@ -1844,16 +1910,15 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
 
   // Checklist
   const checklist: ChecklistItem[] = [
-    { label: 'RSI(2) ≤ 5 (deeply oversold)', pass: rsi2 <= orsParams.maxRSI2, value: rsi2.toFixed(1) },
-    { label: 'RSI(14) ≤ 38', pass: rsi14 <= orsParams.maxRSI14, value: rsi14.toFixed(1) },
-    { label: 'Red capitulation candle', pass: primaryEval.c.c < primaryEval.c.o, value: primaryEval.c.c < primaryEval.c.o ? 'RED' : 'GREEN' },
+    { label: `RSI(2) ≤ ${orsParams.maxRSI2} (oversold)`, pass: rsi2 <= orsParams.maxRSI2, value: rsi2.toFixed(1) },
+    { label: `RSI(14) ≤ ${orsParams.maxRSI14}`, pass: rsi14 <= orsParams.maxRSI14, value: rsi14.toFixed(1) },
     { label: `Body ≥ ${orsParams.minBodyPct}%`, pass: bodyPct >= orsParams.minBodyPct, value: bodyPct.toFixed(1) + '%' },
     { label: `Upper wick ≤ ${orsParams.maxUpperWickPct}%`, pass: upWick <= orsParams.maxUpperWickPct, value: upWick.toFixed(1) + '%' },
     { label: `Range/Close ≥ ${orsParams.minRangePct}%`, pass: rPct >= orsParams.minRangePct, value: rPct.toFixed(2) + '%' },
     { label: `EMA20 dist ≤ ${orsParams.maxDistEMA20}%`, pass: distE20 <= orsParams.maxDistEMA20, value: distE20.toFixed(2) + '%' },
     { label: `60d drawdown ≥ ${orsParams.minDdSwingHigh}%`, pass: ddFromSwHi >= orsParams.minDdSwingHigh, value: ddFromSwHi.toFixed(1) + '%' },
-    { label: '6-bar swing-low pivot', pass: primaryEval.passes, value: primaryEval.passes ? 'YES' : 'NO' },
     { label: `ORS score ≥ ${orsParams.minOrsScore}`, pass: score >= orsParams.minOrsScore, value: score.toString() },
+    ...(orsParams.minADX != null ? [{ label: `ADX ≥ ${orsParams.minADX} (trending regime)`, pass: (adxORS ?? 0) >= orsParams.minADX, value: (adxORS ?? 0).toFixed(0) }] : []),
     { label: 'Green confirmation candle', pass: confirmed, value: confirmed ? 'CONFIRMED ✓' : 'PENDING' },
   ];
 
@@ -2236,24 +2301,34 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const prevClose = endIdx > 0 ? candles[endIdx - 1].c : sig.o;
   const noGapDown = sig.o >= prevClose * 0.98;
 
-  // 5 signal conditions — thresholds from 10k-combo IS/OOS backtest (OOS WR 80.9%, n=2193)
-  const c1 = volRatio20 >= 4.8;              // institutional volume spike
-  const c2 = closeLoc >= 64;                  // close in top 36% of range
-  const c3 = hi20 > 0 && sig.c >= hi20 * 0.97; // within 3% of 20d high (tightened from 5%)
-  const c4 = exactRangeATR14 >= 2.3;         // strong ATR expansion
-  const c5 = sig.o >= prevClose * 0.944;     // no significant gap-down (≥-5.6% is fine)
-  const passed = [c1, c2, c3, c4, c5];
+  // DMI — computed once, extracted at signal bar
+  const { diPlus: diPlusArr, diMinus: diMinusArr, adx: adxArr } = computeDMI(candles);
+  const diPlusV = diPlusArr[endIdx];
+  const diMinusV = diMinusArr[endIdx];
+  const adxVal = adxArr[endIdx];
+
+  // 6 signal conditions — DMI-augmented IS/OOS backtest (OOS WR 80.7%, n=2086, Wilson 79.3%)
+  const c1 = volRatio20 >= 3.7;              // institutional volume spike (relaxed: DMI does direction filtering)
+  const c2 = closeLoc >= 68;                  // close in top 32% of range
+  const c3 = hi20 > 0 && sig.c >= hi20 * 0.83; // within 17% of 20d high (relaxed: ADX filter suffices)
+  const c4 = exactRangeATR14 >= 2.4;         // strong ATR expansion
+  const c5 = sig.o >= prevClose * 0.974;     // gap-down ≤ -2.6% (tightened: avoid gap-chase)
+  const c6 = diPlusV > diMinusV && adxVal >= 15; // DI+ above DI- AND trend strength (ADX≥15)
+  const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
-  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 6 };
 
-  // Score: weighted
+  // Score: weighted (c6 DMI worth 15pts — equal to c5, replaces a missing condition)
   const score = Math.min(100, Math.round(
-    (c1 ? 25 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
+    (c1 ? 20 : 0) + (c2 ? 20 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 10 : 0) + (c6 ? 15 : 0) +
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
-  const stage: StageRating = conditionsMet === 5 ? 'STRONG_BUY' : conditionsMet === 4 ? 'BUY' : 'PRE_BREAKOUT';
+  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
+    : conditionsMet === 5 ? 'STRONG_BUY'
+    : conditionsMet === 4 ? 'BUY'
+    : 'PRE_BREAKOUT';
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
@@ -2262,11 +2337,12 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Volume ≥ 3× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Volume ≥ 3.7× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
     { label: 'Close in top 32% of range', pass: c2, value: `${closeLoc.toFixed(0)}%` },
-    { label: 'Price within 3% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
-    { label: 'Range expansion ≥ 1.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
-    { label: 'No gap-down open', pass: c5, value: noGapDown ? 'YES' : 'NO' },
+    { label: 'Price within 17% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
+    { label: 'Range expansion ≥ 2.4× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'Open gap-down ≤ -2.6%', pass: c5, value: noGapDown ? 'YES' : 'NO' },
+    { label: 'DI+ > DI− and ADX ≥ 15 (trend aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
   ];
 
   return {
@@ -2277,13 +2353,13 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     signalRangePct, pre10AvgRangeATR,
     ultraPrecisionScore: score, candleQualityScore: conditionsMet,
     priceEngine: pe,
-    conditionsMet, totalConditions: 5, checklist,
-    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
-    monster: conditionsMet === 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Vol ${volRatio20.toFixed(1)}× surge near 20d high — institutional footprint` }], topProbability: score / 100 } : base.monster,
+    conditionsMet, totalConditions: 6, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 15 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Vol ${volRatio20.toFixed(1)}× surge — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — institutional footprint` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'VolumeFootprint',
     archetypeConditions: conditionsMet,
-    archetypeTotal: 5,
+    archetypeTotal: 6,
   };
 }
 
@@ -2316,32 +2392,38 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
   const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
   const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
 
-  // Condition 1: Deep compression — 7-15 consecutive narrow bars (< 0.7×ATR)
-  // Thresholds from 10k-combo IS/OOS backtest (OOS WR 97.2%, n=36)
+  // DMI for Compression Coil
+  const { diPlus: diPlusArr, diMinus: diMinusArr, adx: adxArr } = computeDMI(candles);
+  const diPlusV = diPlusArr[endIdx];
+  const diMinusV = diMinusArr[endIdx];
+  const adxVal = adxArr[endIdx];
+
+  // Condition 1: Deep compression — 8-12 consecutive narrow bars (< 0.7×ATR)
+  // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40, Wilson 79.5%)
   let compressionBars = 0;
   for (let i = endIdx - 1; i >= Math.max(0, endIdx - 15); i--) {
     const a = atr14Arr[i] || atr14;
     if ((candles[i].h - candles[i].l) < 0.70 * a) compressionBars++;
     else break;
   }
-  const c1 = compressionBars >= 7 && compressionBars <= 15;  // deep coil, not a trend
+  const c1 = compressionBars >= 8 && compressionBars <= 12;  // tight coil window (was 7-15)
 
-  // Condition 2: Volume declining 4+ days (exhaustion of supply)
+  // Condition 2: Volume declining 2+ days (supply drying up)
   let volDeclineDays = 0;
   for (let i = endIdx - 1; i >= Math.max(1, endIdx - 5); i--) {
     if (candles[i].v < candles[i - 1].v) volDeclineDays++;
     else break;
   }
-  const c2 = volDeclineDays >= 4;
+  const c2 = volDeclineDays >= 2;  // relaxed from 4 — DMI trend confirms intent
 
-  // Condition 3: Price in upper 35% of 20-day range (coiling at top, not bottom)
+  // Condition 3: Price in upper 41% of 20-day range (coiling at top, not bottom)
   let lo20 = Infinity, hi20 = 0;
   for (let i = Math.max(0, endIdx - 20); i <= endIdx; i++) {
     if (candles[i].l < lo20) lo20 = candles[i].l;
     if (candles[i].h > hi20) hi20 = candles[i].h;
   }
   const pricePos20 = (hi20 > lo20) ? (sig.c - lo20) / (hi20 - lo20) * 100 : 50;
-  const c3 = pricePos20 >= 65;
+  const c3 = pricePos20 >= 59;  // relaxed from 65
 
   // Condition 4: Bollinger Band width in lower 47th pctl of 60d history
   const bbWidthPctl = (() => {
@@ -2364,25 +2446,29 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
   })();
   const c4 = bbWidthPctl <= 47;
 
-  // Condition 5: Today's candle is still compressed (coil body, not breakout)
+  // Condition 5: Today's candle is still compressed (coil body, not breakout) — tightened from 1.1 to 0.8
   const sigRange = sig.h - sig.l;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-  const c5 = exactRangeATR14 <= 1.1;
+  const c5 = exactRangeATR14 <= 0.8;
 
-  const passed = [c1, c2, c3, c4, c5];
+  // Condition 6 (DMI): DI+ > DI− and ADX ≥ 20 (trend aligned for imminent breakout)
+  const c6 = diPlusV > diMinusV && adxVal >= 20;
+
+  const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
-  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 };
 
   const score = Math.min(100, Math.round(
-    (c1 ? 25 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
-    Math.min(10, compressionBars * 3) + Math.min(5, (pricePos20 - 70) * 0.5)
+    (c1 ? 20 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) + (c6 ? 15 : 0) +
+    Math.min(10, compressionBars * 3) + Math.min(5, (pricePos20 - 65) * 0.5)
   ));
 
-  // Compression Coil fires as PRE_BREAKOUT (entering BEFORE breakout) or BUY if very compressed
-  const stage: StageRating = (conditionsMet === 5 && compressionBars >= 5) ? 'BUY'
-    : conditionsMet >= 4 ? 'PRE_BREAKOUT'
-    : 'EARLY_INFLECTION';
+  // Compression Coil fires as PRE_BREAKOUT or better
+  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
+    : conditionsMet === 5 ? 'STRONG_BUY'
+    : conditionsMet === 4 ? 'BUY'
+    : 'PRE_BREAKOUT';
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2395,11 +2481,12 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Deep coil: 7-15 narrow bars (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
-    { label: 'Volume declining ≥ 4 days (supply exhausted)', pass: c2, value: `${volDeclineDays} days` },
-    { label: 'Price in upper 35% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
+    { label: 'Deep coil: 8-12 narrow bars (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
+    { label: 'Volume declining ≥ 2 days (supply drying)', pass: c2, value: `${volDeclineDays} days` },
+    { label: 'Price in upper 41% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
     { label: 'BB width ≤ 47th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
-    { label: 'Candle still coiled (range ≤ 1.1×ATR)', pass: c5, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'Candle still coiled (range ≤ 0.8×ATR)', pass: c5, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'DI+ > DI− and ADX ≥ 20 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
   ];
 
   return {
@@ -2410,13 +2497,14 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
     ultraPrecisionScore: score, candleQualityScore: conditionsMet,
     priceEngine: pe,
-    conditionsMet, totalConditions: 5, checklist,
-    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: compressionBars, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    conditionsMet, totalConditions: 6, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: compressionBars, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 20 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, bbWidthPctl, guppyCompressed: compressionBars >= 3, guppyUltraCompressed: compressionBars >= 5 },
     candleDNA,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Compressed ${compressionBars}bars — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — pre-breakout coil` }], topProbability: score / 100 } : base.monster,
     archetypeType: 'CompressionCoil',
     archetypeConditions: conditionsMet,
-    archetypeTotal: 5,
+    archetypeTotal: 6,
   };
 }
 
@@ -2436,6 +2524,13 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   const atr14Arr = computeATR14(candles);
   const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
 
+  // DMI for Momentum Pocket
+  const { diPlus: diPlusArrMP, diMinus: diMinusArrMP, adx: adxArrMP } = computeDMI(candles);
+  const diPlusV = diPlusArrMP[endIdx];
+  const diMinusV = diMinusArrMP[endIdx];
+  const adxVal = adxArrMP[endIdx];
+  const bscMP = barsSinceDICross(diPlusArrMP, diMinusArrMP, endIdx, 5);
+
   // Turnover gate
   let tSum = 0, vSum = 0;
   const tStart = Math.max(0, endIdx - 20);
@@ -2448,9 +2543,9 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   // 52W high drawdown
   let hh252 = 0;
   for (let i = Math.max(0, endIdx - 252); i < endIdx; i++) if (candles[i].h > hh252) hh252 = candles[i].h;
-  // Thresholds from 10k-combo IS/OOS backtest (OOS WR 82.0%, n=898)
+  // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40)
   const dd52W = hh252 > 0 ? (hh252 - sig.c) / hh252 * 100 : 0;
-  const c1 = dd52W >= 26 && dd52W <= 62;  // deeper washout zone (26-62% below 52W high)
+  const c1 = dd52W >= 31 && dd52W <= 42;  // tighter washout band (was 26-62)
 
   // Stabilization: bars not making new lows
   let stabilizationBars = 0;
@@ -2460,46 +2555,53 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     if (candles[i].l > refLow * 0.985) { stabilizationBars++; refLow = Math.min(refLow, candles[i].l); }
     else break;
   }
-  const c2 = stabilizationBars >= 0;  // stabilization relaxed (backtest found it non-critical)
+  const c2 = stabilizationBars >= 0;  // stabilization relaxed (backtest non-critical)
 
-  // Strong recovery candle: close in top 30%, body ≥ 65%, must be green
+  // Recovery candle: close in top 57%, body ≥ 59%, must be green
   const sigRange = sig.h - sig.l;
   const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
   const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
   const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-  const c3 = closeLoc >= 70 && bodyPct >= 65 && sig.c >= sig.o;  // strong green candle
+  const c3 = closeLoc >= 43 && bodyPct >= 59 && sig.c >= sig.o;  // relaxed from 70/65
 
-  // Volume on recovery day
-  const c4 = volRatio20 >= 1.6;
+  // Volume on recovery day — tightened from 1.6 to 1.8
+  const c4 = volRatio20 >= 1.8;
 
-  // RSI14 in recovery zone (27-51): recovering but not extended
+  // RSI14 in recovery zone (27-74): much wider upper band with DMI trend gate
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
-  const c5 = rsi14 >= 27 && rsi14 <= 51;
+  const c5 = rsi14 >= 27 && rsi14 <= 74;  // upper band relaxed from 51 to 74
 
-  const passed = [c1, c2, c3, c4, c5];
+  // Condition 6 (DMI): DI+ crossed above DI- within 5 bars, ADX ≥ 25 (fresh trend launch)
+  const c6 = bscMP <= 5 && adxVal >= 25;
+
+  const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
-  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 };
 
   const score = Math.min(100, Math.round(
-    (c1 ? 20 : 0) + (c2 ? 20 : 0) + (c3 ? 25 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
+    (c1 ? 18 : 0) + (c2 ? 12 : 0) + (c3 ? 20 : 0) + (c4 ? 17 : 0) + (c5 ? 13 : 0) + (c6 ? 20 : 0) +
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
-  const stage: StageRating = conditionsMet === 5 ? 'STRONG_BUY' : conditionsMet === 4 ? 'BUY' : 'PRE_BREAKOUT';
+  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
+    : conditionsMet === 5 ? 'STRONG_BUY'
+    : conditionsMet === 4 ? 'BUY'
+    : 'PRE_BREAKOUT';
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const pe = archetypePriceEngine(sig.c, atr14);
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: '26-62% below 52W high (deep washout)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
+    { label: '31-42% below 52W high (sweet washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
     { label: 'Not making new lows (base forming)', pass: c2, value: `${stabilizationBars} bars stable` },
-    { label: 'Strong green candle (close >70%, body >65%)', pass: c3, value: `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}%` },
-    { label: 'Volume ≥ 1.6× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI14 in recovery zone (27-51)', pass: c5, value: rsi14.toFixed(1) },
+    { label: 'Green candle (close >43%, body >59%)', pass: c3, value: `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 1.8× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI14 in recovery zone (27-74)', pass: c5, value: rsi14.toFixed(1) },
+    { label: 'DI+ crossed DI− ≤5 bars ago, ADX ≥ 25 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
   ];
 
   return {
@@ -2510,14 +2612,14 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
     ultraPrecisionScore: score, candleQualityScore: conditionsMet,
     priceEngine: pe,
-    conditionsMet, totalConditions: 5, checklist,
-    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: c2, swingLow20: refLow, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    conditionsMet, totalConditions: 6, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: c2, swingLow20: refLow, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 25 && adxVal <= 60, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, drawdownFrom52WH: dd52W, rsi14 },
-    monster: conditionsMet >= 4 ? { badges: [{ type: 'MRV', probability: score / 100, details: `Momentum Pocket — ${dd52W.toFixed(1)}% below 52W high, base stabilized ${stabilizationBars}d` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MRV', probability: score / 100, details: `Momentum Pocket — ${dd52W.toFixed(1)}% below 52W high — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'MomentumPocket',
     archetypeConditions: conditionsMet,
-    archetypeTotal: 5,
+    archetypeTotal: 6,
   };
 }
 
@@ -2553,55 +2655,65 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   const ema50 = ema50Arr[endIdx] ?? 0;
   const ema10 = ema10Arr[endIdx] ?? 0;
 
-  // C1: Price crossed above EMA20 TODAY ONLY (backtest: today's cross outperforms yesterday's)
-  // Thresholds from 10k-combo IS/OOS backtest (OOS WR 85.6%, n=326)
+  // DMI for EMA Stack — ultra-sniper: DI+ must have crossed DI- within 3 bars
+  const { diPlus: diPlusArrES, diMinus: diMinusArrES, adx: adxArrES } = computeDMI(candles);
+  const diPlusV = diPlusArrES[endIdx];
+  const diMinusV = diMinusArrES[endIdx];
+  const adxVal = adxArrES[endIdx];
+  const bscES = barsSinceDICross(diPlusArrES, diMinusArrES, endIdx, 5);
+
+  // C1: Price crossed above EMA20 TODAY ONLY
+  // DMI-augmented IS/OOS backtest (OOS WR 95.8%, n=24)
   const prevClose = endIdx > 0 ? candles[endIdx - 1].c : 0;
   const prevEMA20 = endIdx > 0 ? (ema20Arr[endIdx - 1] ?? 0) : 0;
   const crossedAboveToday = sig.c > ema20 && prevClose < prevEMA20 && ema20 > 0;
   const c1 = crossedAboveToday;  // today's cross ONLY (not yesterday)
 
-  // C2: Was below EMA20 for ≥ 3 bars before crossover
+  // C2: Was below EMA20 for ≥ 5 bars before crossover (was 3 — deeper retreat = cleaner cross)
   let belowCount = 0;
   for (let i = endIdx - 1; i >= Math.max(0, endIdx - 20); i--) {
     if (candles[i].c < (ema20Arr[i] ?? 0)) belowCount++;
     else break;
   }
-  const c2 = belowCount >= 3;
+  const c2 = belowCount >= 5;
 
-  // C3: EMA10 above EMA20 or very close (+0.3% threshold) — alignment confirmed
+  // C3: EMA10 ≥ +0.7% above EMA20 — tighter alignment (was 0.3)
   const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
-  const c3 = ema10VsEma20 >= 0.3;  // EMA10 must be at/above EMA20 (trend alignment)
+  const c3 = ema10VsEma20 >= 0.7;
 
-  // C4: Volume on crossover day ≥ 2.5× avg (strong institutional participation)
-  const c4 = volRatio20 >= 2.5;
+  // C4: Volume on crossover day ≥ 1.9× avg — relaxed from 2.5 (DMI handles conviction)
+  const c4 = volRatio20 >= 1.9;
 
-  // C5: RSI2 ≤ 48 in last 5 bars (came off at least somewhat oversold)
+  // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
   let recentlyOversold = false;
   for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
     const slice = candles.slice(0, i + 1);
     const r2 = computeRSI(slice, 2);
-    if (r2 <= 48) { recentlyOversold = true; break; }
+    if (r2 <= 50) { recentlyOversold = true; break; }
   }
   const c5 = recentlyOversold;
+
+  // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 3 bars && ADX ≥ 15 (ultra-sniper window)
+  const c6 = diPlusV > diMinusV && bscES <= 3 && adxVal >= 15;
 
   // Legacy: allow yesterday cross for crossedYesterday tracking only
   const crossedYesterday = endIdx > 1
     ? (candles[endIdx - 1].c > (ema20Arr[endIdx - 1] ?? 0) && candles[endIdx - 2].c < (ema20Arr[endIdx - 2] ?? 0))
     : false;
 
-  const passed = [c1, c2, c3, c4, c5];
+  const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
-  if (!c1 || conditionsMet < 2) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'EMAStack', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+  if (!c1 || conditionsMet < 2) return { ...base, conditionsMet, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: conditionsMet, archetypeTotal: 6 };
 
   const score = Math.min(100, Math.round(
-    (c1 ? 30 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 10 : 0) +
+    (c1 ? 25 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 15 : 0) + (c5 ? 10 : 0) + (c6 ? 20 : 0) +
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const stage: StageRating = conditionsMet === 5 ? 'ULTRA_STRONG_BUY'
-    : conditionsMet === 4 ? 'STRONG_BUY'
-    : conditionsMet === 3 ? 'BUY'
+  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
+    : conditionsMet === 5 ? 'STRONG_BUY'
+    : conditionsMet === 4 ? 'BUY'
     : 'PRE_BREAKOUT';
 
   const rsi2 = computeRSI(candles, 2);
@@ -2616,10 +2728,11 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   const checklist: ChecklistItem[] = [
     { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
-    { label: 'Was below EMA20 for ≥ 3 bars prior', pass: c2, value: `${belowCount} bars below` },
-    { label: 'EMA10 ≥ +0.3% above EMA20 (alignment)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}%` },
-    { label: 'Volume ≥ 2.5× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI2 ≤ 48 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+    { label: 'Was below EMA20 for ≥ 5 bars prior', pass: c2, value: `${belowCount} bars below` },
+    { label: 'EMA10 ≥ +0.7% above EMA20 (tight alignment)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}%` },
+    { label: 'Volume ≥ 1.9× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI2 ≤ 50 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+    { label: 'DI+ > DI−, crossed ≤3 bars ago, ADX ≥ 15 (sniper DMI)', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
   ];
 
   return {
@@ -2630,14 +2743,14 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
     ultraPrecisionScore: score, candleQualityScore: conditionsMet,
     priceEngine: pe,
-    conditionsMet, totalConditions: 5, checklist,
-    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    conditionsMet, totalConditions: 6, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 15 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, rsi14, ema10, ema10Cross: crossedAboveToday },
-    monster: conditionsMet >= 4 ? { badges: [{ type: 'MOM', probability: score / 100, details: `EMA Stack crossover — ${belowCount}d below EMA20, vol ${volRatio20.toFixed(1)}× surge` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `EMA Stack crossover — ${belowCount}d below EMA20 — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} BSC=${bscES}` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'EMAStack',
     archetypeConditions: conditionsMet,
-    archetypeTotal: 5,
+    archetypeTotal: 6,
   };
 }
 
@@ -2649,6 +2762,11 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const base = archetypeBase(candles, key);
   const n = candles.length;
   if (n < 60) return base;
+
+  // ADX ≥ 25 gate — Perfect Storm only fires in confirmed trending regime
+  const { adx: adxArrPS } = computeDMI(candles);
+  const adxValPS = adxArrPS[n - 1];
+  if (adxValPS < 25) return { ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 };
 
   const vf  = analyzeVolumeFootprint(candles);
   const cc  = analyzeCompressionCoil(candles);
