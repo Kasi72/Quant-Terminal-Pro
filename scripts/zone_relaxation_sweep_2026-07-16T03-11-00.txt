@@ -1,0 +1,46 @@
+==============================================================================================================
+ZONE RELAXATION SWEEP — preserving candle quality, varying zone/structure params
+Symbols: 1617  MaxHold: 20d  Target: 200-1000 signals/year  Workers: 6
+==============================================================================================================
+Testing 8000 zone param combinations per set
+
+
+────────────────────────────────────────────────────────────────────────────────
+Sniper | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 61
+  Zone feature distribution (p25/p50/p75/p90):
+    zoneLen:     1 / 1 / 1 / 1
+    tightness%:  1.5 / 2.0 / 2.5 / 3.1
+    pre10VolRatio p50/p75: 0.94 / 1.06
+    pre10RangeATR p50/p75: 0.90 / 0.96
+  OOS start: 2025-12-22
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=4, maxTightness=12%, maxRangeATR=1.15, maxExpansions=1)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 0 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1    51⬇   33.3%    20.2%   -0.53%  0.74     15    33.3%   0.68  zLen≥1 tight≤10% rng≤1 exp≤8 vol≤1.2/≤2.5
+     2    51⬇   33.3%    20.2%   -0.53%  0.74     15    33.3%   0.68  zLen≥1 tight≤14% rng≤1 exp≤8 vol≤1.2/≤2
+     3    17⬇   45.5%    21.3%    0.32%  1.19      6    33.3%   0.83  zLen≥1 tight≤14% rng≤1 exp≤2 vol≤1/≤0.85
+     4    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤35% rng≤1 exp≤8 vol≤2/≤2.5
+     5    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤40% rng≤1 exp≤8 vol≤2/≤2.5
+     6    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤22% rng≤1 exp≤5 vol≤2/≤2
+     7    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤35% rng≤1 exp≤8 vol≤2/≤2
+     8    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤14% rng≤1 exp≤8 vol≤2/≤2
+     9    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤14% rng≤1 exp≤8 vol≤2/≤2.5
+    10    53⬇   31.6%    19.1%   -0.66%  0.68     15    33.3%   0.68  zLen≥1 tight≤28% rng≤1 exp≤8 vol≤2/≤2
+    11    57⬇   33.3%    20.6%   -0.51%  0.74     18    27.8%   0.53  zLen≥1 tight≤35% rng≤1.8 exp≤5 vol≤1.2/≤2
+    12    57⬇   33.3%    20.6%   -0.51%  0.74     18    27.8%   0.53  zLen≥1 tight≤14% rng≤1.2 exp≤8 vol≤1.2/≤2.5
+
+  ★ RECOMMENDED zone params for Sniper:
+    minZoneLen:           1
+    maxZoneTightnessPct:  10
+    maxPre10AvgRangeATR:  1
+    maxPre10ExpansionCount:8
+    maxPre10AvgVolRatio:  1.2
+    maxPre5AvgVolRatio:   2.5
+    → IS n=51 WR=33.3% Wil=20.2% PF=0.74 | OOS n=15 WR=33.3% PF=0.68
+
+✅ Done. Results: D:\Claude code\stock-screener\scripts\zone_relaxation_sweep_2026-07-16T03-11-00.txt

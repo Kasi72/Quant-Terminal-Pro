@@ -1,0 +1,6 @@
+Data: C:\Users\drkkr\Downloads\NIFTY ALL1783
+Files: 1616; skipped=28; date=2021-07-02 to 2026-07-01
+Convention: exact analyzeStock(ors_prime_reversal), next-open, stop-first, per-symbol non-overlap, 70/30 chronological OOS
+
+base: n=4431 WR=77.9% Wilson=76.7% Avg=0.86% PF=1.38 AvgR=0.078 MFE=5.88% MAE=-5.41% Hit3/10=82.4% Hit5/10=55.2% Hit5/20=55.2% | OOS n=1330 WR=76.2% Avg=0.87% PF=1.40 Hit5/20=55.5%
+candidate: n=2415 WR=81.4% Wilson=79.8% Avg=0.83% PF=1.34 AvgR=0.036 MFE=10.83% MAE=-5.76% Hit3/10=85.2% Hit5/10=59.2% Hit5/20=59.2% | OOS n=725 WR=83.9% Avg=1.63% PF=1.95 Hit5/20=63.7%

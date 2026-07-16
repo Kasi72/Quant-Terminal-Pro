@@ -1,0 +1,46 @@
+==============================================================================================================
+ZONE RELAXATION SWEEP — preserving candle quality, varying zone/structure params
+Symbols: 1617  MaxHold: 20d  Target: 200-1000 signals/year  Workers: 6
+==============================================================================================================
+Testing 8000 zone param combinations per set
+
+
+────────────────────────────────────────────────────────────────────────────────
+HighPrecision | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 243
+  Zone feature distribution (p25/p50/p75/p90):
+    zoneLen:     1 / 1 / 1 / 1
+    tightness%:  1.6 / 2.1 / 2.8 / 3.6
+    pre10VolRatio p50/p75: 0.85 / 0.99
+    pre10RangeATR p50/p75: 0.84 / 0.93
+  OOS start: 2025-12-21
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=5, maxTightness=5%, maxRangeATR=1, maxExpansions=2)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 206 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤40% rng≤1.2 exp≤5 vol≤1.5/≤2.5
+     2   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤22% rng≤1.8 exp≤8 vol≤1.5/≤2.5
+     3   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤18% rng≤1.8 exp≤5 vol≤1.5/≤2
+     4   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤28% rng≤1.8 exp≤5 vol≤2/≤2
+     5   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤10% rng≤1.5 exp≤8 vol≤1.5/≤2.5
+     6   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤18% rng≤1.8 exp≤8 vol≤2/≤2
+     7   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤35% rng≤3 exp≤5 vol≤1.5/≤2.5
+     8   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤18% rng≤1.2 exp≤8 vol≤1.5/≤2.5
+     9   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤22% rng≤1.2 exp≤5 vol≤2/≤2
+    10   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤22% rng≤2.2 exp≤5 vol≤1.5/≤2.5
+    11   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤28% rng≤2.2 exp≤5 vol≤1.5/≤2.5
+    12   243✓   36.1%    29.2%   -0.12%  0.94     74    37.8%   0.97  zLen≥1 tight≤14% rng≤3 exp≤5 vol≤1.5/≤2
+
+  ★ RECOMMENDED zone params for HighPrecision:
+    minZoneLen:           1
+    maxZoneTightnessPct:  40
+    maxPre10AvgRangeATR:  1.2
+    maxPre10ExpansionCount:5
+    maxPre10AvgVolRatio:  1.5
+    maxPre5AvgVolRatio:   2.5
+    → IS n=243 WR=36.1% Wil=29.2% PF=0.94 | OOS n=74 WR=37.8% PF=0.97
+
+✅ Done. Results: D:\Claude code\stock-screener\scripts\zone_relaxation_sweep_2026-07-16T02-51-39.txt

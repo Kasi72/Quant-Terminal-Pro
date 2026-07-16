@@ -150,6 +150,19 @@ export interface AnalysisResult {
   distFromEMA20?: number;
   zScore252?: number;
   orsConfirmed?: boolean;   // true = green-confirmation candle fired (entry tomorrow open)
+  // Phase 2 — Momentum Archetype system
+  archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout';
+  confluenceScore?: number;   // 0–6: how many of the 6 archetypes fire on this stock
+  confluenceFlags?: {
+    volumeFootprint: boolean;
+    compressionCoil: boolean;
+    momentumPocket: boolean;
+    emaStack: boolean;
+    ors: boolean;
+    breakout: boolean;
+  };
+  archetypeConditions?: number;   // how many archetype-specific conditions passed
+  archetypeTotal?: number;        // total archetype conditions checked
 }
 
 export interface CandleDNA {
@@ -327,6 +340,20 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
   // Set full breakdown on best result
   best!.clusterBreakdown = breakdown;
 
+  // Confluence: how many of the 6 archetypes fired simultaneously
+  const ACTIONABLE = new Set<StageRating>(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY']);
+  const confluenceFlags = {
+    volumeFootprint: ACTIONABLE.has(byParamSet['optimized_deployable_20plus'].stage),
+    compressionCoil: ACTIONABLE.has(byParamSet['optimized_highprecision_15plus'].stage),
+    momentumPocket:  ACTIONABLE.has(byParamSet['optimized_elite_10plus'].stage),
+    emaStack:        ACTIONABLE.has(byParamSet['optimized_ultraselective_8plus'].stage),
+    ors:             ACTIONABLE.has(byParamSet['ors_prime_reversal'].stage),
+    breakout:        ACTIONABLE.has(byParamSet['sniper_95plus'].stage),
+  };
+  const confluenceScore = Object.values(confluenceFlags).filter(Boolean).length;
+  best!.confluenceScore = confluenceScore;
+  best!.confluenceFlags = confluenceFlags;
+
   return {
     symbol,
     lastClose: best!.lastClose,
@@ -347,7 +374,7 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
 export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // v13 forensic — stop-first validation: 68.3% WR, +2.08% avg, PF 2.24 (41 trades)
   optimized_deployable_20plus: {
-    name: 'Deployable Forensic D6', tag: '68.3% WR',
+    name: 'Volume Footprint Scout', tag: '📊 Institutional Buying',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
     maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
@@ -367,7 +394,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   },
   // v13 forensic — stop-first validation: 62.5% WR, +1.33% avg, PF 1.67 (80 trades)
   optimized_highprecision_15plus: {
-    name: 'HighPrecision Forensic HP2', tag: '62.5% WR',
+    name: 'Compression Coil', tag: '🔄 Energy Storage',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
     maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 5.0,
@@ -386,7 +413,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   },
   // v12 tuned — stop-first validation: 75.0% WR, +3.41% avg, PF 4.33 (12 trades; small sample)
   optimized_elite_10plus: {
-    name: 'Elite Tuned', tag: '75.0% WR',
+    name: 'Momentum Pocket', tag: '🎯 First Recovery',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
     maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
@@ -408,7 +435,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
   // OOS (last 30%): n=17, WR=70.6%, PF=4.237. Tighter than Grid-v13 (7x fewer signals, cleaner setup)
   optimized_ultraselective_8plus: {
-    name: 'Ultra-Selective Forensic 8+', tag: '70.4% WR',
+    name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
     maxPre10AvgRangeATR: 1.3, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 15.0,
@@ -465,7 +492,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //    maxPre10AvgRangeATR 0.80→1.15, maxPre10RedVolBias 0.90→1.6, minExactVolRatio20 1.8→1.5,
   //    minCloseLoc 75→65, maxUpperWickPct 20→15, minBodyPct 50→20, minVolExpRatio 2.0→1.0
   sniper_95plus: {
-    name: 'Sniper v12-N500 95+', tag: '🎯 67% WR',
+    name: 'Perfect Storm', tag: '⚡ Multi-Archetype',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
     maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
@@ -1874,6 +1901,576 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   };
 }
 
+// ─── ARCHETYPE HELPERS ───────────────────────────────────────────────────────
+
+function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
+  const n = candles.length;
+  const sig = n > 0 ? candles[n - 1] : { c: 0, h: 0, l: 0, o: 0, v: 0, ts: 0 };
+  return {
+    symbol: '', stage: 'NO_SIGNAL', inflectionScore: 0, confidence: 0, paramSetKey: key,
+    lastClose: sig.c,
+    lastDate: n > 0 ? new Date(sig.ts * 1000).toISOString().slice(0, 10) : '',
+    avgTurnover20: 0, atrPct14: 0, atrPct14Pctl120: 0,
+    volRatio20: 0, rsi2: 50, rsi14: 50, zone: null,
+    pre10AvgRangeATR: 0, pre10ExpansionCount: 0,
+    pre10AvgVolRatio: 0, pre5AvgVolRatio: 0,
+    pre10HighVolCount: 0, pre10RedVolBias: 0,
+    exactRangeATR14: 0, exactVolRatio20: 0, exactVolVsPre5: 0,
+    closeLoc: 0, upperWickPct: 0, bodyPct: 0,
+    signalRangePct: 0, volatilityExpansionRatio: 0,
+    ultraPrecisionScore: 0, candleQualityScore: 0,
+    priceEngine: buildNullPriceEngine(),
+    conditionsMet: 0, totalConditions: 5, checklist: [],
+    momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: 0, rsNifty20: 1.0 },
+    nearBreakoutPct: 99, nearBreakout: false, nearBreakoutTier: null,
+    stats: { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral' as const, candlePatternStrength: 0, statsScore: 0 },
+    clusterBreakdown: { deployable: { met: 0, total: 0 }, highPrecision: { met: 0, total: 0 }, elite: { met: 0, total: 0 }, ultraSelective: { met: 0, total: 0 }, sniper: { met: 0, total: 0 } },
+    monster: { badges: [], topProbability: 0 },
+    dayChangePct: n > 1 ? (sig.c - candles[n - 2].c) / candles[n - 2].c * 100 : 0,
+    candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+    archetypeType: 'Breakout',
+  };
+}
+
+function archetypePriceEngine(entry: number, atr14: number): PriceEngine {
+  const stop = tick(Math.max(0, entry - 2.0 * atr14));
+  const riskAbs = Math.max(entry * 0.01, entry - stop);
+  const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
+  const t5 = tick(entry * 1.05);
+  const t7 = tick(entry * 1.07);
+  const t10 = tick(entry * 1.10);
+  return {
+    ...buildNullPriceEngine(),
+    plannedEntry: tick(entry),
+    tacticalStop: stop,
+    tacticalRiskPct: riskPct,
+    riskPerShare: riskAbs,
+    target5: t5, target7: t7, target10: t10,
+    target3R: tick(entry + 3 * riskAbs),
+    rewardRisk: riskPct > 0 ? 5 / riskPct : 2.5,
+    tradeValid: stop > 0 && stop < entry,
+  };
+}
+
+// ── Archetype 1: Volume Footprint Scout (Set: optimized_deployable_20plus) ──
+// Detects institutional buying footprint 1-3 bars BEFORE price breakout.
+// Conditions: volume spike ≥3×, close in top 30% of day's range, price near
+// 20d high, ATR expansion, no gap-down open.
+function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'optimized_deployable_20plus';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 30) return base;
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  if (sig.c <= 0) return base;
+
+  // Core indicators
+  const atr14Arr = computeATR14(candles);
+  const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
+
+  // 20-day volume avg (excluding today)
+  let vSum = 0, tSum = 0;
+  const vStart = Math.max(0, endIdx - 20);
+  for (let i = vStart; i < endIdx; i++) { vSum += candles[i].v; tSum += candles[i].c * candles[i].v; }
+  const volCnt = endIdx - vStart;
+  if (volCnt < 5) return base;
+  const vAvg20 = vSum / volCnt;
+  const turnover20 = tSum / volCnt;
+  if (turnover20 < 5_000_000) return base;
+
+  const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+
+  // 20-day high (excluding today)
+  let hi20 = 0;
+  for (let i = Math.max(0, endIdx - 20); i < endIdx; i++) if (candles[i].h > hi20) hi20 = candles[i].h;
+
+  // Signal metrics
+  const sigRange = sig.h - sig.l;
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
+  const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const exactRangeATR14 = sigRange / (atr14 || 0.0001);
+  const signalRangePct = sig.c > 0 ? sigRange / sig.c * 100 : 0;
+
+  // Pre-10 avg range ATR
+  let rSum = 0;
+  const rStart = Math.max(0, endIdx - 10);
+  for (let i = rStart; i < endIdx; i++) rSum += (candles[i].h - candles[i].l) / (atr14Arr[i] || 0.0001);
+  const pre10AvgRangeATR = (endIdx - rStart) > 0 ? rSum / (endIdx - rStart) : 1;
+
+  // No gap-down: today's open ≥ 98% of yesterday's close
+  const prevClose = endIdx > 0 ? candles[endIdx - 1].c : sig.o;
+  const noGapDown = sig.o >= prevClose * 0.98;
+
+  // Near 20d high: price within 5% of 20d high
+  const nearHi20 = hi20 > 0 && sig.c >= hi20 * 0.95;
+
+  // 5 signal conditions
+  const c1 = volRatio20 >= 3.0;              // volume spike
+  const c2 = closeLoc >= 68;                  // close in top 32%
+  const c3 = nearHi20;                        // near 20d high
+  const c4 = exactRangeATR14 >= 1.5;         // ATR expansion
+  const c5 = noGapDown;                       // no gap-down open
+  const passed = [c1, c2, c3, c4, c5];
+  const conditionsMet = passed.filter(Boolean).length;
+
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+
+  // Score: weighted
+  const score = Math.min(100, Math.round(
+    (c1 ? 25 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
+    Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
+  ));
+
+  const stage: StageRating = conditionsMet === 5 ? 'STRONG_BUY' : conditionsMet === 4 ? 'BUY' : 'PRE_BREAKOUT';
+  const rsi2 = computeRSI(candles, 2);
+  const rsi14 = computeRSI(candles, 14);
+  const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
+  const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
+  const pe = archetypePriceEngine(sig.c, atr14);
+  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
+
+  const checklist: ChecklistItem[] = [
+    { label: 'Volume ≥ 3× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Close in top 32% of range', pass: c2, value: `${closeLoc.toFixed(0)}%` },
+    { label: 'Price within 5% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
+    { label: 'Range expansion ≥ 1.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'No gap-down open', pass: c5, value: noGapDown ? 'YES' : 'NO' },
+  ];
+
+  return {
+    ...base, stage, inflectionScore: score, confidence: score,
+    avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
+    volRatio20, rsi2, rsi14,
+    exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+    signalRangePct, pre10AvgRangeATR,
+    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    priceEngine: pe,
+    conditionsMet, totalConditions: 5, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    monster: conditionsMet === 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Vol ${volRatio20.toFixed(1)}× surge near 20d high — institutional footprint` }], topProbability: score / 100 } : base.monster,
+    candleDNA,
+    archetypeType: 'VolumeFootprint',
+    archetypeConditions: conditionsMet,
+    archetypeTotal: 5,
+  };
+}
+
+// ── Archetype 2: Compression Coil (Set: optimized_highprecision_15plus) ──
+// Detects energy storage (coiling) phase BEFORE the explosive move fires.
+// Enter INSIDE the coil — 1-2 bars early with better entry than breakout traders.
+function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'optimized_highprecision_15plus';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 50) return base;
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  if (sig.c <= 0) return base;
+
+  const atr14Arr = computeATR14(candles);
+  const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
+
+  // Turnover gate
+  let tSum = 0;
+  const tStart = Math.max(0, endIdx - 20);
+  for (let i = tStart; i < endIdx; i++) tSum += candles[i].c * candles[i].v;
+  const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
+  if (turnover20 < 5_000_000) return base;
+
+  // Volume avg
+  let vSum = 0;
+  for (let i = tStart; i < endIdx; i++) vSum += candles[i].v;
+  const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
+  const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+
+  // Condition 1: Narrow bars — count consecutive bars from endIdx backwards where range < 0.7×ATR
+  let compressionBars = 0;
+  for (let i = endIdx - 1; i >= Math.max(0, endIdx - 10); i--) {
+    const a = atr14Arr[i] || atr14;
+    if ((candles[i].h - candles[i].l) < 0.70 * a) compressionBars++;
+    else break;
+  }
+  const c1 = compressionBars >= 3;
+
+  // Condition 2: Volume declining for 3+ days (each lower than prior)
+  let volDeclineDays = 0;
+  for (let i = endIdx - 1; i >= Math.max(1, endIdx - 5); i--) {
+    if (candles[i].v < candles[i - 1].v) volDeclineDays++;
+    else break;
+  }
+  const c2 = volDeclineDays >= 2;
+
+  // Condition 3: Price in upper 25% of 20-day range
+  let lo20 = Infinity, hi20 = 0;
+  for (let i = Math.max(0, endIdx - 20); i <= endIdx; i++) {
+    if (candles[i].l < lo20) lo20 = candles[i].l;
+    if (candles[i].h > hi20) hi20 = candles[i].h;
+  }
+  const pricePos20 = (hi20 > lo20) ? (sig.c - lo20) / (hi20 - lo20) * 100 : 50;
+  const c3 = pricePos20 >= 70;
+
+  // Condition 4: Bollinger Band width in lower 30th pctl of 60d history
+  const bbWidthPctl = (() => {
+    const period = 20;
+    const bbWidths: number[] = [];
+    for (let i = period; i <= endIdx; i++) {
+      let s = 0;
+      for (let j = i - period + 1; j <= i; j++) s += candles[j].c;
+      const mean = s / period;
+      let variance = 0;
+      for (let j = i - period + 1; j <= i; j++) variance += (candles[j].c - mean) ** 2;
+      const std = Math.sqrt(variance / period);
+      bbWidths.push(mean > 0 ? (4 * std / mean) * 100 : 0);
+    }
+    if (bbWidths.length === 0) return 50;
+    const cur = bbWidths[bbWidths.length - 1];
+    const window60 = bbWidths.slice(-60);
+    const below = window60.filter(w => w <= cur).length;
+    return below / window60.length * 100;
+  })();
+  const c4 = bbWidthPctl <= 30;
+
+  // Condition 5: Today's candle NOT expanding (we want coil body, not breakout bar)
+  const sigRange = sig.h - sig.l;
+  const exactRangeATR14 = sigRange / (atr14 || 0.0001);
+  const c5 = exactRangeATR14 <= 1.2;
+
+  const passed = [c1, c2, c3, c4, c5];
+  const conditionsMet = passed.filter(Boolean).length;
+
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+
+  const score = Math.min(100, Math.round(
+    (c1 ? 25 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
+    Math.min(10, compressionBars * 3) + Math.min(5, (pricePos20 - 70) * 0.5)
+  ));
+
+  // Compression Coil fires as PRE_BREAKOUT (entering BEFORE breakout) or BUY if very compressed
+  const stage: StageRating = (conditionsMet === 5 && compressionBars >= 5) ? 'BUY'
+    : conditionsMet >= 4 ? 'PRE_BREAKOUT'
+    : 'EARLY_INFLECTION';
+
+  const rsi2 = computeRSI(candles, 2);
+  const rsi14 = computeRSI(candles, 14);
+  const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
+  const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
+  const pe = archetypePriceEngine(sig.c, atr14);
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
+  const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
+
+  const checklist: ChecklistItem[] = [
+    { label: 'Narrow bars ≥ 3 consecutive (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
+    { label: 'Volume declining ≥ 2 days', pass: c2, value: `${volDeclineDays} days` },
+    { label: 'Price in upper 30% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
+    { label: 'BB width at 30th pctl (60d)', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
+    { label: 'Candle still coiled (range ≤ 1.2×ATR)', pass: c5, value: `${exactRangeATR14.toFixed(2)}×` },
+  ];
+
+  return {
+    ...base, stage, inflectionScore: score, confidence: score,
+    avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
+    volRatio20, rsi2, rsi14,
+    exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+    signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
+    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    priceEngine: pe,
+    conditionsMet, totalConditions: 5, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: compressionBars, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    stats: { ...base.stats, bbWidthPctl, guppyCompressed: compressionBars >= 3, guppyUltraCompressed: compressionBars >= 5 },
+    candleDNA,
+    archetypeType: 'CompressionCoil',
+    archetypeConditions: conditionsMet,
+    archetypeTotal: 5,
+  };
+}
+
+// ── Archetype 3: Momentum Pocket (Set: optimized_elite_10plus) ──
+// Detects first strong up-day after a post-markdown stabilization phase.
+// "The stock has been distributed, weak hands are exhausted, first real buying = inflection."
+function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'optimized_elite_10plus';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 60) return base;
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  if (sig.c <= 0) return base;
+
+  const atr14Arr = computeATR14(candles);
+  const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
+
+  // Turnover gate
+  let tSum = 0, vSum = 0;
+  const tStart = Math.max(0, endIdx - 20);
+  for (let i = tStart; i < endIdx; i++) { tSum += candles[i].c * candles[i].v; vSum += candles[i].v; }
+  const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
+  if (turnover20 < 10_000_000) return base;
+  const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
+  const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+
+  // 52W high drawdown
+  let hh252 = 0;
+  for (let i = Math.max(0, endIdx - 252); i < endIdx; i++) if (candles[i].h > hh252) hh252 = candles[i].h;
+  const dd52W = hh252 > 0 ? (hh252 - sig.c) / hh252 * 100 : 0;
+  const c1 = dd52W >= 15 && dd52W <= 40;
+
+  // Stabilization: last 3-8 bars not making new lows (lows are stabilizing)
+  let stabilizationBars = 0;
+  const lookback8Start = Math.max(0, endIdx - 8);
+  let refLow = sig.l;
+  for (let i = endIdx - 1; i >= lookback8Start; i--) {
+    if (candles[i].l > refLow * 0.985) { stabilizationBars++; refLow = Math.min(refLow, candles[i].l); }
+    else break;
+  }
+  const c2 = stabilizationBars >= 2;
+
+  // Recovery candle quality
+  const sigRange = sig.h - sig.l;
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
+  const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const exactRangeATR14 = sigRange / (atr14 || 0.0001);
+  const c3 = closeLoc >= 55 && bodyPct >= 45 && sig.c >= sig.o;  // green candle, close in upper half
+
+  // Volume on recovery day
+  const c4 = volRatio20 >= 1.5;
+
+  // RSI14 in recovery zone (35-62): recovering but not extended
+  const rsi2 = computeRSI(candles, 2);
+  const rsi14 = computeRSI(candles, 14);
+  const c5 = rsi14 >= 33 && rsi14 <= 62;
+
+  const passed = [c1, c2, c3, c4, c5];
+  const conditionsMet = passed.filter(Boolean).length;
+
+  if (conditionsMet < 3) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+
+  const score = Math.min(100, Math.round(
+    (c1 ? 20 : 0) + (c2 ? 20 : 0) + (c3 ? 25 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) +
+    Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
+  ));
+
+  const stage: StageRating = conditionsMet === 5 ? 'STRONG_BUY' : conditionsMet === 4 ? 'BUY' : 'PRE_BREAKOUT';
+  const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
+  const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
+  const pe = archetypePriceEngine(sig.c, atr14);
+  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
+
+  const checklist: ChecklistItem[] = [
+    { label: '15-40% below 52W high (washed out)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
+    { label: 'Stabilizing ≥ 2 bars (no new lows)', pass: c2, value: `${stabilizationBars} bars` },
+    { label: 'Green recovery candle (close >55%, body >45%)', pass: c3, value: `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 1.5× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI14 in recovery zone (33-62)', pass: c5, value: rsi14.toFixed(1) },
+  ];
+
+  return {
+    ...base, stage, inflectionScore: score, confidence: score,
+    avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
+    volRatio20, rsi2, rsi14,
+    exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+    signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
+    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    priceEngine: pe,
+    conditionsMet, totalConditions: 5, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: c2, swingLow20: refLow, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    stats: { ...base.stats, drawdownFrom52WH: dd52W, rsi14 },
+    monster: conditionsMet >= 4 ? { badges: [{ type: 'MRV', probability: score / 100, details: `Momentum Pocket — ${dd52W.toFixed(1)}% below 52W high, base stabilized ${stabilizationBars}d` }], topProbability: score / 100 } : base.monster,
+    candleDNA,
+    archetypeType: 'MomentumPocket',
+    archetypeConditions: conditionsMet,
+    archetypeTotal: 5,
+  };
+}
+
+// ── Archetype 4: EMA Stack Crossover (Set: optimized_ultraselective_8plus) ──
+// Detects the EMA20 crossover with volume — momentum trend officially turns.
+// Fires on the CROSSOVER DAY itself (0-1 bar earlier than most trend followers).
+function analyzeEMAStack(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'optimized_ultraselective_8plus';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 60) return base;
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  if (sig.c <= 0) return base;
+
+  const atr14Arr = computeATR14(candles);
+  const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
+
+  // Turnover gate
+  let tSum = 0, vSum = 0;
+  const tStart = Math.max(0, endIdx - 20);
+  for (let i = tStart; i < endIdx; i++) { tSum += candles[i].c * candles[i].v; vSum += candles[i].v; }
+  const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
+  if (turnover20 < 10_000_000) return base;
+  const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
+  const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+
+  const ema10Arr = computeEMA(candles, 10);
+  const ema20Arr = computeEMA(candles, 20);
+  const ema50Arr = computeEMA(candles, 50);
+  const ema20 = ema20Arr[endIdx] ?? 0;
+  const ema50 = ema50Arr[endIdx] ?? 0;
+  const ema10 = ema10Arr[endIdx] ?? 0;
+
+  // C1: Price crossed above EMA20 today (today above, yesterday below)
+  const prevClose = endIdx > 0 ? candles[endIdx - 1].c : 0;
+  const prevEMA20 = endIdx > 0 ? (ema20Arr[endIdx - 1] ?? 0) : 0;
+  const crossedAboveToday = sig.c > ema20 && prevClose < prevEMA20 && ema20 > 0;
+  // Or: yesterday crossed (giving 1 bar confirmation)
+  const crossedYesterday = endIdx > 1
+    ? (candles[endIdx - 1].c > (ema20Arr[endIdx - 1] ?? 0) && candles[endIdx - 2].c < (ema20Arr[endIdx - 2] ?? 0))
+    : false;
+  const c1 = crossedAboveToday || crossedYesterday;
+
+  // C2: Was below EMA20 for ≥ 5 bars before crossover
+  const crossBar = crossedAboveToday ? endIdx : endIdx - 1;
+  let belowCount = 0;
+  for (let i = crossBar - 1; i >= Math.max(0, crossBar - 20); i--) {
+    if (candles[i].c < (ema20Arr[i] ?? 0)) belowCount++;
+    else break;
+  }
+  const c2 = belowCount >= 4;
+
+  // C3: EMA10 near or crossing EMA20 (within 2% or above)
+  const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
+  const c3 = ema10VsEma20 >= -2.0;  // EMA10 within 2% below EMA20 or above
+
+  // C4: Volume on crossover day ≥ 1.8× avg
+  const c4 = volRatio20 >= 1.8;
+
+  // C5: RSI2 was ≤ 30 in last 5 bars (came off oversold recently)
+  let recentlyOversold = false;
+  for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
+    const slice = candles.slice(0, i + 1);
+    const r2 = computeRSI(slice, 2);
+    if (r2 <= 35) { recentlyOversold = true; break; }
+  }
+  const c5 = recentlyOversold;
+
+  const passed = [c1, c2, c3, c4, c5];
+  const conditionsMet = passed.filter(Boolean).length;
+
+  if (conditionsMet < 2 || !c1) return { ...base, conditionsMet, totalConditions: 5, archetypeType: 'EMAStack', archetypeConditions: conditionsMet, archetypeTotal: 5 };
+
+  const score = Math.min(100, Math.round(
+    (c1 ? 30 : 0) + (c2 ? 20 : 0) + (c3 ? 20 : 0) + (c4 ? 20 : 0) + (c5 ? 10 : 0) +
+    Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
+  ));
+
+  const stage: StageRating = conditionsMet === 5 ? 'ULTRA_STRONG_BUY'
+    : conditionsMet === 4 ? 'STRONG_BUY'
+    : conditionsMet === 3 ? 'BUY'
+    : 'PRE_BREAKOUT';
+
+  const rsi2 = computeRSI(candles, 2);
+  const rsi14 = computeRSI(candles, 14);
+  const sigRange = sig.h - sig.l;
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
+  const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const exactRangeATR14 = sigRange / (atr14 || 0.0001);
+  const pe = archetypePriceEngine(sig.c, atr14);
+  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
+
+  const checklist: ChecklistItem[] = [
+    { label: 'Price crossed above EMA20 (today or yesterday)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY' : 'NO' },
+    { label: 'Was below EMA20 for ≥ 4 bars prior', pass: c2, value: `${belowCount} bars below` },
+    { label: 'EMA10 within 2% of EMA20 or above', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}%` },
+    { label: 'Volume ≥ 1.8× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI2 ≤ 35 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+  ];
+
+  return {
+    ...base, stage, inflectionScore: score, confidence: score,
+    avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
+    volRatio20, rsi2, rsi14,
+    exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+    signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
+    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    priceEngine: pe,
+    conditionsMet, totalConditions: 5, checklist,
+    momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: 20, adxInRange: false, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
+    stats: { ...base.stats, rsi14, ema10, ema10Cross: crossedAboveToday },
+    monster: conditionsMet >= 4 ? { badges: [{ type: 'MOM', probability: score / 100, details: `EMA Stack crossover — ${belowCount}d below EMA20, vol ${volRatio20.toFixed(1)}× surge` }], topProbability: score / 100 } : base.monster,
+    candleDNA,
+    archetypeType: 'EMAStack',
+    archetypeConditions: conditionsMet,
+    archetypeTotal: 5,
+  };
+}
+
+// ── Archetype 5: Perfect Storm (Set: sniper_95plus) ──
+// Composite detector: fires only when 2+ archetypes align on the same stock.
+// Rarest but highest-conviction signal in the system.
+function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'sniper_95plus';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 60) return base;
+
+  const vf  = analyzeVolumeFootprint(candles);
+  const cc  = analyzeCompressionCoil(candles);
+  const mp  = analyzeMomentumPocket(candles);
+  const ema = analyzeEMAStack(candles);
+
+  const ACTIONABLE = new Set(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY']);
+  const fires = [
+    { r: vf,  name: 'VolumeFootprint' as const, label: 'Vol Footprint' },
+    { r: cc,  name: 'CompressionCoil' as const, label: 'Compression Coil' },
+    { r: mp,  name: 'MomentumPocket' as const,  label: 'Momentum Pocket' },
+    { r: ema, name: 'EMAStack' as const,         label: 'EMA Stack' },
+  ].filter(f => ACTIONABLE.has(f.r.stage));
+
+  if (fires.length < 2) return { ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 };
+
+  // Pick best individual result for price engine / metrics
+  const stageRank: Record<StageRating, number> = { ULTRA_STRONG_BUY: 5, STRONG_BUY: 4, BUY: 3, PRE_BREAKOUT: 2, EARLY_INFLECTION: 1, COMPRESSION_WATCH: 0, NO_SIGNAL: 0 };
+  const best = fires.reduce((a, b) => stageRank[b.r.stage] > stageRank[a.r.stage] ? b : a);
+
+  const score = Math.min(100, fires.reduce((s, f) => s + f.r.inflectionScore, 0) / fires.length + fires.length * 10);
+  const stage: StageRating = fires.length >= 4 ? 'ULTRA_STRONG_BUY'
+    : fires.length === 3 ? 'STRONG_BUY'
+    : 'BUY';
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
+  const sigRange = sig.h - sig.l;
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+
+  const checklist: ChecklistItem[] = [
+    { label: 'Volume Footprint fires', pass: fires.some(f => f.name === 'VolumeFootprint'), value: fires.some(f => f.name === 'VolumeFootprint') ? `Score ${vf.inflectionScore}` : 'NO' },
+    { label: 'Compression Coil fires', pass: fires.some(f => f.name === 'CompressionCoil'), value: fires.some(f => f.name === 'CompressionCoil') ? `Score ${cc.inflectionScore}` : 'NO' },
+    { label: 'Momentum Pocket fires', pass: fires.some(f => f.name === 'MomentumPocket'), value: fires.some(f => f.name === 'MomentumPocket') ? `Score ${mp.inflectionScore}` : 'NO' },
+    { label: 'EMA Stack fires', pass: fires.some(f => f.name === 'EMAStack'), value: fires.some(f => f.name === 'EMAStack') ? `Score ${ema.inflectionScore}` : 'NO' },
+  ];
+
+  return {
+    ...best.r,
+    paramSetKey: key,
+    stage, inflectionScore: Math.round(score), confidence: score,
+    conditionsMet: fires.length, totalConditions: 4,
+    checklist,
+    monster: {
+      badges: [{ type: 'MOM' as const, probability: score / 100, details: `Perfect Storm — ${fires.length}/4 archetypes: ${fires.map(f => f.label).join(', ')}` }],
+      topProbability: score / 100,
+    },
+    archetypeType: 'PerfectStorm',
+    archetypeConditions: fires.length,
+    archetypeTotal: 4,
+  };
+}
+
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
 export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): AnalysisResult {
@@ -1916,342 +2513,16 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
     candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
   });
 
-  // ORS-Prime: separate reversal engine — dispatch immediately
+  // Momentum Archetype dispatchers — each set has its own inflection detector
   if (paramSetKey === 'ors_prime_reversal') return analyzeORS(candles);
+  if (paramSetKey === 'optimized_deployable_20plus') return analyzeVolumeFootprint(candles);
+  if (paramSetKey === 'optimized_highprecision_15plus') return analyzeCompressionCoil(candles);
+  if (paramSetKey === 'optimized_elite_10plus') return analyzeMomentumPocket(candles);
+  if (paramSetKey === 'optimized_ultraselective_8plus') return analyzeEMAStack(candles);
+  if (paramSetKey === 'sniper_95plus') return analyzePerfectStorm(candles);
 
-  // 1. Guard — early return if insufficient data
-  if (!candles || candles.length === 0 || candles.length < 30) return noSignalBase();
-
-  // 2. params
-  const params = PARAM_SETS[paramSetKey];
-
-  // 3. endIdx
-  const endIdx = candles.length - 1;
-  const sig = candles[endIdx];
-  const prev = candles[endIdx - 1];
-
-  // 5. ATR14 array
-  const atr14Array = computeATR14(candles);
-
-  // 6. atr14
-  const atr14 = atr14Array[endIdx] ?? 0.0001;
-
-  // 7. ATR percentile
-  const atrPct14 = sig.c > 0 ? (atr14 / sig.c) * 100 : 0;
-  const window120Start = Math.max(0, endIdx - 120);
-  const window120: number[] = [];
-  for (let i = window120Start; i < endIdx; i++) {
-    if (atr14Array[i] > 0 && candles[i].c > 0) {
-      window120.push((atr14Array[i] / candles[i].c) * 100);
-    }
-  }
-  const atrPct14Pctl120 = percentileRank(window120, atrPct14);
-
-  // 8. avgTurnover20
-  const t20Start = Math.max(0, endIdx - 20);
-  const turnoverArr: number[] = [];
-  for (let i = t20Start; i < endIdx; i++) {
-    turnoverArr.push(candles[i].c * candles[i].v);
-  }
-  const avgTurnover20 = arr_mean(turnoverArr);
-
-  // 9. volRatio20
-  const vol20Start = Math.max(0, endIdx - 20);
-  const vol20Arr: number[] = [];
-  for (let i = vol20Start; i < endIdx; i++) {
-    vol20Arr.push(candles[i].v);
-  }
-  const volAvg20 = arr_mean(vol20Arr);
-  if (volAvg20 <= 0) return noSignalBase();
-  const volRatio20 = sig.v / volAvg20;
-
-  // 10. RSI
-  const rsi2 = computeRSI(candles, 2);
-  const rsi14 = computeRSI(candles, 14);
-
-  // 11. Pre-10/5 windows
-  const pre10Start = Math.max(0, endIdx - 10);
-  const pre5Start = Math.max(0, endIdx - 5);
-
-  const pre10Candles = candles.slice(pre10Start, endIdx);
-  const pre5Candles = candles.slice(pre5Start, endIdx);
-
-  const pre10RangeATRArr = pre10Candles.map((c, idx) => {
-    const actualIdx = pre10Start + idx;
-    const a = atr14Array[actualIdx] || 0.0001;
-    return (c.h - c.l) / a;
-  });
-  const pre10AvgRangeATR = arr_mean(pre10RangeATRArr);
-
-  const pre10ExpansionCount = pre10Candles.filter((c, idx) => {
-    const actualIdx = pre10Start + idx;
-    const a = atr14Array[actualIdx] || 0.0001;
-    return (c.h - c.l) / a > params.expansionATRMultiplier;
-  }).length;
-
-  const pre10VolRatios = pre10Candles.map(c => c.v / volAvg20);
-  const pre10AvgVolRatio = arr_mean(pre10VolRatios);
-
-  const pre5VolRatios = pre5Candles.map(c => c.v / volAvg20);
-  const pre5AvgVolRatio = arr_mean(pre5VolRatios);
-
-  const pre10HighVolCount = pre10Candles.filter(c => c.v / volAvg20 > params.highVolMultiplier).length;
-
-  const pre10RedVol = pre10Candles.filter(c => c.c < c.o).reduce((sum, c) => sum + c.v, 0);
-  const pre10GreenVol = pre10Candles.filter(c => c.c >= c.o).reduce((sum, c) => sum + c.v, 0);
-  const pre10RedVolBias = pre10GreenVol > 0 ? pre10RedVol / pre10GreenVol : (pre10RedVol > 0 ? 10 : 1);
-
-  // 12. Zone
-  const zone = findCompressionZone(candles, atr14Array, params, endIdx);
-
-  // 13. Signal candle indicators
-  const sigRange = sig.h - sig.l;
-  const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-
-  const pre5VolAvgRaw = arr_mean(pre5Candles.map(c => c.v)) || 1;
-  const exactVolRatio20 = sig.v / volAvg20;
-  const exactVolVsPre5 = pre5VolAvgRaw > 0 ? sig.v / pre5VolAvgRaw : 0;
-
-  const closeLoc = sigRange > 0 ? ((sig.c - sig.l) / sigRange) * 100 : 50;
-  const upperWickPct =
-    sigRange > 0 ? ((sig.h - Math.max(sig.o, sig.c)) / sigRange) * 100 : 0;
-  const bodyPct =
-    sigRange > 0 ? (Math.abs(sig.c - sig.o) / sigRange) * 100 : 0;
-  const signalRangePct = sig.c > 0 ? (sigRange / sig.c) * 100 : 0;
-  const volatilityExpansionRatio =
-    pre10AvgRangeATR > 0 ? exactRangeATR14 / pre10AvgRangeATR : 0;
-
-  // 14. UPS
-  const ultraPrecisionScore = computeUPS(
-    zone, closeLoc, bodyPct, upperWickPct,
-    exactVolRatio20, exactVolVsPre5, volatilityExpansionRatio,
-    rsi2, signalRangePct
-  );
-
-  // 15. CQS
-  const candleQualityScore = computeCQS(
-    closeLoc, upperWickPct, bodyPct, exactVolVsPre5, volatilityExpansionRatio
-  );
-
-  const candleDNA = detectCandleDNA(candles, endIdx, atr14);
-  const advanced = computeAdvancedFeatures(candles, endIdx, atr14);
-  const stats = computeStatsFeatures(candles, endIdx);
-  const forensicEval = evaluateForensicOverlay(params, candleDNA, advanced, stats);
-  const forensicOk = forensicEval.ok;
-
-  // 16. Condition booleans
-  const liquidityOk = avgTurnover20 >= params.minAvgTurnover20;
-  const volOk = atrPct14Pctl120 <= params.maxATRPct14Pctl120;
-  const zoneOk =
-    zone !== null &&
-    zone.zoneTightnessPct <= params.maxZoneTightnessPct &&
-    zone.windowLength >= params.minZoneLen;
-  const breakoutOk =
-    zone !== null && sig.c > zone.zoneHigh * params.breakoutMultiplier;
-  const closeAboveZonePct = zone !== null && zone.zoneHigh > 0 ? ((sig.c - zone.zoneHigh) / zone.zoneHigh) * 100 : 0;
-  const closeAboveZoneOk = params.maxCloseAboveZonePct === null || closeAboveZonePct <= params.maxCloseAboveZonePct;
-  const pre10RangeOk = pre10AvgRangeATR <= params.maxPre10AvgRangeATR;
-  const pre10ExpOk = pre10ExpansionCount <= params.maxPre10ExpansionCount;
-  const pre10VolOk = pre10AvgVolRatio <= params.maxPre10AvgVolRatio;
-  const pre5VolOk = pre5AvgVolRatio <= params.maxPre5AvgVolRatio;
-  const pre10HighVolOk = pre10HighVolCount <= params.maxPre10HighVolCount;
-  const pre10RedBiasOk = pre10RedVolBias <= params.maxPre10RedVolBias;
-  const exactRangeOk =
-    exactRangeATR14 >= params.minExactRangeATR14 &&
-    exactRangeATR14 <= params.maxExactRangeATR14;
-  const exactVolOk = exactVolRatio20 >= params.minExactVolRatio20;
-  const exactVolPre5Ok = exactVolVsPre5 >= params.minExactVolVsPre5;
-  const closeLocOk = closeLoc >= params.minCloseLoc;
-  const wickOk = upperWickPct <= params.maxUpperWickPct;
-  const bodyOk = bodyPct >= params.minBodyPct;
-  const riskOk = signalRangePct <= params.maxCandleRisk;
-  const upsOk = ultraPrecisionScore >= params.minUltraPrecisionScore;
-  const rsi2Ok = rsi2 >= params.minRSI2;
-  const volExpOk =
-    params.minVolatilityExpansionRatio === null ||
-    volatilityExpansionRatio >= params.minVolatilityExpansionRatio;
-  const cqsOk =
-    params.minCandleQualityScore === null ||
-    candleQualityScore >= params.minCandleQualityScore;
-
-  // 17. preCondsMet / exactCondsMet / conditionsMet
-  const preCondsMet =
-    pre10RangeOk && pre10ExpOk && pre10VolOk && pre5VolOk &&
-    pre10HighVolOk && pre10RedBiasOk;
-  const exactCondsMet =
-    exactRangeOk && exactVolOk && exactVolPre5Ok && closeLocOk &&
-    wickOk && bodyOk && riskOk && upsOk && rsi2Ok && volExpOk && cqsOk && forensicOk;
-
-  const allConditions: boolean[] = [
-    liquidityOk, volOk, zoneOk, breakoutOk,
-    pre10RangeOk, pre10ExpOk, pre10VolOk, pre5VolOk,
-    pre10HighVolOk, pre10RedBiasOk,
-    exactRangeOk, exactVolOk, exactVolPre5Ok, closeLocOk,
-    wickOk, bodyOk, riskOk, upsOk, rsi2Ok,
-  ];
-  if (params.minVolatilityExpansionRatio !== null) allConditions.push(volExpOk);
-  if (params.minCandleQualityScore !== null) allConditions.push(cqsOk);
-  if (params.maxCloseAboveZonePct !== null) allConditions.push(closeAboveZoneOk);
-  for (const item of forensicEval.checklist) allConditions.push(item.pass);
-  const totalConditions = allConditions.length;
-  const conditionsMet = allConditions.filter(Boolean).length;
-
-  // 18. inflectionScore — only meaningful when all gates pass (BUY+ path)
-  // Computing it unconditionally would award the 45-point base floor to
-  // PRE_BREAKOUT results, inflating stored scores and misleading tiebreakers.
-  const inflectionScore = (preCondsMet && breakoutOk && exactCondsMet)
-    ? computeInflectionScore(
-        zone, params, breakoutOk,
-        pre10AvgRangeATR, pre10AvgVolRatio, pre5AvgVolRatio, pre10RedVolBias,
-        exactRangeATR14, exactVolRatio20, exactVolVsPre5,
-        closeLoc, upperWickPct, bodyPct, signalRangePct,
-        ultraPrecisionScore, rsi2, volatilityExpansionRatio, candleQualityScore
-      )
-    : 0;
-
-  // 19. Stage determination
-  // ALL spec conditions must be satisfied in order:
-  //   Liquidity → ATR regime → Zone exists → Pre-10 environment → Breakout + exact candle
-  let stage: StageRating;
-  if (!liquidityOk || !volOk) {
-    // Failed liquidity or volatility regime gate
-    stage = 'NO_SIGNAL';
-  } else if (!zoneOk) {
-    // No valid compression zone found
-    stage = 'NO_SIGNAL';
-  } else if (preCondsMet && breakoutOk && exactCondsMet) {
-    // ALL conditions pass — grade by inflection score
-    if (inflectionScore >= 75) stage = 'ULTRA_STRONG_BUY';
-    else if (inflectionScore >= 60) stage = 'STRONG_BUY';
-    else if (inflectionScore >= 45) stage = 'BUY';
-    else stage = 'PRE_BREAKOUT';
-  } else if (breakoutOk && preCondsMet && (exactRangeOk || exactVolOk)) {
-    // Zone + pre-conditions + breakout but not all exact candle conditions
-    stage = 'PRE_BREAKOUT';
-  } else if (breakoutOk && (exactRangeOk || exactVolOk)) {
-    // Breakout with some signal but pre-conditions not clean
-    stage = 'PRE_BREAKOUT';
-  } else if (preCondsMet) {
-    // Zone + pre-conditions clean, no breakout yet
-    stage = 'EARLY_INFLECTION';
-  } else {
-    // Zone found but environment not clean
-    stage = 'COMPRESSION_WATCH';
-  }
-
-  // 20. confidence
-  const confidence = (conditionsMet / totalConditions) * 100;
-
-  // 21. priceEngine
-  let priceEngine: PriceEngine;
-  if (
-    stage !== 'NO_SIGNAL' &&
-    stage !== 'COMPRESSION_WATCH' &&
-    zone !== null
-  ) {
-    priceEngine = buildTradeEngine(
-      sig, prev, zone, atr14, atrPct14, stage, candles, endIdx, pre10AvgRangeATR, avgTurnover20
-    );
-  } else {
-    priceEngine = buildNullPriceEngine();
-  }
-
-  // 21b. v7.2 momentum enhancements (additive overlay — does NOT affect stage)
-  const momentum = computeMomentumEnhancements(candles, endIdx, zone, priceEngine);
-
-  // Forensic-validated entry gates applied after momentum is computed.
-  // emaAligned + higherLow lifted WR from 73% → 77% — the only entry-level
-  // features that genuinely separate losers from winners in backtesting.
-  if (!momentum.emaAligned || !momentum.higherLowConfirmed) {
-    priceEngine = { ...priceEngine, tradeValid: false };
-  }
-
-  // 21d. v7.3 near-breakout detection — v2 tiered (validated on Nifty 500)
-  const nearBreakoutPct = zone ? ((zone.zoneHigh - sig.c) / sig.c) * 100 : 99;
-  const nearBreakout = zone !== null && nearBreakoutPct >= 0 && nearBreakoutPct <= 2 && liquidityOk && volOk && preCondsMet && !breakoutOk;
-  const nearBreakoutTier: AnalysisResult['nearBreakoutTier'] =
-    zone === null || nearBreakoutPct < 0 || nearBreakoutPct > 10 || !liquidityOk || !preCondsMet || breakoutOk ? null :
-    nearBreakoutPct < 1 ? 'IMMINENT' :
-    nearBreakoutPct < 2.5 ? 'NEAR' :
-    nearBreakoutPct < 5 ? 'WATCH' : 'EARLY';
-
-  // 22. checklist
-  const checklist = buildChecklist(
-    params,
-    avgTurnover20, atrPct14Pctl120,
-    pre10AvgRangeATR, pre10ExpansionCount,
-    zone, pre10AvgVolRatio, pre5AvgVolRatio,
-    pre10HighVolCount, pre10RedVolBias,
-    breakoutOk,
-    exactRangeATR14, exactVolRatio20, exactVolVsPre5,
-    closeLoc, upperWickPct, bodyPct, signalRangePct,
-    ultraPrecisionScore, rsi2,
-    liquidityOk, volOk, zoneOk,
-    pre10RangeOk, pre10ExpOk, pre10VolOk, pre5VolOk,
-    pre10HighVolOk, pre10RedBiasOk,
-    exactRangeOk, exactVolOk, exactVolPre5Ok,
-    closeLocOk, wickOk, bodyOk, riskOk, upsOk, rsi2Ok,
-    volExpOk, cqsOk, volatilityExpansionRatio, candleQualityScore,
-    closeAboveZoneOk, closeAboveZonePct,
-    forensicEval.checklist
-  );
-
-  // 23. lastDate
-  const lastDate = new Date(sig.ts * 1000).toISOString().slice(0, 10);
-
-  return {
-    symbol: 'UNKNOWN',
-    stage,
-    inflectionScore: safe(inflectionScore),
-    confidence: safe(confidence),
-    paramSetKey,
-    lastClose: safe(sig.c),
-    lastDate,
-    avgTurnover20: safe(avgTurnover20),
-    atrPct14: safe(atrPct14),
-    atrPct14Pctl120: safe(atrPct14Pctl120),
-    volRatio20: safe(volRatio20),
-    rsi2: safe(rsi2, 50),
-    rsi14: safe(rsi14, 50),
-    zone,
-    pre10AvgRangeATR: safe(pre10AvgRangeATR),
-    pre10ExpansionCount,
-    pre10AvgVolRatio: safe(pre10AvgVolRatio),
-    pre5AvgVolRatio: safe(pre5AvgVolRatio),
-    pre10HighVolCount,
-    pre10RedVolBias: safe(pre10RedVolBias),
-    exactRangeATR14: safe(exactRangeATR14),
-    exactVolRatio20: safe(exactVolRatio20),
-    exactVolVsPre5: safe(exactVolVsPre5),
-    closeLoc: safe(closeLoc, 50),
-    upperWickPct: safe(upperWickPct),
-    bodyPct: safe(bodyPct),
-    signalRangePct: safe(signalRangePct),
-    volatilityExpansionRatio: safe(volatilityExpansionRatio),
-    ultraPrecisionScore: safe(ultraPrecisionScore),
-    candleQualityScore,
-    priceEngine,
-    conditionsMet,
-    totalConditions,
-    checklist,
-    momentum,
-    nearBreakoutPct: safe(nearBreakoutPct),
-    nearBreakout,
-    nearBreakoutTier,
-    stats,
-    clusterBreakdown: {
-      deployable: paramSetKey === 'optimized_deployable_20plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
-      highPrecision: paramSetKey === 'optimized_highprecision_15plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
-      elite: paramSetKey === 'optimized_elite_10plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
-      ultraSelective: paramSetKey === 'optimized_ultraselective_8plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
-      sniper: paramSetKey === 'sniper_95plus' ? { met: conditionsMet, total: totalConditions } : { met: 0, total: 0 },
-      orsReversal: { met: 0, total: 0, score: 0, confirmed: false },
-    },
-    monster: { badges: [], topProbability: 0 },
-    dayChangePct: endIdx >= 1 && candles[endIdx - 1].c > 0 ? safe((sig.c - candles[endIdx - 1].c) / candles[endIdx - 1].c * 100) : 0,
-    candleDNA,
-    advanced,
-  };
+  // Exhaustive — all ParamSetKey values handled above
+  return noSignalBase();
 }
 
 // ─── MONSTER SCAN — Detect >10% MFE probability ─────────────────────────────

@@ -1,0 +1,420 @@
+{
+  "optimized_deployable_20plus": {
+    "label": "Deployable",
+    "rawN": 278,
+    "base": {
+      "is": {
+        "n": 0,
+        "wr": 0,
+        "wilson": 0,
+        "avg": 0,
+        "pf": 0,
+        "mfe": 0,
+        "mae": 0
+      },
+      "oos": {
+        "n": 0,
+        "wr": 0,
+        "wilson": 0,
+        "avg": 0,
+        "pf": 0,
+        "mfe": 0,
+        "mae": 0
+      },
+      "n": 0,
+      "score": 0
+    },
+    "best": {
+      "combo": {
+        "minZoneLen": 4,
+        "maxZoneTightnessPct": 20,
+        "maxPre10AvgRangeATR": 1.5,
+        "maxPre10ExpansionCount": 1,
+        "maxPre10AvgVolRatio": 0.9,
+        "maxPre5AvgVolRatio": 1.1
+      },
+      "is": {
+        "n": 1,
+        "wr": 100,
+        "wilson": 20.654329147389294,
+        "avg": 5,
+        "pf": 99,
+        "mfe": 15.937716949320643,
+        "mae": 0
+      },
+      "oos": {
+        "n": 0,
+        "wr": 0,
+        "wilson": 0,
+        "avg": 0,
+        "pf": 0,
+        "mfe": 0,
+        "mae": 0
+      },
+      "n": 1,
+      "score": 24.261731658955718
+    },
+    "top": [
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 20,
+          "maxPre10AvgRangeATR": 1.5,
+          "maxPre10ExpansionCount": 1,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1.1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 10,
+          "maxPre10AvgRangeATR": 1.15,
+          "maxPre10ExpansionCount": 1,
+          "maxPre10AvgVolRatio": 1,
+          "maxPre5AvgVolRatio": 1.1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 12,
+          "maxPre10AvgRangeATR": 1.15,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 1.5,
+          "maxPre5AvgVolRatio": 1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 8,
+          "maxPre10AvgRangeATR": 1.5,
+          "maxPre10ExpansionCount": 1,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1.1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 18,
+          "maxPre10AvgRangeATR": 1.5,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 1.5,
+          "maxPre5AvgVolRatio": 1.5
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 3,
+          "maxZoneTightnessPct": 25,
+          "maxPre10AvgRangeATR": 1.3,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1.5
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 1,
+          "wr": 0,
+          "wilson": 0,
+          "avg": -3,
+          "pf": 0,
+          "mfe": 1.3986013986013985,
+          "mae": -3.7062937062937005
+        },
+        "n": 2,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 3,
+          "maxZoneTightnessPct": 15,
+          "maxPre10AvgRangeATR": 1,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1.3
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 1,
+          "wr": 0,
+          "wilson": 0,
+          "avg": -3,
+          "pf": 0,
+          "mfe": 1.3986013986013985,
+          "mae": -3.7062937062937005
+        },
+        "n": 2,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 3,
+          "maxZoneTightnessPct": 8,
+          "maxPre10AvgRangeATR": 1.15,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1.5
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 1,
+          "wr": 0,
+          "wilson": 0,
+          "avg": -3,
+          "pf": 0,
+          "mfe": 1.3986013986013985,
+          "mae": -3.7062937062937005
+        },
+        "n": 2,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 15,
+          "maxPre10AvgRangeATR": 1.5,
+          "maxPre10ExpansionCount": 1,
+          "maxPre10AvgVolRatio": 1,
+          "maxPre5AvgVolRatio": 1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 4,
+          "maxZoneTightnessPct": 8,
+          "maxPre10AvgRangeATR": 1,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 1.2,
+          "maxPre5AvgVolRatio": 1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "wilson": 0,
+          "avg": 0,
+          "pf": 0,
+          "mfe": 0,
+          "mae": 0
+        },
+        "n": 1,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 3,
+          "maxZoneTightnessPct": 25,
+          "maxPre10AvgRangeATR": 1.15,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 1.5,
+          "maxPre5AvgVolRatio": 1.5
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 1,
+          "wr": 0,
+          "wilson": 0,
+          "avg": -3,
+          "pf": 0,
+          "mfe": 1.3986013986013985,
+          "mae": -3.7062937062937005
+        },
+        "n": 2,
+        "score": 24.261731658955718
+      },
+      {
+        "combo": {
+          "minZoneLen": 3,
+          "maxZoneTightnessPct": 12,
+          "maxPre10AvgRangeATR": 1.5,
+          "maxPre10ExpansionCount": 0,
+          "maxPre10AvgVolRatio": 0.9,
+          "maxPre5AvgVolRatio": 1
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "wilson": 20.654329147389294,
+          "avg": 5,
+          "pf": 99,
+          "mfe": 15.937716949320643,
+          "mae": 0
+        },
+        "oos": {
+          "n": 1,
+          "wr": 0,
+          "wilson": 0,
+          "avg": -3,
+          "pf": 0,
+          "mfe": 1.3986013986013985,
+          "mae": -3.7062937062937005
+        },
+        "n": 2,
+        "score": 24.261731658955718
+      }
+    ]
+  }
+}

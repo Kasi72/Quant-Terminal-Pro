@@ -1,0 +1,73 @@
+Breakout WR Diagnostic — Best Achievable   2026-07-16T09:58:01.850Z
+Files: 1617  Workers: 16  Combos: 15000  MinOOSn: 30
+
+Collecting candidates (fully relaxed — all sets share same pool)...
+Raw pool: 64900 (IS: 45430 | OOS: 19470)
+IS/OOS cut: 2025-05-05
+Base WR (no filter): 5.3%
+OOS Base WR: 3.0%
+
+Monthly OOS WR breakdown:
+  2025-05: n=1182 WR=3%
+  2025-06: n=1736 WR=3%
+  2025-07: n=1245 WR=3%
+  2025-08: n=1319 WR=3%
+  2025-09: n=1422 WR=4%
+  2025-10: n=1541 WR=3%
+  2025-11: n=1166 WR=3%
+  2025-12: n=1458 WR=2%
+  2026-01: n=1250 WR=2%
+  2026-02: n=1178 WR=2%
+  2026-03: n=1287 WR=0%
+  2026-04: n=1707 WR=3%
+  2026-05: n=1530 WR=4%
+  2026-06: n=1449 WR=6%
+
+Sweeping 15000 quality-filter combos for best achievable OOS WR...
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+BEST ACHIEVABLE OOS WR — Top 20 combos
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Rank  IS_n  IS_WR%  OOS_n  OOS_WR%  OOS_Wil%  Key filters
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   1     86    11.6%     32     18.8%       8.9%  rng≥1.5ATR vol≥3x loc≥85% UPS≥60 VER≥null risk≤6%
+   2    122    26.2%     32     18.8%       8.9%  rng≥0.5ATR vol≥4x loc≥75% UPS≥0 VER≥2 risk≤25%
+   3    107    14.0%     43     16.3%       8.1%  rng≥2ATR vol≥0.8x loc≥70% UPS≥80 VER≥1 risk≤6%
+   4    158    28.5%     37     16.2%       7.7%  rng≥2ATR vol≥2.5x loc≥60% UPS≥60 VER≥0.5 risk≤25%
+   5    107     9.3%     33     15.2%       6.7%  rng≥0.05ATR vol≥3x loc≥85% UPS≥70 VER≥null risk≤6%
+   6    126    20.6%     34     14.7%       6.4%  rng≥1ATR vol≥4x loc≥70% UPS≥25 VER≥0.5 risk≤25%
+   7    160    28.1%     41     14.6%       6.9%  rng≥2ATR vol≥2.5x loc≥85% UPS≥80 VER≥1.4 risk≤25%
+   8    123    28.5%     42     14.3%       6.7%  rng≥3ATR vol≥1.2x loc≥50% UPS≥70 VER≥null risk≤25%
+   9    124    20.2%     35     14.3%       6.3%  rng≥2.5ATR vol≥0.8x loc≥40% UPS≥25 VER≥2 risk≤25%
+  10     95    31.6%     35     14.3%       6.3%  rng≥3ATR vol≥1.5x loc≥75% UPS≥10 VER≥null risk≤25%
+  11    103    25.2%     36     13.9%       6.1%  rng≥3ATR vol≥2x loc≥85% UPS≥60 VER≥1.4 risk≤25%
+  12    127    22.0%     44     13.6%       6.4%  rng≥0.5ATR vol≥4x loc≥0% UPS≥80 VER≥1.4 risk≤25%
+  13    108    25.0%     37     13.5%       5.9%  rng≥3ATR vol≥0.8x loc≥65% UPS≥60 VER≥2 risk≤25%
+  14     82    25.6%     30     13.3%       5.3%  rng≥3ATR vol≥4x loc≥70% UPS≥80 VER≥1 risk≤25%
+  15    106    33.0%     30     13.3%       5.3%  rng≥2.5ATR vol≥2x loc≥85% UPS≥60 VER≥1.4 risk≤25%
+  16    115    27.8%     38     13.2%       5.8%  rng≥2.5ATR vol≥2x loc≥65% UPS≥40 VER≥null risk≤15%
+  17    111     9.0%     38     13.2%       5.8%  rng≥0.5ATR vol≥2.5x loc≥40% UPS≥10 VER≥null risk≤6%
+  18    100    35.0%     38     13.2%       5.8%  rng≥3ATR vol≥0.8x loc≥85% UPS≥0 VER≥1.4 risk≤25%
+  19    112    28.6%     38     13.2%       5.8%  rng≥3ATR vol≥1.2x loc≥60% UPS≥10 VER≥2.5 risk≤25%
+  20     82    12.2%     38     13.2%       5.8%  rng≥2ATR vol≥2.5x loc≥40% UPS≥40 VER≥1 risk≤6%
+
+★ BEST ACHIEVABLE: IS_n=86 IS_WR=11.6% | OOS_n=32 OOS_WR=18.8% Wil=8.9%
+  Full params JSON:
+{
+    "minExactRangeATR14": 1.5,
+    "minExactVolRatio20": 3,
+    "minExactVolVsPre5": 1.5,
+    "minCloseLoc": 85,
+    "maxUpperWickPct": 25,
+    "minBodyPct": 70,
+    "minUltraPrecisionScore": 60,
+    "minVolatilityExpansionRatio": null,
+    "minCandleQualityScore": 3,
+    "maxCandleRisk": 6,
+    "maxPre10AvgRangeATR": 1.5,
+    "maxPre10ExpansionCount": 5,
+    "maxPre10AvgVolRatio": 1.1,
+    "maxPre5AvgVolRatio": 5
+}
+
+✅ Done. Results: D:\Claude code\stock-screener\scripts\breakout_wr_diagnostic_2026-07-16T09_58_01.txt

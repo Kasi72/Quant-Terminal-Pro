@@ -1,0 +1,11 @@
+ORS exact-engine validation | files=1616 workers=8 input=D:\Claude code\stock-screener\scripts\ors_v3_base_vs_candidate.json
+Progress 1/1616 (0.1%) ETA 1615s   Progress 137/1616 (8.5%) ETA 13s   Progress 308/1616 (19.1%) ETA 9s   Progress 520/1616 (32.2%) ETA 7s   Progress 689/1616 (42.6%) ETA 6s   Progress 859/1616 (53.2%) ETA 5s   Progress 1044/1616 (64.6%) ETA 3s   Progress 1236/1616 (76.5%) ETA 2s   Progress 1395/1616 (86.3%) ETA 1s   Progress 1561/1616 (96.6%) ETA 0s   Progress 1616/1616 (100.0%) ETA 0s   
+
+Data: C:\Users\drkkr\Downloads\NIFTY ALL1783
+Files: 1616; skipped=28; date=2021-07-02 to 2026-07-01
+Convention: exact analyzeStock(ors_prime_reversal), next-open, stop-first, per-symbol non-overlap, 70/30 chronological OOS
+
+base: n=4431 WR=77.9% Wilson=76.7% Avg=0.86% PF=1.38 AvgR=0.078 MFE=5.88% MAE=-5.41% Hit3/10=82.4% Hit5/10=55.2% Hit5/20=55.2% | OOS n=1330 WR=76.2% Avg=0.87% PF=1.40 Hit5/20=55.5%
+candidate: n=2415 WR=81.4% Wilson=79.8% Avg=0.83% PF=1.34 AvgR=0.036 MFE=10.83% MAE=-5.76% Hit3/10=85.2% Hit5/10=59.2% Hit5/20=59.2% | OOS n=725 WR=83.9% Avg=1.63% PF=1.95 Hit5/20=63.7%
+JSON: D:\Claude code\stock-screener\scripts\ors_exact_validation_2026-07-15T17-50-57-749Z.json
+TXT: D:\Claude code\stock-screener\scripts\ors_exact_validation_2026-07-15T17-50-57-749Z.txt

@@ -1,0 +1,171 @@
+==============================================================================================================
+ZONE RELAXATION SWEEP — preserving candle quality, varying zone/structure params
+Symbols: 1617  MaxHold: 20d  Target: 200-1000 signals/year  Workers: 6
+==============================================================================================================
+Testing 8000 zone param combinations per set
+
+
+────────────────────────────────────────────────────────────────────────────────
+Deployable | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 278
+  OOS start: 2025-11-19
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=4, maxTightness=12%, maxRangeATR=1.15, maxExpansions=1)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 0 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤20% rng≤1 exp≤0 vol≤1/≤1.1
+     2     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤25% rng≤1.8 exp≤0 vol≤1.5/≤1.3
+     3     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤10% rng≤1 exp≤0 vol≤0.9/≤1.1
+     4     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤25% rng≤1 exp≤0 vol≤0.9/≤1.3
+     5     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤18% rng≤1.5 exp≤0 vol≤0.9/≤1.3
+     6     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤8% rng≤1.15 exp≤0 vol≤1.2/≤1.5
+     7     2⬇  100.0%    20.7%    5.00% 99.00      1     0.0%   0.00  zLen≥3 tight≤15% rng≤1.3 exp≤0 vol≤1.2/≤1.5
+     8     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤8% rng≤1.3 exp≤1 vol≤0.9/≤1.3
+     9     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤25% rng≤1.15 exp≤0 vol≤1.2/≤1.5
+    10     2⬇  100.0%    20.7%    5.00% 99.00      1     0.0%   0.00  zLen≥3 tight≤12% rng≤1 exp≤0 vol≤1/≤1
+    11     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤8% rng≤1.3 exp≤1 vol≤0.9/≤1
+    12     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤10% rng≤1.15 exp≤0 vol≤1/≤1.5
+
+  ★ RECOMMENDED zone params for Deployable:
+    minZoneLen:           4
+    maxZoneTightnessPct:  20
+    maxPre10AvgRangeATR:  1
+    maxPre10ExpansionCount:0
+    maxPre10AvgVolRatio:  1
+    maxPre5AvgVolRatio:   1.1
+    → IS n=1 WR=100.0% Wil=20.7% PF=99.00 | OOS n=0 WR=0.0% PF=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+HighPrecision | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 243
+  OOS start: 2025-12-21
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=5, maxTightness=5%, maxRangeATR=1, maxExpansions=2)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 0 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤18% rng≤1.8 exp≤0 vol≤1/≤0.85
+     2     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤18% rng≤1.3 exp≤0 vol≤1.2/≤0.9
+     3     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤25% rng≤1 exp≤0 vol≤0.9/≤1
+     4     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤25% rng≤1.8 exp≤0 vol≤1.2/≤1.1
+     5     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤8% rng≤1.3 exp≤0 vol≤1.2/≤0.85
+     6     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤18% rng≤1.3 exp≤0 vol≤1/≤0.9
+     7     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤8% rng≤1.3 exp≤0 vol≤0.9/≤0.9
+     8     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤12% rng≤1.3 exp≤0 vol≤0.9/≤1.1
+     9     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤10% rng≤1.15 exp≤0 vol≤0.9/≤1
+    10     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤12% rng≤1.5 exp≤0 vol≤1.5/≤0.9
+    11     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤20% rng≤1.5 exp≤0 vol≤0.9/≤0.9
+    12     3⬇  100.0%    20.7%    5.00% 99.00      2     0.0%   0.00  zLen≥2 tight≤15% rng≤1.15 exp≤0 vol≤0.9/≤0.9
+
+  ★ RECOMMENDED zone params for HighPrecision:
+    minZoneLen:           2
+    maxZoneTightnessPct:  18
+    maxPre10AvgRangeATR:  1.8
+    maxPre10ExpansionCount:0
+    maxPre10AvgVolRatio:  1
+    maxPre5AvgVolRatio:   0.85
+    → IS n=3 WR=100.0% Wil=20.7% PF=99.00 | OOS n=2 WR=0.0% PF=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+Elite | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 92
+  OOS start: 2025-11-19
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=8, maxTightness=12%, maxRangeATR=1, maxExpansions=2)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 0 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤10% rng≤1.5 exp≤5 vol≤0.85/≤1
+     2     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤25% rng≤1.8 exp≤5 vol≤0.9/≤1.5
+     3     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤18% rng≤1.15 exp≤1 vol≤0.85/≤1
+     4     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤18% rng≤1.3 exp≤1 vol≤1.5/≤1.1
+     5     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤18% rng≤1.3 exp≤5 vol≤0.9/≤1.5
+     6     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤12% rng≤1.8 exp≤5 vol≤0.85/≤1.5
+     7     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤25% rng≤1.8 exp≤1 vol≤1/≤1
+     8     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤15% rng≤1.8 exp≤5 vol≤1.2/≤0.9
+     9     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤8% rng≤1.15 exp≤5 vol≤1.5/≤0.9
+    10     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤18% rng≤1.5 exp≤5 vol≤1/≤1.3
+    11     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥4 tight≤20% rng≤1.15 exp≤5 vol≤1.2/≤1.3
+    12     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥3 tight≤20% rng≤1.8 exp≤5 vol≤1.5/≤1
+
+  ★ RECOMMENDED zone params for Elite:
+    minZoneLen:           3
+    maxZoneTightnessPct:  10
+    maxPre10AvgRangeATR:  1.5
+    maxPre10ExpansionCount:5
+    maxPre10AvgVolRatio:  0.85
+    maxPre5AvgVolRatio:   1
+    → IS n=1 WR=100.0% Wil=20.7% PF=99.00 | OOS n=0 WR=0.0% PF=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+UltraSelective | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 3778
+  OOS start: 2026-01-06
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=8, maxTightness=15%, maxRangeATR=1.3, maxExpansions=0)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 240 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1   301✓   31.4%    25.5%   -0.50%  0.76     94    44.7%   1.30  zLen≥2 tight≤12% rng≤1 exp≤3 vol≤1.5/≤1.3
+     2   299✓   31.2%    25.3%   -0.52%  0.75     94    44.7%   1.30  zLen≥2 tight≤10% rng≤1 exp≤3 vol≤1.5/≤1.3
+     3   325✓   31.7%    25.9%   -0.48%  0.77    104    42.3%   1.17  zLen≥2 tight≤12% rng≤1 exp≤5 vol≤1.5/≤1.3
+     4   293✓   31.2%    25.2%   -0.52%  0.75     91    44.0%   1.26  zLen≥2 tight≤12% rng≤1 exp≤3 vol≤1.2/≤1.3
+     5   293✓   31.2%    25.2%   -0.52%  0.75     91    44.0%   1.26  zLen≥2 tight≤18% rng≤1 exp≤3 vol≤1.2/≤1.3
+     6   286✓   31.6%    25.5%   -0.48%  0.76     90    43.3%   1.22  zLen≥2 tight≤8% rng≤1 exp≤3 vol≤1.2/≤1.3
+     7   308✓   30.3%    24.5%   -0.59%  0.72     97    44.3%   1.28  zLen≥2 tight≤8% rng≤1.3 exp≤3 vol≤1.5/≤1.3
+     8   308✓   30.3%    24.5%   -0.59%  0.72     97    44.3%   1.28  zLen≥2 tight≤8% rng≤1.8 exp≤3 vol≤1.5/≤1.3
+     9   308✓   30.3%    24.5%   -0.59%  0.72     97    44.3%   1.28  zLen≥2 tight≤8% rng≤1.5 exp≤3 vol≤1.5/≤1.3
+    10   315✓   31.6%    25.8%   -0.48%  0.76    100    42.0%   1.16  zLen≥2 tight≤12% rng≤1 exp≤3 vol≤1.5/≤1.5
+    11   317✓   29.8%    24.1%   -0.63%  0.70     99    44.4%   1.29  zLen≥2 tight≤15% rng≤1.5 exp≤3 vol≤1.5/≤1.3
+    12   317✓   29.8%    24.1%   -0.63%  0.70     99    44.4%   1.29  zLen≥2 tight≤15% rng≤1.3 exp≤3 vol≤1.5/≤1.3
+
+  ★ RECOMMENDED zone params for UltraSelective:
+    minZoneLen:           2
+    maxZoneTightnessPct:  12
+    maxPre10AvgRangeATR:  1
+    maxPre10ExpansionCount:3
+    maxPre10AvgVolRatio:  1.5
+    maxPre5AvgVolRatio:   1.3
+    → IS n=301 WR=31.4% Wil=25.5% PF=0.76 | OOS n=94 WR=44.7% PF=1.30
+
+────────────────────────────────────────────────────────────────────────────────
+Sniper | collecting candidates (zone-relaxed, candle-quality-exact)...
+  Raw candidates (zone-relaxed pool): 107
+  OOS start: 2025-10-30
+  BASE: n=0 IS_WR=0.0% Wil=0.0% Avg=0.00% PF=0.00 | OOS n=0 WR=0.0%
+  (Base zone params: minZoneLen=4, maxTightness=12%, maxRangeATR=1.15, maxExpansions=1)
+  Sweeping 8000 combos...
+
+  Results meeting target (200-1000 signals/year): 0 combos
+  Rank     N  IS_WR%  IS_Wil%  IS_Avg%  IS_PF  OOS_n  OOS_WR%  OOS_PF Zone Params
+  ------------------------------------------------------------------------------------------------------------
+     1     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤12% rng≤1.5 exp≤1 vol≤0.85/≤1
+     2     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤20% rng≤1.5 exp≤1 vol≤1/≤1.1
+     3     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤12% rng≤1.3 exp≤1 vol≤0.9/≤0.9
+     4     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤8% rng≤1.3 exp≤1 vol≤0.85/≤0.85
+     5     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤8% rng≤1.8 exp≤1 vol≤1/≤1.1
+     6     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤10% rng≤1.15 exp≤1 vol≤1/≤1.3
+     7     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤20% rng≤1.3 exp≤1 vol≤1/≤0.9
+     8     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤12% rng≤1.8 exp≤1 vol≤0.85/≤1.1
+     9     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤10% rng≤1.15 exp≤1 vol≤0.9/≤1.5
+    10     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤18% rng≤1.5 exp≤1 vol≤0.85/≤0.85
+    11     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤18% rng≤1.8 exp≤1 vol≤0.85/≤0.9
+    12     1⬇  100.0%    20.7%    5.00% 99.00      0     0.0%   0.00  zLen≥2 tight≤18% rng≤1.5 exp≤1 vol≤0.85/≤1.1
+
+  ★ RECOMMENDED zone params for Sniper:
+    minZoneLen:           2
+    maxZoneTightnessPct:  12
+    maxPre10AvgRangeATR:  1.5
+    maxPre10ExpansionCount:1
+    maxPre10AvgVolRatio:  0.85
+    maxPre5AvgVolRatio:   1
+    → IS n=1 WR=100.0% Wil=20.7% PF=99.00 | OOS n=0 WR=0.0% PF=0.00

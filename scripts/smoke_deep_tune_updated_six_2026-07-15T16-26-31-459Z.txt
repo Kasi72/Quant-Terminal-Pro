@@ -1,0 +1,48 @@
+============================================================================================================================================
+DEEP HYPER-TUNE RESULTS: UPDATED SIX PARAMETER SETS
+============================================================================================================================================
+Data: D:\Claude code\stock-screener\scripts\_bt_smoke
+Files: 12; skipped: 0; date: 2021-07-02 to 2026-07-01
+Combos/set: 100; candidate collection: relaxed live-engine + ORS raw features
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Deployable | raw candidates=1260 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+HighPrecision | raw candidates=1260 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Elite | raw candidates=1260 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+UltraSelective | raw candidates=1260 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Sniper | raw candidates=1260 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+ORS-Prime | raw candidates=292 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+   1  79.25   27  92.6   76.6   3.24  7.94     9  100.0    4.00    Inf   100.0   100.0   100.0    7.2   -2.6 maxRSI2:5->15;maxCloseLoc:35->50;minBodyPct:45->55;minRangePct:3.5->4;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->80
+   2  74.31   24  91.7   74.2   3.14  6.99     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.8 maxRSI2:5->15;maxRSI14:38->45;maxCloseLoc:35->40;minBodyPct:45->35;maxUpperWickPct:20->25;minRangePct:3.5->5;maxDistEMA20:-3->-2;minDdSwingHigh:30->35;requireRedCandle:true->false;minOrsScore:72->80
+   3  74.31   25  92.0   75.0   3.18  7.31     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.8 maxRSI2:5->15;maxRSI14:38->45;maxCloseLoc:35->40;minBodyPct:45->55;maxUpperWickPct:20->30;minRangePct:3.5->5;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+   4  74.26   24  91.7   74.2   3.14  6.99     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.9 maxRSI2:5->10;minBodyPct:45->55;maxUpperWickPct:20->30;minRangePct:3.5->4;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->65
+   5  73.34   26  96.2   81.1   3.49 10.82     8  100.0    4.00    Inf   100.0    87.5    87.5    7.1   -3.0 maxRSI2:5->3;maxRSI14:38->42;maxCloseLoc:35->40;minBodyPct:45->55;maxUpperWickPct:20->30;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+   6  69.14   46  69.6   55.2   0.32  1.13    14   85.7    2.24   2.88    85.7    71.4    71.4    6.9   -3.6 maxRSI2:5->10;maxRSI14:38->30;maxUpperWickPct:20->25;minRangePct:3.5->2.4;minDdSwingHigh:30->25;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+   7  68.67   21  95.2   77.3   3.65 23.92     7  100.0    4.00    Inf   100.0   100.0   100.0    7.5   -4.0 maxRSI2:5->10;maxRSI14:38->45;minBodyPct:45->55;maxUpperWickPct:20->10;minRangePct:3.5->5;maxDistEMA20:-3->-8;requireSwingLow:true->false;requireRedCandle:true->false
+   8  65.42   31  90.3   75.1   2.89  4.99    10   90.0    2.61   3.65    90.0    90.0    90.0    6.2   -4.5 maxRSI2:5->15;maxRSI14:38->45;maxCloseLoc:35->25;minBodyPct:45->70;maxUpperWickPct:20->30;minRangePct:3.5->5;maxDistEMA20:-3->-5;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->60
+   9  63.47   17  94.1   73.0   3.57 19.13     6  100.0    4.00    Inf   100.0   100.0   100.0    7.8   -3.2 maxRSI2:5->10;maxUpperWickPct:20->15;minRangePct:3.5->6;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->80
+  10  61.07   29  72.4   54.3   0.61  1.27     9   88.9    2.63   3.83    88.9    66.7    66.7    6.6   -3.1 maxRSI2:5->7;maxRSI14:38->30;minBodyPct:45->35;maxUpperWickPct:20->15;minRangePct:3.5->4;maxDistEMA20:-3->-5;minDdSwingHigh:30->25;requireRedCandle:true->false;minOrsScore:72->80
+  11  60.99   30  83.3   66.4   1.89  2.31     9   88.9    2.63   3.83    88.9    66.7    66.7    6.6   -3.3 maxRSI2:5->10;maxRSI14:38->30;minBodyPct:45->55;minRangePct:3.5->3;maxDistEMA20:-3->-8;minDdSwingHigh:30->25;requireRedCandle:true->false;minOrsScore:72->70
+  12  60.77   29  82.8   65.5   1.99  2.50     9   88.9    2.63   3.83    88.9    66.7    66.7    5.7   -3.4 maxRSI14:38->30;maxCloseLoc:35->25;maxUpperWickPct:20->30;minRangePct:3.5->5;maxDistEMA20:-3->-5;minDdSwingHigh:30->25;requireRedCandle:true->false

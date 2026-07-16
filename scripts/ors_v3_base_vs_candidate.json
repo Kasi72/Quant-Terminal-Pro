@@ -1,0 +1,42 @@
+{
+  "base": {
+    "name": "ORS-Prime Reversal v1",
+    "tag": "70% WR",
+    "ors": {
+      "maxRSI2": 5,
+      "maxRSI14": 38,
+      "maxCloseLoc": 35,
+      "minBodyPct": 45,
+      "maxUpperWickPct": 20,
+      "minRangePct": 3.5,
+      "maxDistEMA20": -3,
+      "minDdSwingHigh": 30,
+      "requireSwingLow": true,
+      "requireRedCandle": true,
+      "minOrsScore": 72,
+      "tpPct": 4,
+      "slAtrMult": 2,
+      "maxHoldBars": 15
+    }
+  },
+  "candidate": {
+    "name": "ORS-Prime Reversal v1",
+    "tag": "70% WR",
+    "ors": {
+      "maxRSI2": 15,
+      "maxRSI14": 45,
+      "maxCloseLoc": 50,
+      "minBodyPct": 35,
+      "maxUpperWickPct": 25,
+      "minRangePct": 6,
+      "maxDistEMA20": 0,
+      "minDdSwingHigh": 35,
+      "requireSwingLow": false,
+      "requireRedCandle": false,
+      "minOrsScore": 72,
+      "tpPct": 4,
+      "slAtrMult": 2,
+      "maxHoldBars": 15
+    }
+  }
+}

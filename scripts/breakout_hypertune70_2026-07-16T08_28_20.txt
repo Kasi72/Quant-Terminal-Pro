@@ -1,0 +1,56 @@
+Breakout Hyper-Tuner 70%+   2026-07-16T08:28:20.966Z
+Files: 1616  Workers: 16  Combos/set: 20000  MinOOSn: 50  Target: 70%+ OOS WR
+History window: 500 bars
+
+════════════════════════════════════════════════════════════════════════════════
+Deployable (optimized_deployable_20plus)
+════════════════════════════════════════════════════════════════════════════════
+Collecting candidates (fully relaxed)...
+  Raw: 301117  After dedupe: 48647  IS/OOS cut: 2025-05-05 (IS: 34052 | OOS: 14595)
+  ZoneLen p25=1 p50=1 p75=1 p90=1 p99=2
+  Sweeping 20001 combos across 16 workers...
+  ✗ No combo found with OOS WR ≥ 70% and OOS n ≥ 50
+
+
+════════════════════════════════════════════════════════════════════════════════
+HighPrecision (optimized_highprecision_15plus)
+════════════════════════════════════════════════════════════════════════════════
+Collecting candidates (fully relaxed)...
+  Raw: 301117  After dedupe: 48647  IS/OOS cut: 2025-05-05 (IS: 34052 | OOS: 14595)
+  ZoneLen p25=1 p50=1 p75=1 p90=1 p99=2
+  Sweeping 20001 combos across 16 workers...
+  ✗ No combo found with OOS WR ≥ 70% and OOS n ≥ 50
+
+
+════════════════════════════════════════════════════════════════════════════════
+Elite (optimized_elite_10plus)
+════════════════════════════════════════════════════════════════════════════════
+Collecting candidates (fully relaxed)...
+  Raw: 301117  After dedupe: 48647  IS/OOS cut: 2025-05-05 (IS: 34052 | OOS: 14595)
+  ZoneLen p25=1 p50=1 p75=1 p90=1 p99=2
+  Sweeping 20001 combos across 16 workers...
+  ✗ No combo found with OOS WR ≥ 70% and OOS n ≥ 50
+
+
+════════════════════════════════════════════════════════════════════════════════
+UltraSelective (optimized_ultraselective_8plus)
+════════════════════════════════════════════════════════════════════════════════
+Collecting candidates (fully relaxed)...
+  Raw: 307928  After dedupe: 48620  IS/OOS cut: 2025-05-05 (IS: 34034 | OOS: 14586)
+  ZoneLen p25=1 p50=1 p75=1 p90=1 p99=2
+  Sweeping 20001 combos across 16 workers...
+  ✗ No combo found with OOS WR ≥ 70% and OOS n ≥ 50
+
+
+════════════════════════════════════════════════════════════════════════════════
+Sniper (sniper_95plus)
+════════════════════════════════════════════════════════════════════════════════
+Collecting candidates (fully relaxed)...
+  Raw: 301117  After dedupe: 48647  IS/OOS cut: 2025-05-05 (IS: 34052 | OOS: 14595)
+  ZoneLen p25=1 p50=1 p75=1 p90=1 p99=2
+  Sweeping 20001 combos across 16 workers...
+  ✗ No combo found with OOS WR ≥ 70% and OOS n ≥ 50
+
+
+
+✅ Done. Results: D:\Claude code\stock-screener\scripts\breakout_hypertune70_2026-07-16T08_28_20.txt

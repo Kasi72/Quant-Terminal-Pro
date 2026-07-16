@@ -1,0 +1,48 @@
+============================================================================================================================================
+DEEP HYPER-TUNE RESULTS: UPDATED SIX PARAMETER SETS
+============================================================================================================================================
+Data: D:\Claude code\stock-screener\scripts\_bt_smoke
+Files: 12; skipped: 0; date: 2021-07-02 to 2026-07-01
+Combos/set: 100; candidate cap/set: 10000; candidate collection: relaxed live-engine actionable + ORS raw features
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Deployable | raw candidates=660 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+HighPrecision | raw candidates=660 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Elite | raw candidates=660 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+UltraSelective | raw candidates=660 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+Sniper | raw candidates=660 | tested=101
+BASE n=0 WR=0.0% Wilson=0.0% Avg=0.00% PF=0.00 OOSn=0 OOSWR=0.0% OOSAvg=0.00% OOSPF=0.00 Hit5/20=0.0% MFE=0.0% MAE=0.0%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+ORS-Prime | raw candidates=292 | tested=101
+BASE n=34 WR=79.4% Wilson=63.2% Avg=1.52% PF=1.92 OOSn=11 OOSWR=90.9% OOSAvg=2.74% OOSPF=4.06 Hit5/20=90.9% MFE=6.8% MAE=-3.8%
+Rank Score n WR Wilson Avg PF OOSn OOSWR OOSAvg OOSPF Hit3/10 Hit5/10 Hit5/20 MFE MAE Params
+   1  79.25   27  92.6   76.6   3.24  7.94     9  100.0    4.00    Inf   100.0   100.0   100.0    7.2   -2.6 maxRSI2:5->15;maxCloseLoc:35->50;minBodyPct:45->55;minRangePct:3.5->4;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->80
+   2  78.79   27  88.9   71.9   2.67  3.99     9  100.0    4.00    Inf   100.0   100.0   100.0    7.1   -3.5 maxRSI2:5->15;maxRSI14:38->45;maxUpperWickPct:20->10;minRangePct:3.5->2.4;maxDistEMA20:-3->-5;minOrsScore:72->60
+   3  74.31   24  91.7   74.2   3.14  6.99     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.8 maxRSI2:5->15;maxRSI14:38->45;maxCloseLoc:35->40;minBodyPct:45->35;maxUpperWickPct:20->25;minRangePct:3.5->5;maxDistEMA20:-3->-2;minDdSwingHigh:30->35;requireRedCandle:true->false;minOrsScore:72->80
+   4  74.31   25  92.0   75.0   3.18  7.31     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.8 maxRSI2:5->15;maxRSI14:38->45;maxCloseLoc:35->40;minBodyPct:45->55;maxUpperWickPct:20->30;minRangePct:3.5->5;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+   5  74.26   24  91.7   74.2   3.14  6.99     8  100.0    4.00    Inf   100.0   100.0   100.0    7.3   -2.9 maxRSI2:5->10;minBodyPct:45->55;maxUpperWickPct:20->30;minRangePct:3.5->4;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->65
+   6  73.85   25  92.0   75.0   2.85  4.45     8  100.0    4.00    Inf   100.0   100.0   100.0    7.2   -3.8 maxRSI2:5->3;maxRSI14:38->42;maxCloseLoc:35->40;maxUpperWickPct:20->10;minRangePct:3.5->3;maxDistEMA20:-3->-2;minOrsScore:72->75
+   7  73.76   24  87.5   69.0   2.50  3.50     8  100.0    4.00    Inf   100.0   100.0   100.0    6.9   -3.9 maxRSI2:5->15;maxCloseLoc:35->25;minBodyPct:45->35;maxUpperWickPct:20->10;minRangePct:3.5->2.4;minOrsScore:72->60
+   8  73.59   24  91.7   74.2   3.14  6.99     8  100.0    4.00    Inf   100.0    87.5    87.5    7.3   -2.6 maxRSI2:5->15;maxRSI14:38->42;maxCloseLoc:35->50;minBodyPct:45->35;maxUpperWickPct:20->30;minRangePct:3.5->2.4;maxDistEMA20:-3->-8;minDdSwingHigh:30->35;minOrsScore:72->60
+   9  73.34   26  96.2   81.1   3.49 10.82     8  100.0    4.00    Inf   100.0    87.5    87.5    7.1   -3.0 maxRSI2:5->3;maxRSI14:38->42;maxCloseLoc:35->40;minBodyPct:45->55;maxUpperWickPct:20->30;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+  10  72.07   34  79.4   63.2   1.52  1.92    11   90.9    2.74   4.06    90.9    90.9    90.9    6.8   -3.8 
+  11  69.14   46  69.6   55.2   0.32  1.13    14   85.7    2.24   2.88    85.7    71.4    71.4    6.9   -3.6 maxRSI2:5->10;maxRSI14:38->30;maxUpperWickPct:20->25;minRangePct:3.5->2.4;minDdSwingHigh:30->25;requireSwingLow:true->false;requireRedCandle:true->false;minOrsScore:72->75
+  12  68.99   22  90.9   72.2   3.06  6.36     7  100.0    4.00    Inf   100.0   100.0   100.0    7.4   -3.1 maxRSI14:38->45;maxCloseLoc:35->50;minBodyPct:45->55;maxUpperWickPct:20->25;minRangePct:3.5->5;maxDistEMA20:-3->0;minDdSwingHigh:30->35;requireSwingLow:true->false

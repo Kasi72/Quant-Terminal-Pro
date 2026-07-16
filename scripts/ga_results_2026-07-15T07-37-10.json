@@ -1,0 +1,23 @@
+{
+  "VCP": {
+    "params": {
+      "maxBase": 36.8816396044557,
+      "maxTightPct": 2.868803030053895,
+      "maxDepthPct": 45.04218509964454,
+      "minVolMult": 2.539679589132791,
+      "near52wPct": 18.47550112701729,
+      "requireVolDecline": false
+    },
+    "agg": {
+      "signals": 2,
+      "ftRate": 1,
+      "meanMFE": 25.99649277405127,
+      "medianMFE": 25.99649277405127,
+      "meanMAE": -1.5179757973129924,
+      "meanFwdRet": 12.848533111381292,
+      "winRate": 1,
+      "mfeMaeRatio": 17.125762360683435,
+      "fitness": 25.99649277405127
+    }
+  }
+}
