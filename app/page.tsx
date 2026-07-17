@@ -920,7 +920,7 @@ const COLUMNS: ColDef[] = [
     },
     numVal: r => r.monster?.topProbability ?? 0,
     cellClass: r => {
-      if (!r.monster || r.monster.badges.length === 0) return 'text-slate-700';
+      if (!r.monster || r.monster.badges.length === 0) return 'text-slate-500';
       const top = r.monster.topProbability;
       return top >= 80 ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded animate-pulse' :
              top >= 60 ? 'text-cyan-300 font-semibold bg-cyan-900/20 px-1 rounded' :
@@ -962,7 +962,7 @@ const COLUMNS: ColDef[] = [
     },
     cellClass: r => {
       const ors = r.clusterBreakdown?.orsReversal;
-      if (!ors || !ors.score || ors.score < 72) return 'text-slate-700';
+      if (!ors || !ors.score || ors.score < 72) return 'text-slate-500';
       return ors.confirmed
         ? 'text-purple-300 font-bold bg-purple-900/30 px-1 rounded animate-pulse'
         : 'text-purple-400 font-semibold';
@@ -986,7 +986,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Key finding</span></div><div><div class="rt-desc">Distance predicts SPEED of breakout (clean monotonic relationship) but NOT quality — fakeout rate stays flat ~50-53% across every distance band. Closer = sooner, not necessarily better.</div></div></div>',
     fmt: r => r.nearBreakoutTier === 'IMMINENT' ? `🔥 ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'NEAR' ? `⚡ ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'WATCH' ? `👁 ${r.nearBreakoutPct.toFixed(1)}%` : r.nearBreakoutTier === 'EARLY' ? `${r.nearBreakoutPct.toFixed(1)}%` : '—',
     numVal: r => r.nearBreakoutTier ? -r.nearBreakoutPct : 99,
-    cellClass: r => r.nearBreakoutTier === 'IMMINENT' ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded animate-pulse' : r.nearBreakoutTier === 'NEAR' ? 'text-yellow-300 font-semibold' : r.nearBreakoutTier === 'WATCH' ? 'text-orange-400' : r.nearBreakoutTier === 'EARLY' ? 'text-slate-500' : 'text-slate-700' },
+    cellClass: r => r.nearBreakoutTier === 'IMMINENT' ? 'text-green-300 font-bold bg-green-900/30 px-1 rounded animate-pulse' : r.nearBreakoutTier === 'NEAR' ? 'text-yellow-300 font-semibold' : r.nearBreakoutTier === 'WATCH' ? 'text-orange-400' : r.nearBreakoutTier === 'EARLY' ? 'text-slate-500' : 'text-slate-400' },
   { key: 'zone_exp', label: 'Zone', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Zone Explosion Badge</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">💎 EXPLODE</span></div><div><div class="rt-desc">Zone ≤20%, close 0.75–4% above, rangeATR 1–4, volExp ≥1.25, ADR 3.5–7.5%, close ≥75%, green candle</div><div class="rt-hit hit-green">63.4% hit rate (290 signals) · Rarest & strongest</div></div></div>'
@@ -1000,7 +1000,7 @@ const COLUMNS: ColDef[] = [
     numVal: r => detectZoneExplosion(r) === 'HIGH_CONVICTION' ? 2 : detectZoneExplosion(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
       const ze = detectZoneExplosion(r);
-      return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded' : ze === 'CONFIRMED' ? 'text-blue-400 bg-blue-900/20 px-1 rounded' : 'text-slate-700';
+      return ze === 'HIGH_CONVICTION' ? 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded' : ze === 'CONFIRMED' ? 'text-blue-400 bg-blue-900/20 px-1 rounded' : 'text-slate-500';
     } },
   { key: 'atr_state', label: 'ATR', width: 80, align: 'left',
     headerTipHtml: '<div class="rt-hdr">ATR Compression State — Recalibrated on 3,802 signals × 1,617 stocks</div>'
@@ -1025,9 +1025,9 @@ const COLUMNS: ColDef[] = [
       if (explosion) return 'text-[#39FF14] font-bold bg-green-900/30 px-1 rounded';
       if (state === 'SWEET_SPOT') return 'text-cyan-300 font-bold bg-cyan-900/30 px-1 rounded';
       if (state === 'BUILDING') return 'text-yellow-400 bg-yellow-900/20 px-1 rounded';
-      if (state === 'DEEP_COMPRESSION') return 'text-slate-600';
+      if (state === 'DEEP_COMPRESSION') return 'text-slate-500';
       if (state === 'HIGH_VOL') return 'text-orange-400 bg-orange-900/20 px-1 rounded';
-      return 'text-slate-700';
+      return 'text-slate-500';
     } },
   { key: 'vol_badge', label: 'Vol', width: 75, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Volume Thrust Badge — Recalibrated on 3,802 signals × 1,617 stocks</div>'
@@ -1042,7 +1042,7 @@ const COLUMNS: ColDef[] = [
     numVal: r => detectVolumeBadge(r) === 'HIGH_CONVICTION' ? 2 : detectVolumeBadge(r) === 'CONFIRMED' ? 1 : 0,
     cellClass: r => {
       const vb = detectVolumeBadge(r);
-      return vb === 'HIGH_CONVICTION' ? 'text-orange-400 font-bold bg-orange-900/20 px-1 rounded' : vb === 'CONFIRMED' ? 'text-emerald-500 bg-emerald-900/20 px-1 rounded' : 'text-slate-700';
+      return vb === 'HIGH_CONVICTION' ? 'text-orange-400 font-bold bg-orange-900/20 px-1 rounded' : vb === 'CONFIRMED' ? 'text-emerald-500 bg-emerald-900/20 px-1 rounded' : 'text-slate-500';
     } },
   { key: 'missing', label: 'Missing', width: 110, align: 'left',
     fmt: r => {
@@ -1051,7 +1051,7 @@ const COLUMNS: ColDef[] = [
       return fails.length > 0 ? fails.join(', ') : '—';
     },
     numVal: r => r.checklist ? r.checklist.filter(c => !c.pass).length : 99,
-    cellClass: r => ['PRE_BREAKOUT','EARLY_INFLECTION'].includes(r.stage) ? 'text-amber-500 text-[9px]' : 'text-slate-700 text-[9px]' },
+    cellClass: r => ['PRE_BREAKOUT','EARLY_INFLECTION'].includes(r.stage) ? 'text-amber-500 text-[9px]' : 'text-slate-500 text-[9px]' },
   { key: 'pivot_pp', label: 'PP', width: 70, align: 'right',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'pivot_r1', label: 'R1', width: 70, align: 'right',

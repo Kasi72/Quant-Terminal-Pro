@@ -2992,6 +2992,29 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
         }
       } catch { /* zone stays null */ }
     }
+
+    // 5. Volatility Expansion Ratio — VolExp column (Momentum tab) + Zone/ATR explosion gates
+    // volatilityExpansionRatio = current bar range / ATR14. exactRangeATR14 already holds this.
+    if (!result.volatilityExpansionRatio || result.volatilityExpansionRatio === 0) {
+      result.volatilityExpansionRatio = result.exactRangeATR14 || 0;
+    }
+
+    // 6. Near-Breakout tier — NearBRK column (Overview tab)
+    // Derived from distance of last close to 52-week high over available candle history.
+    if (!result.nearBreakoutTier) {
+      try {
+        const lookback = Math.min(252, n);
+        let high52w = 0;
+        for (let i = n - lookback; i < n; i++) high52w = Math.max(high52w, candles[i].h);
+        const lastClose = candles[endIdx].c;
+        if (high52w > 0 && lastClose > 0) {
+          const distPct = ((high52w - lastClose) / high52w) * 100;
+          result.nearBreakoutPct = Math.max(0, distPct);
+          result.nearBreakout = distPct <= 2.5;
+          result.nearBreakoutTier = distPct <= 1 ? 'IMMINENT' : distPct <= 2.5 ? 'NEAR' : distPct <= 5 ? 'WATCH' : distPct <= 10 ? 'EARLY' : null;
+        }
+      } catch { /* nearBreakout stays null */ }
+    }
   }
 
   return result;
