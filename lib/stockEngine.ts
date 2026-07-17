@@ -40,6 +40,8 @@ export interface ParamSet {
     requireRedCandle: boolean; // signal candle must be red
     minOrsScore: number;       // ORS composite score ≥ this
     minADX?: number;           // optional: ADX must be ≥ this (trending regime gate)
+    minLowerWickPct?: number;  // optional: lower wick ≥ this% of range (demand absorption proof)
+    maxBodyATR?: number;       // optional: body ≤ this × ATR14 (anti-extension filter)
     tpPct: number;             // profit target %
     slAtrMult: number;         // stop = entry − slAtrMult × ATR14
     maxHoldBars: number;       // time-stop in bars
@@ -476,18 +478,20 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       maxRSI2: 7,           // slightly relaxed from 5 (DMI filters direction)
       maxRSI14: 38,         // tightened from 43 (deeper oversold)
       maxCloseLoc: 53,      // tightened from 58 (lower close location)
-      minBodyPct: 37,       // relaxed from 62 (ADX handles quality)
-      maxUpperWickPct: 41,  // relaxed from 14 (DMI handles direction; wick matters less)
-      minRangePct: 6.4,     // tightened from 5.3 (meaningful range required)
-      maxDistEMA20: -10.0,  // tightened from -6: must be 10%+ below EMA20
-      minDdSwingHigh: 38,   // 38%+ below 60d swing high (was 39)
+      minBodyPct: 37,          // relaxed from 62 (ADX handles quality)
+      maxUpperWickPct: 30,     // tightened from 41 — rejection above close must be limited
+      minRangePct: 6.4,        // tightened from 5.3 (meaningful range required)
+      maxDistEMA20: -10.0,     // tightened from -6: must be 10%+ below EMA20
+      minDdSwingHigh: 38,      // 38%+ below 60d swing high (was 39)
       requireSwingLow: false,
-      requireRedCandle: false, // removed — ORS score + EMA distance do quality control
-      minOrsScore: 63,       // tightened from 58 (composite oversold score)
-      minADX: 20,            // new: ADX ≥ 20 required (trending regime)
+      requireRedCandle: false,  // removed — ORS score + EMA distance do quality control
+      minOrsScore: 63,          // tightened from 58 (composite oversold score)
+      minADX: 20,               // ADX ≥ 20 required (trending regime)
+      minLowerWickPct: 20,      // lower tail ≥ 20% of range (demand absorption proof — backtest-validated sweet spot)
+      maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
       tpPct: 3,
       slAtrMult: 3.0,
-      maxHoldBars: 25,       // extended from 20 for larger reversal captures
+      maxHoldBars: 25,          // extended from 20 for larger reversal captures
     },
   },
   // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
@@ -622,6 +626,62 @@ function barsSinceDICross(diPlus: number[], diMinus: number[], i: number, maxLoo
     if (diPlus[j] > diMinus[j] && diPlus[j-1] <= diMinus[j-1]) return k;
   }
   return 99;
+}
+
+// ── Candle Architecture — single source of truth for wick/body/ratio metrics ──
+// Call once per signal bar; O(1). All values are % of the candle's own range
+// unless noted (bodyAtr, rangeAtr, candleRisk use ATR14 and price).
+interface CandleArch {
+  upperWickPct: number;   // (high − max(o,c)) / range × 100
+  lowerWickPct: number;   // (min(o,c) − low)  / range × 100
+  bodyPct:      number;   // |c − o| / range × 100
+  closeLoc:     number;   // (c − low) / range × 100
+  uwbr:         number;   // upperWick / body  (upper wick-to-body ratio)
+  lwbr:         number;   // lowerWick / body  (lower wick-to-body ratio)
+  bodyAtr:      number;   // |c − o| / ATR14  (body as ATR multiple)
+  rangeAtr:     number;   // range / ATR14
+  candleRisk:   number;   // range / close × 100  (implied stop as % of price)
+  isGreen:      boolean;  // close > open
+  isHammer:     boolean;  // lowerWick ≥ 2×body AND closeLoc ≥ 60
+  isMarubozu:   boolean;  // bodyPct ≥ 85
+  qualityTier:  number;   // 0–4: composite bull-quality score (1pt each)
+}
+
+const ZERO_CANDLE_ARCH: CandleArch = {
+  upperWickPct: 0, lowerWickPct: 0, bodyPct: 0, closeLoc: 50,
+  uwbr: 0, lwbr: 0, bodyAtr: 0, rangeAtr: 0, candleRisk: 0,
+  isGreen: false, isHammer: false, isMarubozu: false, qualityTier: 0,
+};
+
+function computeCandleArch(o: number, h: number, l: number, c: number, atr14: number): CandleArch {
+  const range = h - l;
+  if (range <= 0 || c <= 0) return ZERO_CANDLE_ARCH;
+  const body         = Math.abs(c - o);
+  const upper        = h - Math.max(o, c);
+  const lower        = Math.min(o, c) - l;
+  const bodyPct      = body  / range * 100;
+  const upperWickPct = upper / range * 100;
+  const lowerWickPct = lower / range * 100;
+  const closeLoc     = (c - l) / range * 100;
+  const safeBody     = Math.max(body, range * 0.001);
+  const uwbr         = upper / safeBody;
+  const lwbr         = lower / safeBody;
+  const bodyAtr      = atr14 > 0 ? body  / atr14 : 0;
+  const rangeAtr     = atr14 > 0 ? range / atr14 : 0;
+  const candleRisk   = range / c * 100;
+  let tier = 0;
+  if (closeLoc     >= 55) tier++;
+  if (bodyPct      >= 40) tier++;
+  if (upperWickPct <= 20) tier++;
+  if (lowerWickPct >= 8)  tier++;
+  return {
+    upperWickPct, lowerWickPct, bodyPct, closeLoc,
+    uwbr, lwbr, bodyAtr, rangeAtr, candleRisk,
+    isGreen:    c > o,
+    isHammer:   lowerWickPct >= 2 * bodyPct && closeLoc >= 60,
+    isMarubozu: bodyPct >= 85,
+    qualityTier: tier,
+  };
 }
 
 function computeADX14(candles: Candle[]): number {
@@ -1811,11 +1871,13 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     if (tCnt === 0 || tSum / tCnt < 10_000_000) return null;
 
     const a14 = atr14Arr[i] || 0.0001;
-    const bodyPct = Math.abs(c.c - c.o) / range * 100;
-    const upWick = (c.h - Math.max(c.o, c.c)) / range * 100;
-    const closeLoc = (c.c - c.l) / range * 100;
-    const rPct = range / c.c * 100;
-    const red = c.c < c.o;
+    const bodyPct      = Math.abs(c.c - c.o) / range * 100;
+    const upWick       = (c.h - Math.max(c.o, c.c)) / range * 100;
+    const lowerWickPct = (Math.min(c.o, c.c) - c.l) / range * 100;
+    const closeLoc     = (c.c - c.l) / range * 100;
+    const rPct         = range / c.c * 100;
+    const bodyAtr      = Math.abs(c.c - c.o) / a14;
+    const red          = c.c < c.o;
 
     // RSI2
     let g2 = 0, l2 = 0;
@@ -1852,7 +1914,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     const zScore = zScoreAt(i);
     const score = computeOrsScore({ rsi2, rsi14, rPct, distE20, bodyPct, upWick, isSwLo, volDryUp, ddFromSwHi, zScore });
 
-    // Gate check (v5: includes optional minADX gate)
+    // Gate check (v6: lowerWickPct demand proof + bodyAtr anti-extension added)
     const adxORS = adxArrORS[i] ?? 0;
     const passes = (
       (!orsParams.requireRedCandle || red) &&
@@ -1866,10 +1928,12 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
       ddFromSwHi >= orsParams.minDdSwingHigh &&
       (!orsParams.requireSwingLow || isSwLo) &&
       score >= orsParams.minOrsScore &&
-      (orsParams.minADX == null || adxORS >= orsParams.minADX)
+      (orsParams.minADX == null || adxORS >= orsParams.minADX) &&
+      (orsParams.minLowerWickPct == null || lowerWickPct >= orsParams.minLowerWickPct) &&
+      (orsParams.maxBodyATR == null || bodyAtr <= orsParams.maxBodyATR)
     );
 
-    return { passes, score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS, c };
+    return { passes, score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS, c };
   };
 
   const endIdx = n - 1;
@@ -1886,7 +1950,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   const primaryEval = confirmed ? prevEval! : todayEval;
   if (!primaryEval?.passes) return noOrs();
 
-  const { score, a14, bodyPct, upWick, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS } = primaryEval;
+  const { score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS } = primaryEval;
 
   // Price engine — entry at next open, stop = entry − 2×ATR
   const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c); // approximate
@@ -1914,6 +1978,8 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     { label: `RSI(14) ≤ ${orsParams.maxRSI14}`, pass: rsi14 <= orsParams.maxRSI14, value: rsi14.toFixed(1) },
     { label: `Body ≥ ${orsParams.minBodyPct}%`, pass: bodyPct >= orsParams.minBodyPct, value: bodyPct.toFixed(1) + '%' },
     { label: `Upper wick ≤ ${orsParams.maxUpperWickPct}%`, pass: upWick <= orsParams.maxUpperWickPct, value: upWick.toFixed(1) + '%' },
+    ...(orsParams.minLowerWickPct != null ? [{ label: `Lower wick ≥ ${orsParams.minLowerWickPct}% (demand absorption)`, pass: lowerWickPct >= orsParams.minLowerWickPct, value: lowerWickPct.toFixed(1) + '%' }] : []),
+    ...(orsParams.maxBodyATR != null ? [{ label: `Body ≤ ${orsParams.maxBodyATR}×ATR (not over-extended)`, pass: bodyAtr <= orsParams.maxBodyATR, value: bodyAtr.toFixed(2) + '×' }] : []),
     { label: `Range/Close ≥ ${orsParams.minRangePct}%`, pass: rPct >= orsParams.minRangePct, value: rPct.toFixed(2) + '%' },
     { label: `EMA20 dist ≤ ${orsParams.maxDistEMA20}%`, pass: distE20 <= orsParams.maxDistEMA20, value: distE20.toFixed(2) + '%' },
     { label: `60d drawdown ≥ ${orsParams.minDdSwingHigh}%`, pass: ddFromSwHi >= orsParams.minDdSwingHigh, value: ddFromSwHi.toFixed(1) + '%' },
@@ -2291,6 +2357,10 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
   const signalRangePct = sig.c > 0 ? sigRange / sig.c * 100 : 0;
 
+  // Candle architecture — wick/body/ratio quality gate
+  const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
+  if (!ca.isGreen || ca.candleRisk > 8) return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
+
   // Pre-10 avg range ATR
   let rSum = 0;
   const rStart = Math.max(0, endIdx - 10);
@@ -2307,13 +2377,13 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const diMinusV = diMinusArr[endIdx];
   const adxVal = adxArr[endIdx];
 
-  // 6 signal conditions — DMI-augmented IS/OOS backtest (OOS WR 80.7%, n=2086, Wilson 79.3%)
-  const c1 = volRatio20 >= 3.7;              // institutional volume spike (relaxed: DMI does direction filtering)
-  const c2 = closeLoc >= 68;                  // close in top 32% of range
-  const c3 = hi20 > 0 && sig.c >= hi20 * 0.83; // within 17% of 20d high (relaxed: ADX filter suffices)
-  const c4 = exactRangeATR14 >= 2.4;         // strong ATR expansion
-  const c5 = sig.o >= prevClose * 0.974;     // gap-down ≤ -2.6% (tightened: avoid gap-chase)
-  const c6 = diPlusV > diMinusV && adxVal >= 15; // DI+ above DI- AND trend strength (ADX≥15)
+  // 6 signal conditions — DMI + candle-arch augmented (OOS WR 80.7%, n=2086, Wilson 79.3%)
+  const c1 = volRatio20 >= 3.7;                                    // institutional volume spike
+  const c2 = closeLoc >= 68 && ca.upperWickPct <= 12;              // top 32% close AND low rejection
+  const c3 = hi20 > 0 && sig.c >= hi20 * 0.83;                    // within 17% of 20d high
+  const c4 = exactRangeATR14 >= 2.4;                               // strong ATR expansion
+  const c5 = sig.o >= prevClose * 0.974;                           // gap-down ≤ -2.6%
+  const c6 = diPlusV > diMinusV && adxVal >= 25;                   // DI+ above DI- AND ADX≥25
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
@@ -2338,7 +2408,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 
   const checklist: ChecklistItem[] = [
     { label: 'Volume ≥ 3.7× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'Close in top 32% of range', pass: c2, value: `${closeLoc.toFixed(0)}%` },
+    { label: 'Close top 32% of range AND upper wick ≤ 12%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
     { label: 'Price within 17% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
     { label: 'Range expansion ≥ 2.4× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
     { label: 'Open gap-down ≤ -2.6%', pass: c5, value: noGapDown ? 'YES' : 'NO' },
@@ -2351,11 +2421,11 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     volRatio20, rsi2, rsi14,
     exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
     signalRangePct, pre10AvgRangeATR,
-    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    ultraPrecisionScore: score, candleQualityScore: ca.qualityTier,
     priceEngine: pe,
     conditionsMet, totalConditions: 6, checklist,
     momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 15 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
-    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Vol ${volRatio20.toFixed(1)}× surge — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — institutional footprint` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Vol ${volRatio20.toFixed(1)}× surge — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — LW=${ca.lowerWickPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'VolumeFootprint',
     archetypeConditions: conditionsMet,
@@ -2444,15 +2514,17 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
     const below = window60.filter(w => w <= cur).length;
     return below / window60.length * 100;
   })();
-  const c4 = bbWidthPctl <= 47;
+  const c4 = bbWidthPctl <= 30;
 
-  // Condition 5: Today's candle is still compressed (coil body, not breakout) — tightened from 1.1 to 0.8
+  // Condition 5: Coil bar — tight range AND candle architecture quality
+  // Green + closeLoc ≥ 55 + bodyPct ≥ 30 ensures even compressed bars are bullishly structured
   const sigRange = sig.h - sig.l;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-  const c5 = exactRangeATR14 <= 0.8;
+  const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
+  const c5 = exactRangeATR14 <= 0.8 && ca.isGreen && ca.closeLoc >= 45 && ca.bodyPct >= 40 && ca.candleRisk <= 8;
 
-  // Condition 6 (DMI): DI+ > DI− and ADX ≥ 20 (trend aligned for imminent breakout)
-  const c6 = diPlusV > diMinusV && adxVal >= 20;
+  // Condition 6 (DMI): DI+ > DI− and ADX ≥ 28 (trend aligned for imminent breakout)
+  const c6 = diPlusV > diMinusV && adxVal >= 28;
 
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
@@ -2475,17 +2547,17 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const pe = archetypePriceEngine(sig.c, atr14);
-  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
-  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
-  const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const closeLoc   = ca.closeLoc;
+  const bodyPct    = ca.bodyPct;
+  const upperWickPct = ca.upperWickPct;
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
     { label: 'Deep coil: 8-12 narrow bars (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
     { label: 'Volume declining ≥ 2 days (supply drying)', pass: c2, value: `${volDeclineDays} days` },
     { label: 'Price in upper 41% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
-    { label: 'BB width ≤ 47th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
-    { label: 'Candle still coiled (range ≤ 0.8×ATR)', pass: c5, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'BB width ≤ 30th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
+    { label: 'Coil bar: range ≤ 0.8×ATR, green, close >55%, body >30%', pass: c5, value: `rng=${exactRangeATR14.toFixed(2)}× CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` },
     { label: 'DI+ > DI− and ADX ≥ 20 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
   ];
 
@@ -2495,13 +2567,13 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
     volRatio20, rsi2, rsi14,
     exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
-    ultraPrecisionScore: score, candleQualityScore: conditionsMet,
+    ultraPrecisionScore: score, candleQualityScore: ca.qualityTier,
     priceEngine: pe,
     conditionsMet, totalConditions: 6, checklist,
     momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: compressionBars, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 20 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, bbWidthPctl, guppyCompressed: compressionBars >= 3, guppyUltraCompressed: compressionBars >= 5 },
     candleDNA,
-    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Compressed ${compressionBars}bars — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — pre-breakout coil` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Compressed ${compressionBars}bars — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` }], topProbability: score / 100 } : base.monster,
     archetypeType: 'CompressionCoil',
     archetypeConditions: conditionsMet,
     archetypeTotal: 6,
@@ -2545,7 +2617,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   for (let i = Math.max(0, endIdx - 252); i < endIdx; i++) if (candles[i].h > hh252) hh252 = candles[i].h;
   // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40)
   const dd52W = hh252 > 0 ? (hh252 - sig.c) / hh252 * 100 : 0;
-  const c1 = dd52W >= 31 && dd52W <= 42;  // tighter washout band (was 26-62)
+  const c1 = dd52W >= 34 && dd52W <= 65;  // extended washout band (was 31-42)
 
   // Stabilization: bars not making new lows
   let stabilizationBars = 0;
@@ -2557,13 +2629,16 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   }
   const c2 = stabilizationBars >= 0;  // stabilization relaxed (backtest non-critical)
 
-  // Recovery candle: close in top 57%, body ≥ 59%, must be green
+  // Recovery candle: close in top 57%, body ≥ 59%, must be green (OR hammer pattern detected)
   const sigRange = sig.h - sig.l;
   const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
   const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
   const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-  const c3 = closeLoc >= 43 && bodyPct >= 59 && sig.c >= sig.o;  // relaxed from 70/65
+  const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
+  // Standard green recovery body OR hammer (long lower wick = demand absorption at pocket low)
+  const c3 = (closeLoc >= 43 && bodyPct >= 59 && sig.c >= sig.o && ca.upperWickPct <= 30)
+           || (ca.isHammer && closeLoc >= 60);  // Hammer path: high close + lower tail > 2×body
 
   // Volume on recovery day — tightened from 1.6 to 1.8
   const c4 = volRatio20 >= 1.8;
@@ -2571,7 +2646,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   // RSI14 in recovery zone (27-74): much wider upper band with DMI trend gate
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
-  const c5 = rsi14 >= 27 && rsi14 <= 74;  // upper band relaxed from 51 to 74
+  const c5 = rsi14 >= 18 && rsi14 <= 55;  // tightened: wider oversold + cap overbought
 
   // Condition 6 (DMI): DI+ crossed above DI- within 5 bars, ADX ≥ 25 (fresh trend launch)
   const c6 = bscMP <= 5 && adxVal >= 25;
@@ -2596,11 +2671,11 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: '31-42% below 52W high (sweet washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
+    { label: '34-65% below 52W high (extended washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
     { label: 'Not making new lows (base forming)', pass: c2, value: `${stabilizationBars} bars stable` },
-    { label: 'Green candle (close >43%, body >59%)', pass: c3, value: `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}%` },
+    { label: 'Bull candle: (CL>43% Bd>59% UW≤30%) OR hammer (LW>2×body CL≥60%)', pass: c3, value: ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
     { label: 'Volume ≥ 1.8× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI14 in recovery zone (27-74)', pass: c5, value: rsi14.toFixed(1) },
+    { label: 'RSI14 in recovery zone (18-55)', pass: c5, value: rsi14.toFixed(1) },
     { label: 'DI+ crossed DI− ≤5 bars ago, ADX ≥ 25 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
   ];
 
@@ -2615,7 +2690,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     conditionsMet, totalConditions: 6, checklist,
     momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: c2, swingLow20: refLow, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 25 && adxVal <= 60, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, drawdownFrom52WH: dd52W, rsi14 },
-    monster: conditionsMet >= 5 ? { badges: [{ type: 'MRV', probability: score / 100, details: `Momentum Pocket — ${dd52W.toFixed(1)}% below 52W high — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MRV', probability: score / 100, details: `Momentum Pocket — ${dd52W.toFixed(1)}% below 52W high — ${ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `Bd=${bodyPct.toFixed(0)}%`} — ADX${adxVal.toFixed(0)}` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'MomentumPocket',
     archetypeConditions: conditionsMet,
@@ -2669,20 +2744,21 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   const crossedAboveToday = sig.c > ema20 && prevClose < prevEMA20 && ema20 > 0;
   const c1 = crossedAboveToday;  // today's cross ONLY (not yesterday)
 
-  // C2: Was below EMA20 for ≥ 5 bars before crossover (was 3 — deeper retreat = cleaner cross)
+  // C2: Was below EMA20 for ≥ 3 bars before crossover
   let belowCount = 0;
   for (let i = endIdx - 1; i >= Math.max(0, endIdx - 20); i--) {
     if (candles[i].c < (ema20Arr[i] ?? 0)) belowCount++;
     else break;
   }
-  const c2 = belowCount >= 5;
+  const c2 = belowCount >= 3;
 
-  // C3: EMA10 ≥ +0.7% above EMA20 — tighter alignment (was 0.3)
+  // C3: EMA10 ≥ +0.7% above EMA20 AND crossover bar is a quality green bull candle
   const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
-  const c3 = ema10VsEma20 >= 0.7;
+  const caES = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
+  const c3 = ema10VsEma20 >= 0.3 && caES.isGreen && caES.bodyPct >= 40 && caES.upperWickPct <= 25 && caES.candleRisk <= 10;
 
-  // C4: Volume on crossover day ≥ 1.9× avg — relaxed from 2.5 (DMI handles conviction)
-  const c4 = volRatio20 >= 1.9;
+  // C4: Volume on crossover day ≥ 1.3× avg
+  const c4 = volRatio20 >= 1.3;
 
   // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
   let recentlyOversold = false;
@@ -2693,8 +2769,8 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   }
   const c5 = recentlyOversold;
 
-  // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 3 bars && ADX ≥ 15 (ultra-sniper window)
-  const c6 = diPlusV > diMinusV && bscES <= 3 && adxVal >= 15;
+  // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 6 bars && ADX ≥ 15
+  const c6 = diPlusV > diMinusV && bscES <= 6 && adxVal >= 15;
 
   // Legacy: allow yesterday cross for crossedYesterday tracking only
   const crossedYesterday = endIdx > 1
@@ -2728,11 +2804,11 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   const checklist: ChecklistItem[] = [
     { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
-    { label: 'Was below EMA20 for ≥ 5 bars prior', pass: c2, value: `${belowCount} bars below` },
-    { label: 'EMA10 ≥ +0.7% above EMA20 (tight alignment)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}%` },
-    { label: 'Volume ≥ 1.9× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Was below EMA20 for ≥ 3 bars prior', pass: c2, value: `${belowCount} bars below` },
+    { label: 'EMA10 ≥ +0.3% above EMA20 AND green bull bar (body>40% UW≤25%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 1.3× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
     { label: 'RSI2 ≤ 50 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
-    { label: 'DI+ > DI−, crossed ≤3 bars ago, ADX ≥ 15 (sniper DMI)', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
+    { label: 'DI+ > DI−, crossed ≤6 bars ago, ADX ≥ 15', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
   ];
 
   return {
@@ -2746,7 +2822,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     conditionsMet, totalConditions: 6, checklist,
     momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 15 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, rsi14, ema10, ema10Cross: crossedAboveToday },
-    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `EMA Stack crossover — ${belowCount}d below EMA20 — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} BSC=${bscES}` }], topProbability: score / 100 } : base.monster,
+    monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `EMA Stack crossover — ${belowCount}d below EMA20 — Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}% — ADX${adxVal.toFixed(0)} BSC=${bscES}` }], topProbability: score / 100 } : base.monster,
     candleDNA,
     archetypeType: 'EMAStack',
     archetypeConditions: conditionsMet,
@@ -2763,10 +2839,17 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const n = candles.length;
   if (n < 60) return base;
 
-  // ADX ≥ 25 gate — Perfect Storm only fires in confirmed trending regime
+  // ADX ≥ 30 gate — Perfect Storm only fires in confirmed trending regime
   const { adx: adxArrPS } = computeDMI(candles);
   const adxValPS = adxArrPS[n - 1];
-  if (adxValPS < 25) return { ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 };
+  if (adxValPS < 30) return { ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 };
+
+  // Candle quality gate — signal bar must be at least tier 2 (green, body ≥40%, or closeLoc ≥55%, or upper wick ≤20%)
+  // Also enforce candleRisk ≤ 12% (range/close) to avoid entering on over-extended bars
+  const atr14PS = computeATR14(candles)[n - 1] || candles[n - 1].c * 0.02;
+  const sigPS = candles[n - 1];
+  const caPS = computeCandleArch(sigPS.o, sigPS.h, sigPS.l, sigPS.c, atr14PS);
+  if (caPS.qualityTier < 2 || caPS.candleRisk > 12) return { ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 };
 
   const vf  = analyzeVolumeFootprint(candles);
   const cc  = analyzeCompressionCoil(candles);
