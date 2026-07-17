@@ -2947,15 +2947,54 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
   });
 
   // Momentum Archetype dispatchers — each set has its own inflection detector
-  if (paramSetKey === 'ors_prime_reversal') return analyzeORS(candles);
-  if (paramSetKey === 'optimized_deployable_20plus') return analyzeVolumeFootprint(candles);
-  if (paramSetKey === 'optimized_highprecision_15plus') return analyzeCompressionCoil(candles);
-  if (paramSetKey === 'optimized_elite_10plus') return analyzeMomentumPocket(candles);
-  if (paramSetKey === 'optimized_ultraselective_8plus') return analyzeEMAStack(candles);
-  if (paramSetKey === 'sniper_95plus') return analyzePerfectStorm(candles);
+  let result: AnalysisResult;
+  if (paramSetKey === 'ors_prime_reversal') result = analyzeORS(candles);
+  else if (paramSetKey === 'optimized_deployable_20plus') result = analyzeVolumeFootprint(candles);
+  else if (paramSetKey === 'optimized_highprecision_15plus') result = analyzeCompressionCoil(candles);
+  else if (paramSetKey === 'optimized_elite_10plus') result = analyzeMomentumPocket(candles);
+  else if (paramSetKey === 'optimized_ultraselective_8plus') result = analyzeEMAStack(candles);
+  else if (paramSetKey === 'sniper_95plus') result = analyzePerfectStorm(candles);
+  else return noSignalBase();
 
-  // Exhaustive — all ParamSetKey values handled above
-  return noSignalBase();
+  // ── Post-processing enrichment ─────────────────────────────────────────────
+  // Wires computeStatsFeatures, computeAdvancedFeatures, volDryUp, and zone
+  // into every archetype result. Fixes: Statistics tab, Trade Plan EMA/Guppy,
+  // Advanced tab (UT Bot / FER / CUSUM / VRAM / etc.), DryUp column, Zone ATR,
+  // and PCA column — all of which were blocked by missing enrichment calls.
+  const n = candles.length;
+  if (n >= 30) {
+    const endIdx = n - 1;
+    const atr14Val = computeATR14(candles)[endIdx] || candles[endIdx].c * 0.02;
+
+    // 1. Stats features — Statistics tab + Trade Plan EMA/Guppy columns
+    try {
+      const sf = computeStatsFeatures(candles, endIdx);
+      result.stats = { ...result.stats, ...sf };
+    } catch { /* keep archetype defaults on statsEngine error */ }
+
+    // 2. Advanced features — Advanced tab (UT Bot, FER, CUSUM, MWC, TRAM, CleanMom, Regime, VRAM, PIC)
+    try {
+      result.advanced = computeAdvancedFeatures(candles, endIdx, atr14Val);
+    } catch { /* keep undefined on advancedEngine error */ }
+
+    // 3. Vol dry-up score — DryUp column in Overview tab
+    if (result.momentum.volDryUpScore === 0) {
+      try { result.momentum.volDryUpScore = computeVolDryUpScore(candles, endIdx); } catch { /**/ }
+    }
+
+    // 4. Zone detection — Zone ATR column in Screening tab; enables PCA computation
+    if (!result.zone) {
+      try {
+        const atr14Arr = computeATR14(candles);
+        const ps = PARAM_SETS[paramSetKey];
+        if (ps && ps.minZoneLen > 0) {
+          result.zone = findCompressionZone(candles, atr14Arr, ps, endIdx);
+        }
+      } catch { /* zone stays null */ }
+    }
+  }
+
+  return result;
 }
 
 // ─── MONSTER SCAN — Detect >10% MFE probability ─────────────────────────────
@@ -3435,6 +3474,41 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
       monster: { badges: [], topProbability: 0 },
       dayChangePct: rnd(seed + 70, -4, 6),
       candleDNA: { score: Math.round(rnd(seed + 71, isActionable ? 50 : 15, isActionable ? 95 : 60)), bodyStrength: Math.round(rnd(seed + 72, 0, 35)), wickCleanliness: Math.round(rnd(seed + 73, 0, 35)), rangeExpansion: Math.round(rnd(seed + 74, 0, 30)), bodyATR: rnd(seed + 75, 0.3, 2.0), upperToLowerWickRatio: rnd(seed + 76, 0.2, 2.0), marubozuScore: rnd(seed + 77, 40, 95), tier: isActionable ? 'STRONG' : 'GOOD' },
+      advanced: {
+        utbotMode: isActionable ? (rnd(seed + 90, 0, 1) > 0.4 ? 'BOTH' : 'PRECISION') : 'NONE',
+        utbotBarsAgo: isActionable ? Math.round(rnd(seed + 91, 0, 2)) : 99,
+        utbotLag: Math.round(rnd(seed + 92, 6, 14)),
+        utbotEntry: lastClose * rnd(seed + 93, 1.005, 1.02),
+        fer20: isActionable ? rnd(seed + 94, 0.52, 0.82) : rnd(seed + 94, 0.25, 0.55),
+        ferTier: isActionable ? 'EFFICIENT' : 'MODERATE',
+        cusumPos: rnd(seed + 95, 0, 1.5),
+        cusumNeg: rnd(seed + 96, -0.5, 0),
+        cusumSignal: !isActionable && rnd(seed + 97, 0, 1) > 0.7,
+        cusumTier: isActionable ? 'IDLE' : 'MILD',
+        mwcScore: isActionable ? Math.round(rnd(seed + 98, 0, 1)) : Math.round(rnd(seed + 98, 2, 4)),
+        roc5: isActionable ? rnd(seed + 99, 0.5, 3.0) : rnd(seed + 99, -2.0, 1.5),
+        roc20: isActionable ? rnd(seed + 100, 2, 10) : rnd(seed + 100, -5, 5),
+        roc60: isActionable ? rnd(seed + 101, 5, 25) : rnd(seed + 101, -15, 10),
+        mwcTier: isActionable ? 'CONTRARIAN' : 'MIXED',
+        tram: isActionable ? rnd(seed + 102, -5, -1) : rnd(seed + 102, -1, 2),
+        cvar95: rnd(seed + 103, 1.5, 4.5),
+        tramTier: isActionable ? 'OVERSOLD' : 'NEUTRAL',
+        cleanMom: isActionable ? rnd(seed + 104, -35, -10) : rnd(seed + 104, -10, 15),
+        roc20pct: isActionable ? rnd(seed + 105, -15, -3) : rnd(seed + 105, -5, 10),
+        maxDD20: rnd(seed + 106, 3, 12),
+        cleanTier: isActionable ? 'DEEP_VALUE' : 'NEUTRAL',
+        regimeDays: Math.round(rnd(seed + 107, 0, 8)),
+        avgRunLen: Math.round(rnd(seed + 108, 10, 20)),
+        durationRatio: isActionable ? rnd(seed + 109, 0, 0.4) : rnd(seed + 109, 0.3, 0.9),
+        durationTier: isActionable ? 'IDLE' : 'EARLY',
+        volRegime: (['LOW', 'MID', 'HIGH'] as const)[Math.floor(rnd(seed + 110, 0, 3))],
+        vram: isActionable ? rnd(seed + 111, -2.5, -0.8) : rnd(seed + 111, -0.8, 1.5),
+        vramTier: isActionable ? 'OVERSOLD' : 'NEUTRAL',
+        pic: Math.round(rnd(seed + 112, 8, 30)),
+        picTier: 'FAIR',
+        advScore: isActionable ? Math.round(rnd(seed + 113, 58, 88)) : Math.round(rnd(seed + 113, 25, 60)),
+        advGrade: isActionable ? (rnd(seed + 114, 0, 1) > 0.5 ? 'A' : 'B') : (rnd(seed + 114, 0, 1) > 0.5 ? 'C' : 'D'),
+      },
     });
   }
 

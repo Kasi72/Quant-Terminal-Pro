@@ -550,7 +550,7 @@ const COLUMNS: ColDef[] = [
       const t = (r as AnalysisResult & { archetypeType?: string }).archetypeType;
       const map: Record<string, string> = {
         VolumeFootprint: '📊 Vol Footprint',
-        CompressionCoil: '🔄 Compression',
+        CompressionCoil: '🔄 Compression Coil',
         MomentumPocket: '🎯 Mom Pocket',
         EMAStack: '📈 EMA Stack',
         PerfectStorm: '⚡ Perfect Storm',
@@ -1909,11 +1909,12 @@ function HomePageInner() {
     const newPcaMap: Record<string, {score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number}> = {};
     const pcaScores: Array<{sym: string; score: number; cL: number; uW: number; ups: number; p10A: number; zt: number; evr20: number; evp5: number}> = [];
     for (const r of newResults) {
-      if (!r.zone) continue;
-      const raw = [r.zone.zoneTightnessPct, r.exactRangeATR14, r.volRatio20 || 0, r.exactVolVsPre5 || 0, r.pre10AvgRangeATR, r.upperWickPct];
+      // Use actual zone tightness when available; fall back to pre10 range ATR as proxy
+      const zoneTightnessPct = r.zone?.zoneTightnessPct ?? (r.pre10AvgRangeATR * 4);
+      const raw = [zoneTightnessPct, r.exactRangeATR14, r.volRatio20 || 0, r.exactVolVsPre5 || 0, r.pre10AvgRangeATR, r.upperWickPct];
       let score = 0;
       for (let i = 0; i < 6; i++) score += pcaWeights[i] * ((raw[i] - pcaMeans[i]) / pcaStds[i]);
-      pcaScores.push({ sym: r.symbol, score, cL: r.closeLoc, uW: r.upperWickPct, ups: r.ultraPrecisionScore || 0, p10A: r.pre10AvgRangeATR, zt: r.zone.zoneTightnessPct, evr20: r.volRatio20 || 0, evp5: r.exactVolVsPre5 || 0 });
+      pcaScores.push({ sym: r.symbol, score, cL: r.closeLoc, uW: r.upperWickPct, ups: r.ultraPrecisionScore || 0, p10A: r.pre10AvgRangeATR, zt: zoneTightnessPct, evr20: r.volRatio20 || 0, evp5: r.exactVolVsPre5 || 0 });
     }
     // Percentile-rank sub-scores (0-10) — fixes saturation bug where raw formula
     // clamped 75%+ of signals to candle=10, making species classification useless.
