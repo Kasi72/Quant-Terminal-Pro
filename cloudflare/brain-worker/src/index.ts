@@ -46,6 +46,7 @@ interface EventRow {
   event_date: string | null;
   symbol: string;
   best_stage: string;
+  best_param_set: string | null;
   classification: string;
   move_pct: number;
   close_loc: number | null;
@@ -138,7 +139,7 @@ async function supabaseGet(env: Env, path: string): Promise<unknown> {
 async function ingest(env: Env): Promise<{ ingested: number }> {
   const rows = await supabaseGet(
     env,
-    'pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&order=created_at.desc&limit=1000',
+    'pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&order=created_at.desc&limit=1000',
   ) as EventRow[];
 
   let ingested = 0;
@@ -148,7 +149,8 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
       id: r.id,
       values: toVector(rowToFeatures(r), r.shape_vec),
       metadata: {
-        symbol: r.symbol, run_date: r.run_date, event_date: r.event_date ?? '', best_stage: r.best_stage,
+        symbol: r.symbol, run_date: r.run_date, event_date: r.event_date ?? '',
+        best_stage: r.best_stage, best_param_set: r.best_param_set ?? '',
         classification: r.classification, move_pct: r.move_pct,
       },
     })));
@@ -170,6 +172,7 @@ async function similar(env: Env, features: EventFeatures, topK: number, shape?: 
       symbol: m.metadata?.symbol ?? null,
       runDate: (m.metadata?.event_date || m.metadata?.run_date) ?? null,
       bestStage: m.metadata?.best_stage ?? null,
+      bestParamSet: m.metadata?.best_param_set ?? null,
       classification: m.metadata?.classification ?? null,
       movePct: m.metadata?.move_pct ?? null,
     })),

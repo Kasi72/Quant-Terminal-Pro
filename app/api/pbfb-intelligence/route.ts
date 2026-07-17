@@ -18,10 +18,14 @@ export async function GET() {
 
   const sb = createClient(url, key);
 
+  // Limit to recent 180 days so centroid reflects current market regime
+  const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
   const [eventsResult, runsResult] = await Promise.all([
     sb.from('pbfb_uc_events')
-      .select('best_stage, classification, close_loc, body_pct, upper_wick_pct, vol_ratio_20, vol_vs_pre5, range_atr, rsi2, zone_len, zone_tightness')
+      .select('best_stage, best_param_set, classification, close_loc, body_pct, upper_wick_pct, vol_ratio_20, vol_vs_pre5, range_atr, rsi2, zone_len, zone_tightness')
       .eq('n_before', 1)
+      .gte('event_date', cutoff)
       .limit(2000)
       .order('created_at', { ascending: false }),
     sb.from('pbfb_daily_runs')
@@ -48,6 +52,19 @@ export async function GET() {
   const stageHitCounts: Record<string, number> = {};
   for (const e of events) {
     stageHitCounts[e.best_stage] = (stageHitCounts[e.best_stage] ?? 0) + 1;
+  }
+
+  // Per-param-set detection rate — how often each archetype caught the breakout
+  const paramSetStats: Record<string, { caught: number; total: number; rate: number }> = {};
+  for (const e of events) {
+    const ps = (e.best_param_set as string) || 'unknown';
+    if (!paramSetStats[ps]) paramSetStats[ps] = { caught: 0, total: 0, rate: 0 };
+    paramSetStats[ps].total++;
+    if (e.classification === 'actionable') paramSetStats[ps].caught++;
+  }
+  for (const ps of Object.keys(paramSetStats)) {
+    const s = paramSetStats[ps];
+    s.rate = s.total > 0 ? s.caught / s.total : 0;
   }
 
   // Feature centroid of actionable events (what a "caught" breakout looks like)
@@ -82,6 +99,7 @@ export async function GET() {
     overallDetectionRate: events.length > 0 ? actionable.length / events.length : 0,
     centroid,
     stageHitCounts,
+    paramSetStats,
     featureLifts,
   }, {
     headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
