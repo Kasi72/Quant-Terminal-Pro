@@ -137,9 +137,11 @@ async function supabaseGet(env: Env, path: string): Promise<unknown> {
 
 // ── Ingest: Supabase events → Vectorize fingerprints ────────────────────────
 async function ingest(env: Env): Promise<{ ingested: number }> {
+  // Bug 22 fix: date filter keeps nightly ingestion well within the 1000-row Supabase limit
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    'pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&order=created_at.desc&limit=1000',
+    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
   ) as EventRow[];
 
   let ingested = 0;

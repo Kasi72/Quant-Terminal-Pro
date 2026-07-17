@@ -524,6 +524,8 @@ function atrArr(candles: Candle[], endIdx: number, period: number): number[] {
 
 function utBotTrailingStop(src: number[], atr: number[], endIdx: number, sensitivity: number): number[] {
   const stop = new Array(endIdx + 1).fill(0);
+  // Bug 12 fix: seed stop[0] properly to avoid cold-start discontinuity (was 0)
+  stop[0] = src[0] - sensitivity * (atr[0] || atr[1] || 1);
   for (let i = 1; i <= endIdx; i++) {
     if (atr[i] === 0) { stop[i] = stop[i - 1]; continue; }
     const ps = stop[i - 1], pSrc = src[i - 1], cSrc = src[i], loss = sensitivity * atr[i];

@@ -36,10 +36,37 @@ interface SavePayload {
   events:  EventPayload[];
 }
 
+// Bug 14 fix: unauthenticated POST let any caller write with service role key
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a), bb = enc.encode(b);
+  if (ab.byteLength !== bb.byteLength) return false;
+  const [ka, kb] = await Promise.all([
+    crypto.subtle.importKey('raw', ab, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
+    crypto.subtle.importKey('raw', bb, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
+  ]);
+  const [sa, sb2] = await Promise.all([
+    crypto.subtle.sign('HMAC', ka, ab),
+    crypto.subtle.sign('HMAC', kb, bb),
+  ]);
+  const va = new Uint8Array(sa), vb = new Uint8Array(sb2);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
+
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+
+  // Require internal token to prevent unauthenticated writes via service role key
+  const internalToken = process.env.PBFB_INTERNAL_TOKEN;
+  if (internalToken) {
+    const provided = req.headers.get('x-internal-token') ?? '';
+    const ok = await timingSafeEqual(provided, internalToken);
+    if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const body = await req.json() as SavePayload;
   if (!body.runDate || !Array.isArray(body.events) || body.events.length === 0) {

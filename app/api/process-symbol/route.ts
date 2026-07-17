@@ -21,7 +21,20 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceClient();
 
-  if (!Array.isArray(candles) || candles.length < 30) {
+  // Bug 15 fix: validate individual candle fields before passing to engine
+  const validCandles = Array.isArray(candles)
+    ? candles.filter((c: Candle) =>
+        c != null &&
+        Number.isFinite(c.c) && c.c > 0 &&
+        Number.isFinite(c.o) && c.o > 0 &&
+        Number.isFinite(c.h) && c.h > 0 &&
+        Number.isFinite(c.l) && c.l > 0 &&
+        c.h >= c.l &&
+        Number.isFinite(c.v) && c.v >= 0
+      )
+    : [];
+
+  if (validCandles.length < 30) {
     // Not enough data — insert error row
     await supabase.from('screening_results').insert({
       session_id, symbol,
@@ -34,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const params = computeParams(candles);
+    const params = computeParams(validCandles);
     const { error } = await supabase.from('screening_results').insert({
       session_id, symbol, ...params,
     });

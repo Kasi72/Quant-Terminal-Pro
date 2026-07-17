@@ -1847,6 +1847,25 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   const ema20Arr = computeEMA(candles, 20);
   const { adx: adxArrORS } = computeDMI(candles);
 
+  // Pre-compute Wilder RSI arrays (Bug 1&2 fix: inline raw-sum was not Wilder smoothing)
+  const buildWilderRSIArr = (period: number): number[] => {
+    const out = new Array(n).fill(50);
+    if (n <= period) return out;
+    let ag = 0, al = 0;
+    for (let j = 1; j <= period; j++) { const d = candles[j].c - candles[j-1].c; if (d > 0) ag += d; else al -= d; }
+    ag /= period; al /= period;
+    out[period] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+    for (let j = period + 1; j < n; j++) {
+      const d = candles[j].c - candles[j-1].c;
+      ag = (ag * (period - 1) + (d > 0 ? d : 0)) / period;
+      al = (al * (period - 1) + (d < 0 ? -d : 0)) / period;
+      out[j] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+    }
+    return out;
+  };
+  const rsi2ArrORS  = buildWilderRSIArr(2);
+  const rsi14ArrORS = buildWilderRSIArr(14);
+
   // 252d rolling z-score
   const zScoreAt = (i: number): number => {
     const start = Math.max(0, i - 251);
@@ -1865,10 +1884,11 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     const range = c.h - c.l;
     if (range <= 0 || c.c <= 0) return null;
 
-    // Liquidity
+    // Liquidity — per-bar price×vol turnover average (Bug 3 fix: was using vAvg20 * sig.c)
     let tSum = 0, tCnt = 0;
     for (let j = Math.max(0, i - 20); j < i; j++) { tSum += candles[j].c * candles[j].v; tCnt++; }
     if (tCnt === 0 || tSum / tCnt < 10_000_000) return null;
+    const tAvg = tSum / tCnt;
 
     const a14 = atr14Arr[i] || 0.0001;
     const bodyPct      = Math.abs(c.c - c.o) / range * 100;
@@ -1879,15 +1899,9 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     const bodyAtr      = Math.abs(c.c - c.o) / a14;
     const red          = c.c < c.o;
 
-    // RSI2
-    let g2 = 0, l2 = 0;
-    for (let j = Math.max(1, i - 1); j <= i; j++) { const d = candles[j].c - candles[j - 1].c; if (d > 0) g2 += d; else l2 -= d; }
-    const rsi2 = l2 === 0 ? 100 : 100 - 100 / (1 + g2 / l2);
-
-    // RSI14
-    let g14 = 0, l14 = 0;
-    for (let j = Math.max(1, i - 13); j <= i; j++) { const d = candles[j].c - candles[j - 1].c; if (d > 0) g14 += d; else l14 -= d; }
-    const rsi14 = l14 === 0 ? 100 : 100 - 100 / (1 + g14 / l14);
+    // RSI2 and RSI14 — read from pre-computed Wilder RSI arrays (Bug 1&2 fix)
+    const rsi2  = rsi2ArrORS[i];
+    const rsi14 = rsi14ArrORS[i];
 
     // EMA20 distance
     const e20 = ema20Arr[i];
@@ -1933,7 +1947,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
       (orsParams.maxBodyATR == null || bodyAtr <= orsParams.maxBodyATR)
     );
 
-    return { passes, score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS, c };
+    return { passes, score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, tAvg, adxORS, c };
   };
 
   const endIdx = n - 1;
@@ -1996,7 +2010,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     paramSetKey: 'ors_prime_reversal',
     lastClose: sig.c,
     lastDate: new Date(sig.ts * 1000).toISOString().slice(0, 10),
-    avgTurnover20: vAvg20 * sig.c,
+    avgTurnover20: todayEval?.tAvg ?? 0,
     atrPct14: a14 / sig.c * 100,
     atrPct14Pctl120: 0,
     volRatio20: sig.v / (vAvg20 || 1),
@@ -2125,6 +2139,10 @@ export function computeSelfAdaptiveTrend(
   const bullishFactorTargets: number[] = [];
   const bearishFactorTargets: number[] = [];
 
+  // Incremental EMA state (Bug 4 fix: replaces O(n²) full-array rebuild per bar)
+  let _bullEMA = NaN, _bearEMA = NaN;
+  const _kFact = 2 / (factorSmoothing + 1);
+
   // Track trend-flip and bounce signals bar by bar
   let lastSignal: SelfAdaptiveTrendResult['signal'] = 'NONE';
   let lastTrend = 0;
@@ -2156,10 +2174,11 @@ export function computeSelfAdaptiveTrend(
     bullishFactorTargets.push(bullTarget);
     bearishFactorTargets.push(bearTarget);
 
-    const bullFactorEmaArr = ema(bullishFactorTargets, factorSmoothing);
-    const bearFactorEmaArr = ema(bearishFactorTargets, factorSmoothing);
-    const bullFactor = bullFactorEmaArr[bullFactorEmaArr.length - 1];
-    const bearFactor = bearFactorEmaArr[bearFactorEmaArr.length - 1];
+    // Incremental scalar EMA — O(1) per bar instead of O(n²) array rebuild
+    _bullEMA = isNaN(_bullEMA) ? bullTarget : _kFact * bullTarget + (1 - _kFact) * _bullEMA;
+    _bearEMA = isNaN(_bearEMA) ? bearTarget : _kFact * bearTarget + (1 - _kFact) * _bearEMA;
+    const bullFactor = _bullEMA;
+    const bearFactor = _bearEMA;
 
     // Raw bands
     const rawLower = src - bullFactor * atr;
@@ -2244,10 +2263,8 @@ export function computeSelfAdaptiveTrend(
   const distancePct = lastSuperTrend > 0 ? Math.abs(lastC.c - lastSuperTrend) / lastC.c * 100 : 0;
 
   // Final factor values
-  const bullFactorFinal = bullishFactorTargets.length > 0
-    ? ema(bullishFactorTargets, factorSmoothing).at(-1)! : fallbackFactor;
-  const bearFactorFinal = bearishFactorTargets.length > 0
-    ? ema(bearishFactorTargets, factorSmoothing).at(-1)! : fallbackFactor;
+  const bullFactorFinal = isNaN(_bullEMA) ? fallbackFactor : _bullEMA;
+  const bearFactorFinal = isNaN(_bearEMA) ? fallbackFactor : _bearEMA;
 
   return {
     trend: lastTrend as 1 | -1 | 0,
@@ -2533,7 +2550,7 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
 
   const score = Math.min(100, Math.round(
     (c1 ? 20 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) + (c6 ? 15 : 0) +
-    Math.min(10, compressionBars * 3) + Math.min(5, (pricePos20 - 65) * 0.5)
+    Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
   // Compression Coil fires as PRE_BREAKOUT or better
@@ -2627,7 +2644,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     if (candles[i].l > refLow * 0.985) { stabilizationBars++; refLow = Math.min(refLow, candles[i].l); }
     else break;
   }
-  const c2 = stabilizationBars >= 0;  // stabilization relaxed (backtest non-critical)
+  const c2 = stabilizationBars >= 2;  // at least 2 bars not making new lows (Bug 5 fix: was always true)
 
   // Recovery candle: close in top 57%, body ≥ 59%, must be green (OR hammer pattern detected)
   const sigRange = sig.h - sig.l;

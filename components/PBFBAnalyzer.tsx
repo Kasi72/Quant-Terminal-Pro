@@ -538,8 +538,10 @@ export default function PBFBAnalyzer() {
   const [ucHitters, setUcHitters]     = useState<UCHitter[]>([]);
   const [ucFetchedDate, setUcFetchedDate] = useState('');
 
-  const csvRef   = useRef<HTMLInputElement>(null);
-  const abortRef = useRef(false);
+  const csvRef        = useRef<HTMLInputElement>(null);
+  const abortRef      = useRef(false);
+  // Bug 19 fix: AbortController to cancel in-flight fetch requests when Stop is clicked
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   // Load brain data on mount and after each run
   useEffect(() => { loadBrainData(); }, []);
@@ -746,7 +748,7 @@ export default function PBFBAnalyzer() {
       }
 
       evts.push({ symbol, eventIdx: i, date, dateISO, movePct, volMult: cur.v / v20, isUCLock, candles });
-      i += 10;  // skip ahead — don't count the same multi-day run twice
+      i += 2;  // Bug 20 fix: skip 1 bar only — i+=10 missed events 2-10 bars apart
     }
     return evts;
   }
@@ -762,12 +764,14 @@ export default function PBFBAnalyzer() {
     setResults([]);
     setSaveState('idle');
     abortRef.current = false;
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
 
     // Phase 1: fetch OHLCV and detect monster-move events
     setProgress({ done: 0, total: symbols.length, phase: 'Scanning for monster-move events' });
     const allEvents: BreakoutEvent[] = [];
     for (let si = 0; si < symbols.length; si++) {
-      if (abortRef.current) break;
+      if (abortRef.current) { controller.abort(); break; }
       try {
         const { candles } = await fetchOHLCVClient(symbols[si]);
         if (candles && candles.length >= 100) allEvents.push(...detectEvents(candles, symbols[si]));
@@ -1228,7 +1232,7 @@ export default function PBFBAnalyzer() {
             {loading ? `${progress.phase}… ${progress.done}/${progress.total}` : `▶ Run Forensic on ${symCount} Stock${symCount !== 1 ? 's' : ''}`}
           </button>
           {loading && (
-            <button onClick={() => { abortRef.current = true; setLoading(false); }}
+            <button onClick={() => { abortRef.current = true; fetchAbortRef.current?.abort(); setLoading(false); }}
               className="px-3 py-1.5 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded text-[11px] text-red-300 transition-colors">
               ✕ Stop
             </button>
