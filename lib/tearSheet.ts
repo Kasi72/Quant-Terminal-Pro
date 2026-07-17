@@ -1,6 +1,6 @@
 // ─── Trade Tear Sheet Generator (PDF + XLSX) ────────────────────────────────
 
-import type { TrackedTrade } from './tradingUtils';
+import type { TrackedTrade } from './tradeOps';
 
 function safe(v: number, f = 0): number { return Number.isFinite(v) ? v : f; }
 

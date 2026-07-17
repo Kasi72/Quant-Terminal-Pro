@@ -1,5 +1,5 @@
 import { getClient } from './supabase';
-import type { TrackedTrade } from './tradingUtils';
+import type { TrackedTrade } from './tradeOps';
 
 const USER_ID = 'drkkr';
 const LS_KEY = 'qtp_tracked_trades';

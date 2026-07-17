@@ -1,5 +1,5 @@
 import type { AnalysisResult } from './stockEngine';
-import type { TrackedTrade } from './tradingUtils';
+import type { TrackedTrade } from './tradeOps';
 
 // ─── Telegram Config ────────────────────────────────────────────────────────
 

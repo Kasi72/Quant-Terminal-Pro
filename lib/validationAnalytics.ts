@@ -1,4 +1,4 @@
-import type { TrackedTrade } from './tradingUtils';
+import type { TrackedTrade } from './tradeOps';
 
 function safe(v: number, fallback = 0): number { return Number.isFinite(v) ? v : fallback; }
 

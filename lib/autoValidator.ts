@@ -1,4 +1,4 @@
-import type { TrackedTrade } from './tradingUtils';
+import type { TrackedTrade } from './tradeOps';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

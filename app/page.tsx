@@ -63,12 +63,12 @@ import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
-} from '@/lib/tradingUtils';
+} from '@/lib/tradeOps';
 import {
   loadWatchlist, saveWatchlist, loadSignalHistory, saveSignalHistory, updateSignalHistory,
   getSignalAge, exportZerodhaBasket, detectOverlap, generateSparklineSVG,
   type WatchlistItem, type SignalHistory,
-} from '@/lib/tradingUtils2';
+} from '@/lib/workspace';
 import {
   loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
   deleteTradeFromCloud, deleteAllTradesFromCloud,
@@ -76,7 +76,7 @@ import {
 import {
   computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
   deduplicateSymbols, type ScanStats,
-} from '@/lib/tradingUtils3';
+} from '@/lib/signals';
 import { computeExpectedValue, computeKelly } from '@/lib/statsEngine';
 import {
   loadSessions, saveSession, deleteSession, deleteAllSessions, renameSession,

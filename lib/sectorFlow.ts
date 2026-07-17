@@ -10,7 +10,7 @@
 //  - Sectors with <8 scanned stocks fall back to market-wide normalization
 //  - One failed index never fails the scan — per-sector fresh/stale/missing state
 
-import { getSectorTag } from './tradingUtils3';
+import { getSectorTag } from './signals';
 
 // ── Sector → index ticker adapter config ────────────────────────────────────
 // Candidate lists, tried in order. Yahoo ticker availability changes; this is
