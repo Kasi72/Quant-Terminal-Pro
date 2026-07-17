@@ -1,0 +1,687 @@
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ARCHETYPE PARAMETER TUNE — Full IS/OOS Grid Search on 1617 NSE Stocks
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+════ PHASE 1: PER-DIM MARGINAL LIFT (all other params = current production) ════
+
+▶ VF c1: Min Vol Ratio ×20d
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    2           66905    76.8%   32096    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+    2.5         59680    76.8%   28569    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+    3           55563    76.9%   26596    79.8%    79.4%    -0.1pp     TP3% SL3×ATR HB25d
+    3.5         52910    76.9%   25390    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+  · 3.7         52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    4           51182    76.9%   24582    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+    4.5         50051    76.9%   24015    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+    5           49200    76.9%   23611    79.9%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+
+▶ VF c2a: Min Close Loc %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    55          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    60          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    65          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+  · 68          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    72          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    75          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    78          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ VF c2b: Max Upper Wick %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    12          26438    77.5%   12338    81.0%    80.4%     1.0pp     TP3% SL3×ATR HB25d
+    15          35816    77.0%   16826    80.1%    79.6%     0.2pp     TP3% SL3×ATR HB25d
+    18          45566    76.9%   21784    79.8%    79.3%    -0.1pp     TP3% SL3×ATR HB25d
+  · 20          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    25          68260    76.7%   33029    79.7%    79.3%    -0.1pp     TP3% SL3×ATR HB25d
+    30          83505    76.5%   40465    79.8%    79.5%     0.0pp     TP3% SL3×ATR HB25d
+    35          89187    76.6%   43321    79.8%    79.5%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ VF c3: Price/20d-Hi ≥ (frac)
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    0.72        52716    76.9%   25325    79.9%    79.5%     0.0pp     TP3% SL3×ATR HB25d
+    0.76        52649    76.9%   25279    79.9%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    0.8         52465    76.9%   25189    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+  · 0.83        52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    0.86        51475    76.8%   24664    79.8%    79.3%    -0.1pp     TP3% SL3×ATR HB25d
+    0.9         49247    76.7%   23522    79.6%    79.2%    -0.2pp     TP3% SL3×ATR HB25d
+    0.94        43033    76.6%   20260    79.4%    78.9%    -0.5pp     TP3% SL3×ATR HB25d
+
+▶ VF c4: Min Range/ATR
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    1.5         64586    76.5%   31640    79.3%    78.9%    -0.5pp     TP3% SL3×ATR HB25d
+    1.8         55680    76.7%   26990    79.5%    79.1%    -0.4pp     TP3% SL3×ATR HB25d
+    2           53351    76.7%   25769    79.6%    79.2%    -0.2pp     TP3% SL3×ATR HB25d
+    2.2         52489    76.8%   25239    79.7%    79.3%    -0.1pp     TP3% SL3×ATR HB25d
+  · 2.4         52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    2.7         51908    76.9%   24895    79.9%    79.5%     0.1pp     TP3% SL3×ATR HB25d
+    3           51869    76.9%   24862    79.9%    79.5%     0.1pp     TP3% SL3×ATR HB25d
+    3.5         51855    76.9%   24844    79.9%    79.5%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ VF c5: Gap-down floor (o/pc)
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    0.96        52539    76.9%   25177    79.9%    79.5%     0.1pp     TP3% SL3×ATR HB25d
+    0.968       52367    76.9%   25106    79.9%    79.5%     0.0pp     TP3% SL3×ATR HB25d
+  · 0.974       52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    0.98        51626    76.9%   24833    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+    0.99        49275    76.8%   23764    79.7%    79.3%    -0.1pp     TP3% SL3×ATR HB25d
+    0.995       46015    76.9%   22223    79.8%    79.4%    -0.0pp     TP3% SL3×ATR HB25d
+
+▶ VF c6: Min ADX
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    10          59153    76.7%   28162    79.4%    79.0%    -0.4pp     TP3% SL3×ATR HB25d
+    13          56058    76.8%   26840    79.6%    79.2%    -0.2pp     TP3% SL3×ATR HB25d
+  · 15          52120    76.9%   25020    79.8%    79.4%     0.0pp     TP3% SL3×ATR HB25d
+    18          44673    77.1%   21519    80.3%    79.8%     0.4pp     TP3% SL3×ATR HB25d
+    20          39483    77.2%   19056    80.6%    80.1%     0.6pp     TP3% SL3×ATR HB25d
+    23          32197    77.7%   15598    80.8%    80.3%     0.9pp     TP3% SL3×ATR HB25d
+    25          27921    77.9%   13606    81.0%    80.4%     1.0pp     TP3% SL3×ATR HB25d
+
+▶ CC c1: Min Coil Bars
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    4           14369    76.7%    6810    79.8%    79.0%    -0.1pp     TP3% SL3×ATR HB25d
+    5           13721    76.7%    6538    79.9%    79.0%    -0.1pp     TP3% SL3×ATR HB25d
+    6           13469    76.8%    6386    79.9%    79.0%    -0.1pp     TP3% SL3×ATR HB25d
+    7           13346    76.8%    6308    79.9%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+  · 8           13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    9           13265    76.8%    6250    80.0%    79.2%     0.1pp     TP3% SL3×ATR HB25d
+    10          13247    76.8%    6238    80.0%    79.2%     0.1pp     TP3% SL3×ATR HB25d
+    11          13228    76.8%    6227    80.1%    79.2%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ CC c1: Max Coil Bars
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    9           13249    76.8%    6248    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    10          13268    76.8%    6259    80.0%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+    11          13277    76.9%    6264    80.0%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+  · 12          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    13          13293    76.8%    6275    80.0%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+    15          13842    76.8%    6919    79.3%    78.5%    -0.6pp     TP3% SL3×ATR HB25d
+    18          13842    76.8%    6919    79.3%    78.5%    -0.6pp     TP3% SL3×ATR HB25d
+    22          13842    76.8%    6919    79.3%    78.5%    -0.6pp     TP3% SL3×ATR HB25d
+
+▶ CC c3: Min Price Pos 20d %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    45          16956    76.6%    8169    79.9%    79.2%     0.1pp     TP3% SL3×ATR HB25d
+    50          15693    76.7%    7568    79.8%    79.1%    -0.1pp     TP3% SL3×ATR HB25d
+    55          14441    76.7%    6913    79.9%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+  · 59          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    63          12098    76.9%    5656    79.8%    78.9%    -0.3pp     TP3% SL3×ATR HB25d
+    67          10856    76.8%    5078    79.7%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+    72           9281    76.8%    4316    79.7%    78.7%    -0.4pp     TP3% SL3×ATR HB25d
+
+▶ CC c4: Max BB Width Pctl
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    25           8257    76.7%    3941    80.6%    79.5%     0.4pp     TP3% SL3×ATR HB25d
+    30           9349    76.8%    4436    80.6%    79.6%     0.5pp     TP3% SL3×ATR HB25d
+    35          10451    76.7%    4968    80.4%    79.5%     0.3pp     TP3% SL3×ATR HB25d
+    40          11619    76.8%    5515    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+  · 47          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    52          14669    76.9%    6910    79.6%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+    58          16149    76.8%    7548    79.9%    79.1%    -0.0pp     TP3% SL3×ATR HB25d
+    65          18645    76.9%    8701    80.2%    79.4%     0.3pp     TP3% SL3×ATR HB25d
+
+▶ CC c5a: Max Range/ATR coil
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    0.5          7934    77.1%    3734    79.1%    78.0%    -1.1pp     TP3% SL3×ATR HB25d
+    0.6          9134    77.2%    4327    79.5%    78.5%    -0.6pp     TP3% SL3×ATR HB25d
+    0.65         9977    77.0%    4714    79.8%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+    0.7         10940    77.2%    5171    79.5%    78.5%    -0.6pp     TP3% SL3×ATR HB25d
+    0.75        12068    76.9%    5690    79.6%    78.7%    -0.4pp     TP3% SL3×ATR HB25d
+  · 0.8         13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    0.9         15896    77.0%    7523    80.0%    79.3%     0.2pp     TP3% SL3×ATR HB25d
+    1           18615    76.9%    8766    80.0%    79.3%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ CC c5b: Min Close Loc % coil
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    45          13988    77.1%    6630    80.2%    79.3%     0.2pp     TP3% SL3×ATR HB25d
+    50          13721    76.9%    6492    80.1%    79.3%     0.2pp     TP3% SL3×ATR HB25d
+  · 55          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    58          12967    76.8%    6102    79.8%    79.0%    -0.2pp     TP3% SL3×ATR HB25d
+    62          12470    76.9%    5896    79.7%    78.9%    -0.2pp     TP3% SL3×ATR HB25d
+    65          12067    77.0%    5693    79.9%    79.0%    -0.1pp     TP3% SL3×ATR HB25d
+    70          11321    77.0%    5304    79.7%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+
+▶ CC c5c: Min Body % coil
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    20          16627    76.6%    7744    79.6%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+    25          15833    76.7%    7412    79.5%    78.8%    -0.4pp     TP3% SL3×ATR HB25d
+    30          15001    76.8%    7038    79.6%    78.8%    -0.3pp     TP3% SL3×ATR HB25d
+    35          14136    76.8%    6643    79.8%    79.0%    -0.1pp     TP3% SL3×ATR HB25d
+  · 40          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    45          12433    76.9%    5893    79.9%    79.1%    -0.1pp     TP3% SL3×ATR HB25d
+    50          11627    77.1%    5517    79.9%    79.0%    -0.2pp     TP3% SL3×ATR HB25d
+
+▶ CC c6: Min ADX
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    12          20901    76.6%    9654    80.0%    79.3%     0.2pp     TP3% SL3×ATR HB25d
+    15          18346    76.6%    8510    80.2%    79.5%     0.4pp     TP3% SL3×ATR HB25d
+    17          16265    76.7%    7617    80.0%    79.3%     0.1pp     TP3% SL3×ATR HB25d
+  · 20          13290    76.8%    6269    80.0%    79.1%     0.0pp     TP3% SL3×ATR HB25d
+    23          10796    77.3%    5144    80.2%    79.2%     0.1pp     TP3% SL3×ATR HB25d
+    25           9423    77.4%    4480    80.5%    79.5%     0.4pp     TP3% SL3×ATR HB25d
+    28           7790    77.6%    3753    81.1%    80.0%     0.9pp     TP3% SL3×ATR HB25d
+
+▶ MP c1: DD 52W low bound %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    20          88989    76.2%   44792    79.8%    79.5%    -0.8pp     TP3% SL3×ATR HB25d
+    24          73530    76.6%   36797    80.2%    79.9%    -0.4pp     TP3% SL3×ATR HB25d
+    27          63303    76.9%   31426    80.4%    80.0%    -0.3pp     TP3% SL3×ATR HB25d
+    30          54031    77.1%   26670    80.6%    80.2%    -0.1pp     TP3% SL3×ATR HB25d
+  · 31          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    34          43058    77.6%   21158    80.8%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    37          36212    77.9%   17710    80.7%    80.2%    -0.1pp     TP3% SL3×ATR HB25d
+    40          30147    78.2%   14830    80.9%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ MP c1: DD 52W high bound %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    35          37040    77.3%   18384    80.7%    80.3%    -0.1pp     TP3% SL3×ATR HB25d
+    38          43595    77.1%   21643    80.7%    80.3%    -0.1pp     TP3% SL3×ATR HB25d
+  · 42          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    45          55603    77.5%   27303    80.8%    80.4%     0.0pp     TP3% SL3×ATR HB25d
+    48          59042    77.7%   29005    80.9%    80.5%     0.2pp     TP3% SL3×ATR HB25d
+    52          62398    78.0%   30629    81.0%    80.6%     0.3pp     TP3% SL3×ATR HB25d
+    58          65420    78.1%   32032    81.2%    80.8%     0.5pp     TP3% SL3×ATR HB25d
+    65          67524    78.2%   33019    81.3%    80.9%     0.6pp     TP3% SL3×ATR HB25d
+
+▶ MP c3a: Min Close Loc %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    30          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    35          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    40          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+  · 43          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    48          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    52          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    55          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ MP c3b: Min Body % (green)
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    40          58985    77.1%   29062    80.5%    80.1%    -0.2pp     TP3% SL3×ATR HB25d
+    45          57266    77.1%   28253    80.6%    80.2%    -0.1pp     TP3% SL3×ATR HB25d
+    50          55306    77.2%   27298    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    55          53054    77.2%   26199    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+  · 59          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    63          48774    77.1%   24131    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    68          45642    77.1%   22621    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ MP c3c: Max Upper Wick %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    20          44444    77.0%   21743    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    22          46056    77.0%   22616    80.9%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    25          48202    77.1%   23750    80.9%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    28          49971    77.2%   24704    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+  · 30          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    35          53149    77.3%   26244    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    40          54396    77.3%   26910    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ MP c4: Min Vol Ratio ×20d
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    1.2         75801    77.1%   37777    80.5%    80.2%    -0.1pp     TP3% SL3×ATR HB25d
+    1.4         64551    77.1%   32041    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    1.6         56732    77.1%   28012    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+  · 1.8         51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    2           46987    77.2%   23132    80.8%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    2.2         43999    77.3%   21501    80.8%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    2.5         40469    77.3%   19664    80.8%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+
+▶ MP c5a: RSI14 low bound
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    18          53990    77.3%   27017    81.0%    80.6%     0.3pp     TP3% SL3×ATR HB25d
+    22          52912    77.3%   26372    80.9%    80.5%     0.2pp     TP3% SL3×ATR HB25d
+    25          51855    77.2%   25736    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+  · 27          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    30          49562    77.2%   24282    80.5%    80.1%    -0.2pp     TP3% SL3×ATR HB25d
+    33          47796    77.3%   23325    80.4%    79.9%    -0.4pp     TP3% SL3×ATR HB25d
+    37          45041    77.3%   21868    80.3%    79.8%    -0.5pp     TP3% SL3×ATR HB25d
+
+▶ MP c5b: RSI14 high bound
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    55          29649    77.0%   15596    81.2%    80.6%     0.3pp     TP3% SL3×ATR HB25d
+    60          35471    77.0%   18277    80.9%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+    65          41294    77.0%   20875    80.8%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    68          44751    77.0%   22396    80.8%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+  · 74          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    78          54483    77.4%   26699    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    82          57055    77.5%   27851    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ MP c6a: Max bars since DI×
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    2           47605    77.3%   23662    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    3           48846    77.2%   24224    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    4           49965    77.2%   24718    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+  · 5           51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    6           52085    77.1%   25653    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    8           54322    77.1%   26579    80.8%    80.4%     0.0pp     TP3% SL3×ATR HB25d
+    10          56688    77.0%   27640    80.8%    80.4%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ MP c6b: Min ADX
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    15          86902    76.6%   42106    79.8%    79.4%    -0.9pp     TP3% SL3×ATR HB25d
+    18          72375    76.9%   35190    80.2%    79.8%    -0.5pp     TP3% SL3×ATR HB25d
+    20          64248    76.9%   31320    80.4%    80.0%    -0.3pp     TP3% SL3×ATR HB25d
+    22          57715    77.1%   28338    80.5%    80.1%    -0.2pp     TP3% SL3×ATR HB25d
+  · 25          51051    77.2%   25193    80.7%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+    27          48070    77.2%   23813    80.7%    80.3%    -0.0pp     TP3% SL3×ATR HB25d
+    30          45224    77.3%   22499    80.8%    80.3%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ ES c2: Min bars below EMA20
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    2           16956    76.0%    9459    78.4%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+    3           14761    76.1%    8246    78.5%    77.7%     0.2pp     TP3% SL3×ATR HB25d
+    4           13386    76.1%    7367    78.3%    77.5%    -0.1pp     TP3% SL3×ATR HB25d
+  · 5           12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    6           11416    75.9%    6198    78.3%    77.4%    -0.1pp     TP3% SL3×ATR HB25d
+    7           10740    75.9%    5763    78.2%    77.3%    -0.3pp     TP3% SL3×ATR HB25d
+    9            9689    76.1%    5135    78.0%    77.0%    -0.5pp     TP3% SL3×ATR HB25d
+
+▶ ES c3a: Min EMA10/EMA20 %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    0           13586    75.8%    7472    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+    0.2         13112    75.9%    7200    78.5%    77.7%     0.2pp     TP3% SL3×ATR HB25d
+    0.4         12722    76.0%    6965    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+    0.5         12558    76.0%    6867    78.5%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+  · 0.7         12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    0.9         12088    75.8%    6576    78.2%    77.3%    -0.2pp     TP3% SL3×ATR HB25d
+    1.2         11904    75.8%    6447    78.2%    77.4%    -0.2pp     TP3% SL3×ATR HB25d
+
+▶ ES c3b: Min Body %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    25          12328    75.9%    6736    78.3%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+    30          12318    75.9%    6730    78.4%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+    35          12302    75.9%    6721    78.4%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+  · 40          12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    45          12264    75.9%    6705    78.4%    77.6%     0.0pp     TP3% SL3×ATR HB25d
+    50          12235    75.9%    6689    78.4%    77.6%     0.0pp     TP3% SL3×ATR HB25d
+    55          12207    75.9%    6675    78.4%    77.6%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ ES c3c: Max Upper Wick %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    15          12026    75.9%    6515    78.2%    77.4%    -0.2pp     TP3% SL3×ATR HB25d
+    18          12105    75.9%    6586    78.3%    77.5%    -0.1pp     TP3% SL3×ATR HB25d
+    20          12158    75.9%    6628    78.3%    77.5%    -0.1pp     TP3% SL3×ATR HB25d
+    22          12210    75.9%    6662    78.3%    77.5%    -0.1pp     TP3% SL3×ATR HB25d
+  · 25          12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    30          12388    75.9%    6778    78.4%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+    35          12484    76.0%    6838    78.4%    77.6%     0.0pp     TP3% SL3×ATR HB25d
+
+▶ ES c3d: Max Candle Risk %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    6           12002    75.9%    6514    78.1%    77.2%    -0.3pp     TP3% SL3×ATR HB25d
+    7           12088    75.9%    6589    78.2%    77.4%    -0.2pp     TP3% SL3×ATR HB25d
+    8           12153    75.9%    6636    78.3%    77.4%    -0.1pp     TP3% SL3×ATR HB25d
+    9           12224    75.9%    6672    78.3%    77.4%    -0.1pp     TP3% SL3×ATR HB25d
+  · 10          12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    12          12360    75.9%    6749    78.5%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+    15          12433    76.0%    6785    78.5%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ ES c4: Min Vol Ratio ×20d
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    1.2         16490    76.0%    8765    78.8%    78.0%     0.5pp     TP3% SL3×ATR HB25d
+    1.5         14210    75.7%    7617    78.5%    77.7%     0.2pp     TP3% SL3×ATR HB25d
+    1.7         13113    75.7%    7062    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+  · 1.9         12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    2.1         11684    75.9%    6370    78.6%    77.7%     0.2pp     TP3% SL3×ATR HB25d
+    2.3         11202    76.0%    6083    78.5%    77.6%     0.0pp     TP3% SL3×ATR HB25d
+    2.5         10757    75.9%    5858    78.4%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+
+▶ ES c6a: Max bars since DI×
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    1           11716    76.0%    6388    78.4%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+    2           12042    76.0%    6590    78.3%    77.5%    -0.0pp     TP3% SL3×ATR HB25d
+  · 3           12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    4           12459    75.9%    6775    78.4%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+    5           12596    75.8%    6847    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+    6           12711    75.8%    6912    78.5%    77.7%     0.2pp     TP3% SL3×ATR HB25d
+    7           12819    75.8%    6961    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ ES c6b: Min ADX
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    10          14941    75.8%    7974    78.4%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+    12          14223    75.9%    7614    78.4%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+    13          13632    75.9%    7335    78.5%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+  · 15          12284    75.9%    6712    78.4%    77.5%     0.0pp     TP3% SL3×ATR HB25d
+    17          10947    76.1%    5995    78.6%    77.7%     0.1pp     TP3% SL3×ATR HB25d
+    20           9269    76.3%    5070    78.6%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+    22           8467    76.4%    4627    78.6%    77.6%     0.1pp     TP3% SL3×ATR HB25d
+
+▶ PS: Min archetypes firing
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+  · 2            7265    76.7%    3482    80.4%    79.2%     0.0pp     TP3% SL3×ATR HB25d
+    3            1122    77.4%     557    80.8%    77.9%    -1.3pp     TP3% SL3×ATR HB25d
+    4              69    76.8%      28    89.3%    76.0%    -3.2pp     TP3% SL3×ATR HB25d
+
+▶ PS: ADX pre-gate
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    18          12998    76.4%    6246    80.0%    79.2%    -0.0pp     TP3% SL3×ATR HB25d
+    20          11406    76.5%    5472    79.9%    79.0%    -0.2pp     TP3% SL3×ATR HB25d
+    22           9542    76.7%    4571    80.3%    79.3%     0.1pp     TP3% SL3×ATR HB25d
+  · 25           7265    76.7%    3482    80.4%    79.2%     0.0pp     TP3% SL3×ATR HB25d
+    28           4904    76.8%    2386    80.7%    79.3%     0.1pp     TP3% SL3×ATR HB25d
+    30           3786    77.5%    1868    80.9%    79.4%     0.2pp     TP3% SL3×ATR HB25d
+
+▶ PS: Min quality tier (0-4)
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    1            7564    76.7%    3605    80.3%    79.2%    -0.0pp     TP3% SL3×ATR HB25d
+  · 2            7265    76.7%    3482    80.4%    79.2%     0.0pp     TP3% SL3×ATR HB25d
+    3            6537    76.9%    3123    80.3%    79.1%    -0.1pp     TP3% SL3×ATR HB25d
+
+▶ PS: Max candle risk %
+  Value         IS_n    IS_WR   OOS_n   OOS_WR   Wilson      Lift              Best Exit
+  ───────────────────────────────────────────────────────────────────────────────────────────────
+    5            4476    75.6%    2130    79.7%    78.2%    -1.0pp     TP3% SL3×ATR HB25d
+    6            5541    75.7%    2661    80.0%    78.7%    -0.5pp     TP3% SL3×ATR HB25d
+    7            6469    76.3%    3131    80.5%    79.3%     0.0pp     TP3% SL3×ATR HB25d
+  · 8            7265    76.7%    3482    80.4%    79.2%     0.0pp     TP3% SL3×ATR HB25d
+    10           7667    76.9%    3708    80.5%    79.4%     0.2pp     TP3% SL3×ATR HB25d
+    12           7845    76.9%    3796    80.5%    79.4%     0.2pp     TP3% SL3×ATR HB25d
+
+
+─── Phase 1 Top-25 Single-Dim Lifts ───
+
+  Param                                  Value→Best     OOS_n    OOS_WR   Wilson     Lift                   Exit
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  VF c6: Min ADX                         15→25          13606     81.0%    80.4%     1.0pp      TP3% SL3×ATR HB25d
+  VF c2b: Max Upper Wick %               20→12          12338     81.0%    80.4%     1.0pp      TP3% SL3×ATR HB25d
+  CC c6: Min ADX                         20→28           3753     81.1%    80.0%     0.9pp      TP3% SL3×ATR HB25d
+  VF c6: Min ADX                         15→23          15598     80.8%    80.3%     0.9pp      TP3% SL3×ATR HB25d
+  VF c6: Min ADX                         15→20          19056     80.6%    80.1%     0.6pp      TP3% SL3×ATR HB25d
+  MP c1: DD 52W high bound %             42→65          33019     81.3%    80.9%     0.6pp      TP3% SL3×ATR HB25d
+  ES c4: Min Vol Ratio ×20d              1.9→1.2         8765     78.8%    78.0%     0.5pp      TP3% SL3×ATR HB25d
+  MP c1: DD 52W high bound %             42→58          32032     81.2%    80.8%     0.5pp      TP3% SL3×ATR HB25d
+  CC c4: Max BB Width Pctl               47→30           4436     80.6%    79.6%     0.5pp      TP3% SL3×ATR HB25d
+  CC c4: Max BB Width Pctl               47→25           3941     80.6%    79.5%     0.4pp      TP3% SL3×ATR HB25d
+  VF c6: Min ADX                         15→18          21519     80.3%    79.8%     0.4pp      TP3% SL3×ATR HB25d
+  CC c6: Min ADX                         20→15           8510     80.2%    79.5%     0.4pp      TP3% SL3×ATR HB25d
+  CC c6: Min ADX                         20→25           4480     80.5%    79.5%     0.4pp      TP3% SL3×ATR HB25d
+  CC c4: Max BB Width Pctl               47→35           4968     80.4%    79.5%     0.3pp      TP3% SL3×ATR HB25d
+  MP c1: DD 52W high bound %             42→52          30629     81.0%    80.6%     0.3pp      TP3% SL3×ATR HB25d
+  CC c4: Max BB Width Pctl               47→65           8701     80.2%    79.4%     0.3pp      TP3% SL3×ATR HB25d
+  MP c5b: RSI14 high bound               74→55          15596     81.2%    80.6%     0.3pp      TP3% SL3×ATR HB25d
+  MP c5a: RSI14 low bound                27→18          27017     81.0%    80.6%     0.3pp      TP3% SL3×ATR HB25d
+  CC c5b: Min Close Loc % coil           55→45           6630     80.2%    79.3%     0.2pp      TP3% SL3×ATR HB25d
+  MP c1: DD 52W high bound %             42→48          29005     80.9%    80.5%     0.2pp      TP3% SL3×ATR HB25d
+  PS: Max candle risk %                  8→12            3796     80.5%    79.4%     0.2pp      TP3% SL3×ATR HB25d
+  CC c5b: Min Close Loc % coil           55→50           6492     80.1%    79.3%     0.2pp      TP3% SL3×ATR HB25d
+  ES c3a: Min EMA10/EMA20 %              0.7→0.2         7200     78.5%    77.7%     0.2pp      TP3% SL3×ATR HB25d
+  ES c2: Min bars below EMA20            5→3             8246     78.5%    77.7%     0.2pp      TP3% SL3×ATR HB25d
+  PS: Max candle risk %                  8→10            3708     80.5%    79.4%     0.2pp      TP3% SL3×ATR HB25d
+
+─── Phase 1 Sweet Spots Per Dim ───
+
+  [VF] VF c1: Min Vol Ratio ×20d                cur=3.7    → BEST=3.7      OOS_n=25020  WR=79.8%  Wilson=79.4%  lift=0.0pp
+  [VF] VF c2a: Min Close Loc %                  cur=68     → BEST=55       OOS_n=25020  WR=79.8%  Wilson=79.4%  lift=0.0pp
+  [VF] VF c2b: Max Upper Wick %                 cur=20     → BEST=12       OOS_n=12338  WR=81.0%  Wilson=80.4%  lift=+1.0pp
+  [VF] VF c3: Price/20d-Hi ≥ (frac)             cur=0.83   → BEST=0.72     OOS_n=25325  WR=79.9%  Wilson=79.5%  lift=+0.0pp
+  [VF] VF c4: Min Range/ATR                     cur=2.4    → BEST=3        OOS_n=24862  WR=79.9%  Wilson=79.5%  lift=+0.1pp
+  [VF] VF c5: Gap-down floor (o/pc)             cur=0.974  → BEST=0.96     OOS_n=25177  WR=79.9%  Wilson=79.5%  lift=+0.1pp
+  [VF] VF c6: Min ADX                           cur=15     → BEST=25       OOS_n=13606  WR=81.0%  Wilson=80.4%  lift=+1.0pp
+  [CC] CC c1: Min Coil Bars                     cur=8      → BEST=11       OOS_n=6227  WR=80.1%  Wilson=79.2%  lift=+0.1pp
+  [CC] CC c1: Max Coil Bars                     cur=12     → BEST=9        OOS_n=6248  WR=80.0%  Wilson=79.1%  lift=+0.0pp
+  [CC] CC c3: Min Price Pos 20d %               cur=59     → BEST=45       OOS_n=8169  WR=79.9%  Wilson=79.2%  lift=+0.1pp
+  [CC] CC c4: Max BB Width Pctl                 cur=47     → BEST=30       OOS_n=4436  WR=80.6%  Wilson=79.6%  lift=+0.5pp
+  [CC] CC c5a: Max Range/ATR coil               cur=0.8    → BEST=0.9      OOS_n=7523  WR=80.0%  Wilson=79.3%  lift=+0.2pp
+  [CC] CC c5b: Min Close Loc % coil             cur=55     → BEST=45       OOS_n=6630  WR=80.2%  Wilson=79.3%  lift=+0.2pp
+  [CC] CC c5c: Min Body % coil                  cur=40     → BEST=40       OOS_n=6269  WR=80.0%  Wilson=79.1%  lift=0.0pp
+  [CC] CC c6: Min ADX                           cur=20     → BEST=28       OOS_n=3753  WR=81.1%  Wilson=80.0%  lift=+0.9pp
+  [MP] MP c1: DD 52W low bound %                cur=31     → BEST=40       OOS_n=14830  WR=80.9%  Wilson=80.4%  lift=+0.1pp
+  [MP] MP c1: DD 52W high bound %               cur=42     → BEST=65       OOS_n=33019  WR=81.3%  Wilson=80.9%  lift=+0.6pp
+  [MP] MP c3a: Min Close Loc %                  cur=43     → BEST=30       OOS_n=25193  WR=80.7%  Wilson=80.3%  lift=0.0pp
+  [MP] MP c3b: Min Body % (green)               cur=59     → BEST=68       OOS_n=22621  WR=80.8%  Wilson=80.4%  lift=+0.1pp
+  [MP] MP c3c: Max Upper Wick %                 cur=30     → BEST=25       OOS_n=23750  WR=80.9%  Wilson=80.4%  lift=+0.1pp
+  [MP] MP c4: Min Vol Ratio ×20d                cur=1.8    → BEST=1.6      OOS_n=28012  WR=80.8%  Wilson=80.4%  lift=+0.1pp
+  [MP] MP c5a: RSI14 low bound                  cur=27     → BEST=18       OOS_n=27017  WR=81.0%  Wilson=80.6%  lift=+0.3pp
+  [MP] MP c5b: RSI14 high bound                 cur=74     → BEST=55       OOS_n=15596  WR=81.2%  Wilson=80.6%  lift=+0.3pp
+  [MP] MP c6a: Max bars since DI×               cur=5      → BEST=10       OOS_n=27640  WR=80.8%  Wilson=80.4%  lift=+0.1pp
+  [MP] MP c6b: Min ADX                          cur=25     → BEST=30       OOS_n=22499  WR=80.8%  Wilson=80.3%  lift=+0.0pp
+  [ES] ES c2: Min bars below EMA20              cur=5      → BEST=3        OOS_n=8246  WR=78.5%  Wilson=77.7%  lift=+0.2pp
+  [ES] ES c3a: Min EMA10/EMA20 %                cur=0.7    → BEST=0.2      OOS_n=7200  WR=78.5%  Wilson=77.7%  lift=+0.2pp
+  [ES] ES c3b: Min Body %                       cur=40     → BEST=50       OOS_n=6689  WR=78.4%  Wilson=77.6%  lift=+0.0pp
+  [ES] ES c3c: Max Upper Wick %                 cur=25     → BEST=35       OOS_n=6838  WR=78.4%  Wilson=77.6%  lift=+0.0pp
+  [ES] ES c3d: Max Candle Risk %                cur=10     → BEST=15       OOS_n=6785  WR=78.5%  Wilson=77.6%  lift=+0.1pp
+  [ES] ES c4: Min Vol Ratio ×20d                cur=1.9    → BEST=1.2      OOS_n=8765  WR=78.8%  Wilson=78.0%  lift=+0.5pp
+  [ES] ES c6a: Max bars since DI×               cur=3      → BEST=6        OOS_n=6912  WR=78.5%  Wilson=77.7%  lift=+0.2pp
+  [ES] ES c6b: Min ADX                          cur=15     → BEST=17       OOS_n=5995  WR=78.6%  Wilson=77.7%  lift=+0.1pp
+  [PS] PS: Min archetypes firing                cur=2      → BEST=2        OOS_n=3482  WR=80.4%  Wilson=79.2%  lift=0.0pp
+  [PS] PS: ADX pre-gate                         cur=25     → BEST=30       OOS_n=1868  WR=80.9%  Wilson=79.4%  lift=+0.2pp
+  [PS] PS: Min quality tier (0-4)               cur=2      → BEST=2        OOS_n=3482  WR=80.4%  Wilson=79.2%  lift=0.0pp
+  [PS] PS: Max candle risk %                    cur=8      → BEST=12       OOS_n=3796  WR=80.5%  Wilson=79.4%  lift=+0.2pp
+
+
+════ PHASE 2: JOINT 2-DIM GRID (sweet-spot compound combinations) ════
+
+▶ [VF] minVolRatio×minRangeATR
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  3.7      3          24862    79.9%    79.5%    76.9%     TP3% SL3×ATR HB25d
+  3.7      2.7        24895    79.9%    79.5%    76.9%     TP3% SL3×ATR HB25d
+  3.5      3          25242    79.9%    79.5%    76.9%     TP3% SL3×ATR HB25d
+  4.5      3          23833    79.9%    79.5%    76.9%     TP3% SL3×ATR HB25d
+  4        3          24414    79.9%    79.5%    76.9%     TP3% SL3×ATR HB25d
+  2.5      3          28444    79.8%    79.5%    76.8%     TP3% SL3×ATR HB25d
+  3.5      2.7        25273    79.9%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  4.5      2.7        23870    79.9%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  4        2.7        24449    79.9%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  2.5      2.7        28471    79.8%    79.4%    76.8%     TP3% SL3×ATR HB25d
+  3.7      2.4        25020    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  3        3          26453    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+
+▶ [VF] minCloseLoc×maxUpperWick
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  60       15         16826    80.1%    79.6%    77.0%     TP3% SL3×ATR HB25d
+  65       15         16826    80.1%    79.6%    77.0%     TP3% SL3×ATR HB25d
+  68       15         16826    80.1%    79.6%    77.0%     TP3% SL3×ATR HB25d
+  72       15         16826    80.1%    79.6%    77.0%     TP3% SL3×ATR HB25d
+  75       15         16826    80.1%    79.6%    77.0%     TP3% SL3×ATR HB25d
+  60       30         40465    79.8%    79.5%    76.5%     TP3% SL3×ATR HB25d
+  65       30         40465    79.8%    79.5%    76.5%     TP3% SL3×ATR HB25d
+  68       30         40465    79.8%    79.5%    76.5%     TP3% SL3×ATR HB25d
+  60       20         25020    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  65       20         25020    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  68       20         25020    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+  72       20         25020    79.8%    79.4%    76.9%     TP3% SL3×ATR HB25d
+
+▶ [CC] minCoilBars×maxBBPctl
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  9        30          4419    80.7%    79.7%    76.7%     TP3% SL3×ATR HB25d
+  10       30          4407    80.6%    79.6%    76.7%     TP3% SL3×ATR HB25d
+  8        30          4436    80.6%    79.6%    76.8%     TP3% SL3×ATR HB25d
+  9        35          4950    80.5%    79.5%    76.6%     TP3% SL3×ATR HB25d
+  10       35          4938    80.5%    79.5%    76.6%     TP3% SL3×ATR HB25d
+  7        30          4467    80.5%    79.5%    76.7%     TP3% SL3×ATR HB25d
+  8        35          4968    80.4%    79.5%    76.7%     TP3% SL3×ATR HB25d
+  6        30          4525    80.4%    79.4%    76.7%     TP3% SL3×ATR HB25d
+  5        30          4644    80.4%    79.4%    76.7%     TP3% SL3×ATR HB25d
+  7        35          4999    80.4%    79.4%    76.7%     TP3% SL3×ATR HB25d
+  6        35          5065    80.3%    79.3%    76.6%     TP3% SL3×ATR HB25d
+  5        35          5195    80.2%    79.3%    76.6%     TP3% SL3×ATR HB25d
+
+▶ [CC] maxRangeATR×minCloseLoc
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  0.8      45          6630    80.2%    79.3%    77.1%     TP3% SL3×ATR HB25d
+  0.8      50          6492    80.1%    79.3%    76.9%     TP3% SL3×ATR HB25d
+  0.8      55          6269    80.0%    79.1%    76.8%     TP3% SL3×ATR HB25d
+  0.8      65          5693    79.9%    79.0%    77.0%     TP3% SL3×ATR HB25d
+  0.65     45          4910    80.0%    79.0%    77.2%     TP3% SL3×ATR HB25d
+  0.65     50          4831    80.0%    79.0%    77.1%     TP3% SL3×ATR HB25d
+  0.8      60          6002    79.8%    78.9%    76.8%     TP3% SL3×ATR HB25d
+  0.75     45          5991    79.8%    78.9%    77.1%     TP3% SL3×ATR HB25d
+  0.75     50          5873    79.8%    78.9%    77.0%     TP3% SL3×ATR HB25d
+  0.65     65          4401    79.8%    78.8%    77.1%     TP3% SL3×ATR HB25d
+  0.65     55          4714    79.8%    78.8%    77.0%     TP3% SL3×ATR HB25d
+  0.7      45          5426    79.7%    78.8%    77.4%     TP3% SL3×ATR HB25d
+
+▶ [MP] dd52WLo×dd52WHi
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  34       55         27354    81.2%    80.8%    78.5%     TP3% SL3×ATR HB25d
+  37       55         23906    81.2%    80.8%    78.9%     TP3% SL3×ATR HB25d
+  31       55         31389    81.1%    80.7%    78.1%     TP3% SL3×ATR HB25d
+  34       50         25935    81.1%    80.7%    78.3%     TP3% SL3×ATR HB25d
+  37       50         22487    81.1%    80.6%    78.6%     TP3% SL3×ATR HB25d
+  31       50         29970    81.0%    80.6%    77.8%     TP3% SL3×ATR HB25d
+  30       55         32866    81.0%    80.6%    78.0%     TP3% SL3×ATR HB25d
+  30       50         31447    80.9%    80.5%    77.8%     TP3% SL3×ATR HB25d
+  34       45         23268    80.8%    80.4%    77.9%     TP3% SL3×ATR HB25d
+  31       45         27303    80.8%    80.4%    77.5%     TP3% SL3×ATR HB25d
+  27       55         37622    80.7%    80.4%    77.7%     TP3% SL3×ATR HB25d
+  34       42         21158    80.8%    80.3%    77.6%     TP3% SL3×ATR HB25d
+
+▶ [MP] minVolRatio×minADX
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  1.5      25         29848    80.7%    80.4%    77.1%     TP3% SL3×ATR HB25d
+  1.5      28         27854    80.7%    80.3%    77.2%     TP3% SL3×ATR HB25d
+  1.8      25         25193    80.7%    80.3%    77.2%     TP3% SL3×ATR HB25d
+  2        25         23132    80.8%    80.3%    77.2%     TP3% SL3×ATR HB25d
+  2.2      28         19680    80.8%    80.3%    77.4%     TP3% SL3×ATR HB25d
+  2.2      25         21501    80.8%    80.3%    77.3%     TP3% SL3×ATR HB25d
+  2        28         21276    80.7%    80.3%    77.3%     TP3% SL3×ATR HB25d
+  2.5      28         17890    80.8%    80.3%    77.4%     TP3% SL3×ATR HB25d
+  2.5      25         19664    80.8%    80.3%    77.3%     TP3% SL3×ATR HB25d
+  1.8      28         23280    80.7%    80.3%    77.3%     TP3% SL3×ATR HB25d
+  1.5      22         33133    80.5%    80.2%    77.0%     TP3% SL3×ATR HB25d
+  1.2      25         37777    80.5%    80.2%    77.1%     TP3% SL3×ATR HB25d
+
+▶ [ES] minEMA10Spread×minVolRatio
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  0.3      1.3         8747    78.7%    78.0%    76.1%     TP3% SL3×ATR HB25d
+  0.3      2.1         6731    78.8%    77.9%    75.9%     TP3% SL3×ATR HB25d
+  0        1.3         9185    78.6%    77.9%    76.0%     TP3% SL3×ATR HB25d
+  0.3      1.7         7451    78.7%    77.9%    75.8%     TP3% SL3×ATR HB25d
+  0        1.5         8427    78.6%    77.8%    75.8%     TP3% SL3×ATR HB25d
+  0.3      1.5         8027    78.6%    77.8%    75.9%     TP3% SL3×ATR HB25d
+  0.5      1.3         8499    78.6%    77.8%    76.0%     TP3% SL3×ATR HB25d
+  0.7      1.3         8311    78.6%    77.8%    76.0%     TP3% SL3×ATR HB25d
+  0.3      2.3         6443    78.7%    77.8%    76.0%     TP3% SL3×ATR HB25d
+  0.5      2.1         6516    78.7%    77.8%    75.9%     TP3% SL3×ATR HB25d
+  0        2.1         7108    78.6%    77.8%    75.8%     TP3% SL3×ATR HB25d
+  0        1.7         7844    78.6%    77.8%    75.7%     TP3% SL3×ATR HB25d
+
+▶ [ES] minBelowBars×maxBSC
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  3        6           8491    78.5%    77.8%    76.0%     TP3% SL3×ATR HB25d
+  3        4           8325    78.5%    77.7%    76.1%     TP3% SL3×ATR HB25d
+  3        3           8246    78.5%    77.7%    76.1%     TP3% SL3×ATR HB25d
+  3        5           8413    78.5%    77.7%    76.0%     TP3% SL3×ATR HB25d
+  5        6           6912    78.5%    77.7%    75.8%     TP3% SL3×ATR HB25d
+  3        2           8120    78.5%    77.7%    76.2%     TP3% SL3×ATR HB25d
+  2        4           9564    78.4%    77.7%    75.9%     TP3% SL3×ATR HB25d
+  2        6           9778    78.4%    77.7%    75.8%     TP3% SL3×ATR HB25d
+  5        5           6847    78.5%    77.7%    75.8%     TP3% SL3×ATR HB25d
+  2        3           9459    78.4%    77.7%    76.0%     TP3% SL3×ATR HB25d
+  3        1           7907    78.4%    77.7%    76.2%     TP3% SL3×ATR HB25d
+  2        5           9678    78.4%    77.7%    75.9%     TP3% SL3×ATR HB25d
+
+▶ [PS] minFireCount×minADXgate
+  d1-val   d2-val     OOS_n   OOS_WR   Wilson    IS_WR              Best Exit
+  ──────────────────────────────────────────────────────────────────────────────
+  4        28            21    95.2%    81.2%    78.3%     TP3% SL3×ATR HB25d
+  2        30          1868    80.9%    79.4%    77.5%     TP3% SL3×ATR HB25d
+  2        22          4571    80.3%    79.3%    76.7%     TP3% SL3×ATR HB25d
+  2        28          2386    80.7%    79.3%    76.8%     TP3% SL3×ATR HB25d
+  2        25          3482    80.4%    79.2%    76.7%     TP3% SL3×ATR HB25d
+  2        18          6246    80.0%    79.2%    76.4%     TP3% SL3×ATR HB25d
+  2        20          5472    79.9%    79.0%    76.5%     TP3% SL3×ATR HB25d
+  4        22            32    90.6%    78.7%    76.1%     TP3% SL3×ATR HB25d
+  3        22           716    81.1%    78.6%    77.7%     TP3% SL3×ATR HB25d
+  4        18            38    89.5%    78.5%    76.0%     TP3% SL3×ATR HB25d
+  4        20            38    89.5%    78.5%    76.0%     TP3% SL3×ATR HB25d
+  3        25           557    80.8%    77.9%    77.4%     TP3% SL3×ATR HB25d
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+SWEET SPOT RECOMMENDATIONS — changes to commit to stockEngine.ts
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+VolumeFootprint
+  ▲ CHANGE     VF c6: Min ADX                           15 → 25       lift=+1.0pp  OOS_n=13606  WR=81.0%  Wilson=80.4%
+  ▲ CHANGE     VF c2b: Max Upper Wick %                 20 → 12       lift=+1.0pp  OOS_n=12338  WR=81.0%  Wilson=80.4%
+  ≈ MARGINAL   VF c4: Min Range/ATR                     2.4 → 3        lift=+0.1pp  OOS_n=24862  WR=79.9%  Wilson=79.5%
+  ≈ MARGINAL   VF c5: Gap-down floor (o/pc)             0.974 → 0.96     lift=+0.1pp  OOS_n=25177  WR=79.9%  Wilson=79.5%
+  ≈ MARGINAL   VF c3: Price/20d-Hi ≥ (frac)             0.83 → 0.72     lift=+0.0pp  OOS_n=25325  WR=79.9%  Wilson=79.5%
+  · NO CHANGE  VF c1: Min Vol Ratio ×20d                3.7 → 3.7      lift=0.0pp  OOS_n=25020  WR=79.8%  Wilson=79.4%
+  ≈ MARGINAL   VF c2a: Min Close Loc %                  68 → 55       lift=0.0pp  OOS_n=25020  WR=79.8%  Wilson=79.4%
+  JOINT BEST: minCloseLoc=60  maxUpperWick=15  OOS_n=16826  WR=80.1%  Wilson=79.6%  Exit=TP3% SL3×ATR HB25d
+
+CompressionCoil
+  ▲ CHANGE     CC c6: Min ADX                           20 → 28       lift=+0.9pp  OOS_n=3753  WR=81.1%  Wilson=80.0%
+  ≈ MARGINAL   CC c4: Max BB Width Pctl                 47 → 30       lift=+0.5pp  OOS_n=4436  WR=80.6%  Wilson=79.6%
+  ≈ MARGINAL   CC c5b: Min Close Loc % coil             55 → 45       lift=+0.2pp  OOS_n=6630  WR=80.2%  Wilson=79.3%
+  ≈ MARGINAL   CC c5a: Max Range/ATR coil               0.8 → 0.9      lift=+0.2pp  OOS_n=7523  WR=80.0%  Wilson=79.3%
+  ≈ MARGINAL   CC c1: Min Coil Bars                     8 → 11       lift=+0.1pp  OOS_n=6227  WR=80.1%  Wilson=79.2%
+  ≈ MARGINAL   CC c3: Min Price Pos 20d %               59 → 45       lift=+0.1pp  OOS_n=8169  WR=79.9%  Wilson=79.2%
+  ≈ MARGINAL   CC c1: Max Coil Bars                     12 → 9        lift=+0.0pp  OOS_n=6248  WR=80.0%  Wilson=79.1%
+  · NO CHANGE  CC c5c: Min Body % coil                  40 → 40       lift=0.0pp  OOS_n=6269  WR=80.0%  Wilson=79.1%
+  JOINT BEST: minCoilBars=9  maxBBPctl=30  OOS_n=4419  WR=80.7%  Wilson=79.7%  Exit=TP3% SL3×ATR HB25d
+
+MomentumPocket
+  ▲ CHANGE     MP c1: DD 52W high bound %               42 → 65       lift=+0.6pp  OOS_n=33019  WR=81.3%  Wilson=80.9%
+  ≈ MARGINAL   MP c5b: RSI14 high bound                 74 → 55       lift=+0.3pp  OOS_n=15596  WR=81.2%  Wilson=80.6%
+  ≈ MARGINAL   MP c5a: RSI14 low bound                  27 → 18       lift=+0.3pp  OOS_n=27017  WR=81.0%  Wilson=80.6%
+  ≈ MARGINAL   MP c3c: Max Upper Wick %                 30 → 25       lift=+0.1pp  OOS_n=23750  WR=80.9%  Wilson=80.4%
+  ≈ MARGINAL   MP c3b: Min Body % (green)               59 → 68       lift=+0.1pp  OOS_n=22621  WR=80.8%  Wilson=80.4%
+  ≈ MARGINAL   MP c6a: Max bars since DI×               5 → 10       lift=+0.1pp  OOS_n=27640  WR=80.8%  Wilson=80.4%
+  ≈ MARGINAL   MP c1: DD 52W low bound %                31 → 40       lift=+0.1pp  OOS_n=14830  WR=80.9%  Wilson=80.4%
+  ≈ MARGINAL   MP c4: Min Vol Ratio ×20d                1.8 → 1.6      lift=+0.1pp  OOS_n=28012  WR=80.8%  Wilson=80.4%
+  ≈ MARGINAL   MP c6b: Min ADX                          25 → 30       lift=+0.0pp  OOS_n=22499  WR=80.8%  Wilson=80.3%
+  ≈ MARGINAL   MP c3a: Min Close Loc %                  43 → 30       lift=0.0pp  OOS_n=25193  WR=80.7%  Wilson=80.3%
+  JOINT BEST: dd52WLo=34  dd52WHi=55  OOS_n=27354  WR=81.2%  Wilson=80.8%  Exit=TP3% SL3×ATR HB25d
+
+EMAStack
+  ≈ MARGINAL   ES c4: Min Vol Ratio ×20d                1.9 → 1.2      lift=+0.5pp  OOS_n=8765  WR=78.8%  Wilson=78.0%
+  ≈ MARGINAL   ES c3a: Min EMA10/EMA20 %                0.7 → 0.2      lift=+0.2pp  OOS_n=7200  WR=78.5%  Wilson=77.7%
+  ≈ MARGINAL   ES c2: Min bars below EMA20              5 → 3        lift=+0.2pp  OOS_n=8246  WR=78.5%  Wilson=77.7%
+  ≈ MARGINAL   ES c6a: Max bars since DI×               3 → 6        lift=+0.2pp  OOS_n=6912  WR=78.5%  Wilson=77.7%
+  ≈ MARGINAL   ES c6b: Min ADX                          15 → 17       lift=+0.1pp  OOS_n=5995  WR=78.6%  Wilson=77.7%
+  ≈ MARGINAL   ES c3d: Max Candle Risk %                10 → 15       lift=+0.1pp  OOS_n=6785  WR=78.5%  Wilson=77.6%
+  ≈ MARGINAL   ES c3b: Min Body %                       40 → 50       lift=+0.0pp  OOS_n=6689  WR=78.4%  Wilson=77.6%
+  ≈ MARGINAL   ES c3c: Max Upper Wick %                 25 → 35       lift=+0.0pp  OOS_n=6838  WR=78.4%  Wilson=77.6%
+  JOINT BEST: minEMA10Spread=0.3  minVolRatio=1.3  OOS_n=8747  WR=78.7%  Wilson=78.0%  Exit=TP3% SL3×ATR HB25d
+
+PerfectStorm
+  ≈ MARGINAL   PS: Max candle risk %                    8 → 12       lift=+0.2pp  OOS_n=3796  WR=80.5%  Wilson=79.4%
+  ≈ MARGINAL   PS: ADX pre-gate                         25 → 30       lift=+0.2pp  OOS_n=1868  WR=80.9%  Wilson=79.4%
+  · NO CHANGE  PS: Min archetypes firing                2 → 2        lift=0.0pp  OOS_n=3482  WR=80.4%  Wilson=79.2%
+  · NO CHANGE  PS: Min quality tier (0-4)               2 → 2        lift=0.0pp  OOS_n=3482  WR=80.4%  Wilson=79.2%
+  JOINT BEST: minFireCount=4  minADXgate=28  OOS_n=21  WR=95.2%  Wilson=81.2%  Exit=TP3% SL3×ATR HB25d
+
+Elapsed: 39.1s
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

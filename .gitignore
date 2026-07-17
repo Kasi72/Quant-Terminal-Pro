@@ -40,5 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
 scripts/_compiled/
+
+# research run artifacts — keep new ones out of the repo root
+scripts/*.log
+scripts/*.err.log
+*.bak
