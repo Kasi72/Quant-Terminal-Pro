@@ -360,8 +360,8 @@ function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
 // Composite Edge Score (0–100): ranks all signals by backtested avg20d advantage.
 // StatsScore×0.25 + MomScore×0.20 + Zone(15) + Vol(10) + ATR(10) + DNA(10) + Monster(10) + Conv×0.10
 function computeEdgeScore(r: AnalysisResult): number {
-  const stats = (r.stats?.statsScore ?? 0) * 0.25;
-  const mom = (r.momentum?.momentumScore ?? 0) * 0.20;
+  const stats = (r.stats?.statsScore ?? 0) * 0.20;      // reduced from 0.25
+  const mom   = (r.momentum?.momentumScore ?? 0) * 0.16; // reduced from 0.20
   const ze = detectZoneExplosion(r);
   const zone = ze === 'HIGH_CONVICTION' ? 15 : ze === 'CONFIRMED' ? 10 : 0;
   const vb = detectVolumeBadge(r);
@@ -372,7 +372,11 @@ function computeEdgeScore(r: AnalysisResult): number {
   const topBadge = r.monster?.badges?.[0];
   const monster = topBadge?.type === 'MRV' ? 10 : topBadge?.type === 'MOM' ? 8 : topBadge?.type === 'BRK' ? 5 : 0;
   const conv = computeConviction(r) * 0.10;
-  return Math.round(Math.min(stats + mom + zone + vol + atr + dna + monster + conv, 100));
+  // inflectionScore: primary archetype quality metric (previously absent from EdgeScore)
+  const inf = (r.inflectionScore ?? 0) * 0.07;  // max 7 pts at score=100
+  // Stage tier bump: ensures tier order is preserved in top-picks ranking
+  const stageTier = r.stage === 'ULTRA_STRONG_BUY' ? 6 : r.stage === 'STRONG_BUY' ? 4 : r.stage === 'BUY' ? 2 : 0;
+  return Math.round(Math.min(stats + mom + zone + vol + atr + dna + monster + conv + inf + stageTier, 100));
 }
 
 function safeColFmt(col: ColDef, r: AnalysisResult): string {

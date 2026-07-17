@@ -1152,6 +1152,17 @@ function computeInflectionScore(
   return clamp(score, 0, 100);
 }
 
+// Maps a continuous archetype score → BUY tier.
+// Aligned with computeInflectionScore design: 45=BUY, 63=STRONG_BUY, 80=ULTRA.
+// Replaces the old count-based stage assignment (conditionsMet===6 → ULTRA, etc.)
+// which ignored the magnitude of each condition's exceedance.
+function archetypeScoreToStage(score: number): StageRating {
+  if (score >= 80) return 'ULTRA_STRONG_BUY';
+  if (score >= 63) return 'STRONG_BUY';
+  if (score >= 45) return 'BUY';
+  return 'PRE_BREAKOUT';
+}
+
 // ─── BUILD NULL PRICE ENGINE ──────────────────────────────────────────────────
 
 function buildNullPriceEngine(): PriceEngine {
@@ -1983,8 +1994,12 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     tradeValid: true,
   };
 
-  // Stage
-  const stage: AnalysisResult['stage'] = confirmed ? 'ULTRA_STRONG_BUY' : 'STRONG_BUY';
+  // Stage: ORS score + confirmation bonus (confirmed = next-day green = +12 pts)
+  // score min-pass = 72; 72+12=84 → STRONG_BUY; 73+12=85 → ULTRA_STRONG_BUY
+  const stageScore = Math.min(100, score + (confirmed ? 12 : 0));
+  const stage: AnalysisResult['stage'] = stageScore >= 85 ? 'ULTRA_STRONG_BUY'
+    : stageScore >= 70 ? 'STRONG_BUY'
+    : 'BUY';
 
   // Checklist
   const checklist: ChecklistItem[] = [
@@ -2412,10 +2427,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
-  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
-    : conditionsMet === 5 ? 'STRONG_BUY'
-    : conditionsMet === 4 ? 'BUY'
-    : 'PRE_BREAKOUT';
+  const stage = archetypeScoreToStage(score);
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
@@ -2553,11 +2565,7 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
-  // Compression Coil fires as PRE_BREAKOUT or better
-  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
-    : conditionsMet === 5 ? 'STRONG_BUY'
-    : conditionsMet === 4 ? 'BUY'
-    : 'PRE_BREAKOUT';
+  const stage = archetypeScoreToStage(score);
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2678,10 +2686,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
-  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
-    : conditionsMet === 5 ? 'STRONG_BUY'
-    : conditionsMet === 4 ? 'BUY'
-    : 'PRE_BREAKOUT';
+  const stage = archetypeScoreToStage(score);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const pe = archetypePriceEngine(sig.c, atr14);
@@ -2804,10 +2809,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const stage: StageRating = conditionsMet === 6 ? 'ULTRA_STRONG_BUY'
-    : conditionsMet === 5 ? 'STRONG_BUY'
-    : conditionsMet === 4 ? 'BUY'
-    : 'PRE_BREAKOUT';
+  const stage = archetypeScoreToStage(score);
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2887,10 +2889,12 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const stageRank: Record<StageRating, number> = { ULTRA_STRONG_BUY: 5, STRONG_BUY: 4, BUY: 3, PRE_BREAKOUT: 2, EARLY_INFLECTION: 1, COMPRESSION_WATCH: 0, NO_SIGNAL: 0 };
   const best = fires.reduce((a, b) => stageRank[b.r.stage] > stageRank[a.r.stage] ? b : a);
 
-  const score = Math.min(100, fires.reduce((s, f) => s + f.r.inflectionScore, 0) / fires.length + fires.length * 10);
-  const stage: StageRating = fires.length >= 4 ? 'ULTRA_STRONG_BUY'
-    : fires.length === 3 ? 'STRONG_BUY'
-    : 'BUY';
+  // Quality-weighted ensemble: avg archetype score + logarithmic diversity bonus.
+  // Old formula (+fires.length*10) made 4 weak signals outrank 2 strong signals — fixed.
+  const avgScore = fires.reduce((s, f) => s + f.r.inflectionScore, 0) / fires.length;
+  const diversityBonus = fires.length >= 4 ? 15 : fires.length === 3 ? 10 : 5;
+  const score = Math.min(100, Math.round(avgScore + diversityBonus));
+  const stage = archetypeScoreToStage(score);
 
   const endIdx = n - 1;
   const sig = candles[endIdx];
