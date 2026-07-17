@@ -1152,15 +1152,25 @@ function computeInflectionScore(
   return clamp(score, 0, 100);
 }
 
-// Maps a continuous archetype score → BUY tier.
-// Aligned with computeInflectionScore design: 45=BUY, 63=STRONG_BUY, 80=ULTRA.
-// Replaces the old count-based stage assignment (conditionsMet===6 → ULTRA, etc.)
-// which ignored the magnitude of each condition's exceedance.
-function archetypeScoreToStage(score: number): StageRating {
-  if (score >= 80) return 'ULTRA_STRONG_BUY';
-  if (score >= 63) return 'STRONG_BUY';
-  if (score >= 45) return 'BUY';
-  return 'PRE_BREAKOUT';
+// Hybrid stage assignment — backtest-anchored ceiling + score-refined floor.
+//
+// The archetype win rates were measured OUT-OF-SAMPLE on count-based tiers
+// (6/6 → ULTRA, 5/6 → STRONG, 4/6 → BUY). That count therefore defines the
+// MAXIMUM tier a signal may claim — promoting past it would assign a tier
+// whose win rate was never measured. Within that ceiling, the continuous
+// score (which weights the margin of exceedance on every condition) can
+// DEMOTE a marginal pass: a 6/6 signal that barely scraped each threshold
+// (score < 80) presents as STRONG rather than ULTRA. Demotion only tightens
+// selectivity per tier, so realized per-tier win rate can only improve
+// relative to the backtest baseline — never degrade below it.
+function archetypeStage(conditionsMet: number, score: number): StageRating {
+  const capRank = conditionsMet >= 6 ? 3 : conditionsMet === 5 ? 2 : conditionsMet === 4 ? 1 : 0;
+  const scoreRank = score >= 80 ? 3 : score >= 63 ? 2 : score >= 45 ? 1 : 0;
+  const rank = Math.min(capRank, scoreRank);
+  return rank === 3 ? 'ULTRA_STRONG_BUY'
+    : rank === 2 ? 'STRONG_BUY'
+    : rank === 1 ? 'BUY'
+    : 'PRE_BREAKOUT';
 }
 
 // ─── BUILD NULL PRICE ENGINE ──────────────────────────────────────────────────
@@ -1994,12 +2004,16 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
     tradeValid: true,
   };
 
-  // Stage: ORS score + confirmation bonus (confirmed = next-day green = +12 pts)
-  // score min-pass = 72; 72+12=84 → STRONG_BUY; 73+12=85 → ULTRA_STRONG_BUY
-  const stageScore = Math.min(100, score + (confirmed ? 12 : 0));
-  const stage: AnalysisResult['stage'] = stageScore >= 85 ? 'ULTRA_STRONG_BUY'
-    : stageScore >= 70 ? 'STRONG_BUY'
-    : 'BUY';
+  // Stage — backtest-anchored: the OOS win rate for ULTRA was measured ONLY on
+  // confirmed signals (next-day green close). Confirmation is therefore the
+  // ceiling for ULTRA; an unconfirmed signal caps at STRONG regardless of score.
+  // Within each ceiling the ORS score demotes marginal passes (min-pass = 72):
+  // confirmed but barely-passing (< 80) presents as STRONG, unconfirmed
+  // barely-passing (< 78) presents as BUY. Demotion only tightens per-tier
+  // selectivity vs the backtest baseline.
+  const stage: AnalysisResult['stage'] = confirmed
+    ? (score >= 80 ? 'ULTRA_STRONG_BUY' : 'STRONG_BUY')
+    : (score >= 78 ? 'STRONG_BUY' : 'BUY');
 
   // Checklist
   const checklist: ChecklistItem[] = [
@@ -2427,7 +2441,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
-  const stage = archetypeScoreToStage(score);
+  const stage = archetypeStage(conditionsMet, score);
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
@@ -2565,7 +2579,7 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
-  const stage = archetypeScoreToStage(score);
+  const stage = archetypeStage(conditionsMet, score);
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2686,7 +2700,7 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
-  const stage = archetypeScoreToStage(score);
+  const stage = archetypeStage(conditionsMet, score);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const pe = archetypePriceEngine(sig.c, atr14);
@@ -2809,7 +2823,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const stage = archetypeScoreToStage(score);
+  const stage = archetypeStage(conditionsMet, score);
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2894,7 +2908,9 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const avgScore = fires.reduce((s, f) => s + f.r.inflectionScore, 0) / fires.length;
   const diversityBonus = fires.length >= 4 ? 15 : fires.length === 3 ? 10 : 5;
   const score = Math.min(100, Math.round(avgScore + diversityBonus));
-  const stage = archetypeScoreToStage(score);
+  // Backtested ceiling on the fires scale: 4 fires→ULTRA, 3→STRONG, 2→BUY.
+  // Map onto the 6-condition scale archetypeStage expects (6/5/4).
+  const stage = archetypeStage(fires.length >= 4 ? 6 : fires.length === 3 ? 5 : 4, score);
 
   const endIdx = n - 1;
   const sig = candles[endIdx];
