@@ -3032,6 +3032,76 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey): Analy
         }
       } catch { /* nearBreakout stays null */ }
     }
+
+    // 7. ATR% percentile — ATR%Pctl column (Screening tab)
+    // Percentile rank of today's ATR% within the last 120 bars.
+    if (result.atrPct14Pctl120 === 0) {
+      try {
+        const atr14Arr2 = computeATR14(candles);
+        const curAtrPct = atr14Arr2[endIdx] > 0 && candles[endIdx].c > 0
+          ? atr14Arr2[endIdx] / candles[endIdx].c * 100 : 0;
+        if (curAtrPct > 0) {
+          const lb120 = Math.max(1, endIdx - 119);
+          let below = 0, cnt = 0;
+          for (let i = lb120; i < endIdx; i++) {
+            const ap = atr14Arr2[i] > 0 && candles[i].c > 0 ? atr14Arr2[i] / candles[i].c * 100 : 0;
+            if (ap > 0) { if (ap <= curAtrPct) below++; cnt++; }
+          }
+          result.atrPct14Pctl120 = cnt > 0 ? (below / cnt) * 100 : 50;
+        }
+      } catch { /* keep 0 */ }
+    }
+
+    // 8. Price-engine enrichment — ER, Chandelier exits, Gap ATR
+    // archetypePriceEngine builds a simplified PE without these fields.
+    if (result.priceEngine.efficiencyRatio === 0) {
+      try {
+        const sig8 = candles[endIdx];
+        const atr8  = atr14Val;
+        const per8  = Math.min(10, endIdx);
+        // Kaufman Efficiency Ratio over last 10 bars
+        let path8 = 0;
+        for (let i = endIdx - per8 + 1; i <= endIdx; i++) path8 += Math.abs(candles[i].c - candles[i - 1].c);
+        const netChange8 = Math.abs(sig8.c - candles[endIdx - per8].c);
+        result.priceEngine.efficiencyRatio = path8 > 0 ? Math.min(1, netChange8 / path8) : 0.5;
+
+        // Chandelier exits: max high over lookback window − multiplier × ATR
+        const hh3  = endIdx >= 2  ? Math.max(...candles.slice(endIdx - 2,  endIdx + 1).map(c => c.h)) : sig8.h;
+        const hh5  = endIdx >= 4  ? Math.max(...candles.slice(endIdx - 4,  endIdx + 1).map(c => c.h)) : sig8.h;
+        const hh10 = endIdx >= 9  ? Math.max(...candles.slice(endIdx - 9,  endIdx + 1).map(c => c.h)) : sig8.h;
+        result.priceEngine.chandelierT1 = Math.max(0, hh3  - 2.0 * atr8);
+        result.priceEngine.chandelierT2 = Math.max(0, hh5  - 2.0 * atr8);
+        result.priceEngine.chandelierT3 = Math.max(0, hh10 - 3.0 * atr8);
+
+        // Gap ATR
+        if (endIdx > 0) {
+          const prevC = candles[endIdx - 1].c;
+          result.priceEngine.gapATR = atr8 > 0 ? Math.abs(sig8.o - prevC) / atr8 : 0;
+          result.priceEngine.gapPct = prevC > 0 ? (sig8.o - prevC) / prevC * 100 : 0;
+        }
+      } catch { /* keep nullPE defaults */ }
+    }
+
+    // 9. Vol badge fields — exactVolVsPre5 and pre10RedVolBias for Vol column
+    if (result.exactVolVsPre5 === 0 && endIdx >= 5) {
+      try {
+        const sig9 = candles[endIdx];
+        let v5s = 0;
+        for (let i = endIdx - 5; i < endIdx; i++) v5s += candles[i].v;
+        const vAvg5 = v5s / 5;
+        result.exactVolVsPre5 = vAvg5 > 0 ? sig9.v / vAvg5 : 0;
+
+        // pre10RedVolBias: avg red-candle vol / avg green-candle vol over last 10 bars
+        let redVol = 0, redCnt = 0, greenVol = 0, greenCnt = 0;
+        for (let i = Math.max(0, endIdx - 10); i < endIdx; i++) {
+          if (candles[i].c < candles[i].o) { redVol   += candles[i].v; redCnt++; }
+          else                              { greenVol += candles[i].v; greenCnt++; }
+        }
+        const avgRed   = redCnt   > 0 ? redVol   / redCnt   : 0;
+        const avgGreen = greenCnt > 0 ? greenVol / greenCnt : 1;
+        result.pre10RedVolBias = avgGreen > 0 ? avgRed / avgGreen : 1;
+      } catch { /* keep 0 */ }
+    }
   }
 
   return result;
