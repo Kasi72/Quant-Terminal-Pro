@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "compile": "./node_modules/.bin/tsc lib/stockEngine.ts lib/statsEngine.ts lib/candlePatterns.ts lib/autoValidator.ts --target ES2020 --module CommonJS --outDir scripts/_compiled --esModuleInterop --skipLibCheck --moduleResolution node --strict false",
+    "compile:engine": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts",
+    "compile:watch": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts --watch",
     "check-params": "node scripts/checkParams.js",
     "update-params": "node scripts/checkParams.js --update"
   },
