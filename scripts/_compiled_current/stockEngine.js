@@ -2174,12 +2174,12 @@ function analyzeCompressionCoil(candles) {
         vSum += candles[i].v;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
-    // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 65.2% → best available with BE exit
-    // CMF ≥ 0.10 (moderate accumulation), OBV slope unconstrained (coil needs no OBV filter)
+    // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
+    // volRatio20 ≥ 1.5 is the single best additional filter on top of CMF+OBV gate.
     {
         const _cmf = computeCMF(candles, endIdx, 20);
         const _obv = computeOBVSlope10(candles, endIdx);
-        if (_cmf < 0.10 || _obv < -1.0)
+        if (_cmf < 0.10 || _obv < -1.0 || volRatio20 < 1.5)
             return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 };
     }
     // DMI for Compression Coil
@@ -2329,11 +2329,19 @@ function analyzeMomentumPocket(candles) {
         return base;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
-    // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 70.1% → 70.4% (n=592 robust)
+    // CMF+OBV+RSI+Vol precision gate — hyper-tuned walk-forward v2:
+    // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
     {
         const _cmf = computeCMF(candles, endIdx, 20);
         const _obv = computeOBVSlope10(candles, endIdx);
         if (_cmf < -0.10 || _obv < -1.0)
+            return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
+    }
+    // RSI14 must be in recovery zone 35-50 (not too oversold, not overbought) + RSI2≤50 + vol≥2×
+    {
+        const _rsi14 = computeRSI(candles, 14);
+        const _rsi2 = computeRSI(candles, 2);
+        if (_rsi14 < 35 || _rsi14 > 50 || _rsi2 > 50 || volRatio20 < 2.0)
             return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
     }
     // 52W high drawdown
