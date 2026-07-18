@@ -2539,7 +2539,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 // ── Archetype 2: Compression Coil (Set: optimized_highprecision_15plus) ──
 // Detects energy storage (coiling) phase BEFORE the explosive move fires.
 // Enter INSIDE the coil — 1-2 bars early with better entry than breakout traders.
-function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
+function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): AnalysisResult {
   const key: ParamSetKey = 'optimized_highprecision_15plus';
   const base = archetypeBase(candles, key);
   const n = candles.length;
@@ -2566,9 +2566,11 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
   const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
 
   // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
-  // volRatio20 ≥ 1.5 is the single best additional filter on top of CMF+OBV gate.
-  { const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
-    if (_cmf < 0.10 || _obv < -1.0 || volRatio20 < 1.5) return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 }; }
+  // Skipped when called from PerfectStorm (which applies its own composite gate).
+  if (!skipPrecisionGate) {
+    const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
+    if (_cmf < 0.10 || _obv < -1.0 || volRatio20 < 1.5) return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 };
+  }
 
   // DMI for Compression Coil
   const { diPlus: diPlusArr, diMinus: diMinusArr, adx: adxArr } = computeDMI(candles);
@@ -2693,7 +2695,7 @@ function analyzeCompressionCoil(candles: Candle[]): AnalysisResult {
 // ── Archetype 3: Momentum Pocket (Set: optimized_elite_10plus) ──
 // Detects first strong up-day after a post-markdown stabilization phase.
 // "The stock has been distributed, weak hands are exhausted, first real buying = inflection."
-function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
+function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): AnalysisResult {
   const key: ParamSetKey = 'optimized_elite_10plus';
   const base = archetypeBase(candles, key);
   const n = candles.length;
@@ -2724,12 +2726,14 @@ function analyzeMomentumPocket(candles: Candle[]): AnalysisResult {
 
   // CMF+OBV+RSI+Vol precision gate — hyper-tuned walk-forward v2:
   // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
-  { const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
-    if (_cmf < -0.10 || _obv < -1.0) return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 }; }
-  // RSI14 must be in recovery zone 35-50 (not too oversold, not overbought) + RSI2≤50 + vol≥2×
-  { const _rsi14 = computeRSI(candles, 14); const _rsi2 = computeRSI(candles, 2);
+  // Skipped when called from PerfectStorm (which applies its own composite gate).
+  if (!skipPrecisionGate) {
+    const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
+    if (_cmf < -0.10 || _obv < -1.0) return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
+    const _rsi14 = computeRSI(candles, 14); const _rsi2 = computeRSI(candles, 2);
     if (_rsi14 < 35 || _rsi14 > 50 || _rsi2 > 50 || volRatio20 < 2.0)
-      return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 }; }
+      return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
+  }
 
   // 52W high drawdown
   let hh252 = 0;
@@ -2977,9 +2981,17 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const caPS = computeCandleArch(sigPS.o, sigPS.h, sigPS.l, sigPS.c, atr14PS);
   if (caPS.qualityTier < tuned(key, 'minQualityTier', 2) || caPS.candleRisk > tuned(key, 'maxCandleRisk', 12)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
 
+  // Composite CMF+OBV gate — applied at PS level so all 4 sub-archetypes share the same
+  // money-flow filter regardless of their individual precision gates.
+  // Sub-archetypes are called with skipPrecisionGate=true to avoid double-gating and
+  // to restore signal volume (CC/MP gates are calibrated for standalone use, not composition).
+  const endIdx = n - 1;
+  { const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
+    if (_cmf < 0.05 || _obv < -1.5) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] }); }
+
   const vf  = analyzeVolumeFootprint(candles);
-  const cc  = analyzeCompressionCoil(candles);
-  const mp  = analyzeMomentumPocket(candles);
+  const cc  = analyzeCompressionCoil(candles, true);  // skip CC's standalone gate
+  const mp  = analyzeMomentumPocket(candles, true);   // skip MP's standalone gate
   const ema = analyzeEMAStack(candles);
 
   const ACTIONABLE = new Set(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY']);
@@ -3006,7 +3018,6 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   // Map onto the 6-condition scale archetypeStage expects (6/5/4).
   const stage = archetypeStage(fires.length >= 4 ? 6 : fires.length === 3 ? 5 : 4, score);
 
-  const endIdx = n - 1;
   const sig = candles[endIdx];
   const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
   const sigRange = sig.h - sig.l;
