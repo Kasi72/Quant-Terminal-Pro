@@ -7191,6 +7191,8 @@ function HomePageInner() {
                       ['T3 (20%)', '₹' + selectedResult.priceEngine.target10.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; const pct = r.plannedEntry > 0 ? ((r.target10 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target10 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
                       ['T3R (3×risk)',  '₹' + selectedResult.priceEngine.target3R.toFixed(2)],
                       ['Reward:Risk',   selectedResult.priceEngine.rewardRisk.toFixed(2) + ':1'],
+                      ['BE Trigger',    '₹' + (selectedResult.priceEngine.plannedEntry * 1.02).toFixed(2) + ' (+2%) → move SL to BE'],
+                      ['BE Stop',       '₹' + (selectedResult.priceEngine.plannedEntry * 1.005).toFixed(2) + ' (+0.5% entry)'],
                       ['Trail @T1',     '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2) + ' (breakeven)'],
                       ['Trail @T2',     '₹' + (selectedResult.priceEngine.target7 > 0 ? (Math.round((selectedResult.priceEngine.target7 - 1.5 * ((Number.isFinite(selectedResult.atrPct14) ? selectedResult.atrPct14 : 0) / 100 * selectedResult.lastClose)) * 20) / 20).toFixed(2) : '—')],
                       ['Gap',          selectedResult.priceEngine.gapPct.toFixed(2) + '% → ' + selectedResult.priceEngine.entryStatus],

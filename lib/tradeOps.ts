@@ -11,6 +11,8 @@ export interface TradeSheet {
   target1: number;
   target2: number;
   trailRule: string;
+  breakEvenTrigger: number;   // price level that triggers breakeven stop
+  breakEvenStop: number;      // stop moves here once trigger is hit (+0.5% entry)
   totalCost: number;
   maxRisk: number;
   riskPct: number;
@@ -43,7 +45,9 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
     stopLoss: Math.round(sl * 100) / 100,
     target1: Math.round(safeT1 * 100) / 100,
     target2: Math.round(safeT2 * 100) / 100,
-    trailRule: 'Move SL to entry after T1 hit',
+    breakEvenTrigger: Math.round(entry * 1.02 * 100) / 100,
+    breakEvenStop:   Math.round(entry * 1.005 * 100) / 100,
+    trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when price touches ₹${(entry * 1.02).toFixed(2)} (+2%). Trail to entry after T1.`,
     totalCost: Math.round(qty * entry),
     maxRisk: Math.round(qty * riskPerShare),
     riskPct,

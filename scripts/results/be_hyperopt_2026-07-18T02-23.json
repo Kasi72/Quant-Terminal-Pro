@@ -1,0 +1,104 @@
+{
+  "generated": "2026-07-18T02:23:35.797Z",
+  "isSplit": 0.7,
+  "exitModel": "BREAKEVEN",
+  "results": [
+    {
+      "scoreMin": 80,
+      "condsMin": 3,
+      "cmfMin": 0.15,
+      "obvMin": 0.5,
+      "stageFilter": "ANY",
+      "regimeOnly": false,
+      "isM": {
+        "wr": 83.87096774193549,
+        "pf": 1179.402011197267,
+        "avg": 1040.6012928796858,
+        "n": 31,
+        "med": 0.4999999999999921
+      },
+      "oosM": {
+        "wr": 84.61538461538461,
+        "pf": 0.9488973038952754,
+        "avg": -0.04430783136551391,
+        "n": 13,
+        "med": 0.49999999999998673
+      },
+      "ps": "optimized_deployable_20plus",
+      "label": "VolumeFootprint"
+    },
+    {
+      "scoreMin": 40,
+      "condsMin": 3,
+      "cmfMin": 0.1,
+      "obvMin": -1,
+      "stageFilter": "ANY",
+      "regimeOnly": false,
+      "isM": {
+        "wr": 82.80542986425338,
+        "pf": 4.231887580059101,
+        "avg": 3.191761413755402,
+        "n": 221,
+        "med": 0.4999999999999895
+      },
+      "oosM": {
+        "wr": 65,
+        "pf": 0.4636267795225807,
+        "avg": -1.0539679106793869,
+        "n": 100,
+        "med": 0.49999999999998845
+      },
+      "ps": "optimized_highprecision_15plus",
+      "label": "CompressionCoil"
+    },
+    {
+      "scoreMin": 70,
+      "condsMin": 3,
+      "cmfMin": -0.1,
+      "obvMin": -1,
+      "stageFilter": "ANY",
+      "regimeOnly": false,
+      "isM": {
+        "wr": 78.3987915407855,
+        "pf": 31.766794469366282,
+        "avg": 55.9363375540076,
+        "n": 662,
+        "med": 0.4999999999999892
+      },
+      "oosM": {
+        "wr": 70.4391891891892,
+        "pf": 1.8479174573765658,
+        "avg": 1.5569383783290351,
+        "n": 592,
+        "med": 0.4999999999999876
+      },
+      "ps": "optimized_elite_10plus",
+      "label": "MomentumPocket"
+    },
+    {
+      "scoreMin": 40,
+      "condsMin": 3,
+      "cmfMin": 0.1,
+      "obvMin": 0.5,
+      "stageFilter": "ANY",
+      "regimeOnly": false,
+      "isM": {
+        "wr": 85.71428571428571,
+        "pf": 4397.67536700553,
+        "avg": 3467.216231572583,
+        "n": 42,
+        "med": 2.2959259259259346
+      },
+      "oosM": {
+        "wr": 80,
+        "pf": 1453.9444258013568,
+        "avg": 1661.249802177165,
+        "n": 10,
+        "med": 34.64298916029772
+      },
+      "ps": "optimized_ultraselective_8plus",
+      "label": "EMAStack"
+    },
+    null
+  ]
+}
