@@ -1967,6 +1967,22 @@ function attachTuningDebug(result, debug) {
     Object.defineProperty(result, '__tuning', { value: debug, enumerable: false, configurable: true });
     return result;
 }
+function archetypeTech(candles, endIdx) {
+    const ema10 = computeEMA(candles, 10)[endIdx] ?? 0;
+    const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
+    const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
+    const close = candles[endIdx]?.c ?? 0;
+    return {
+        cmf20: computeCMF(candles, endIdx, 20),
+        obvSlope10: computeOBVSlope10(candles, endIdx),
+        rsi14: computeRSI(candles, 14),
+        rsi2: computeRSI(candles, 2),
+        ema10Vs20: ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0,
+        ema20Vs50: ema50 > 0 ? (ema20 - ema50) / ema50 * 100 : 0,
+        closeVsEMA20: ema20 > 0 ? (close - ema20) / ema20 * 100 : 0,
+        closeVsEMA50: ema50 > 0 ? (close - ema50) / ema50 * 100 : 0,
+    };
+}
 function archetypeBase(candles, key) {
     const n = candles.length;
     const sig = n > 0 ? candles[n - 1] : { c: 0, h: 0, l: 0, o: 0, v: 0, ts: 0 };
@@ -2073,14 +2089,12 @@ function analyzeVolumeFootprint(candles) {
     const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
     if (!ca.isGreen || ca.candleRisk > tuned(key, 'maxCandleRisk', 8))
         return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
+    const tech = archetypeTech(candles, endIdx);
     // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 68.2% → 84.6% (n=13 OOS, n=31 IS)
     // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
-    {
-        const _cmf = computeCMF(candles, endIdx, 20);
-        const _obv = computeOBVSlope10(candles, endIdx);
-        if (_cmf < 0.15 || _obv < 0.5)
-            return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
-    }
+    if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+        return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
     // Pre-10 avg range ATR
     let rSum = 0;
     const rStart = Math.max(0, endIdx - 10);
@@ -2107,7 +2121,7 @@ function analyzeVolumeFootprint(candles) {
         adxVal >= tuned(key, 'minADX', 25);
     const passed = [c1, c2, c3, c4, c5, c6];
     const conditionsMet = passed.filter(Boolean).length;
-    const tuning = { volRatio20, closeLoc, upperWickPct: ca.upperWickPct, hi20Frac: hi20 > 0 ? sig.c / hi20 : 0, rangeATR: exactRangeATR14, gapDownPct: prevClose > 0 ? (sig.o / prevClose - 1) * 100 : 0, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc, adx: adxVal, conditions: passed.map(Boolean) };
+    const tuning = { ...tech, volRatio20, closeLoc, upperWickPct: ca.upperWickPct, hi20Frac: hi20 > 0 ? sig.c / hi20 : 0, rangeATR: exactRangeATR14, gapDownPct: prevClose > 0 ? (sig.o / prevClose - 1) * 100 : 0, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc, adx: adxVal, conditions: passed.map(Boolean) };
     if (conditionsMet < 3)
         return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
     // Score: weighted (c6 DMI worth 15pts — equal to c5, replaces a missing condition)
@@ -2174,12 +2188,13 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
         vSum += candles[i].v;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+    const tech = archetypeTech(candles, endIdx);
     // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
     // Skipped when called from PerfectStorm (which applies its own composite gate).
     if (!skipPrecisionGate) {
-        const _cmf = computeCMF(candles, endIdx, 20);
-        const _obv = computeOBVSlope10(candles, endIdx);
-        if (_cmf < 0.10 || _obv < -1.0 || volRatio20 < 1.5)
+        if (tech.cmf20 < tuned(key, 'minCMF20', 0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.0) ||
+            volRatio20 < tuned(key, 'minGateVolRatio', 1.5) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) ||
+            tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
             return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 };
     }
     // DMI for Compression Coil
@@ -2255,7 +2270,7 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
         adxVal >= tuned(key, 'minADX', 28);
     const passed = [c1, c2, c3, c4, c5, c6];
     const conditionsMet = passed.filter(Boolean).length;
-    const tuning = { compressionBars, volDeclineDays, pricePos20, bbWidthPctl, rangeATR: exactRangeATR14, isGreen: ca.isGreen, closeLoc: ca.closeLoc, bodyPct: ca.bodyPct, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscCC, adx: adxVal, conditions: passed.map(Boolean) };
+    const tuning = { ...tech, compressionBars, volDeclineDays, pricePos20, bbWidthPctl, rangeATR: exactRangeATR14, isGreen: ca.isGreen, closeLoc: ca.closeLoc, bodyPct: ca.bodyPct, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscCC, adx: adxVal, conditions: passed.map(Boolean) };
     if (conditionsMet < 3)
         return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
     const score = Math.min(100, Math.round((c1 ? 20 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) + (c6 ? 15 : 0) +
@@ -2329,17 +2344,15 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
         return base;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+    const tech = archetypeTech(candles, endIdx);
     // CMF+OBV+RSI+Vol precision gate — hyper-tuned walk-forward v2:
     // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
     // Skipped when called from PerfectStorm (which applies its own composite gate).
     if (!skipPrecisionGate) {
-        const _cmf = computeCMF(candles, endIdx, 20);
-        const _obv = computeOBVSlope10(candles, endIdx);
-        if (_cmf < -0.10 || _obv < -1.0)
-            return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
-        const _rsi14 = computeRSI(candles, 14);
-        const _rsi2 = computeRSI(candles, 2);
-        if (_rsi14 < 35 || _rsi14 > 50 || _rsi2 > 50 || volRatio20 < 2.0)
+        if (tech.cmf20 < tuned(key, 'minCMF20', -0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.0) ||
+            tech.rsi14 < tuned(key, 'minGateRSI14', 35) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
+            tech.rsi2 > tuned(key, 'maxGateRSI2', 50) || volRatio20 < tuned(key, 'minGateVolRatio', 2.0) ||
+            tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
             return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
     }
     // 52W high drawdown
@@ -2385,7 +2398,7 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
         adxVal >= tuned(key, 'minADX', 25);
     const passed = [c1, c2, c3, c4, c5, c6];
     const conditionsMet = passed.filter(Boolean).length;
-    const tuning = { dd52W, stabilizationBars, closeLoc, bodyPct, upperWickPct: ca.upperWickPct, isGreen: ca.isGreen, hammer: ca.isHammer, volRatio20, rsi14, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscMP, adx: adxVal, conditions: passed.map(Boolean) };
+    const tuning = { ...tech, dd52W, stabilizationBars, closeLoc, bodyPct, upperWickPct: ca.upperWickPct, isGreen: ca.isGreen, hammer: ca.isHammer, volRatio20, rsi14, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscMP, adx: adxVal, conditions: passed.map(Boolean) };
     if (conditionsMet < 3)
         return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
     const score = Math.min(100, Math.round((c1 ? 18 : 0) + (c2 ? 12 : 0) + (c3 ? 20 : 0) + (c4 ? 17 : 0) + (c5 ? 13 : 0) + (c6 ? 20 : 0) +
@@ -2448,14 +2461,12 @@ function analyzeEMAStack(candles) {
         return base;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+    const tech = archetypeTech(candles, endIdx);
     // CMF+OBV precision gate — hyper-tuned walk-forward: IS WR 85.7% → OOS WR 80.0% (n=10 OOS)
     // CMF ≥ 0.10 (clear accumulation) + OBV slope ≥ 0.5 (volume trend confirmation)
-    {
-        const _cmf = computeCMF(candles, endIdx, 20);
-        const _obv = computeOBVSlope10(candles, endIdx);
-        if (_cmf < 0.10 || _obv < 0.5)
-            return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
-    }
+    if (tech.cmf20 < tuned(key, 'minCMF20', 0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+        return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
     const ema10Arr = computeEMA(candles, 10);
     const ema20Arr = computeEMA(candles, 20);
     const ema50Arr = computeEMA(candles, 50);
@@ -2512,7 +2523,7 @@ function analyzeEMAStack(candles) {
         : false;
     const passed = [c1, c2, c3, c4, c5, c6];
     const conditionsMet = passed.filter(Boolean).length;
-    const tuning = { crossedAboveToday, belowCount, ema10VsEma20, isGreen: caES.isGreen, bodyPct: caES.bodyPct, upperWickPct: caES.upperWickPct, candleRisk: caES.candleRisk, volRatio20, recentlyOversold, diBull: diPlusV > diMinusV, bsc: bscES, adx: adxVal, conditions: passed.map(Boolean) };
+    const tuning = { ...tech, crossedAboveToday, belowCount, ema10VsEma20, isGreen: caES.isGreen, bodyPct: caES.bodyPct, upperWickPct: caES.upperWickPct, candleRisk: caES.candleRisk, volRatio20, recentlyOversold, diBull: diPlusV > diMinusV, bsc: bscES, adx: adxVal, conditions: passed.map(Boolean) };
     if (!c1 || conditionsMet < 2)
         return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
     const score = Math.min(100, Math.round((c1 ? 25 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 15 : 0) + (c5 ? 10 : 0) + (c6 ? 20 : 0) +
@@ -2579,15 +2590,17 @@ function analyzePerfectStorm(candles) {
     // Sub-archetypes are called with skipPrecisionGate=true to avoid double-gating and
     // to restore signal volume (CC/MP gates are calibrated for standalone use, not composition).
     const endIdx = n - 1;
+    const techPS = archetypeTech(candles, endIdx);
     {
-        const _cmf = computeCMF(candles, endIdx, 20);
-        const _obv = computeOBVSlope10(candles, endIdx);
+        const _cmf = techPS.cmf20;
+        const _obv = techPS.obvSlope10;
         // Composite gate — hyper-optimized across both BREAKEVEN and six_archetype models.
         // CMF≥0.05 (net inflow required) + OBV≥-1.5 (not in active distribution) gives the
         // best consistent OOS WR: 66% BREAKEVEN model / 58.5% six_archetype model (n=41).
         // volRatio20 deliberately excluded — sub-archetypes already gate on volume independently.
-        if (_cmf < 0.05 || _obv < -1.5)
-            return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
+        if (_cmf < tuned(key, 'minCMF20', 0.05) || _obv < tuned(key, 'minOBVSlope10', -1.5) ||
+            techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+            return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
     }
     const vf = analyzeVolumeFootprint(candles);
     const cc = analyzeCompressionCoil(candles, true); // skip CC's standalone gate
@@ -2600,7 +2613,7 @@ function analyzePerfectStorm(candles) {
         { r: mp, name: 'MomentumPocket', label: 'Momentum Pocket' },
         { r: ema, name: 'EMAStack', label: 'EMA Stack' },
     ].filter(f => ACTIONABLE.has(f.r.stage));
-    const tuning = { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: fires.length, fireScores: fires.map(f => f.r.inflectionScore) };
+    const tuning = { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: fires.length, fireScores: fires.map(f => f.r.inflectionScore) };
     if (fires.length < tuned(key, 'minFires', 2))
         return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 }, tuning);
     // Pick best individual result for price engine / metrics
@@ -2835,6 +2848,48 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
             }
             catch { /* keep 0 */ }
         }
+        // 10. Hit-Rate Gate — precision tier from optimizer-tuned indicator gates
+        // Gates derived from hitRateOptimizer sweep on 1616 NIFTY ALL symbols.
+        // ORS-Prime (66.7% OOS) and PerfectStorm already perform well — no gate needed.
+        try {
+            const dmi = computeDMI(candles, 14);
+            const adxVal = dmi.adx[endIdx] ?? 20;
+            result.adx14 = adxVal;
+            const vol = result.exactVolRatio20; // current vol / 20-bar avg
+            const rsi14v = result.rsi14;
+            const rsi2v = result.rsi2;
+            const body = result.bodyPct;
+            const cloc = result.closeLoc;
+            if (paramSetKey === 'optimized_deployable_20plus') {
+                // VolumeFootprint gate → OOS HR 80% (n=20)
+                // rsi14≥55, rsi2≤80, vol≥2.5, adx≥30, body≥0.3, closeLoc≥0.7
+                result.hitRateGate = (rsi14v >= 55 && rsi2v <= 80 && vol >= 2.5 && adxVal >= 30 && body >= 0.3 && cloc >= 0.7) ? 'PREMIUM' : 'STANDARD';
+            }
+            else if (paramSetKey === 'optimized_highprecision_15plus') {
+                // CompressionCoil gate → OOS HR 70% robust (n=20)
+                // rsi14≥50, rsi2≤80, vol≥2, closeLoc≥0.5
+                result.hitRateGate = (rsi14v >= 50 && rsi2v <= 80 && vol >= 2.0 && cloc >= 0.5) ? 'PREMIUM' : 'STANDARD';
+            }
+            else if (paramSetKey === 'optimized_elite_10plus') {
+                // MomentumPocket gate → OOS HR 52% robust (n=23)
+                // cmf20≥0, obv≥0, rsi14≥45, atrPct≥3
+                // Note: lower ceiling — gate improves but archetype is structurally limited
+                const cmf20v = computeCMF(candles, endIdx, 20);
+                const obvV = computeOBVSlope10(candles, endIdx);
+                result.hitRateGate = (cmf20v >= 0 && obvV >= 0 && rsi14v >= 45 && result.atrPct14 >= 3) ? 'PREMIUM' : 'STANDARD';
+            }
+            else if (paramSetKey === 'optimized_ultraselective_8plus') {
+                // EMAStack gate → OOS HR 48% robust (n=25)
+                // cmf≥0.12, vol≥1.5, atrPct≥3, rsi2≤70
+                const cmf20e = computeCMF(candles, endIdx, 20);
+                result.hitRateGate = (cmf20e >= 0.12 && vol >= 1.5 && result.atrPct14 >= 3.0 && rsi2v <= 70) ? 'PREMIUM' : 'STANDARD';
+            }
+            else {
+                // PerfectStorm / ORS-Prime — no additional gate; already gated in archetype
+                result.hitRateGate = null;
+            }
+        }
+        catch { /* keep hitRateGate undefined */ }
     }
     return result;
 }

@@ -247,8 +247,28 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
 
       {/* Col 1: Pre-event candle profile */}
       <div className="space-y-1.5">
-        <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-2">
-          Pre-event candle ({r.nBefore}d before · ₹{f2(br.lastClose)})
+        <div className="flex items-center gap-2 mb-2">
+          <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider">
+            Pre-event candle ({r.nBefore}d before · ₹{f2(br.lastClose)})
+          </div>
+          {br.hitRateGate === 'PREMIUM' && (
+            <span className="px-1.5 py-0 rounded text-[8px] font-bold tracking-wide"
+              style={{ color: '#f59e0b', background: '#78350f50', border: '1px solid #f59e0b55' }}
+              title="Passes optimizer-tuned precision gate — empirical OOS 5%-hit-rate ≥70%">
+              ★ PREMIUM GATE
+            </span>
+          )}
+          {br.hitRateGate === 'STANDARD' && (
+            <span className="px-1.5 py-0 rounded text-[8px] font-semibold"
+              style={{ color: '#64748b', background: '#1e293b', border: '1px solid #33415540' }}>
+              STANDARD
+            </span>
+          )}
+          {br.adx14 != null && (
+            <span className="ml-auto text-[9px] font-mono" style={{ color: br.adx14 >= 30 ? '#4ade80' : br.adx14 >= 20 ? '#fbbf24' : '#64748b' }}>
+              ADX {br.adx14.toFixed(0)}
+            </span>
+          )}
         </div>
 
         {/* Candle body visual */}
@@ -1598,8 +1618,17 @@ export default function PBFBAnalyzer() {
                               );
                             })()}
                           </td>
-                          <td className="px-2 py-1.5 text-[10px] text-slate-400 font-mono">
-                            {r.bestParamSet ? PARAM_SET_LABELS[r.bestParamSet] : '—'}
+                          <td className="px-2 py-1.5 text-[10px] font-mono">
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-400">{r.bestParamSet ? PARAM_SET_LABELS[r.bestParamSet] : '—'}</span>
+                              {r.bestResult?.hitRateGate === 'PREMIUM' && (
+                                <span className="px-1 py-0 rounded text-[8px] font-bold tracking-wide"
+                                  style={{ color: '#f59e0b', background: '#78350f50', border: '1px solid #f59e0b55' }}
+                                  title="PREMIUM gate: optimizer-tuned indicator filter — empirical OOS 5%-hit-rate ≥70%">
+                                  ★ PREMIUM
+                                </span>
+                              )}
+                            </div>
                           </td>
                           {PARAM_SET_KEYS.map(k => {
                             const s = r.stages[k] ?? 'NO_SIGNAL';
