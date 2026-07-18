@@ -2849,43 +2849,48 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
             catch { /* keep 0 */ }
         }
         // 10. Hit-Rate Gate — precision tier from optimizer-tuned indicator gates
-        // Gates derived from hitRateOptimizer sweep on 1616 NIFTY ALL symbols.
-        // ORS-Prime (66.7% OOS) and PerfectStorm already perform well — no gate needed.
+        // Gates derived from smartHitRateOptimizer Phase-1 solo sweep (1616 NIFTY ALL symbols).
+        // IS/OOS cutoff: 2025-05-05. Entry = next-bar open, stop [3.5%-6.5%], target +5%.
         try {
             const dmi = computeDMI(candles, 14);
             const adxVal = dmi.adx[endIdx] ?? 20;
             result.adx14 = adxVal;
-            const vol = result.exactVolRatio20; // current vol / 20-bar avg
+            const vol = result.exactVolRatio20;
             const rsi14v = result.rsi14;
             const rsi2v = result.rsi2;
             const body = result.bodyPct;
             const cloc = result.closeLoc;
             if (paramSetKey === 'optimized_deployable_20plus') {
-                // VolumeFootprint gate → OOS HR 80% (n=20)
-                // rsi14≥55, rsi2≤80, vol≥2.5, adx≥30, body≥0.3, closeLoc≥0.7
+                // VolumeFootprint → OOS 80% (n=20)
                 result.hitRateGate = (rsi14v >= 55 && rsi2v <= 80 && vol >= 2.5 && adxVal >= 30 && body >= 0.3 && cloc >= 0.7) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'optimized_highprecision_15plus') {
-                // CompressionCoil gate → OOS HR 70% robust (n=20)
-                // rsi14≥50, rsi2≤80, vol≥2, closeLoc≥0.5
+                // CompressionCoil → OOS 70% robust (n=20)
                 result.hitRateGate = (rsi14v >= 50 && rsi2v <= 80 && vol >= 2.0 && cloc >= 0.5) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'optimized_elite_10plus') {
-                // MomentumPocket gate → OOS HR 52% robust (n=23)
-                // cmf20≥0, obv≥0, rsi14≥45, atrPct≥3
-                // Note: lower ceiling — gate improves but archetype is structurally limited
-                const cmf20v = computeCMF(candles, endIdx, 20);
-                const obvV = computeOBVSlope10(candles, endIdx);
-                result.hitRateGate = (cmf20v >= 0 && obvV >= 0 && rsi14v >= 45 && result.atrPct14 >= 3) ? 'PREMIUM' : 'STANDARD';
+                // MomentumPocket → rsi14≥45 is strongest robust lifter (+6.2%, OOS 50% n=240)
+                // Old gate used cmf20 (Phase-1 showed -2.3% lift) — removed
+                result.hitRateGate = (rsi14v >= 45) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'optimized_ultraselective_8plus') {
-                // EMAStack gate → OOS HR 48% robust (n=25)
-                // cmf≥0.12, vol≥1.5, atrPct≥3, rsi2≤70
-                const cmf20e = computeCMF(candles, endIdx, 20);
-                result.hitRateGate = (cmf20e >= 0.12 && vol >= 1.5 && result.atrPct14 >= 3.0 && rsi2v <= 70) ? 'PREMIUM' : 'STANDARD';
+                // EMAStack → lowerWick≥0.3 strongest solo (+14.6% lift, OOS 55.6% n=18)
+                // Replaces old cmf/vol/atr gate (was OOS 48% n=25)
+                const sigBar = candles[endIdx];
+                const range = sigBar.h - sigBar.l;
+                const lowerWick = range > 0 ? (Math.min(sigBar.o, sigBar.c) - sigBar.l) / range : 0;
+                result.hitRateGate = (lowerWick >= 0.3) ? 'PREMIUM' : 'STANDARD';
+            }
+            else if (paramSetKey === 'sniper_95plus') {
+                // PerfectStorm → atrPct≥3 is strongest robust solo (+7.4% lift, OOS 60% n=25)
+                // (rsiSlope5 is stronger at +8.2% but requires extra RSI array computation)
+                result.hitRateGate = (result.atrPct14 >= 3) ? 'PREMIUM' : 'STANDARD';
+            }
+            else if (paramSetKey === 'ors_prime_reversal') {
+                // ORS-Prime → adx14≥15 (+1.2% lift, OOS 66% n=50 — most robust finding)
+                result.hitRateGate = (adxVal >= 15) ? 'PREMIUM' : 'STANDARD';
             }
             else {
-                // PerfectStorm / ORS-Prime — no additional gate; already gated in archetype
                 result.hitRateGate = null;
             }
         }

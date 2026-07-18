@@ -569,9 +569,20 @@ function computeGuppySpread(candles, endIdx) {
     if (endIdx < 60) {
         return { spreadPct: 99, compressed: false, ultraCompressed: false, compressDays: 0, cleanBullishFan: false, groupGapPct: 0, coiledRelease: false };
     }
+    // Pre-compute all 12 EMA arrays once — Bug 7 fix: was calling computeEMALevel (O(n)) 132× per stock
+    function buildGuppyEMAArr(period) {
+        const k = 2 / (period + 1);
+        const out = new Array(endIdx + 1).fill(0);
+        out[0] = candles[0].c;
+        for (let i = 1; i <= endIdx; i++)
+            out[i] = candles[i].c * k + out[i - 1] * (1 - k);
+        return out;
+    }
+    const shortEMAArrs = SHORT_PERIODS.map(p => buildGuppyEMAArr(p));
+    const longEMAArrs = LONG_PERIODS.map(p => buildGuppyEMAArr(p));
     function spreadAt(idx) {
-        const shortVals = SHORT_PERIODS.map(p => computeEMALevel(candles, idx, p));
-        const longVals = LONG_PERIODS.map(p => computeEMALevel(candles, idx, p));
+        const shortVals = shortEMAArrs.map(arr => arr[idx]);
+        const longVals = longEMAArrs.map(arr => arr[idx]);
         const allVals = [...shortVals, ...longVals];
         const cmp = candles[idx]?.c ?? 0;
         const spreadPct = cmp > 0 ? (Math.max(...allVals) - Math.min(...allVals)) / cmp * 100 : 99;
@@ -584,8 +595,9 @@ function computeGuppySpread(candles, endIdx) {
     const avgLong = now.longVals.reduce((a, b) => a + b, 0) / now.longVals.length;
     const groupGapPct = avgLong > 0 ? (avgShort - avgLong) / avgLong * 100 : 0;
     const cleanBullishFan = minShort > maxLong;
+    // Bug 10 fix: j < endIdx (was j <= endIdx, which double-counted today)
     let compressDays = 0;
-    for (let j = Math.max(0, endIdx - 10); j <= endIdx; j++) {
+    for (let j = Math.max(0, endIdx - 10); j < endIdx; j++) {
         if (spreadAt(j).spreadPct < 2.0)
             compressDays++;
     }
@@ -718,11 +730,21 @@ function computeStatsFeatures(candles, endIdx) {
         rsi14: safe(rsi14val, 50),
         cci34: safe(cci34val),
         ema10: safe(ema10), ema21: safe(ema21), ema55: safe(ema55), sma200: safe(sma200),
-        // Cross detection: was prev close on the other side of the MA?
-        ema10Cross: endIdx > 0 && ((candles[endIdx].c > ema10 && candles[endIdx - 1].c <= computeEMALevel(candles, endIdx - 1, 10)) || (candles[endIdx].c < ema10 && candles[endIdx - 1].c >= computeEMALevel(candles, endIdx - 1, 10))),
-        ema21Cross: endIdx > 0 && ((candles[endIdx].c > ema21 && candles[endIdx - 1].c <= computeEMALevel(candles, endIdx - 1, 21)) || (candles[endIdx].c < ema21 && candles[endIdx - 1].c >= computeEMALevel(candles, endIdx - 1, 21))),
-        ema55Cross: endIdx > 0 && ((candles[endIdx].c > ema55 && candles[endIdx - 1].c <= computeEMALevel(candles, endIdx - 1, 55)) || (candles[endIdx].c < ema55 && candles[endIdx - 1].c >= computeEMALevel(candles, endIdx - 1, 55))),
-        sma200Cross: endIdx > 0 && ((candles[endIdx].c > sma200 && candles[endIdx - 1].c <= computeSMALevel(candles, endIdx - 1, 200)) || (candles[endIdx].c < sma200 && candles[endIdx - 1].c >= computeSMALevel(candles, endIdx - 1, 200))),
+        // Cross detection — Bug 8 fix: pre-compute prev values once (was 4 redundant O(n) traversals)
+        ...(endIdx > 0 ? (() => {
+            const prevC = candles[endIdx - 1].c;
+            const pe10 = computeEMALevel(candles, endIdx - 1, 10);
+            const pe21 = computeEMALevel(candles, endIdx - 1, 21);
+            const pe55 = computeEMALevel(candles, endIdx - 1, 55);
+            const ps200 = computeSMALevel(candles, endIdx - 1, 200);
+            const curC = candles[endIdx].c;
+            return {
+                ema10Cross: (curC > ema10 && prevC <= pe10) || (curC < ema10 && prevC >= pe10),
+                ema21Cross: (curC > ema21 && prevC <= pe21) || (curC < ema21 && prevC >= pe21),
+                ema55Cross: (curC > ema55 && prevC <= pe55) || (curC < ema55 && prevC >= pe55),
+                sma200Cross: (curC > sma200 && prevC <= ps200) || (curC < sma200 && prevC >= ps200),
+            };
+        })() : { ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false }),
         guppySpreadPct: safe(guppy.spreadPct, 99),
         guppyCompressed: guppy.compressed,
         guppyUltraCompressed: guppy.ultraCompressed,
