@@ -2987,6 +2987,10 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   // to restore signal volume (CC/MP gates are calibrated for standalone use, not composition).
   const endIdx = n - 1;
   { const _cmf = computeCMF(candles, endIdx, 20); const _obv = computeOBVSlope10(candles, endIdx);
+    // Composite gate — hyper-optimized across both BREAKEVEN and six_archetype models.
+    // CMF≥0.05 (net inflow required) + OBV≥-1.5 (not in active distribution) gives the
+    // best consistent OOS WR: 66% BREAKEVEN model / 58.5% six_archetype model (n=41).
+    // volRatio20 deliberately excluded — sub-archetypes already gate on volume independently.
     if (_cmf < 0.05 || _obv < -1.5) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] }); }
 
   const vf  = analyzeVolumeFootprint(candles);

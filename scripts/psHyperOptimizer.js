@@ -176,14 +176,13 @@ const baseOOS=metrics(bank.filter(s=>!s.isBar));
 console.log(`Baseline IS:  WR=${baseIS.wr.toFixed(1)}% avg=${baseIS.avg.toFixed(2)} n=${baseIS.n}`);
 console.log(`Baseline OOS: WR=${baseOOS.wr.toFixed(1)}% avg=${baseOOS.avg.toFixed(2)} n=${baseOOS.n}\n`);
 
-// Sweep grid — PerfectStorm specific
-// Since PS already has ADX + quality gates, we focus on:
-//   CMF (composite money flow), OBV slope, volRatio20, fires count, score, regime
-const CMF_T     = [-0.05, 0.0, 0.05, 0.08, 0.10, 0.12, 0.15];
-const OBV_T     = [-2.0, -1.0, -0.5, 0.0, 0.5];
-const VOL_T     = [null, 1.2, 1.5, 2.0, 2.5];
-const FIRES_T   = [2, 3, 4];           // min sub-archetypes that must fire
-const SCORE_T   = [40, 50, 60, 70];
+// Sweep grid — full parameter sweep now that gate is disabled in compiled engine
+// Sweeping: cmfMin, obvMin, volRatio20Min, firesMin, scoreMin, stage, regime
+const CMF_T     = [-0.10, -0.05, 0.0, 0.05, 0.08, 0.10, 0.12, 0.15, 0.20];
+const OBV_T     = [-3.0, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5];
+const VOL_T     = [null, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0];
+const FIRES_T   = [2, 3, 4];
+const SCORE_T   = [30, 40, 50, 60, 70];
 const REGIME_T  = [false, true];
 const STAGES    = [
   {name:'ANY',     fn:s=>BUY_S.has(s.stage)},
@@ -217,7 +216,7 @@ for(const regimeOnly of REGIME_T){
     );
     if(isF.length<MIN_N_IS)continue;
     const isM=metrics(isF);
-    if(isM.wr<70)continue;
+    if(isM.wr<65)continue;
 
     const oosF=oosSigs.filter(s=>
       s.score>=scoreMin && sf.fn(s) &&

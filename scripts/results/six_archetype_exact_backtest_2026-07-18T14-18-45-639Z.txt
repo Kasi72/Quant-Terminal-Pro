@@ -1,0 +1,24 @@
+SIX-ARCHETYPE EXACT LIVE-PIPELINE BACKTEST
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Files: 1616; usable: 1584; skipped short: 32
+Window=300; every bar; OOS cutoff=2025-05-05
+Entry/exit: next-day open; stop-first; non-overlapping per symbol and route.
+
+Route              N       WR   Wilson   AvgPnL   PF   MFE20   MAE20  Hit3/10 Hit5/20 Hit10/20 | OOS N  OOS WR OOS Avg OOS PF
+---------------------------------------------------------------------------------------------------------------------------------------
+VolumeFootprint     2694   51.7     49.8    -0.44  0.85   24.39   -9.65     68.4     65.6      40.6 |   756    49.9    -0.53   0.82
+CompressionCoil      220   52.7     46.1    -0.35  0.88    9.95   -8.48     67.7     60.9      35.5 |    70    47.1    -0.73   0.76
+MomentumPocket      1242   51.0     48.2    -1.01  0.71   49.06   -9.03     63.9     61.8      39.4 |   486    46.5    -0.81   0.73
+EMAStack             232   50.0     43.6    -2.87  0.46  438.18  -12.12     63.8     59.5      37.9 |    92    43.5    -1.37   0.61
+PerfectStorm         130   45.4     37.1    -1.14  0.66    9.36  -12.85     61.5     54.6      32.3 |    41    58.5     0.52   1.23
+ORS-Prime            353   88.1     84.3     1.90  2.19   18.83   -9.47     89.8     86.7      68.0 |    58    84.5     1.62   1.92
+
+WR = net P&L > 0%; Wilson = 95% lower confidence bound. MFE/MAE are average maximum excursions over 20 bars.
+Hit rates are independent reach rates, not necessarily closed profitable trades.
+
+VolumeFootprint: signals=2694; executed=2694; stages={"BUY":2475,"STRONG_BUY":197,"ULTRA_STRONG_BUY":22}
+CompressionCoil: signals=220; executed=220; stages={"BUY":216,"STRONG_BUY":4}
+MomentumPocket: signals=1242; executed=1242; stages={"BUY":1095,"STRONG_BUY":145,"ULTRA_STRONG_BUY":2}
+EMAStack: signals=232; executed=232; stages={"BUY":169,"STRONG_BUY":62,"ULTRA_STRONG_BUY":1}
+PerfectStorm: signals=130; executed=130; stages={"BUY":127,"STRONG_BUY":3}
+ORS-Prime: signals=353; executed=353; stages={"STRONG_BUY":347,"BUY":2,"ULTRA_STRONG_BUY":4}
