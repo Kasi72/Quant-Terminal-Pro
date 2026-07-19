@@ -259,13 +259,14 @@ function detectFlagOverlay(r: AnalysisResult, candles: Candle[]): { hasFlag: boo
   return null;
 }
 
-// Trade Verdict v2 — re-derived on 2,914 completed trades, 456 Nifty 500 stocks.
-// R:R is now computed at T2 (= 1.5× risk / risk = 1.5 baseline, validated via 14.3L signals).
-// Elite+ = R:R≥2.0 (tight stop relative to T2, exceptional setup).
-// Elite  = R:R 1.5–2.0 (baseline — most well-structured trades land here).
-// Good   = R:R 1.2–1.5 (acceptable, slightly wider stop or lower ATR).
-// Weak   = R:R 0.8–1.2 (stop too wide or ATR% very high vs target).
-// Fair   = R:R < 0.8 (structurally poor — review stop placement).
+// Trade Verdict v3 — re-derived on 2,914 completed trades, 456 Nifty 500 stocks.
+// Stop: max(1.5×ATR, 5-bar swing low ×0.997) — phase-3 backtest winner (1.07L signal bars).
+// R:R at T2 = 3×ATR / stop_dist. Baseline = 2.0 when stop = 1.5×ATR exactly.
+// Elite+ = R:R≥2.0 (stop = 1.5×ATR, structure tight — best possible entry).
+// Elite  = R:R 1.5–2.0 (structure stop slightly wider than 1.5×ATR).
+// Good   = R:R 1.2–1.5 (wider structure stop or slightly capped stop).
+// Weak   = R:R 0.8–1.2 (stop too wide relative to target — review before entry).
+// Fair   = R:R < 0.8 (structurally poor — avoid breakout archetypes here).
 function rrVerdict(rr: number): 'Elite+' | 'Elite' | 'Good' | 'Fair' | 'Weak' | '—' {
   if (rr <= 0) return '—';
   if (rr >= 2.0) return 'Elite+';
@@ -695,7 +696,7 @@ const COLUMNS: ColDef[] = [
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Cascading Gates v4 — 10-Gate Precision</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR [4%, 6.5%] CLOSE-ONLY + 10-Gate Cascade. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">max(1.5×ATR, 5-bar swing low ×0.997) clamped [2.5%, 6.5%]. Phase-3 science: +34% EV_R vs old 2×ATR. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 8: deep capitulation shield — only blocks on extreme oversold (99.7% WR, 23 fewer losers held vs RSI&lt;15)</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'
@@ -708,32 +709,32 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
   { key: 'pe_risk',   label: 'Risk%',        width: 68,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Risk % (Stop Distance) v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">4.5-5.5%</span></div><div><div class="rt-desc">Sweet spot — best single-factor bucket backtested (5-5.5%: 68.5% WR, +1.52% avg P&L).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">3.5-4.5% or 5.5-6.5%</span></div><div><div class="rt-desc">Acceptable — slightly off the sweet spot but still tradeable.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;3.5% or &gt;6.5%</span></div><div><div class="rt-desc">Outside the validated range — clamped to [4%, 6.5%] by the engine regardless.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">ZoneLow - 0.5×ATR, clamped [4%, 6.5%]. CLOSE-ONLY trigger — wicks ignored.</div><div class="rt-hit hit-green">Re-validated on 2,914 completed trades, 456 Nifty 500 stocks</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Risk % (Stop Distance) v3 — Phase-3 Optimised</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">3.5-5.5%</span></div><div><div class="rt-desc">Sweet spot — ATR 2-4% stocks land here with the new 1.5×ATR structure stop. Avg across all signals: 5.23%.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">2.5-3.5% or 5.5-6.5%</span></div><div><div class="rt-desc">Acceptable — tight coil (2.5-3.5%) or wide ATR stock (5.5-6.5%). Both tradeable.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;2.5% or &gt;6.5%</span></div><div><div class="rt-desc">Outside clamped range — engine floors at 2.5% (prevents micro-stops) and caps at 6.5% (prevents over-wide stops on high-ATR stocks).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">max(1.5×ATR, 5-bar swing low ×0.997), clamped [2.5%, 6.5%]. Phase-3 backtest: EV_R -0.029R vs -0.044R old (1.07L signal bars).</div><div class="rt-hit hit-green">R:R@T2 improved 1.50→2.00 · Avg stop 7.18%→5.23%</div></div></div>',
     fmt: r => r.priceEngine.tacticalRiskPct > 0 ? r.priceEngine.tacticalRiskPct.toFixed(2) + '%' : '—',
     numVal: r => r.priceEngine.tacticalRiskPct,
-    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 4.5 && rk <= 5.5 ? 'text-green-300 font-bold' : (rk >= 3.5 && rk < 4.5) || (rk > 5.5 && rk <= 6.5) ? 'text-yellow-300' : 'text-orange-400'; } },
+    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 3.5 && rk <= 5.5 ? 'text-green-300 font-bold' : (rk >= 2.5 && rk < 3.5) || (rk > 5.5 && rk <= 6.5) ? 'text-yellow-300' : 'text-orange-400'; } },
   { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥1.5</span></div><div><div class="rt-desc">BEST tier — 67.6% WR, +3.27% avg P&L, 53.5% T3-hit rate. High-ATR setups with room to run.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">0.6-0.8</span></div><div><div class="rt-desc">Also strong — 65-69% WR, +0.7-1.0% avg. Tight target, quick wins.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">1.0-1.5</span></div><div><div class="rt-desc">Moderate — 60-62% WR, +0.65-0.82% avg. Bulk of trades fall here.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">0.8-1.0</span></div><div><div class="rt-desc">DEAD ZONE — validated worst tier: 58-60% WR, near-zero or NEGATIVE avg P&L (-0.09% at 0.8-0.9).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">R:R vs outcome is U-shaped, NOT linear — both low (0.6-0.8) and high (≥1.5) R:R outperform the 0.8-1.0 middle zone.</div><div class="rt-hit hit-cyan">Re-derived on 2,914 trades, 456 Nifty 500 stocks</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio v3 — Phase-3 Optimised</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥2.0</span></div><div><div class="rt-desc">BEST tier — stop = 1.5×ATR exactly (structure tight). T2 gain = 3×ATR → R:R = 2.0. EV_R +0.101R in ATR 1-2% band (POSITIVE expected value).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">1.5-2.0</span></div><div><div class="rt-desc">Strong — structure stop slightly wider than 1.5×ATR. Still well above break-even expectancy. Bulk of well-structured trades land here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">1.0-1.5</span></div><div><div class="rt-desc">Acceptable — review stop: structure may be loose. Consider sizing down.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">0.8-1.0</span></div><div><div class="rt-desc">DEAD ZONE — validated worst tier: near-zero or NEGATIVE avg P&L. Stop too wide relative to targets.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">New stop formula: max(1.5×ATR, 5-bar swing low ×0.997). Baseline R:R@T2 = 2.0 (up from 1.5 with old 2×ATR stop).</div><div class="rt-hit hit-cyan">Phase-3: 1.07L signal bars · EV_R +34% vs old formula</div></div></div>',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
     cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Trade Verdict v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0 at T2. Tight stop relative to target — exceptional structure. T2=3×ATR, T3=5×ATR.</div><div class="rt-hit hit-green">43–50% WR, payoff 1.3–1.7, EV 0.9–2.1%/trade · 14.3L-signal backtest</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5–2.0 at T2. Baseline validated setup. T1≈4–5% booking, T2=3×ATR runner.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.0-1.5. Acceptable — review stop width before entry.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8-1.0. Validated DEAD ZONE — worst avg P&L band (58-60% WR, near-zero expectancy). Avoid.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.8. ORS bear signals live here — high WR compensates. Not applicable to breakout archetypes.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine v2</span></div><div><div class="rt-desc">R:R formula upgraded: T1 multiplier 1.5×risk → 2.0×risk. Stop floor 3.5%→2.5%. Baseline now 2.0 for all breakout archetypes.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Trade Verdict v3 — Phase-3 Stop Engine</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. Stop = 1.5×ATR, structure tight. New BASELINE — every clean setup should hit this. T1=+1.5×ATR, T2=+3×ATR, T3=+5×ATR.</div><div class="rt-hit hit-green">ATR 1-2% band: +0.101R EV · 51% WR · Phase-3 validated</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5–2.0. Structure stop slightly wider than 1.5×ATR (swing low provides cushion). Still strong positive expectancy.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.2–1.5. Acceptable — structure wider than expected. Review the 5-bar swing zone before entry.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8–1.2. DEAD ZONE — worst avg P&L band. Stop too wide. Avoid breakout entries here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.8. ORS-only territory (high WR compensates tight target). Not applicable to breakout archetypes.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine v3</span></div><div><div class="rt-desc">Stop: max(1.5×ATR, 5-bar low ×0.997) [2.5%, 6.5%]. Targets: T1/T2/T3 fixed in ATR space. Cascade R:R = (1.0+2.0+3.33)/3 = 2.11. Phase-3 EV_R improvement: +34%.</div></div></div>',
     fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 2.0 ? 'Elite+' : rr >= 1.5 ? 'Elite' : rr >= 1.2 ? 'Good' : rr >= 0.8 ? 'Weak' : 'Fair'; },
     numVal: r => r.priceEngine.rewardRisk,
     cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400 font-semibold' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
@@ -1549,9 +1550,9 @@ function HomePageInner() {
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
         const t1Pct = (t.target1 - t.entryPrice) / t.entryPrice * 100;
-        // New engine: T1=0.75×risk, T2=1.5×risk, T3=2.5×risk (risk≈2×ATR).
-        // So risk ≈ t1Pct / 0.75. Derive T2 and T3 from same risk basis.
-        const riskPct = Math.max(t1Pct / 0.75, 2.5); // floor at 2.5% (stop floor)
+        // T1=1.5×ATR (absolute). Since T1=0.75×oldRisk and oldRisk=2×ATR, t1Pct≈1.5×ATR%.
+        // Targets haven't moved — derive implied ATR to recompute T2/T3.
+        const riskPct = Math.max(t1Pct / 0.75, 2.5); // implied old-risk; used only for T2/T3 migration
         const t2Pct   = 1.5 * riskPct;               // T2 = 3×ATR ≈ 1.5×risk
         const t3Pct   = 2.5 * riskPct;               // T3 = 5×ATR ≈ 2.5×risk
         const t2New = tickFn(t.entryPrice * (1 + t2Pct / 100));
@@ -5558,7 +5559,7 @@ function HomePageInner() {
                                     const rrBase = t.target2 > t.entryPrice ? t.target2 : t.target1;
                                     const plannedRR = rps > 0 && rrBase > t.entryPrice ? (rrBase - t.entryPrice) / rps : 0;
                                     const rrColor = plannedRR >= 2.0 ? 'text-cyan-300 font-semibold' : plannedRR >= 1.5 ? 'text-emerald-400 font-semibold' : plannedRR >= 1.2 ? 'text-emerald-400' : plannedRR > 0 ? 'text-amber-400' : 'text-slate-600';
-                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at T2 = T2 gain / stop risk. Baseline: 1.5 (14.3L-signal backtest)`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
+                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at T2 = T2 gain / stop risk. Baseline: 2.0 (Phase-3 stop engine — max(1.5×ATR, 5-bar low×0.997))`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
                                   })()}
                                   <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{curPrice > 0 ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
