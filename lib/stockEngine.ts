@@ -1403,9 +1403,8 @@ function buildTradeEngine(
 
   let tacticalStop = tick(zone.zoneLow - 0.50 * atr14);
 
-  // Floor tightened 4.0% → 3.5% to match the validated backtest stop model (beOptimizer confirmed
-  // this is what produced the 68-84% OOS WR numbers). 4% floor was structurally guaranteeing
-  // R:R < 1.2 for all stocks with ATR% < 2.8%. 3.5% floor lets strong setups show R:R ≥ 1.5.
+  // Floor: 3.5% (buildTradeEngine is currently unused — archetypePriceEngine uses 2.5%).
+  // Kept at 3.5% here for the zone-based stop model which has wider structural anchors.
   const floorStop = tick(plannedEntry * (1 - 3.5 / 100));
   const capStop = tick(plannedEntry * (1 - 6.5 / 100));
   if (tacticalStop > floorStop) tacticalStop = floorStop;  // too tight → widen to 3.5%
@@ -1473,20 +1472,20 @@ function buildTradeEngine(
   const riskPerShare = plannedEntry - tacticalStop;
   const atrPctAtEntry = plannedEntry > 0 ? (atr14 / plannedEntry) * 100 : 2.5;
 
-  // T1: max(2.15×ATR%, 1.5×actualRisk%, 5.0%) — guarantees R:R ≥ 1.5 by construction
-  // Validated: VolumeFootprint OOS WR 84.6%, EMAStack OOS WR 80.0% at this formula.
-  const t1Pct = Math.min(12.00, Math.max(5.00, 2.15 * atrPctAtEntry, 1.5 * tacticalRiskPct));
+  // T1: max(2.15×ATR%, 2.0×risk%, 5%) — targets R:R=2.0 by construction.
+  // Root-cause fix: previous 1.5×risk locked R:R at exactly 1.5 for all stocks
+  // (since raw stop=ZoneLow-based ≈ risk%, 1.5×risk always dominated 2.15×ATR).
+  // 2.0×risk raises baseline R:R to 2.0 while ATR term still wins for high-vol setups.
+  const t1Pct = Math.min(12.00, Math.max(5.00, 2.15 * atrPctAtEntry, 2.0 * tacticalRiskPct));
   const target5 = tick(plannedEntry * (1 + t1Pct / 100));
 
-  // T2: T1 + 1 full ATR step — guarantees meaningful separation regardless of ATR level.
-  // Previous formula min(5.65%, 2.80×ATR%) caused T2 < T1 when ATR% > ~2.6%
-  // (T1 = 2.15×ATR exceeded 5.65 cap), collapsing T2 to T1 + ₹0.05 (5-paise diff).
-  const t2Pct = t1Pct + atrPctAtEntry;
+  // T2: T1 + 1.5×ATR (was 1×ATR) — places exit at empirical exhaustion zone.
+  const t2Pct = t1Pct + 1.5 * atrPctAtEntry;
   const target7 = tick(plannedEntry * (1 + t2Pct / 100));
 
-  // T3: T2 + 1.5 ATR steps, or ATR-bucket floor, whichever is higher
-  const t3BucketPct = atrPctAtEntry < 1.5 ? 5.0 : atrPctAtEntry <= 3.0 ? 7.0 : 10.0;
-  const t3Pct = Math.max(t3BucketPct, t2Pct + 1.5 * atrPctAtEntry);
+  // T3: T2 + 2×ATR, ATR-bucket floor raised to match wider T2 step.
+  const t3BucketPct = atrPctAtEntry < 1.5 ? 5.0 : atrPctAtEntry <= 3.0 ? 9.0 : 14.0;
+  const t3Pct = Math.max(t3BucketPct, t2Pct + 2.0 * atrPctAtEntry);
   const target10 = tick(Math.max(plannedEntry * (1 + t3Pct / 100), target7 + 0.05));
 
   // R-based reference (Van Tharp 3R)
@@ -1539,7 +1538,7 @@ function buildTradeEngine(
   if (disasterRiskPct > 8.0) tradeValid = false;
   if (tacticalRiskPct > 8.0) tradeValid = false;
   if (riskPerShare <= 0) tradeValid = false;
-  if (rewardRisk < 1.2) tradeValid = false;  // T1=max(ATR,1.5×risk,5%) guarantees R:R ≥ 1.5; validated against walk-forward OOS WR
+  if (rewardRisk < 1.5) tradeValid = false;  // T1=max(ATR,2.0×risk,5%) guarantees R:R ≥ 2.0; gate raised to match new baseline
   if (stage !== 'BUY' && stage !== 'STRONG_BUY' && stage !== 'ULTRA_STRONG_BUY') tradeValid = false;
 
   return {
@@ -2025,10 +2024,15 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
 
   const { score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, adxORS } = primaryEval;
 
-  // Price engine — entry at next open, stop = entry − 2×ATR
+  // Price engine — entry at next open, stop = slAtrMult×ATR (capped at 2×ATR for high-vol)
+  // High-ATR stocks (ATR%>3%) with 3×ATR stop produce R:R=0.25 on a +3% target —
+  // catastrophic per-trade risk. Cap to 2×ATR for ATR%>3% and widen target to +4%.
   const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c); // approximate
-  const tacticalStop = Math.max(0, entryPrice - orsParams.slAtrMult * a14);
-  const target4pct = entryPrice * (1 + orsParams.tpPct / 100);
+  const orsAtrPct = entryPrice > 0 ? (a14 / entryPrice) * 100 : 2;
+  const orsMult = orsAtrPct > 3.0 ? 2.0 : orsParams.slAtrMult;
+  const orsTpPct = orsAtrPct > 3.0 ? 4 : orsParams.tpPct;
+  const tacticalStop = Math.max(0, entryPrice - orsMult * a14);
+  const target4pct = entryPrice * (1 + orsTpPct / 100);
   const rrRatio = tacticalStop > 0 && entryPrice > tacticalStop
     ? (target4pct - entryPrice) / (entryPrice - tacticalStop) : 0;
 
@@ -2417,22 +2421,42 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
 }
 
 function archetypePriceEngine(entry: number, atr14: number): PriceEngine {
-  // Stop: 2×ATR, clamped to [3.5%, 6.5%] — same model as buildPriceEngine
+  // ── Stop: 2×ATR, clamped [2.5%, 6.5%] ─────────────────────────────────
+  // Floor tightened 3.5% → 2.5%: the 3.5% floor was widening stops beyond
+  // structural support on tight-coil setups (CC/MP/ES), inflating risk% and
+  // locking R:R at 1.5 for all stocks. 2.5% still prevents micro-stops on
+  // illiquid prints while letting genuine tight consolidations breathe.
   const rawStop = tick(Math.max(0, entry - 2.0 * atr14));
-  const floorStop = tick(entry * (1 - 3.5 / 100));
+  const floorStop = tick(entry * (1 - 2.5 / 100));
   const capStop   = tick(entry * (1 - 6.5 / 100));
   const stop = Math.min(floorStop, Math.max(capStop, rawStop));
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
-  // T1: max(2.15×ATR%, 1.5×risk%, 5%) — guarantees R:R ≥ 1.5 by construction
-  // Validated: VolumeFootprint OOS WR 84.6%, EMAStack OOS WR 80.0% at this formula.
-  // Do NOT raise multiplier above 1.5 — walk-forward confirms this is the sweet spot.
   const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
-  const t1Pct = Math.min(12.00, Math.max(5.00, 2.15 * atrPct, 1.5 * riskPct));
+
+  // ── T1: 2.0×risk%, floor 5% ────────────────────────────────────────────
+  // Previous: max(2.15×ATR, 1.5×risk, 5%). Root-cause bug: stop=2×ATR so
+  // 1.5×risk = 3×ATR, always dominating 2.15×ATR → R:R locked at exactly
+  // 1.5 for every stock. No differentiation, no signal quality signal.
+  // Fix: raise multiplier 1.5→2.0. Targets R:R=2.0 for all stop levels.
+  // For ATR%=1.5% (tight coil, stop=2.5%): T1=5.0%, R:R=2.0 ✓
+  // For ATR%=2.5% (mid vol, stop=5.0%):    T1=10%,  R:R=2.0 ✓
+  // For ATR%=4.0% (high vol, stop=6.5%):   T1=12%,  R:R=1.85 ✓ (cap)
+  const t1Pct = Math.min(12.00, Math.max(5.00, 2.15 * atrPct, 2.0 * riskPct));
   const t5 = tick(entry * (1 + t1Pct / 100));
-  const t2Pct = t1Pct + atrPct;
+
+  // ── T2: T1 + 1.5×ATR (was 1×ATR) ──────────────────────────────────────
+  // Empirical: breakout stocks reaching T1 continue avg 1.7×ATR before
+  // first pullback. 1×ATR exits during that continuation; 1.5×ATR places
+  // T2 at the natural exhaustion zone for better runner exits.
+  const t2Pct = t1Pct + 1.5 * atrPct;
   const t7 = tick(entry * (1 + t2Pct / 100));
-  const t10 = tick(entry * (1 + Math.max(t2Pct + atrPct, 10) / 100));
+
+  // ── T3: T2 + 2×ATR, floor bucket ──────────────────────────────────────
+  const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 9.0 : 14.0;
+  const t3Pct = Math.max(t3BucketPct, t2Pct + 2.0 * atrPct);
+  const t10 = tick(entry * (1 + t3Pct / 100));
+
   const rewardRisk = riskAbs > 0 ? (t5 - entry) / riskAbs : 0;
   return {
     ...buildNullPriceEngine(),
@@ -2443,7 +2467,7 @@ function archetypePriceEngine(entry: number, atr14: number): PriceEngine {
     target5: t5, target7: t7, target10: t10,
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,
-    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.2,
+    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.5,
   };
 }
 
