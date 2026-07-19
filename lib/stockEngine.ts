@@ -2409,27 +2409,35 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
 }
 
 function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEngine {
-  // ── Stop: ATR 2× + 5-bar structure, clamped [3.5%, 6.5%] ──────────────
-  // Cross-band target_validation_study rank #1 (107K filtered signals):
-  //   Stop=2×ATR universal optimal across TIGHT/NORMAL/VOLAT/HIGH bands.
-  //   Gives trades room to breathe; avoids whipsaw on 1.5× which sweeps 35%+ of signals.
-  // Logic: "use 2×ATR breathing room; if recent structure is tighter, use that."
+  const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
+
+  // ── ATR band classification ─────────────────────────────────────────────
+  // TIGHT<1.5% | NORMAL 1.5-2.5% | VOLAT 2.5-3.5% | HIGH>3.5%
+  const isTight = atrPct < 1.5;
+
+  // ── Stop: ATR 2× + 5-bar structure, clamped [floor%, 6.5%] ─────────────
+  // Cross-band target_validation_study rank #1: Stop=2×ATR universal optimal.
+  // Floor differs by band: TIGHT stocks (ATR<1.5%) have 2×ATR≈2-3%, so 2.5% floor
+  // preserves the backtest's actual stop. Non-tight gets 3.5% to ensure meaningful risk.
   const atrStop    = entry - 2.0 * atr14;
   const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
-  const rawStop    = tick(Math.max(0, Math.max(atrStop, structStop))); // tighter wins
-  const floorStop  = tick(entry * (1 - 3.5 / 100));
+  const rawStop    = tick(Math.max(0, Math.max(atrStop, structStop)));
+  const floorPct   = isTight ? 2.5 : 3.5;
+  const floorStop  = tick(entry * (1 - floorPct / 100));
   const capStop    = tick(entry * (1 - 6.5 / 100));
   const stop = Math.min(floorStop, Math.max(capStop, rawStop));
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
-  const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
 
-  // ── T1/T2/T3: ATR-absolute positions (cross-band study rank #1) ──
-  // T1=1.25×ATR, T2=2.75×ATR, T3=4.75×ATR — universal optimal across all ATR bands.
-  // With stop=2×ATR, R:R@T1=0.63, R:R@T2=1.38, R:R@T3=2.38 — tight T1 improves hit rate.
-  const t5  = tick(entry * (1 + 1.25 * atrPct / 100));   // T1: 1.25×ATR
-  const t7  = tick(entry * (1 + 2.75 * atrPct / 100));   // T2: 2.75×ATR
-  const t10 = tick(Math.max(entry * (1 + 4.75 * atrPct / 100), t7 + 0.05)); // T3: 4.75×ATR
+  // ── T1/T2/T3: per-band optimal from target_validation_study cascade model ──
+  // TIGHT band rank #1: T1=1.25×, T2=3.25×, T3=5.75× (EV=1.181%, Score=619.76)
+  //   Low-ATR stocks drift farther in absolute % terms — extended T2/T3 captures this.
+  // NORMAL/VOLAT/HIGH rank #1: T1=1.25×, T2=2.75×, T3=4.75× (cross-band optimum)
+  const t2Mult = isTight ? 3.25 : 2.75;
+  const t3Mult = isTight ? 5.75 : 4.75;
+  const t5  = tick(entry * (1 + 1.25 * atrPct / 100));             // T1: 1.25×ATR (all bands)
+  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: band-adapted
+  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: band-adapted
 
   const rewardRisk = riskAbs > 0 ? (t7 - entry) / riskAbs : 0; // R:R at T2
   // disasterStop = hard clamp at 6.5% below entry (the widest permitted stop).
