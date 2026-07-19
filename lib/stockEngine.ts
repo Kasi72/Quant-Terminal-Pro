@@ -3324,8 +3324,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.hitRateGate = (result.atrPct14 >= 3 && body >= 35) ? 'PREMIUM' : 'STANDARD';
 
       } else if (paramSetKey === 'ors_prime_reversal') {
-        // ORS-Prime → adx14≥15 (+1.2% lift, OOS 66% n=50 — most robust finding)
-        result.hitRateGate = (adxVal >= 15) ? 'PREMIUM' : 'STANDARD';
+        // ORS-Prime v5 → adx14≥20 (matches ors.minADX param; aligned with R5 final gate)
+        result.hitRateGate = (adxVal >= 20) ? 'PREMIUM' : 'STANDARD';
 
       } else {
         result.hitRateGate = null;

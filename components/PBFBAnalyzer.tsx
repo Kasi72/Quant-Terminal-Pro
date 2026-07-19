@@ -16,11 +16,11 @@ const PARAM_SET_KEYS: ParamSetKey[] = [
 ];
 
 const PARAM_SET_LABELS: Record<string, string> = {
-  optimized_deployable_20plus:    'Deployable',
-  optimized_highprecision_15plus: 'HiPrec',
-  optimized_elite_10plus:         'Elite',
-  optimized_ultraselective_8plus: 'Ultra',
-  sniper_95plus:                  'Sniper',
+  optimized_deployable_20plus:    'VF Scout',
+  optimized_highprecision_15plus: 'Comp Coil',
+  optimized_elite_10plus:         'Mom Pocket',
+  optimized_ultraselective_8plus: 'EMA Stack',
+  sniper_95plus:                  'Perf Storm',
   ors_prime_reversal:             'ORS↩Prime',
 };
 

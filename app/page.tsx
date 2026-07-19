@@ -347,7 +347,7 @@ function detectZoneExplosion(r: AnalysisResult): ZoneExplosionTier {
     && isGreen)
     return 'HIGH_CONVICTION';
 
-  // Deployable: 75.86% hit rate (29 trades, Wilson LB 57.89%, MFE 14.48%)
+  // VolumeFootprint: 75.86% hit rate (29 trades, Wilson LB 57.89%, MFE 14.48%)
   if (zt <= 20 && zl >= 5 && zl <= 20 && zatr <= 1.00
     && cazp >= 0.75 && cazp <= 6.00 && ra >= 1.00 && ra <= 8.00
     && adrPct >= 3.50 && adrPct <= 7.50
@@ -455,7 +455,7 @@ async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: str
 const STAGE_CONFIG: Record<StageRating, { label: string; color: string; textColor: string; bgColor: string }> = {
   ULTRA_STRONG_BUY:  { label: 'ULTRA STRONG BUY', color: 'text-[#39FF14]',    textColor: '#39FF14', bgColor: '#39FF1420' },
   STRONG_BUY:        { label: 'STRONG BUY',        color: 'text-[#22c55e]',   textColor: '#22c55e', bgColor: '#22c55e20' },
-  // Elite Signal: STRONG_BUY + HiPrec15+ — backtest avg +4.10%, median +6.27%, 69% of trades >5%
+  // Elite Signal: STRONG_BUY + Compression Coil — backtest avg +4.10%, median +6.27%, 69% of trades >5%
   BUY:               { label: 'BUY',               color: 'text-[#4ade80]',   textColor: '#4ade80', bgColor: '#4ade8020' },
   PRE_BREAKOUT:      { label: 'PRE-BREAKOUT',       color: 'text-[#a3e635]',   textColor: '#a3e635', bgColor: '#a3e63520' },
   EARLY_INFLECTION:  { label: 'EARLY INFLECTION',   color: 'text-[#facc15]',   textColor: '#facc15', bgColor: '#facc1520' },
@@ -551,8 +551,9 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">MP</span></div><div><div class="rt-desc">Momentum Pocket — first strong up-day after post-markdown stabilization.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">ES</span></div><div><div class="rt-desc">EMA Stack — price crosses above EMA20 with volume surge after pullback.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">PS</span></div><div><div class="rt-desc">Perfect Storm — ATR-volatile bull-momentum setup.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge" style="background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b55">🔥 BULL POOL</span></div><div><div class="rt-desc">Round-5 backtested gate: EMAStack OR PerfectStorm + body≥35% · OOS n=24 · Hit5=75% · PF=2.78 · AvgP&L=+2.40%</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge" style="background:#a855f720;color:#a855f7;border:1px solid #a855f755">↩ BEAR ORS</span></div><div><div class="rt-desc">ORS-Prime reversal — backtested bear-regime signal · OOS n=53 · Hit5=66% · PF=1.84</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge" style="background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b55">🔥 BULL POOL</span></div><div><div class="rt-desc">R5 gate: EMAStack OR PerfectStorm + body≥35% (candle body/range≥0.35) + PREMIUM hitRateGate · OOS n=24 · Hit5=75% · PF=2.78 · AvgP&L=+2.40% · At breadth&gt;70%: 83.3% OOS n=12 PF=4.06</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge" style="background:#fbbf2420;color:#fbbf24;border:1px solid #fbbf2455">body✓</span></div><div><div class="rt-desc">bodyGate: candle body ≥ 35% of its high–low range. R5 universal momentum quality filter. Shown on BULL POOL signals in the R5 banner above the table.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge" style="background:#a855f720;color:#a855f7;border:1px solid #a855f755">↩ BEAR ORS</span></div><div><div class="rt-desc">ORS-Prime v5 reversal — bear-regime capitulation signal (breadth≤50%) · OOS n=53 · Hit5=66% · PF=1.84 · ADX≥20 gate (PREMIUM) · Stop=3×ATR · Target+3%</div></div></div>',
     fmt: r => {
       const t = (r as AnalysisResult & { archetypeType?: string }).archetypeType;
       const pool = (r as AnalysisResult).bullPoolSignal;
@@ -586,24 +587,24 @@ const COLUMNS: ColDef[] = [
       if (pool && regime === 'BULL_POOL') return { color: '#f59e0b' };
       return undefined;
     } },
-  { key: 'clDep', label: 'D20+', width: 50, align: 'center',
+  { key: 'clDep', label: 'VF', width: 50, align: 'center',
     fmt: r => r.clusterBreakdown?.deployable ? `${r.clusterBreakdown.deployable.met}/${r.clusterBreakdown.deployable.total}` : '—',
     numVal: r => r.clusterBreakdown?.deployable?.met ?? 0,
     cellClass: r => { const c = r.clusterBreakdown?.deployable; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
-  { key: 'clHP', label: 'HP15+', width: 50, align: 'center',
+  { key: 'clHP', label: 'CC', width: 50, align: 'center',
     fmt: r => r.clusterBreakdown?.highPrecision ? `${r.clusterBreakdown.highPrecision.met}/${r.clusterBreakdown.highPrecision.total}` : '—',
     numVal: r => r.clusterBreakdown?.highPrecision?.met ?? 0,
     cellClass: r => { const c = r.clusterBreakdown?.highPrecision; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
-  { key: 'clElt', label: 'E10+', width: 50, align: 'center',
+  { key: 'clElt', label: 'MP', width: 50, align: 'center',
     fmt: r => r.clusterBreakdown?.elite ? `${r.clusterBreakdown.elite.met}/${r.clusterBreakdown.elite.total}` : '—',
     numVal: r => r.clusterBreakdown?.elite?.met ?? 0,
     cellClass: r => { const c = r.clusterBreakdown?.elite; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
-  { key: 'clUS', label: 'US8+', width: 50, align: 'center',
+  { key: 'clUS', label: 'ES', width: 50, align: 'center',
     fmt: r => r.clusterBreakdown?.ultraSelective ? `${r.clusterBreakdown.ultraSelective.met}/${r.clusterBreakdown.ultraSelective.total}` : '—',
     numVal: r => r.clusterBreakdown?.ultraSelective?.met ?? 0,
     cellClass: r => { const c = r.clusterBreakdown?.ultraSelective; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
-  { key: 'clSN', label: '🎯SN', width: 50, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">🎯 Sniper 95+ v1</div><div class="rt-row"><div><span class="rt-badge bg-neon">95.2%</span></div><div><div class="rt-desc">Win Rate backtested on 77 stocks (21 signals, 20 winners, 0 stops). Dead-calm stocks that EXPLODE with volume.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Filters</span></div><div><div class="rt-desc">ATR Pctl ≤50, Zone ≤3% tight, Zero high-vol days, Breakout 1.6×ATR, Vol 1.4×, Expansion 2.5×</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">Action</span></div><div><div class="rt-desc">When Sniper fires: MAX SIZE. Rarest signal (~5-10/month on 2000 stocks).</div><div class="rt-hit hit-green">95.2% WR · 0% false stops · Real money signal</div></div></div>',
+  { key: 'clSN', label: 'PS', width: 50, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">⚡ Perfect Storm (R5)</div><div class="rt-row"><div><span class="rt-badge bg-neon">75%</span></div><div><div class="rt-desc">OOS Hit5=75% n=12 PF=2.94 (R5 gate: ATR≥3% AND body≥35%). At breadth&gt;70%: 87.5% OOS n=8 PF=6.03 — highest quality signal in study.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Setup</span></div><div><div class="rt-desc">Dead-calm low-ATR-pctl stocks that explode. ATR Pctl≤40, Zero high-vol days pre-breakout, Vol vs Pre5 ≥3.5×.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">R5 Gate</span></div><div><div class="rt-desc">PREMIUM = ATR14%≥3 AND body≥35%. Vol≥2× kills this signal — do NOT add vol filter.</div><div class="rt-hit hit-green">BULL POOL signal — fire only when breadth&gt;50%</div></div></div>',
     fmt: r => r.clusterBreakdown?.sniper ? `${r.clusterBreakdown.sniper.met}/${r.clusterBreakdown.sniper.total}` : '—',
     numVal: r => r.clusterBreakdown?.sniper?.met ?? 0,
     cellClass: r => { const c = r.clusterBreakdown?.sniper; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-red-400 font-bold animate-pulse' : c.met >= c.total - 2 ? 'text-yellow-300' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
@@ -969,8 +970,8 @@ const COLUMNS: ColDef[] = [
   // v7.3 columns
   { key: 'ors_reversal', label: 'ORS↩', width: 88, align: 'center',
     headerTipHtml: '<div class="rt-hdr">ORS-Prime Reversal Signal</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-purple">↩✓✓ CONFIRMED</span></div><div><div class="rt-desc">Yesterday was the oversold red signal AND today closed green. Enter at tomorrow open. Stop = 2×ATR. Target +4%.</div><div class="rt-hit hit-green">70.4% OOS Win Rate (635 test trades) · Convention A</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-dim">↩✓ SIGNAL</span></div><div><div class="rt-desc">Today is the oversold red candle: RSI2≤5 · Body≥45% · UpWick≤20% · ≥3% below EMA20 · ≥30% from 60d high. Watch for green confirmation tomorrow.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">↩✓✓ CONFIRMED</span></div><div><div class="rt-desc">Yesterday was the oversold red signal AND today closed green. Enter at tomorrow open. Stop = 3×ATR. Target +3%.</div><div class="rt-hit hit-green">ORS-Prime v5 · 96.2% OOS WR · Bear regime (breadth ≤50%) · OOS n=53 · PF=1.84</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-dim">↩✓ SIGNAL</span></div><div><div class="rt-desc">Today is the oversold red candle: RSI2≤7 · RSI14≤38 · Body≥37% · UpWick≤30% · ≥10% below EMA20 · ≥38% from 60d high · ORS Score≥63 · ADX≥20 · LowerWick≥20% · BodyATR≤1.6. Watch for green confirmation tomorrow.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Score 0-100</span></div><div><div class="rt-desc">ORS score: RSI2 depth (30pts) · RSI14 (15pts) · Range% (10pts) · EMA20 dist (10pts) · Body (8pts) · Wick (7pts) · SwingLow (5pts) · VolDryUp (5pts) · Drawdown (10pts) · 252d z-score bonus</div></div></div>',
     fmt: r => {
       const ors = r.clusterBreakdown?.orsReversal;
@@ -4399,12 +4400,12 @@ function HomePageInner() {
                       const stageColor = sig.stage === 'ULTRA_STRONG_BUY' ? '#39FF14' : sig.stage === 'STRONG_BUY' ? '#22d3ee' : '#facc15';
                       const stageShort = sig.stage === 'ULTRA_STRONG_BUY' ? 'USB' : sig.stage === 'STRONG_BUY' ? 'SB' : 'BUY';
                       const paramShort: Record<string,string> = {
-                        'optimized_deployable_20plus': 'D20+',
-                        'optimized_highprecision_15plus': 'HP15+',
-                        'optimized_elite_10plus': 'E10+',
-                        'optimized_ultraselective_8plus': 'US8+',
-                        'sniper_95plus': 'S95+',
-                        'ors_prime_reversal': 'ORS↩',
+                        'optimized_deployable_20plus':    'VF',
+                        'optimized_highprecision_15plus': 'CC',
+                        'optimized_elite_10plus':         'MP',
+                        'optimized_ultraselective_8plus': 'ES',
+                        'sniper_95plus':                  'PS',
+                        'ors_prime_reversal':             'ORS↩',
                       };
                       return (
                         <div key={sig.symbol} className="flex items-center gap-2 bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors text-xs" onClick={() => setSelectedSymbol(sig.symbol)}>
@@ -4789,7 +4790,7 @@ function HomePageInner() {
             {/* Legend */}
             <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
               <div><span className="text-slate-500 font-semibold">Signal Command:</span> Ranks current BUY signals by composite score (brain + backtest expected P&L). Size up on ELITE tier setups.</div>
-              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from {brainPrior?.total ?? '—'}-trade backtest. STRONG_BUY + HiPrec15+ is the elite tier.</div>
+              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from {brainPrior?.total ?? '—'}-trade backtest. STRONG_BUY + Compression Coil (CC) is the elite tier. R5: PS+ES = BULL POOL at breadth&gt;50% (75% OOS Hit5).</div>
               <div><span className="text-slate-500 font-semibold">RS Rank:</span> Mansfield Relative Strength percentile (0-100). Above 70 = leader, below 30 = laggard. Only buy RS leaders.</div>
               <div><span className="text-slate-500 font-semibold">TF Align:</span> DW = Daily + Weekly breakout confirmed (highest probability). D = Daily only (weekly still compressing).</div>
               <div><span className="text-slate-500 font-semibold">Sector Rotation:</span> Green = money flowing in + signals appearing. Red = money leaving. Trade WITH sector momentum.</div>
@@ -6584,6 +6585,13 @@ function HomePageInner() {
                           style={{ color: '#4ade80', background: '#4ade8015', border: '1px solid #4ade8030' }}>
                           +5% target
                         </span>
+                        {r.bodyGate === true && (
+                          <span className="text-[8px] px-1 rounded font-mono ml-0.5"
+                            style={{ color: '#fbbf24', background: '#fbbf2410', border: '1px solid #fbbf2430' }}
+                            title="Body≥35% quality gate cleared (R5 universal filter)">
+                            body✓
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -6616,7 +6624,7 @@ function HomePageInner() {
                         <span className="text-[9px] text-slate-500 font-mono">R{risk}%</span>
                         <span className="text-[8px] px-1 rounded font-bold tracking-wide ml-1"
                           style={{ color: '#c084fc', background: '#a855f715', border: '1px solid #a855f730' }}>
-                          66% OOS · bear
+                          66% OOS · ADX≥20 · bear
                         </span>
                       </div>
                     );
