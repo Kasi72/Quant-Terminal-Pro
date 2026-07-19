@@ -1460,6 +1460,7 @@ function HomePageInner() {
   const [showFlowSettings, setShowFlowSettings] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
+  const [showAllSignals, setShowAllSignals] = useState(false);
   const [fiiSellStreak, setFiiSellStreak] = useState<number>(() => {
     try { return Math.max(0, parseInt(localStorage.getItem('qtp_fii_streak') || '0') || 0); } catch { return 0; }
   });
@@ -4343,136 +4344,249 @@ function HomePageInner() {
         {/* ── Intelligence Tab ── */}
         {activeTab === 'intelligence' && (
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {/* Header with system stats */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">🧠 Brain v2 · Trading Intelligence</h2>
-              {brainPrior && (
-                <div className="text-[10px] text-slate-600">
-                  Prior: <span className="text-slate-400">{brainPrior.total} trades</span> · Global avg <span className={(brainPrior.globalAvgPnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}>{(brainPrior.globalAvgPnl ?? 0) >= 0 ? '+' : ''}{(brainPrior.globalAvgPnl ?? 0).toFixed(2)}%</span> · <span className="text-slate-500">updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
+            {/* ── SYSTEM HEALTH BAR ── */}
+            {(() => {
+              const ws = computeWinRateStats(trackedTrades);
+              const sysExp = brainInsights?.expectancy;
+              const brainConf = brainInsights?.confidence ?? 'INACTIVE';
+              const confColor = brainConf === 'HIGH' ? '#4ade80' : brainConf === 'MEDIUM' ? '#facc15' : brainConf === 'LOW' ? '#fb923c' : '#475569';
+              const totalClosed = trackedTrades.filter(t => t.status !== 'open').length;
+              const needsMoreTrades = totalClosed < 5;
+              return (
+                <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">🧠 Brain v2 · Trading Intelligence</h2>
+                    {brainPrior && (
+                      <span className="text-[9px] text-slate-600 ml-auto">prior: {brainPrior.total} trades · updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {/* Card 1: Closed Trades */}
+                    <div className="bg-slate-900/50 rounded p-2 text-center">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Closed Trades</div>
+                      <div className="text-xl font-bold font-mono text-slate-200">{totalClosed}</div>
+                      {needsMoreTrades && <div className="text-[8px] text-amber-500 mt-0.5">Need {5 - totalClosed} more</div>}
+                    </div>
+                    {/* Card 2: Win Rate */}
+                    <div className="bg-slate-900/50 rounded p-2 text-center">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Win Rate</div>
+                      <div className="text-xl font-bold font-mono" style={{color: ws.total >= 5 ? (ws.winRate >= 55 ? '#4ade80' : ws.winRate >= 40 ? '#facc15' : '#ef4444') : '#475569'}}>
+                        {ws.total >= 5 ? `${ws.winRate}%` : '—'}
+                      </div>
+                      {ws.total >= 5 && <div className="text-[8px] text-slate-600">{ws.hitT1 + ws.hitT2 + ws.hitT3}W / {ws.stopped + ws.expired + ws.manualClose + ws.closedEarly}L</div>}
+                    </div>
+                    {/* Card 3: Expectancy */}
+                    <div className="bg-slate-900/50 rounded p-2 text-center">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Expectancy</div>
+                      <div className="text-xl font-bold font-mono" style={{color: sysExp == null ? '#475569' : sysExp >= 1 ? '#4ade80' : sysExp >= 0 ? '#facc15' : '#ef4444'}}>
+                        {sysExp != null ? `${sysExp >= 0 ? '+' : ''}${sysExp.toFixed(2)}%` : '—'}
+                      </div>
+                      {sysExp != null && <div className="text-[8px] text-slate-600">per trade</div>}
+                    </div>
+                    {/* Card 4: Brain Confidence */}
+                    <div className="bg-slate-900/50 rounded p-2 text-center">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Brain State</div>
+                      <div className="text-sm font-bold font-mono mt-1" style={{color: confColor}}>{brainConf}</div>
+                      <div className="text-[8px] text-slate-600 mt-0.5">{brainConf === 'HIGH' ? 'scores reliable' : brainConf === 'MEDIUM' ? 'moderate signal' : brainConf === 'LOW' ? 'near-baseline' : 'track trades'}</div>
+                    </div>
+                    {/* Card 5: FII Streak */}
+                    <div className="bg-slate-900/50 rounded p-2 text-center">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">FII Sell Days</div>
+                      <div className="flex items-center justify-center gap-1.5 mt-1">
+                        <button onClick={() => { const v = Math.max(0, fiiSellStreak - 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-700/80 text-slate-400 hover:text-slate-200 text-[11px]">−</button>
+                        <span className="text-xl font-bold font-mono w-6 text-center" style={{color: fiiSellStreak >= 5 ? '#ef4444' : fiiSellStreak >= 3 ? '#fb923c' : fiiSellStreak > 0 ? '#facc15' : '#4ade80'}}>{fiiSellStreak}</span>
+                        <button onClick={() => { const v = Math.min(15, fiiSellStreak + 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-700/80 text-slate-400 hover:text-slate-200 text-[11px]">+</button>
+                      </div>
+                      <div className="text-[8px] mt-0.5" style={{color: fiiSellStreak >= 3 ? '#fb923c' : '#475569'}}>{fiiSellStreak >= 5 ? 'strong headwind' : fiiSellStreak >= 3 ? 'headwind' : fiiSellStreak > 0 ? 'mild' : 'neutral'}</div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })()}
+
+            {/* ── EMOTIONAL ALERT BANNER ── */}
+            {brainInsights?.emotionalAlert && brainInsights.streakType === 'L' && brainInsights.currentStreak >= 2 && (
+              <div className="flex items-start gap-3 bg-red-900/20 border border-red-700/50 rounded-lg px-3 py-2.5">
+                <span className="text-lg mt-0.5">⚠</span>
+                <div>
+                  <div className="text-[11px] font-bold text-red-300 mb-0.5">{brainInsights.currentStreak}-loss streak detected — Brain has reduced all scores</div>
+                  <div className="text-[10px] text-red-400/80">{brainInsights.emotionalAlert.message ?? 'Review position sizing before your next entry. Consider taking a session off.'}</div>
+                </div>
+              </div>
+            )}
+            {brainInsights?.emotionalAlert && brainInsights.streakType === 'W' && brainInsights.currentStreak >= 4 && (
+              <div className="flex items-start gap-3 bg-amber-900/20 border border-amber-700/50 rounded-lg px-3 py-2.5">
+                <span className="text-lg mt-0.5">🔥</span>
+                <div>
+                  <div className="text-[11px] font-bold text-amber-300 mb-0.5">{brainInsights.currentStreak}-win streak — watch for overconfidence</div>
+                  <div className="text-[10px] text-amber-400/80">Keep sizing disciplined. Hot streaks end. Stick to the process.</div>
+                </div>
+              </div>
+            )}
 
             {/* ── BRAIN v2 SIGNAL COMMAND — only when signals exist ── */}
             {(() => {
               const buySignals = results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
               if (!buySignals.length) return null;
               const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior, brainInsights?.confidence);
-              const sysExpectancy = brainInsights?.expectancy;
               const brainConf = brainInsights?.confidence;
               const calCtx = getNSECalendarContext(fiiSellStreak);
+              const totalClosed = trackedTrades.filter(t => t.status !== 'open').length;
+              const isWarmingUp = totalClosed < 5;
+              const visibleCount = showAllSignals ? ranked.length : Math.min(8, ranked.length);
+              const paramShort: Record<string,string> = {
+                'optimized_deployable_20plus':    'VF',
+                'optimized_highprecision_15plus': 'CC',
+                'optimized_elite_10plus':         'MP',
+                'optimized_ultraselective_8plus': 'ES',
+                'sniper_95plus':                  'PS',
+                'ors_prime_reversal':             'ORS↩',
+              };
               return (
-                <div className="bg-slate-800/40 rounded-lg p-3">
-                  {/* NSE Calendar Banners — shown when structural market events are active */}
+                <div className="bg-slate-800/40 rounded-lg p-3 space-y-2">
+                  {/* NSE Calendar Banners */}
                   {(calCtx.isExpiryWeek || calCtx.isBudgetWeek || fiiSellStreak >= 3) && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {calCtx.isExpiryWeek && (
                         <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400" title="F&O monthly expiry week — IV crush creates false breakouts, reliability drops ~15-20%. Reduce position size.">
-                          📅 F&amp;O EXPIRY {calCtx.daysToExpiry === 0 ? 'TODAY' : `in ${calCtx.daysToExpiry}d`} — reduced signal reliability
+                          📅 F&amp;O EXPIRY {calCtx.daysToExpiry === 0 ? 'TODAY' : `in ${calCtx.daysToExpiry}d`} — reduced reliability
                         </div>
                       )}
                       {calCtx.isBudgetWeek && (
-                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400" title="Union Budget week — binary outcome risk. All setups should be half-sized. Avoid holding through the announcement.">
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400">
                           📋 BUDGET WEEK — half-size all trades
                         </div>
                       )}
                       {fiiSellStreak >= 3 && (
-                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400" title="FII net sellers — institutional headwind compresses upside on breakouts. Favour defensive setups.">
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400">
                           🔴 FII NET SELL ×{fiiSellStreak}d — institutional headwind
                         </div>
                       )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal Command — Ranked by Expected P&L</div>
-                      {sysExpectancy != null && brainInsights && brainInsights.totalTrades >= 5 && (
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{color: sysExpectancy >= 0 ? '#22d3ee' : '#ef4444', backgroundColor: sysExpectancy >= 0 ? '#22d3ee15' : '#ef444415'}} title={`System expectancy = (${(brainInsights.baseWinRate)}% WR × avg win ${brainInsights.avgWinPnl?.toFixed(1)}%) − (${100 - brainInsights.baseWinRate}% loss rate × avg loss ${brainInsights.avgLossPnl?.toFixed(1)}%)`}>
-                          E = {sysExpectancy >= 0 ? '+' : ''}{sysExpectancy.toFixed(2)}% / trade
-                        </span>
-                      )}
+
+                  {/* Best param set callout — T1.8 */}
+                  {brainInsights?.bestParamSet && (
+                    <div className="flex items-center gap-2 bg-indigo-900/20 border border-indigo-800/40 rounded px-2.5 py-1.5">
+                      <span className="text-[10px] text-indigo-400">🎰 Best param set for your history:</span>
+                      <span className="text-[11px] font-bold text-indigo-200 font-mono">{brainInsights.bestParamSet.name}</span>
+                      <span className="text-[10px] text-indigo-400">{brainInsights.bestParamSet.wr}% WR</span>
+                      {brainInsights.bestParamSet.n && <span className="text-[9px] text-slate-600">{brainInsights.bestParamSet.n} trades</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* FII Sell Streak toggle — user sets this daily based on NSE FII/DII data */}
-                      <div className="flex items-center gap-1" title="Set to NSE's FII net sell day count. Penalises brain scores when institutions are offloading.">
-                        <span className="text-[9px] text-slate-600">FII sell</span>
-                        <button onClick={() => { const v = Math.max(0, fiiSellStreak - 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }} className="text-[9px] w-4 h-4 flex items-center justify-center rounded bg-slate-700/60 text-slate-400 hover:text-slate-200">−</button>
-                        <span className="text-[9px] font-mono w-3 text-center" style={{color: fiiSellStreak >= 5 ? '#ef4444' : fiiSellStreak >= 3 ? '#fb923c' : '#94a3b8'}}>{fiiSellStreak}</span>
-                        <button onClick={() => { const v = Math.min(15, fiiSellStreak + 1); setFiiSellStreak(v); try { localStorage.setItem('qtp_fii_streak', String(v)); } catch {} }} className="text-[9px] w-4 h-4 flex items-center justify-center rounded bg-slate-700/60 text-slate-400 hover:text-slate-200">+</button>
-                        <span className="text-[9px] text-slate-600">d</span>
-                      </div>
-                      <div className="text-[10px] text-slate-600">{ranked.length} signal{ranked.length !== 1 ? 's' : ''}</div>
+                  )}
+
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                      Signal Command — Ranked by Expected P&L
                     </div>
+                    <div className="text-[10px] text-slate-600">{ranked.length} signal{ranked.length !== 1 ? 's' : ''}</div>
                   </div>
-                  <div className="space-y-1.5">
-                    {ranked.slice(0, 8).map((sig: ReturnType<typeof rankSignalsByBrainV2>[number], idx: number) => {
+
+                  {/* Brain warming-up guard — T1.2 */}
+                  {isWarmingUp && (
+                    <div className="bg-amber-900/15 border border-amber-800/40 rounded px-3 py-2 flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">🧠</span>
+                      <div>
+                        <div className="text-[10px] font-semibold text-amber-300 mb-0.5">Brain warming up ({totalClosed}/{5} closed trades)</div>
+                        <div className="text-[9px] text-amber-500/80">Scores below are near-baseline until you close {5 - totalClosed} more trade{5 - totalClosed !== 1 ? 's' : ''}. Track your trades in the Trade Desk to activate Bayesian learning.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signal rows — T1.5 show-all, T1.6 entry/stop/T2 */}
+                  <div className="space-y-1">
+                    {ranked.slice(0, visibleCount).map((sig: ReturnType<typeof rankSignalsByBrainV2>[number], idx: number) => {
                       const q = sig.quality;
                       const rel = sig.reliability;
+                      const pe = sig.priceEngine;
                       const stageColor = sig.stage === 'ULTRA_STRONG_BUY' ? '#39FF14' : sig.stage === 'STRONG_BUY' ? '#22d3ee' : '#facc15';
                       const stageShort = sig.stage === 'ULTRA_STRONG_BUY' ? 'USB' : sig.stage === 'STRONG_BUY' ? 'SB' : 'BUY';
-                      const paramShort: Record<string,string> = {
-                        'optimized_deployable_20plus':    'VF',
-                        'optimized_highprecision_15plus': 'CC',
-                        'optimized_elite_10plus':         'MP',
-                        'optimized_ultraselective_8plus': 'ES',
-                        'sniper_95plus':                  'PS',
-                        'ors_prime_reversal':             'ORS↩',
-                      };
                       return (
-                        <div key={sig.symbol} className="flex items-center gap-2 bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors text-xs" onClick={() => setSelectedSymbol(sig.symbol)}>
-                          {/* rank */}
-                          <span className="text-slate-600 font-mono w-4 text-center">{idx + 1}</span>
-                          {/* symbol */}
-                          <span className="font-mono font-bold text-slate-100 w-20">{sig.symbol.replace('.NS','').replace('.BO','')}</span>
-                          {/* stage pill */}
-                          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{color: stageColor, backgroundColor: `${stageColor}15`}}>{stageShort}</span>
-                          {/* param set */}
-                          <span className="text-[10px] text-slate-500 w-10">{paramShort[sig.paramSetKey] ?? '—'}</span>
-                          {/* expected P&L from prior */}
-                          {q ? (
-                            <span className="font-mono font-bold text-[11px] w-14" style={{color: q.color}}>
-                              {q.expectedPnl >= 0 ? '+' : ''}{q.expectedPnl.toFixed(1)}%
+                        <div key={sig.symbol} className="bg-slate-900/50 rounded px-2.5 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors" onClick={() => setSelectedSymbol(sig.symbol)}>
+                          {/* Main row */}
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-600 font-mono w-4 text-center shrink-0">{idx + 1}</span>
+                            <span className="font-mono font-bold text-slate-100 w-20 shrink-0">{sig.symbol.replace('.NS','').replace('.BO','')}</span>
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-bold shrink-0" style={{color: stageColor, backgroundColor: `${stageColor}15`}}>{stageShort}</span>
+                            <span className="text-[10px] text-slate-500 w-10 shrink-0">{paramShort[sig.paramSetKey] ?? '—'}</span>
+                            {q ? (
+                              <span className="font-mono font-bold text-[11px] w-14 shrink-0" style={{color: q.color}}>{q.expectedPnl >= 0 ? '+' : ''}{q.expectedPnl.toFixed(1)}%</span>
+                            ) : <span className="w-14 shrink-0"/>}
+                            {q ? <span className="text-[10px] text-slate-500 w-12 shrink-0">{q.wr}%WR</span> : <span className="w-12 shrink-0"/>}
+                            {q && <span className="text-[9px] font-bold px-1 rounded shrink-0" style={{color: q.color, backgroundColor: `${q.color}20`}}>{q.tier}</span>}
+                            <span className="text-slate-500 text-[10px] shrink-0">R:R {pe?.rewardRisk?.toFixed(1) ?? '—'}</span>
+                            <span className="ml-auto text-[10px] shrink-0" style={{color: sig.brainScore >= 75 ? '#22d3ee' : sig.brainScore >= 60 ? '#facc15' : '#94a3b8'}}>
+                              🧠{sig.brainScore} · {sig.riskLabel || `${sig.riskPct}% risk`}
                             </span>
-                          ) : <span className="w-14 text-slate-600 text-[10px]">—</span>}
-                          {/* WR from prior */}
-                          {q ? <span className="text-[10px] text-slate-500 w-10">{q.wr}%WR</span> : <span className="w-10"/>}
-                          {/* tier badge */}
-                          {q && <span className="text-[9px] font-bold px-1 rounded" style={{color: q.color, backgroundColor: `${q.color}20`}}>{q.tier}</span>}
-                          {/* R:R */}
-                          <span className="text-slate-500 text-[10px]">R:R {sig.priceEngine?.rewardRisk?.toFixed(1) ?? '—'}</span>
-                          {/* position sizing */}
-                          <span className="ml-auto text-[10px]" style={{color: sig.brainScore >= 75 ? '#22d3ee' : sig.brainScore >= 60 ? '#facc15' : '#94a3b8'}}>
-                            🧠{sig.brainScore} · {sig.riskLabel || `${sig.riskPct}% risk`}
-                          </span>
-                          {/* symbol reliability badge */}
-                          {rel && rel.n >= 3 && (
-                            <span className={`text-[9px] font-bold px-1 rounded ${rel.wr >= 70 ? 'text-emerald-400 bg-emerald-900/30' : rel.wr <= 40 ? 'text-red-400 bg-red-900/30' : 'text-slate-400 bg-slate-800/50'}`}>
-                              {rel.n}× {rel.wr}%
-                            </span>
-                          )}
-                          {/* premortem badge */}
-                          {(() => {
-                            const pm = brainScores[sig.symbol]?.premortem;
-                            if (!pm) return null;
-                            const pmColor = pm.verdict === 'FAVORABLE' ? '#22d3ee' : pm.verdict === 'MIXED' ? '#facc15' : '#ef4444';
-                            const pmBg = pm.verdict === 'FAVORABLE' ? '#22d3ee15' : pm.verdict === 'MIXED' ? '#facc1515' : '#ef444415';
-                            return (
-                              <span className="text-[9px] font-mono font-bold px-1 rounded" style={{color: pmColor, backgroundColor: pmBg}}
-                                title={`${pm.matches.length} similar past trade${pm.matches.length !== 1 ? 's' : ''}: ${pm.winRate}% WR — ${pm.verdict}`}>
-                                PM {pm.winRate}%
+                            {rel && rel.n >= 3 && (
+                              <span className={`text-[9px] font-bold px-1 rounded shrink-0 ${rel.wr >= 70 ? 'text-emerald-400 bg-emerald-900/30' : rel.wr <= 40 ? 'text-red-400 bg-red-900/30' : 'text-slate-400 bg-slate-800/50'}`}>
+                                {rel.n}× {rel.wr}%
                               </span>
-                            );
-                          })()}
+                            )}
+                            {(() => {
+                              const pm = brainScores[sig.symbol]?.premortem;
+                              if (!pm) return null;
+                              const pmColor = pm.verdict === 'FAVORABLE' ? '#22d3ee' : pm.verdict === 'MIXED' ? '#facc15' : '#ef4444';
+                              return (
+                                <span className="text-[9px] font-mono font-bold px-1 rounded shrink-0" style={{color: pmColor, backgroundColor: `${pmColor}15`}}
+                                  title={`${pm.matches.length} similar past trade${pm.matches.length !== 1 ? 's' : ''}: ${pm.winRate}% WR — ${pm.verdict}`}>
+                                  PM {pm.winRate}%
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          {/* Entry / Stop / T2 sub-row — T1.6 */}
+                          {pe && pe.entryPrice > 0 && (
+                            <div className="flex items-center gap-3 mt-1 pl-6 text-[9px] font-mono">
+                              <span className="text-slate-500">In <span className="text-emerald-400 font-bold">₹{pe.entryPrice.toFixed(1)}</span></span>
+                              <span className="text-slate-500">SL <span className="text-red-400 font-bold">₹{(pe.tacticalStop ?? pe.stopLoss ?? 0).toFixed(1)}</span></span>
+                              {pe.target2 > 0 && <span className="text-slate-500">T2 <span className="text-cyan-400 font-bold">₹{pe.target2.toFixed(1)}</span></span>}
+                              {pe.target3 > 0 && <span className="text-slate-500">T3 <span className="text-indigo-400 font-bold">₹{pe.target3.toFixed(1)}</span></span>}
+                              {pe.riskPct > 0 && <span className="text-slate-600">risk {pe.riskPct.toFixed(1)}%</span>}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-700">
-                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% (confidence: {brainConf ?? 'LOW'}) · Thompson: 5 factors (sector · stock · ATR · pattern · conv tier) · PM = premortem WR · FII sell streak adjusts all scores
+
+                  {/* Show all toggle — T1.5 */}
+                  {ranked.length > 8 && (
+                    <button onClick={() => setShowAllSignals(v => !v)}
+                      className="w-full text-center text-[10px] text-slate-500 hover:text-slate-300 py-1 border border-slate-700/50 rounded transition-colors">
+                      {showAllSignals ? `▲ Show top 8 only` : `▼ Show all ${ranked.length} signals (${ranked.length - 8} more)`}
+                    </button>
+                  )}
+
+                  <div className="text-[10px] text-slate-700 pt-1 border-t border-slate-700/30">
+                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% · Thompson: 5 factors · PM = premortem WR · FII sell streak adjusts all scores · Click row → scanner detail
                   </div>
                 </div>
               );
             })()}
+
+            {/* ── DECAY ALERTS — T1.4 ── */}
+            {brainInsights?.decayAlerts && brainInsights.decayAlerts.length > 0 && (
+              <div className="bg-slate-800/40 rounded-lg p-3 border border-orange-900/30">
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">⚡ Edge Decay Alerts</div>
+                <div className="space-y-1.5">
+                  {brainInsights.decayAlerts.map((da: {type: string; name: string; message: string; severity?: string}, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-[10px]">
+                      <span className="shrink-0 mt-0.5" style={{color: da.severity === 'high' ? '#ef4444' : '#fb923c'}}>▼</span>
+                      <div>
+                        <span className="font-semibold text-slate-300">{da.name}</span>
+                        <span className="text-slate-500 ml-1">({da.type})</span>
+                        <span className="text-slate-500 ml-1">— {da.message}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[9px] text-slate-700 mt-2">Stop prioritising these param sets / sectors until edge recovers. Rotate to the strongest performers above.</div>
+              </div>
+            )}
 
             {/* ── SETUP QUALITY MATRIX ── */}
             {(() => {
@@ -4507,18 +4621,21 @@ function HomePageInner() {
                         {matrix.map(row => (
                           <tr key={row.stage} className="border-t border-slate-800/50">
                             <td className="py-1.5 pr-3 font-semibold" style={{color: stageColor[row.stage]}}>{stageLabel[row.stage] ?? row.stage}</td>
-                            {row.cells.map(cell => (
-                              <td key={cell.param} className="py-1.5 px-2 text-center">
-                                {cell.data ? (
-                                  <div>
-                                    <div className="font-mono font-bold text-[11px]" style={{color: pnlColor(cell.data.avgPnl)}}>
-                                      {cell.data.avgPnl >= 0 ? '+' : ''}{cell.data.avgPnl.toFixed(1)}%
+                            {row.cells.map(cell => {
+                              const sparse = cell.data && cell.data.n < 5;
+                              return (
+                                <td key={cell.param} className="py-1.5 px-2 text-center" style={sparse ? {opacity: 0.45} : {}}>
+                                  {cell.data ? (
+                                    <div title={sparse ? `Only ${cell.data.n} trades — unreliable estimate` : undefined}>
+                                      <div className="font-mono font-bold text-[11px]" style={{color: pnlColor(cell.data.avgPnl)}}>
+                                        {sparse ? '≈' : ''}{cell.data.avgPnl >= 0 ? '+' : ''}{cell.data.avgPnl.toFixed(1)}%
+                                      </div>
+                                      <div className="text-[9px] text-slate-600">{cell.data.wr}%WR n={cell.data.n}</div>
                                     </div>
-                                    <div className="text-[9px] text-slate-600">{cell.data.wr}%WR n={cell.data.n}</div>
-                                  </div>
-                                ) : <span className="text-slate-700 text-[10px]">—</span>}
-                              </td>
-                            ))}
+                                  ) : <span className="text-slate-700 text-[10px]">—</span>}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
@@ -4774,6 +4891,14 @@ function HomePageInner() {
                       <div className="text-slate-500">Safety</div>
                       <div className={`text-lg font-bold ${ror.safetyRating === 'safe' ? 'text-emerald-400' : ror.safetyRating === 'moderate' ? 'text-amber-400' : 'text-red-400'}`}>{ror.safetyRating.toUpperCase()}</div>
                     </div>
+                  </div>
+                  {/* Recommendation line — T1.9 */}
+                  <div className="mt-2 flex items-center gap-2 text-[10px]">
+                    <span className="text-emerald-400 font-bold">→ Suggested risk per trade:</span>
+                    <span className="font-mono font-bold text-emerald-300">{ror.halfKellyPct.toFixed(1)}% (Half-Kelly)</span>
+                    {ror.rorPct >= 25 && <span className="text-red-400 ml-1">— reduce size immediately</span>}
+                    {ror.rorPct >= 5 && ror.rorPct < 25 && <span className="text-amber-400 ml-1">— moderate caution</span>}
+                    {ror.rorPct < 5 && <span className="text-slate-500 ml-1">— system is healthy</span>}
                   </div>
                 </div>
               );
