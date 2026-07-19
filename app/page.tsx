@@ -7380,7 +7380,40 @@ function HomePageInner() {
                     const pe = selectedResult.priceEngine;
                     const conv = computeConviction(selectedResult);
                     const verdict = rrVerdict(pe.rewardRisk);
-                    const text = `${sym} — ${stage} (Conv ${conv})\nEntry ₹${pe.plannedEntry.toFixed(2)} | SL ₹${pe.tacticalStop.toFixed(2)} | T1 ₹${pe.target5.toFixed(2)}\nR:R ${pe.rewardRisk.toFixed(2)} (${verdict}) | Risk ${pe.tacticalRiskPct.toFixed(1)}%\n— Dr KKR Quant Terminal Pro v9.0`;
+                    const sector = getSectorTag(selectedResult.symbol);
+                    const signalDate = selectedResult.lastDate || new Date().toISOString().slice(0, 10);
+                    const atr14 = selectedResult.priceEngine.atr14AtEntry || 0;
+                    const rsi2 = selectedResult.rsi2 || 50;
+                    const rsi14 = selectedResult.rsi14 || 50;
+                    const t1Pct = pe.plannedEntry > 0 ? ((pe.target5 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+                    const t2Pct = pe.plannedEntry > 0 ? ((pe.target7 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+                    const t3Pct = pe.plannedEntry > 0 ? ((pe.target10 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+                    const slPct = pe.plannedEntry > 0 ? ((pe.tacticalStop - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+
+                    const text = `*${sym}* — *${stage}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 *Entry* ₹${pe.plannedEntry.toFixed(2)}
+⛔ *SL* ₹${pe.tacticalStop.toFixed(2)} (${slPct.toFixed(1)}%)
+
+🎯 *Targets*
+   T1: ₹${pe.target5.toFixed(2)} (+${t1Pct.toFixed(1)}%)
+   T2: ₹${pe.target7.toFixed(2)} (+${t2Pct.toFixed(1)}%)
+   T3: ₹${pe.target10.toFixed(2)} (+${t3Pct.toFixed(1)}%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 *ATR14* (Wilder's): ₹${atr14.toFixed(2)}
+📈 *RSI2/RSI14*: ${rsi2.toFixed(0)}/​${rsi14.toFixed(0)}
+🏢 *Sector*: ${sector || 'N/A'}
+📅 *Signal Date*: ${signalDate}
+💯 *Score*: ${selectedResult.inflectionScore}/100
+🎲 *Confidence*: ${(selectedResult.confidence * 100).toFixed(0)}%
+📊 *Conditions Met*: ${selectedResult.conditionsMet}/${selectedResult.totalConditions}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💹 *R:R Ratio*: ${pe.rewardRisk.toFixed(2)}:1 (${verdict})
+📌 *Risk %*: ${pe.tacticalRiskPct.toFixed(1)}%
+
+— *Quant Terminal Pro v9.0*`;
+
                     const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                   }} data-tip="Copy quick summary to share with others" data-tip-color="cyan"
                     className="flex-1 px-2 py-1.5 bg-cyan-900/40 hover:bg-cyan-900/60 border border-cyan-700 rounded text-xs font-medium text-cyan-300 transition-colors">📤 Share</button>
