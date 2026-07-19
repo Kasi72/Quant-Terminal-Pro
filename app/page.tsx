@@ -119,6 +119,7 @@ type ColDef = {
   fmt: (r: AnalysisResult) => string;
   numVal?: (r: AnalysisResult) => number;
   cellClass?: (r: AnalysisResult) => string;
+  cellStyle?: (r: AnalysisResult) => React.CSSProperties | undefined;
   headerTipHtml?: string;
 };
 
@@ -542,31 +543,48 @@ const COLUMNS: ColDef[] = [
       const s = (r as AnalysisResult & { confluenceScore?: number }).confluenceScore ?? 0;
       return s >= 4 ? 'text-yellow-300 font-bold' : s >= 2 ? 'text-emerald-400 font-semibold' : 'text-slate-400';
     } },
-  { key: 'archetypeType', label: 'Archetype', width: 130, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Momentum Archetype</div>'
+  { key: 'archetypeType', label: 'Archetype', width: 160, align: 'left',
+    headerTipHtml: '<div class="rt-hdr">Momentum Archetype + R5 Signal</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Which inflection-detection archetype fired this signal.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">VF</span></div><div><div class="rt-desc">Volume Footprint — institutional buying detected via volume surge near 20d high.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">CC</span></div><div><div class="rt-desc">Compression Coil — narrow bars + volume dry-up + BB squeeze = coiled spring.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">MP</span></div><div><div class="rt-desc">Momentum Pocket — first strong up-day after post-markdown stabilization.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">ES</span></div><div><div class="rt-desc">EMA Stack — price crosses above EMA20 with volume surge after pullback.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-purple">PS</span></div><div><div class="rt-desc">Perfect Storm — 2+ archetypes fire simultaneously.</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">PS</span></div><div><div class="rt-desc">Perfect Storm — ATR-volatile bull-momentum setup.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge" style="background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b55">🔥 BULL POOL</span></div><div><div class="rt-desc">Round-5 backtested gate: EMAStack OR PerfectStorm + body≥35% · OOS n=24 · Hit5=75% · PF=2.78 · AvgP&L=+2.40%</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge" style="background:#a855f720;color:#a855f7;border:1px solid #a855f755">↩ BEAR ORS</span></div><div><div class="rt-desc">ORS-Prime reversal — backtested bear-regime signal · OOS n=53 · Hit5=66% · PF=1.84</div></div></div>',
     fmt: r => {
       const t = (r as AnalysisResult & { archetypeType?: string }).archetypeType;
+      const pool = (r as AnalysisResult).bullPoolSignal;
+      const regime = (r as AnalysisResult).regimeSignal;
       const map: Record<string, string> = {
         VolumeFootprint: '📊 Vol Footprint',
-        CompressionCoil: '🔄 Compression Coil',
+        CompressionCoil: '🔄 Comp Coil',
         MomentumPocket: '🎯 Mom Pocket',
         EMAStack: '📈 EMA Stack',
-        PerfectStorm: '⚡ Perfect Storm',
+        PerfectStorm: '⚡ Perf Storm',
         ORS: '↩ ORS-Prime',
         Breakout: '💥 Breakout',
       };
-      return t ? (map[t] ?? t) : '—';
+      const base = t ? (map[t] ?? t) : '—';
+      if (pool && regime === 'BULL_POOL') return `🔥 ${base}`;
+      if (regime === 'BEAR_ORS') return `↩ ${base}`;
+      return base;
     },
     numVal: () => 0,
     cellClass: r => {
+      const pool = (r as AnalysisResult).bullPoolSignal;
+      const regime = (r as AnalysisResult).regimeSignal;
       const t = (r as AnalysisResult & { archetypeType?: string }).archetypeType;
+      if (pool && regime === 'BULL_POOL') return 'font-bold';
+      if (regime === 'BEAR_ORS') return 'text-purple-400 font-semibold';
       return t === 'PerfectStorm' ? 'text-yellow-300 font-bold' : t === 'ORS' ? 'text-purple-400 font-semibold' : 'text-sky-300';
+    },
+    cellStyle: r => {
+      const pool = (r as AnalysisResult).bullPoolSignal;
+      const regime = (r as AnalysisResult).regimeSignal;
+      if (pool && regime === 'BULL_POOL') return { color: '#f59e0b' };
+      return undefined;
     } },
   { key: 'clDep', label: 'D20+', width: 50, align: 'center',
     fmt: r => r.clusterBreakdown?.deployable ? `${r.clusterBreakdown.deployable.met}/${r.clusterBreakdown.deployable.total}` : '—',
@@ -6488,6 +6506,98 @@ function HomePageInner() {
             </div>;
           })()}
 
+          {/* R5 BULL POOL Signal Banner — fires when EMAStack/PerfectStorm hits body≥35% gate */}
+          {(() => {
+            const poolSignals = results.filter(r =>
+              r.bullPoolSignal === true && ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)
+            );
+            const bearORS = results.filter(r =>
+              r.regimeSignal === 'BEAR_ORS' && r.hitRateGate === 'PREMIUM' && ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)
+            );
+            if (poolSignals.length === 0 && bearORS.length === 0) return null;
+            return (
+              <div className="flex-shrink-0 border-b border-amber-800/30"
+                style={{ background: 'linear-gradient(90deg, #78350f18 0%, #0a0d1400 100%)' }}>
+                <div className="px-4 py-2 flex items-center gap-3 flex-wrap">
+                  <span className="text-[9px] font-bold tracking-widest uppercase"
+                    style={{ color: '#f59e0b', letterSpacing: '0.15em' }}>
+                    R5 Signal
+                  </span>
+                  <span className="text-[9px] text-amber-800/70 font-mono">75% OOS hit-rate · body≥35% gate</span>
+
+                  {/* BULL POOL signals */}
+                  {poolSignals.map(r => {
+                    const entry = r.priceEngine.plannedEntry || r.lastClose;
+                    const stop  = r.priceEngine.tacticalStop;
+                    const tgt5  = entry * 1.05;
+                    const risk  = stop > 0 ? ((entry - stop) / entry * 100).toFixed(1) : '—';
+                    const archShort = r.archetypeType === 'EMAStack' ? 'EMA' : r.archetypeType === 'PerfectStorm' ? 'PS' : r.archetypeType ?? '?';
+                    return (
+                      <div key={r.symbol}
+                        onClick={() => { const idx = filteredResults.findIndex(x => x.symbol === r.symbol); if (idx >= 0) { setSelectedRowIdx(idx); setSelectedSymbol(r.symbol); } }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all hover:brightness-125"
+                        style={{ background: '#f59e0b12', border: '1px solid #f59e0b40' }}>
+                        <span className="text-[10px] font-bold" style={{ color: '#f59e0b' }}>
+                          🔥 {r.symbol.replace('.NS','').replace('.BO','')}
+                        </span>
+                        <span className="text-[9px] px-1 rounded font-mono"
+                          style={{ background: '#f59e0b20', color: '#fbbf24' }}>{archShort}</span>
+                        <span className="text-[9px] text-slate-400 font-mono">
+                          E₹{entry.toFixed(0)}
+                        </span>
+                        <span className="text-[9px] font-mono" style={{ color: '#ef4444' }}>
+                          S₹{stop > 0 ? stop.toFixed(0) : '—'}
+                        </span>
+                        <span className="text-[9px] font-mono" style={{ color: '#4ade80' }}>
+                          T₹{tgt5.toFixed(0)}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-mono">R{risk}%</span>
+                        <span className="text-[8px] px-1 rounded font-bold tracking-wide ml-1"
+                          style={{ color: '#4ade80', background: '#4ade8015', border: '1px solid #4ade8030' }}>
+                          +5% target
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* BEAR ORS signals */}
+                  {bearORS.map(r => {
+                    const entry = r.priceEngine.plannedEntry || r.lastClose;
+                    const stop  = r.priceEngine.tacticalStop;
+                    const tgt   = entry * 1.05;
+                    const risk  = stop > 0 ? ((entry - stop) / entry * 100).toFixed(1) : '—';
+                    return (
+                      <div key={r.symbol}
+                        onClick={() => { const idx = filteredResults.findIndex(x => x.symbol === r.symbol); if (idx >= 0) { setSelectedRowIdx(idx); setSelectedSymbol(r.symbol); } }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all hover:brightness-125"
+                        style={{ background: '#a855f712', border: '1px solid #a855f740' }}>
+                        <span className="text-[10px] font-bold" style={{ color: '#c084fc' }}>
+                          ↩ {r.symbol.replace('.NS','').replace('.BO','')}
+                        </span>
+                        <span className="text-[9px] px-1 rounded font-mono"
+                          style={{ background: '#a855f720', color: '#d8b4fe' }}>ORS</span>
+                        <span className="text-[9px] text-slate-400 font-mono">
+                          E₹{entry.toFixed(0)}
+                        </span>
+                        <span className="text-[9px] font-mono" style={{ color: '#ef4444' }}>
+                          S₹{stop > 0 ? stop.toFixed(0) : '—'}
+                        </span>
+                        <span className="text-[9px] font-mono" style={{ color: '#a78bfa' }}>
+                          T₹{tgt.toFixed(0)}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-mono">R{risk}%</span>
+                        <span className="text-[8px] px-1 rounded font-bold tracking-wide ml-1"
+                          style={{ color: '#c084fc', background: '#a855f715', border: '1px solid #a855f730' }}>
+                          66% OOS · bear
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Scanner sub-tab bar (horizontal) */}
           {results.length > 0 && (
             <div className="flex-shrink-0 bg-[#0d1117] px-4 py-1 flex items-center gap-1 border-b border-slate-800/50">
@@ -6662,7 +6772,7 @@ function HomePageInner() {
                           className={`cursor-pointer border-b border-slate-800/40 transition-colors group ${isSelected ? 'bg-indigo-900/25' : diff ? 'bg-cyan-900/10' : 'hover:bg-slate-800/40'} ${reviewedSymbols.has(row.symbol) && !isSelected ? 'opacity-70' : ''}`}>
                           {visibleColumns.map(col => (
                             <td key={col.key}
-                              style={{ width: col.width, minWidth: col.width }}
+                              style={{ width: col.width, minWidth: col.width, ...(col.cellStyle ? col.cellStyle(row) : {}) }}
                               className={[
                                 'px-2 py-1.5 whitespace-nowrap',
                                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',

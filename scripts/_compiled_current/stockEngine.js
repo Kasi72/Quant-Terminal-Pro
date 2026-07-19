@@ -1972,6 +1972,7 @@ function archetypeTech(candles, endIdx) {
     const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
     const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
     const close = candles[endIdx]?.c ?? 0;
+    const atr14 = computeATR14(candles)[endIdx] ?? 0;
     return {
         cmf20: computeCMF(candles, endIdx, 20),
         obvSlope10: computeOBVSlope10(candles, endIdx),
@@ -1981,6 +1982,7 @@ function archetypeTech(candles, endIdx) {
         ema20Vs50: ema50 > 0 ? (ema20 - ema50) / ema50 * 100 : 0,
         closeVsEMA20: ema20 > 0 ? (close - ema20) / ema20 * 100 : 0,
         closeVsEMA50: ema50 > 0 ? (close - ema50) / ema50 * 100 : 0,
+        atrPct14: close > 0 ? atr14 / close * 100 : 0,
     };
 }
 function archetypeBase(candles, key) {
@@ -2093,6 +2095,7 @@ function analyzeVolumeFootprint(candles) {
     // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 68.2% → 84.6% (n=13 OOS, n=31 IS)
     // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
     if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
         tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
         return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
     // Pre-10 avg range ATR
@@ -2350,6 +2353,7 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     // Skipped when called from PerfectStorm (which applies its own composite gate).
     if (!skipPrecisionGate) {
         if (tech.cmf20 < tuned(key, 'minCMF20', -0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.0) ||
+            tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 999) ||
             tech.rsi14 < tuned(key, 'minGateRSI14', 35) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
             tech.rsi2 > tuned(key, 'maxGateRSI2', 50) || volRatio20 < tuned(key, 'minGateVolRatio', 2.0) ||
             tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
@@ -2599,6 +2603,7 @@ function analyzePerfectStorm(candles) {
         // best consistent OOS WR: 66% BREAKEVEN model / 58.5% six_archetype model (n=41).
         // volRatio20 deliberately excluded — sub-archetypes already gate on volume independently.
         if (_cmf < tuned(key, 'minCMF20', 0.05) || _obv < tuned(key, 'minOBVSlope10', -1.5) ||
+            techPS.atrPct14 < tuned(key, 'minAtrPct14', 0) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 999) ||
             techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
             return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
     }
@@ -2874,17 +2879,15 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
                 result.hitRateGate = (rsi14v >= 45) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'optimized_ultraselective_8plus') {
-                // EMAStack → lowerWick≥0.3 strongest solo (+14.6% lift, OOS 55.6% n=18)
-                // Replaces old cmf/vol/atr gate (was OOS 48% n=25)
-                const sigBar = candles[endIdx];
-                const range = sigBar.h - sigBar.l;
-                const lowerWick = range > 0 ? (Math.min(sigBar.o, sigBar.c) - sigBar.l) / range : 0;
-                result.hitRateGate = (lowerWick >= 0.3) ? 'PREMIUM' : 'STANDARD';
+                // EMAStack → body≥35% gate (Round 5: OOS n=12  Hit5=75.0%  PF=2.64  IS→OOS+8.9pp)
+                // Upgraded from lowerWick≥0.3 (prior: OOS 55.6% n=18)
+                // body variable here is bodyPct (0-100 scale) from result
+                result.hitRateGate = (body >= 35) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'sniper_95plus') {
-                // PerfectStorm → atrPct≥3 is strongest robust solo (+7.4% lift, OOS 60% n=25)
-                // (rsiSlope5 is stronger at +8.2% but requires extra RSI array computation)
-                result.hitRateGate = (result.atrPct14 >= 3) ? 'PREMIUM' : 'STANDARD';
+                // PerfectStorm → atrPct≥3 AND body≥35% (Round 5: OOS n=12  Hit5=75.0%  PF=2.94  IS→OOS+33.9pp)
+                // Prior: atrPct≥3 alone → OOS 66.7% n=12; adding body lifts to 75.0%
+                result.hitRateGate = (result.atrPct14 >= 3 && body >= 35) ? 'PREMIUM' : 'STANDARD';
             }
             else if (paramSetKey === 'ors_prime_reversal') {
                 // ORS-Prime → adx14≥15 (+1.2% lift, OOS 66% n=50 — most robust finding)
@@ -2892,6 +2895,21 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
             }
             else {
                 result.hitRateGate = null;
+            }
+            // Round 5 derived fields — bodyGate, bullPoolSignal, regimeSignal
+            result.bodyGate = body >= 35;
+            if ((paramSetKey === 'optimized_ultraselective_8plus' || paramSetKey === 'sniper_95plus') &&
+                result.hitRateGate === 'PREMIUM') {
+                result.bullPoolSignal = true;
+                result.regimeSignal = 'BULL_POOL';
+            }
+            else if (paramSetKey === 'ors_prime_reversal') {
+                result.bullPoolSignal = false;
+                result.regimeSignal = 'BEAR_ORS';
+            }
+            else {
+                result.bullPoolSignal = false;
+                result.regimeSignal = null;
             }
         }
         catch { /* keep hitRateGate undefined */ }

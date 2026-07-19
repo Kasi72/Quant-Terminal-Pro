@@ -254,8 +254,8 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
           {br.hitRateGate === 'PREMIUM' && (
             <span className="px-1.5 py-0 rounded text-[8px] font-bold tracking-wide"
               style={{ color: '#f59e0b', background: '#78350f50', border: '1px solid #f59e0b55' }}
-              title="Passes optimizer-tuned precision gate — empirical OOS 5%-hit-rate ≥70%">
-              ★ PREMIUM GATE
+              title="R5 PREMIUM gate: body≥35% filter — EMAStack/PerfectStorm OOS 75% hit-rate (5-round backtested)">
+              ★ PREMIUM GATE · 75%
             </span>
           )}
           {br.hitRateGate === 'STANDARD' && (
