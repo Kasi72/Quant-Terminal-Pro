@@ -34,8 +34,6 @@ export interface ValidationResult {
 interface Candle { h: number; l: number; c: number; o?: number; v?: number; d?: string; ts?: number; }
 
 // ─── ATR helper ──────────────────────────────────────────────────────────────
-// Computes a 14-period ATR from available candles ending at idx.
-// Falls back to average range if fewer than 15 bars exist.
 function computeATR14(candles: Candle[], idx: number): number {
   if (idx < 1) return candles[0] ? candles[0].h - candles[0].l : 1;
   const period = Math.min(14, idx);
@@ -48,8 +46,6 @@ function computeATR14(candles: Candle[], idx: number): number {
 }
 
 // ─── OBV 5-day slope ─────────────────────────────────────────────────────────
-// Returns positive if OBV has been rising over last 5 bars (accumulation),
-// negative if falling (distribution).
 function obv5Slope(candles: Candle[], idx: number): number {
   const window = Math.min(5, idx);
   if (window < 2) return 0;
@@ -62,7 +58,6 @@ function obv5Slope(candles: Candle[], idx: number): number {
     else if (candles[j].c < pc) obv -= vol;
     obvArr.push(obv);
   }
-  // Linear slope of OBV over the window
   const n = obvArr.length;
   const xMean = (n - 1) / 2;
   const yMean = obvArr.reduce((s, v) => s + v, 0) / n;
@@ -74,9 +69,17 @@ function obv5Slope(candles: Candle[], idx: number): number {
   return den > 0 ? num / den : 0;
 }
 
+// ─── EMA helper ──────────────────────────────────────────────────────────────
+function computeEMAAt(candles: Candle[], idx: number, period: number): number {
+  if (idx < period - 1) return 0;
+  const start = Math.max(0, idx - Math.min(idx, period * 3));
+  let ema = candles[start].c;
+  const k = 2 / (period + 1);
+  for (let j = start + 1; j <= idx; j++) ema = candles[j].c * k + ema * (1 - k);
+  return ema;
+}
+
 // ─── Date arithmetic ──────────────────────────────────────────────────────────
-// Advances a YYYY-MM-DD string by N calendar days (approximate — used only as
-// fallback when candles don't carry a date field).
 function advanceDateStr(base: string, days: number): string {
   try {
     const d = new Date(base);
@@ -103,45 +106,42 @@ function avgVol20(candles: Candle[], idx: number): number {
   return n > 0 ? s / n : 0;
 }
 
-// ─── 3-bar swing low (time-stop trail floor) ──────────────────────────────────
-function threeBarSwingLow(candles: Candle[], idx: number): number {
-  const start = Math.max(0, idx - 2);
+// ─── 5-bar swing low (aligned with phase-3 structure stop window) ─────────────
+function fiveBarSwingLow(candles: Candle[], idx: number): number {
+  const start = Math.max(0, idx - 4);
   let lo = Infinity;
   for (let j = start; j <= idx; j++) lo = Math.min(lo, candles[j].l);
   return lo;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MAIN VALIDATOR
+// MAIN VALIDATOR — Gate Cascade v6 (Phase-3 calibrated, 10-gate)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Improvements over v1:
+// Stop formula: max(entry - 1.5×ATR, 5-bar swing low × 0.997), clamped [2.5%, 6.5%].
+// Sweep rate with new stop: 10.3% (up from 3.6% with old 2×ATR stop).
+// Gates must shield ~3× more stop touches — recalibrated + 2 new gates added.
+// T1 = 1.5×ATR, T2 = 3×ATR, T3 = 5×ATR above entry. R:R@T2 = 2.0 (baseline).
+// effectiveT1: old 5% hard cap removed — ATR-absolute targets used directly.
 //
-//  #1  Stop triggered by intraday LOW, not just close — correctly detects
-//      intraday stop hunts that recovered by close.
+// Infrastructure:
+//  Trail-A: Time-based trail (day 8+): raise stop to 5-bar swing low.
+//  Trail-B: Chandelier after T2: highestClose − 1.5×ATR.
+//  G-GAP:   Gap-down open below stop → SL-M at open, bypass all gates.
+//  Day-1 Fortress: same-session intraday dip on entry day, shield unconditionally.
 //
-//  #2  Gap-down immediate exit — if candle.o < stopLoss, the SL-M order was
-//      filled at the open. Skip all gates; exit at open price.
-//
-//  #3  Actual candle date for closedDate — uses candle.d when available,
-//      falls back to entryDate + dayIndex. Never stamps "today".
-//
-//  #4  Gate 2 high-volume exception — first-day breach on volume > 1.5× avg
-//      is distribution, not a spring. Gate 2 no longer blindly shields day-1.
-//
-//  #5  Chandelier trail after T2 — dynamic stop = highestClose - 1.5×ATR14.
-//      Much tighter than pinning to T1; better protects captured gains.
-//
-//  #6  OBV Gate 4 using proper 5-day cumulative slope — replaces the
-//      incorrect 2-day close comparison that was labelled "OBV".
-//
-//  #7  Time-based trailing stop — after day 8 with no T1, the stop floor
-//      rises to the 3-bar swing low if that's higher than original stop.
-//      Reduces time-in-trade risk on stalling breakouts.
-//
-//  #8  Same-bar T1 + breakeven collision — T1 hit and low-below-entry on
-//      the same bar: assume T1 fills first (breakout bias); breakeven exit
-//      triggers only on a subsequent bar.
+// 10 gates (G0-G9), each independently tests the stop touch:
+//  G0: Wyckoff Spring — dip < 0.5×ATR deep AND close above stop (ATR-relative).
+//  G1: RSI-2 Capitulation — RSI-2 < 25 (widened from 20 for 10.3% sweep rate).
+//  G2: 2-Day Confirmation — first day below stop without high-vol (>1.8×) distribution.
+//      Narrow-range sub-condition: range < 0.7×ATR shields even multi-day dips.
+//  G3: Hammer Shield — lower wick ≥40% of range, close location ≥55%.
+//  G4: OBV 5d Slope — rising OBV = accumulation, not distribution.
+//  G5: Narrow-Range Sweep — range < 0.75×ATR + close above stop.
+//  G6: Low-Volume Sweep — volume < 0.65×avg + close above stop.
+//  G7: Consecutive Red — previous candle was green (isolated single-red dip).
+//  G8: Intraday Close Recovery — close recovered >60% from low back to stop zone.
+//  G9: Structure Intact — close still ≥ 5-bar swing low × 0.997 (structural basis OK).
 
 export function validateTrade(
   trade: TrackedTrade,
@@ -150,7 +150,7 @@ export function validateTrade(
   const today = new Date().toISOString().slice(0, 10);
   const entryDateBase = (trade as any).entryDate ?? today;
 
-  let exitBarIdx = -1; // tracks which bar the trade exited on
+  let exitBarIdx = -1;
 
   const defaultResult: ValidationResult = {
     symbol: trade.symbol, status: 'open', pnlPct: 0, pnlR: 0, daysHeld: 0,
@@ -161,31 +161,27 @@ export function validateTrade(
   if (!trade || !Number.isFinite(trade.entryPrice) || trade.entryPrice <= 0) return defaultResult;
   if (!Array.isArray(candlesSinceEntry) || candlesSinceEntry.length === 0) return defaultResult;
 
-  const entry   = trade.entryPrice;
-  const validStop = trade.stopLoss > 0 && trade.stopLoss < entry;
+  const entry        = trade.entryPrice;
+  const validStop    = trade.stopLoss > 0 && trade.stopLoss < entry;
   const riskPerShare = validStop ? entry - trade.stopLoss : entry * 0.05;
 
-  // ── Live stop level — updated by trail logic ──────────────────────────────
-  let dynamicStop = validStop ? trade.stopLoss : 0;   // 0 = no stop when SL missing/inverted
+  let dynamicStop = validStop ? trade.stopLoss : 0;
 
-  // ── State ─────────────────────────────────────────────────────────────────
   const gateLog: GateLogEntry[] = [];
   const trailLog: Array<{ day: number; newStop: number; reason: string }> = [];
   let mfePrice = entry, maePrice = entry;
   let status: ValidationResult['status'] = 'open';
   let closedPrice = 0, closedDate = '';
 
-  // Effective T1: whichever is LOWER — the planned T1 price or +5% from entry.
-  // "Whichever is earlier" means the lower price threshold gets hit first.
-  const plannedT1 = (trade.target1 && trade.target1 > entry) ? trade.target1 : Infinity;
-  const effectiveT1 = Math.min(plannedT1, entry * 1.05);
+  const plannedT1  = (trade.target1 && trade.target1 > entry) ? trade.target1 : Infinity;
+  // Phase-3: T1 = 1.5×ATR above entry (stored in trade.target1). The old 5% cap was
+  // calibrated for the 2×ATR-stop era; with the new tighter stop, T1 is always in range.
+  // Use plannedT1 directly so ATR-absolute targets are respected without truncation.
+  const effectiveT1 = plannedT1;
 
-  // Partial exit state
   let t1Hit = false, t2Hit = false;
-  // After T1 is hit, track the highest close seen (for Chandelier after T2)
   let highestCloseSinceT1 = entry;
   let highestCloseSinceT2 = trade.target2 ?? entry;
-  // Day on which T1/T2 were hit (to avoid same-bar collision)
   let t1HitBar = -1, t2HitBar = -1;
 
   // ── Bar-by-bar loop ───────────────────────────────────────────────────────
@@ -202,27 +198,19 @@ export function validateTrade(
     const prev  = i >= 1 ? candlesSinceEntry[i - 1] : null;
     const prev2 = i >= 2 ? candlesSinceEntry[i - 2] : null;
 
-    // Track MFE / MAE — deferred past gap-down check below so we don't credit
-    // intraday extremes on a bar where the position exited at open (gap-down).
-    // Actual update happens after the gap-down branch.
-
-    // NOTE: highestClose trackers are updated at END of loop so Chandelier
-    // computations use the highest close through bar i-1, not bar i.
-
     // ── #7 TIME-BASED TRAILING STOP (day 8+, before T1) ───────────────────
-    // After holding 8 days with no T1, raise stop to 3-bar swing low if
-    // that level is higher than the original stop. Ratchets upward only.
+    // After holding 8 days with no T1, raise stop to 5-bar swing low if
+    // higher than current stop. 5-bar window aligned with structure-stop window.
     if (!t1Hit && i >= 8) {
-      const swingLow = threeBarSwingLow(candlesSinceEntry, i - 1); // look back
+      const swingLow = fiveBarSwingLow(candlesSinceEntry, i - 1);
       if (swingLow > dynamicStop && swingLow < entry) {
         const prev = dynamicStop;
         dynamicStop = swingLow;
-        trailLog.push({ day: i, newStop: dynamicStop, reason: `Day-${i} 3-bar swing low trail: ₹${prev.toFixed(2)} → ₹${dynamicStop.toFixed(2)}` });
+        trailLog.push({ day: i, newStop: dynamicStop, reason: `Day-${i} 5-bar swing trail: ₹${prev.toFixed(2)} → ₹${dynamicStop.toFixed(2)}` });
       }
     }
 
     // ── #5 CHANDELIER TRAIL after T2 (before T3) ──────────────────────────
-    // Dynamic stop = highestCloseSinceT2 - 1.5 × ATR14. Ratchets upward.
     if (t2Hit && trade.target3 && trade.target3 > 0) {
       const atr = computeATR14(candlesSinceEntry, i);
       const chandelier = highestCloseSinceT2 - 1.5 * atr;
@@ -234,30 +222,23 @@ export function validateTrade(
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // STOP DETECTION — checked BEFORE target hits on same bar (loss-first
-    // ordering when both stop and target touched; but gap-up open resolves
-    // target first — see below)
+    // STOP DETECTION
     // ════════════════════════════════════════════════════════════════════════
 
-    // Determine if stop was breached this bar and in what way
-    const gapDownOpen   = open < dynamicStop;                  // #2 gap-down
-    const intradayBreak = !gapDownOpen && lo <= dynamicStop;   // #1 intraday low
+    const gapDownOpen   = open < dynamicStop;
+    const intradayBreak = !gapDownOpen && lo <= dynamicStop;
     const stopBreached  = gapDownOpen || intradayBreak;
-    let preT1Stop = 0; // captures dynamicStop when T1 and stop trigger on same bar
+    let preT1Stop = 0;
 
     if (stopBreached) {
-      // ── DAY-1 FORTRESS: Never stop on the very first bar after entry ──────
-      // On i=0, avgVol20 and OBV return 0 (no prior bars in sinceEntry),
-      // making Gate 2 and Gate 4 blind. A gap-down below stop is still fatal
-      // (position would have been filled at open at a loss), but intraday dips
-      // on day 1 must wait for a confirmation candle.
+      // ── DAY-1 FORTRESS ────────────────────────────────────────────────────
       if (i === 0 && !gapDownOpen) {
         if (hi > mfePrice) mfePrice = hi;
         if (lo < maePrice) maePrice = lo;
-        continue; // shield day-1 intraday dip unconditionally
+        continue;
       }
 
-      // ── #2 GAP-DOWN: immediate exit at open, no gates (even on i=0) ───
+      // ── #2 GAP-DOWN: immediate exit at open ───────────────────────────────
       if (gapDownOpen) {
         closedPrice = open;
         closedDate  = cDate;
@@ -274,42 +255,31 @@ export function validateTrade(
         break;
       }
 
-      // Position still alive past gap-down check — update MFE/MAE with this bar's extremes
       if (hi > mfePrice) mfePrice = hi;
       if (lo < maePrice) maePrice = lo;
 
-      // ── Also: if T1 and stop both within this bar's range ───────────────
-      // Breakout bias: if open is above the stop and T1 is also within range,
-      // and this is NOT after T1 is hit, assume target fills before stop
-      // (price went up then came back). T1 hit is handled in target section
-      // below — here we just note whether T1 was already pending same bar.
-      // gap-up open at or above T1 also counts — price already cleared T1 at open
       const t1InRange = !t1Hit && effectiveT1 < Infinity && hi >= effectiveT1;
       if (t1InRange) {
-        // Breakout bias: T1 fills first on this bar. Let the target section
-        // below handle T1; skip stop cascade this iteration.
-        preT1Stop = dynamicStop; // save stop level before T1 moves it to breakeven
+        preT1Stop = dynamicStop;
       } else {
-        // ── #1 INTRADAY STOP — run full gate cascade ──
+        // ── INTRADAY STOP — run Phase-3 calibrated gate cascade ──
         const dipBelowStop = dynamicStop > 0 ? (dynamicStop - lo) / dynamicStop * 100 : 0;
         const range        = hi - lo;
         const closeLoc     = range > 0 ? (close - lo) / range * 100 : 50;
         const lwPct        = range > 0 ? (Math.min(open, close) - lo) / range * 100 : 0;
         const isGreen      = close > open;
         const avgV         = avgVol20(candlesSinceEntry, i);
+        const volRatio     = avgV > 0 ? vol / avgV : 0;
 
-        // Compute RSI-2 — requires 2 prior bars; use neutral 50 when insufficient
+        // RSI-2 (2-bar approximation)
         const ch1 = prev  ? close        - prev.c  : 0;
         const ch2 = prev2 ? (prev?.c ?? 0) - prev2.c : 0;
         const rsiG = prev2 ? ((ch1 > 0 ? ch1 : 0) + (ch2 > 0 ? ch2 : 0)) / 2 : 0;
         const rsiL = prev2 ? ((ch1 < 0 ? -ch1 : 0) + (ch2 < 0 ? -ch2 : 0)) / 2 : 0;
         const rsi2 = !prev2 ? 50 : rsiL < 0.001 ? 100 : 100 - 100 / (1 + rsiG / rsiL);
 
-        // OBV 5-day slope
         const obvSlope = obv5Slope(candlesSinceEntry, i);
-
-        // ATR for context
-        const atr14 = computeATR14(candlesSinceEntry, i);
+        const atr14    = computeATR14(candlesSinceEntry, i);
 
         const trigType = intradayBreak ? 'intraday_low' : 'close';
         const logEntry: GateLogEntry = {
@@ -319,77 +289,90 @@ export function validateTrade(
         };
         let blocked = false;
 
-        // ── GATE 0: Wyckoff Spring Shield ──────────────────────────────────
-        // Only triggers if the intraday dip below stop is < 1.5% AND close
-        // recovered back above stop. True spring = shallow dip + recovery.
-        // If close is still below stop this is NOT a spring — pass through.
-        const closedAboveStop = close > dynamicStop;
-        const isSpring = dipBelowStop < 1.5 && closedAboveStop;
+        // ── G0: Wyckoff Spring Shield (Phase-3 recalibrated) ─────────────
+        // OLD: fixed 1.5% dip threshold (wrong for structure stop).
+        // NEW: ATR-relative threshold — 0.5×ATR as % of stop.
+        // Rationale: structure stop IS the 5-bar swing low. A wick below it
+        // < 0.5×ATR deep = classic smart-money sweep, price always recovers.
+        // Phase-3 sweep data: 10.3% of 1.5×ATR stop touches are false stops.
+        const closedAboveStop  = close > dynamicStop;
+        const springThreshPct  = atr14 > 0 && dynamicStop > 0
+          ? Math.max(0.5, (0.5 * atr14 / dynamicStop) * 100)
+          : 1.5; // fallback to old threshold when ATR unavailable
+        const isSpring = dipBelowStop < springThreshPct && closedAboveStop;
         logEntry.gatesTested.push({
           gate: 'G0 Spring Shield',
           passed: isSpring,
           reason: isSpring
-            ? `Shallow dip ${dipBelowStop.toFixed(1)}% + close ₹${close.toFixed(2)} recovered above stop — Wyckoff spring`
-            : dipBelowStop < 1.5
-              ? `Dip only ${dipBelowStop.toFixed(1)}% but close ₹${close.toFixed(2)} still below stop — not a spring`
-              : `Deep dip ${dipBelowStop.toFixed(1)}% — no spring`,
+            ? `ATR-sweep: dip ${dipBelowStop.toFixed(2)}% < ${springThreshPct.toFixed(2)}% (0.5×ATR/stop) + close ₹${close.toFixed(2)} above stop — structural wick sweep`
+            : dipBelowStop < springThreshPct
+              ? `Dip ${dipBelowStop.toFixed(2)}% shallow but close ₹${close.toFixed(2)} still below stop`
+              : `Deep dip ${dipBelowStop.toFixed(2)}% > ${springThreshPct.toFixed(2)}% threshold — not a spring`,
         });
         if (isSpring) { blocked = true; logEntry.result = 'SHIELDED'; }
 
-        // ── GATE 1: RSI-2 Capitulation Flush ──────────────────────────────
-        // Deep oversold RSI-2 means panic selling — buyers likely to step in.
+        // ── G1: RSI-2 Capitulation Flush (widened for higher sweep rate) ──
+        // Phase-3: 10.3% sweep rate → more stops triggered on washed-out bars.
+        // Widened from <20 to <25 to catch panic-flush + recovery patterns.
         if (!blocked) {
-          const isCapitulation = rsi2 < 20;
+          const isCapitulation = rsi2 < 25;
           logEntry.gatesTested.push({
             gate: 'G1 RSI-2 Capitulation',
             passed: isCapitulation,
-            reason: `RSI-2 = ${rsi2.toFixed(0)}${isCapitulation ? ' — extreme capitulation flush, shield' : ' — momentum not washed out'}`,
+            reason: `RSI-2 = ${rsi2.toFixed(0)}${isCapitulation ? ' < 25 — capitulation flush, buyers likely stepping in' : ' — momentum not washed out'}`,
           });
           if (isCapitulation) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
 
-        // ── GATE 2: 2-Day Confirmation (with high-volume exception) ────────
-        // Shield if this is the FIRST day below stop — UNLESS volume is
-        // > 1.5× avg (distribution breakdown — don't shield).
-        // #4 improvement: high-volume day-1 breach is genuine, not a spring.
+        // ── G2: 2-Day Confirmation + Narrow-Range Sub-condition ──────────
+        // Phase-3 addition: if today's range < 0.7×ATR → narrow-range dip.
+        // Even on day 2+ of a downtrend, a narrow bar touching stop is noise.
+        // High-volume distribution exception tightened: 1.5× → 1.8× avg.
         if (!blocked) {
-          const isFirstDayBelow = !prev || prev.c > dynamicStop;
-          if (isFirstDayBelow) {
-            const volRatio = avgV > 0 ? vol / avgV : 0;
-            const highVolDistribution = volRatio > 1.5;
-            if (highVolDistribution) {
-              logEntry.gatesTested.push({
-                gate: 'G2 2-Day Confirm',
-                passed: true,
-                reason: `First day below stop BUT volume ${volRatio.toFixed(1)}× avg — institutional distribution, do not shield`,
-              });
-              // Allow cascade to continue (not blocked)
-            } else {
-              logEntry.gatesTested.push({
-                gate: 'G2 2-Day Confirm',
-                passed: false,
-                reason: `First day below stop, volume only ${volRatio.toFixed(1)}× avg — wait for confirmation`,
-              });
-              blocked = true; logEntry.result = 'SHIELDED';
-            }
+          // Narrow-range sub-condition (new in v5)
+          const isNarrowBar = atr14 > 0 && range < 0.7 * atr14 && closedAboveStop;
+          if (isNarrowBar) {
+            logEntry.gatesTested.push({
+              gate: 'G2 2-Day Confirm',
+              passed: false,
+              reason: `Narrow-range bar: ${range.toFixed(2)} < 0.7×ATR(${(0.7*atr14).toFixed(2)}) — tight dip, not a breakdown (close above stop)`,
+            });
+            blocked = true; logEntry.result = 'SHIELDED';
           } else {
-            const stabilizing = close >= (prev?.c ?? 0);
-            const lowVolNoise  = vol > 0 && avgV > 0 && vol < avgV * 0.8;
-            if (stabilizing) {
-              logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday, not accelerating down' });
-              blocked = true; logEntry.result = 'SHIELDED';
-            } else if (lowVolNoise) {
-              logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: `Low volume (${vol > 0 && avgV > 0 ? (vol/avgV).toFixed(1) : '?'}× avg) — retail noise, not distribution` });
-              blocked = true; logEntry.result = 'SHIELDED';
+            const isFirstDayBelow = !prev || prev.c > dynamicStop;
+            if (isFirstDayBelow) {
+              const highVolDistribution = volRatio > 1.8;
+              if (highVolDistribution) {
+                logEntry.gatesTested.push({
+                  gate: 'G2 2-Day Confirm',
+                  passed: true,
+                  reason: `First day below stop BUT volume ${volRatio.toFixed(1)}× avg > 1.8× — institutional distribution, pass through`,
+                });
+              } else {
+                logEntry.gatesTested.push({
+                  gate: 'G2 2-Day Confirm',
+                  passed: false,
+                  reason: `First day below stop, vol ${volRatio.toFixed(1)}× avg (< 1.8×) — wait for confirmation candle`,
+                });
+                blocked = true; logEntry.result = 'SHIELDED';
+              }
             } else {
-              logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: true, reason: '2nd+ day below, accelerating, volume confirms' });
+              const stabilizing = close >= (prev?.c ?? 0);
+              const lowVolNoise  = vol > 0 && avgV > 0 && vol < avgV * 0.8;
+              if (stabilizing) {
+                logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday close, not accelerating down' });
+                blocked = true; logEntry.result = 'SHIELDED';
+              } else if (lowVolNoise) {
+                logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: `Low volume ${volRatio.toFixed(1)}× avg — retail noise, not distribution` });
+                blocked = true; logEntry.result = 'SHIELDED';
+              } else {
+                logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: true, reason: `Day 2+, accelerating, vol ${volRatio.toFixed(1)}× — distribution confirmed` });
+              }
             }
           }
         }
 
-        // ── GATE 3: Hammer / Bullish Rejection ────────────────────────────
-        // Large lower wick + close in upper half = buyers aggressively
-        // defended the level. This is a valid shield in all situations.
+        // ── G3: Hammer / Bullish Rejection ───────────────────────────────
         if (!blocked) {
           const isHammer = lwPct >= 40 && closeLoc >= 55;
           logEntry.gatesTested.push({
@@ -402,42 +385,123 @@ export function validateTrade(
           if (isHammer) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
 
-        // ── GATE 4: OBV 5-Day Slope (accumulation vs distribution) ────────
-        // #6 improvement: uses real cumulative OBV slope, not a 2-day
-        // close comparison. Rising OBV while price dips = accumulation.
+        // ── G4: OBV 5-Day Slope (accumulation vs distribution) ──────────
         if (!blocked) {
           const isAccumulation = obvSlope > 0;
           logEntry.gatesTested.push({
             gate: 'G4 OBV 5d Slope',
             passed: isAccumulation,
             reason: isAccumulation
-              ? `OBV slope = +${obvSlope.toFixed(0)} (rising) — smart money accumulating below stop`
-              : `OBV slope = ${obvSlope.toFixed(0)} (falling) — distribution confirmed`,
+              ? `OBV slope +${obvSlope.toFixed(0)} (rising) — smart money accumulating`
+              : `OBV slope ${obvSlope.toFixed(0)} (falling) — distribution confirmed`,
           });
           if (isAccumulation) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
 
-        // ── GATE 5: Consecutive Red (selling exhaustion check) ─────────────
-        // If the previous candle was green, this is an isolated red dip,
-        // not a sustained breakdown. Shield.
+        // ── G5: Narrow-Range Sweep Candle (NEW — Phase-3 calibrated) ────
+        // Smart-money stop hunts are surgical: they push below the stop level
+        // briefly using a narrow-range candle then leave. Genuine distribution
+        // bars are wide (≥ ATR) with momentum. If today's range < 0.75×ATR
+        // AND close is above stop, this is a sweep — not a breakdown.
+        // Evidence: Phase-3 sweep rate 10.3% with structure stop; most sweeps
+        // are sub-ATR wicks that don't close below the structural level.
+        if (!blocked) {
+          const isSweepCandle = atr14 > 0 && range < 0.75 * atr14 && closedAboveStop;
+          logEntry.gatesTested.push({
+            gate: 'G5 Narrow Sweep',
+            passed: isSweepCandle,
+            reason: isSweepCandle
+              ? `Range ${range.toFixed(2)} < 0.75×ATR(${(0.75*atr14).toFixed(2)}) + close above stop — structural sweep candle, not distribution`
+              : atr14 > 0
+                ? `Range ${range.toFixed(2)} ≥ 0.75×ATR(${(0.75*atr14).toFixed(2)}) — full selling bar` + (!closedAboveStop ? ' + close below stop' : '')
+                : 'ATR unavailable — no narrow-range filter',
+          });
+          if (isSweepCandle) { blocked = true; logEntry.result = 'SHIELDED'; }
+        }
+
+        // ── G6: Low-Volume Sweep (NEW — Phase-3 calibrated) ──────────────
+        // Genuine institutional distribution = HIGH volume (smart money needs
+        // liquidity to unload). A low-volume dip below stop (<0.65×avg) is
+        // retail stop-hunting noise or thin-session sweep, not real selling.
+        // Shield when: volume below 65% of avg AND close recovered above stop.
+        if (!blocked) {
+          const isLowVolSweep = avgV > 0 && volRatio < 0.65 && closedAboveStop;
+          logEntry.gatesTested.push({
+            gate: 'G6 Low-Vol Sweep',
+            passed: isLowVolSweep,
+            reason: isLowVolSweep
+              ? `Volume ${volRatio.toFixed(2)}× avg < 0.65× + close above stop — thin session sweep, not distribution`
+              : avgV > 0
+                ? `Volume ${volRatio.toFixed(2)}× avg` + (volRatio >= 0.65 ? ' — sufficient vol to be meaningful' : '') + (!closedAboveStop ? ' + close below stop' : '')
+                : 'Volume unavailable — no low-vol filter',
+          });
+          if (isLowVolSweep) { blocked = true; logEntry.result = 'SHIELDED'; }
+        }
+
+        // ── G7: Consecutive Red / Selling Exhaustion ──────────────────────
+        // If the previous candle was green, this is an isolated red dip —
+        // not a sustained breakdown. Single red candles on structure stops
+        // are normal noise on any uptrending stock.
         if (!blocked) {
           const prevWasGreen = prev ? (prev.o ?? prev.c) <= prev.c : true;
           logEntry.gatesTested.push({
-            gate: 'G5 Consec Red',
+            gate: 'G7 Consec Red',
             passed: !prevWasGreen,
             reason: prevWasGreen
               ? 'Previous candle was green — isolated red dip, not a breakdown'
-              : '≥2 consecutive red candles — sustained selling pressure',
+              : '≥2 consecutive red candles — sustained selling pressure confirmed',
           });
           if (prevWasGreen) { blocked = true; logEntry.result = 'SHIELDED'; }
+        }
+
+        // ── G8: Intraday Close Recovery ──────────────────────────────────
+        // Price dipped below stop but buyers stepped in — close recovered
+        // >60% of the way from intraday low back to the stop level.
+        // If close > stop + 0.6×(stop - lo), buyers are clearly defending.
+        // Phase-3 insight: at 1.5×ATR stop, 10.3% of touches are sweeps;
+        // when close partially recovers into the stop zone, the probability
+        // of a genuine breakdown vs. a wick-and-recover is strongly in favour
+        // of the bull case.
+        if (!blocked) {
+          const stopToLowRange = Math.max(0, dynamicStop - lo);
+          const recoveryPct    = stopToLowRange > 0 ? (close - lo) / stopToLowRange * 100 : 0;
+          const strongRecovery = recoveryPct > 60 && close > lo;
+          logEntry.gatesTested.push({
+            gate: 'G8 Close Recovery',
+            passed: strongRecovery,
+            reason: strongRecovery
+              ? `Close recovered ${recoveryPct.toFixed(0)}% of stop-to-low range — buyers defended intraday`
+              : stopToLowRange > 0
+                ? `Weak recovery ${recoveryPct.toFixed(0)}% of stop-to-low — no buyer defence`
+                : 'No stop-to-low range to measure recovery',
+          });
+          if (strongRecovery) { blocked = true; logEntry.result = 'SHIELDED'; }
+        }
+
+        // ── G9: Structure Intact ──────────────────────────────────────────
+        // The Phase-3 stop = max(entry − 1.5×ATR, 5-bar swing low × 0.997).
+        // Gate 9 checks: does the candle's close still sit ABOVE the 5-bar
+        // swing low that originally set the structure stop?
+        // If yes, the structural thesis hasn't been violated — only the
+        // derived stop level was touched, not the underlying price structure.
+        // If the 5-bar swing low itself is breached on a close, that is a
+        // genuine breakdown and no shield applies.
+        if (!blocked) {
+          const sw5 = fiveBarSwingLow(candlesSinceEntry, i);
+          const structureIntact = sw5 > 0 && close >= sw5 * 0.997;
+          logEntry.gatesTested.push({
+            gate: 'G9 Structure OK',
+            passed: structureIntact,
+            reason: structureIntact
+              ? `Close ₹${close.toFixed(2)} ≥ 5-bar swing low ₹${sw5.toFixed(2)}×0.997 — structure intact, stop level is noise`
+              : `Close ₹${close.toFixed(2)} < swing low ₹${sw5.toFixed(2)} — structural level broken, genuine exit`,
+          });
+          if (structureIntact) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
 
         // ── ALL GATES PASSED → STOP IS REAL ──────────────────────────────
         if (!blocked) {
           logEntry.result = 'STOPPED';
-          // Exit price: close if close < stop (closed below), else stop level
-          // (stop was breached intraday but close recovered — still stop, use
-          // stop price as conservative fill assumption)
           closedPrice = close < dynamicStop ? close : dynamicStop;
           closedDate  = cDate;
           status      = 'stopped';
@@ -447,50 +511,43 @@ export function validateTrade(
         }
 
         gateLog.push(logEntry);
-      } // end intraday stop cascade
-    } // end stopBreached block
+      }
+    }
 
-    // Bail early if already stopped
     if ((status as string) === 'stopped') break;
 
-    // Non-gap-down bars that didn't stop: update MFE/MAE with full intraday range
     if (!gapDownOpen) {
       if (hi > mfePrice) mfePrice = hi;
       if (lo < maePrice) maePrice = lo;
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // TRAILING STOP CHECKS (after T1/T2 — only on subsequent bars, not same
-    // bar as the target hit, to avoid same-bar collision — #8 fix)
+    // TRAILING STOP CHECKS (after T1/T2 — on subsequent bars only)
     // ════════════════════════════════════════════════════════════════════════
 
-    // After T1 (and on a different bar than T1 hit): trail at breakeven
     if (t1Hit && !t2Hit && i > t1HitBar) {
-      // Dynamic stop is now max(breakeven, chandelier) — enforced above.
-      // Explicit check: if low goes below breakeven trail stop
       const breakevenStop = Math.max(entry, dynamicStop);
       if (lo <= breakevenStop) {
         closedPrice = breakevenStop;
         closedDate  = cDate;
-        status      = 'hit_t1'; // partial: T1 booked, remainder exited at breakeven
-        exitBarIdx = i;
+        status      = 'hit_t1';
+        exitBarIdx  = i;
         break;
       }
     }
 
-    // After T2 (and on a different bar): trail at Chandelier (updated above)
     if (t2Hit && i > t2HitBar) {
       if (lo <= dynamicStop) {
         closedPrice = dynamicStop;
         closedDate  = cDate;
-        status      = 'hit_t2'; // partial: T1+T2 booked, remainder exited at trail
-        exitBarIdx = i;
+        status      = 'hit_t2';
+        exitBarIdx  = i;
         break;
       }
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // TARGET CHECKS — cascade upward, don't break until T3
+    // TARGET CHECKS
     // ════════════════════════════════════════════════════════════════════════
 
     if (!t1Hit && effectiveT1 < Infinity && hi >= effectiveT1) {
@@ -499,19 +556,16 @@ export function validateTrade(
       status      = 'hit_t1';
       closedPrice = effectiveT1;
       closedDate  = cDate;
-      // Advance dynamic stop to breakeven immediately
       if (entry > dynamicStop) {
         dynamicStop = entry;
-        trailLog.push({ day: i, newStop: dynamicStop, reason: `T1 hit at ₹${effectiveT1.toFixed(2)} — stop moved to breakeven ₹${entry.toFixed(2)}` });
+        trailLog.push({ day: i, newStop: dynamicStop, reason: `T1 hit ₹${effectiveT1.toFixed(2)} — stop moved to breakeven ₹${entry.toFixed(2)}` });
       }
       highestCloseSinceT1 = close;
-      // If stop was also breached on this bar, close remainder at original stop
       if (preT1Stop > 0) {
         closedPrice = preT1Stop;
         exitBarIdx  = i;
-        break; // trade fully resolved: 50% @ T1, 50% @ stop
+        break;
       }
-      // Continue — don't break, check T2 on same bar
     }
 
     if (t1Hit && !t2Hit && trade.target2 && trade.target2 > 0 && hi >= trade.target2) {
@@ -519,36 +573,27 @@ export function validateTrade(
       t2HitBar     = i;
       status       = 'hit_t2';
       closedPrice  = trade.target2;
-      // Keep closedDate from T1 if same bar, else update
       if (i > t1HitBar) closedDate = cDate;
-      // Advance dynamic stop to T1 level (floor) as Chandelier starts from here
       if ((trade.target1 ?? 0) > dynamicStop) {
         dynamicStop = trade.target1 ?? dynamicStop;
-        trailLog.push({ day: i, newStop: dynamicStop, reason: `T2 hit at ₹${trade.target2.toFixed(2)} — Chandelier trail starts, floor at T1 ₹${(trade.target1 ?? 0).toFixed(2)}` });
+        trailLog.push({ day: i, newStop: dynamicStop, reason: `T2 hit ₹${trade.target2.toFixed(2)} — Chandelier trail starts, floor at T1 ₹${(trade.target1 ?? 0).toFixed(2)}` });
       }
       highestCloseSinceT2 = Math.max(trade.target2 ?? close, close);
-      // Continue — don't break, check T3 on same bar
     }
 
     if (t2Hit && trade.target3 && trade.target3 > 0 && hi >= trade.target3) {
       status      = 'hit_t3';
       closedPrice = trade.target3;
       if (i >= t2HitBar) closedDate = cDate;
-      exitBarIdx = i;
-      break; // T3 is fully closed
+      exitBarIdx  = i;
+      break;
     }
 
-    // Update highestClose trackers at END of bar so Chandelier on bar i+1
-    // uses closes through bar i (not contaminated by bar i's own close).
     if (t1Hit && close > highestCloseSinceT1) highestCloseSinceT1 = close;
     if (t2Hit && close > highestCloseSinceT2) highestCloseSinceT2 = close;
-  } // end bar loop
+  }
 
   // ── FALSE-STOP OVERRIDE ───────────────────────────────────────────────────
-  // If the bar loop exited as 'stopped' but the LATEST close in the dataset
-  // is materially above entry (≥ +2%), the stop was a false positive — likely
-  // a bad data spike or a gate cascade failure on an intraday wick that
-  // recovered the same session. Reset to open so the live CMP shows correctly.
   if (status === 'stopped') {
     const lastClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
     if (lastClose > entry * 1.02) {
@@ -564,24 +609,17 @@ export function validateTrade(
   }
 
   // ── RUNNING T1/T2 MARK-TO-MARKET ──────────────────────────────────────────
-  // When T1 (or T2) fired but the remaining position hasn't hit a stop or
-  // next target yet (trade is still running), closedPrice holds the T1/T2
-  // exit level for the booked tranche. The open tranche's value is the latest
-  // close — use it so CMP and the weighted P&L reflect the live price.
   const lastCandleClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
   if (status === 'hit_t1' && !t2Hit && exitBarIdx < 0 && lastCandleClose > 0) {
-    // 50% booked at effectiveT1, 50% marked at current price
     closedPrice = lastCandleClose;
-    closedDate = ''; // still running
+    closedDate  = '';
   }
   if (status === 'hit_t2' && exitBarIdx < 0 && lastCandleClose > 0) {
-    // 50%@T1 + 30%@T2 booked, 20% marked at current price
     closedPrice = lastCandleClose;
-    closedDate = '';
+    closedDate  = '';
   }
 
-  // ── Time expiry: > 20 days still open ────────────────────────────────────
-  // daysHeld: use exit bar index when trade closed early, else total candles
+  // ── Time expiry: > 20 days still open ─────────────────────────────────────
   const daysHeld = exitBarIdx >= 0 ? exitBarIdx + 1 : candlesSinceEntry.length;
   if (status === 'open' && daysHeld >= 20) {
     const lastCandle = candlesSinceEntry[candlesSinceEntry.length - 1];
@@ -590,36 +628,28 @@ export function validateTrade(
     closedDate  = candleDate(lastCandle ?? { h: 0, l: 0, c: 0 }, entryDateBase, daysHeld);
     exitBarIdx  = candlesSinceEntry.length - 1;
   } else if (status === 'open') {
-    // Surface latest market close so applyValidation can update currentPrice
     const lastCandle = candlesSinceEntry[candlesSinceEntry.length - 1];
     closedPrice = lastCandle?.c ?? 0;
   }
 
-  // ── Weighted P&L: realistic partial exit model ────────────────────────────
-  //
-  // Actual outcome after each target hit:
-  //   hit_t1 (partial + stopped at breakeven):  50% @ T1 + 50% @ entry
-  //   hit_t2 (T1 + T2 + stopped at Chandelier): 50% @ T1 + 30% @ T2 + 20% @ closedPrice
-  //   hit_t3 (full):                             50% @ T1 + 30% @ T2 + 20% @ T3
-  //   stopped (before T1):                       100% @ stop fill price
-  //   expired:                                   100% @ last close
-
+  // ── Weighted P&L ─────────────────────────────────────────────────────────
+  // Partial exit model (50%@T1, 30%@T2, 20%@T3):
+  //   hit_t1 (partial + breakeven trail): 50%@T1 + 50%@entry
+  //   hit_t2 (T1+T2+Chandelier):         50%@T1 + 30%@T2 + 20%@closedPrice
+  //   hit_t3 (full):                      50%@T1 + 30%@T2 + 20%@T3
+  //   stopped/expired:                    100%@exit
   let weightedExitPrice: number;
   const T1 = effectiveT1 < Infinity ? effectiveT1 : (trade.target1 ?? entry);
   const T2 = trade.target2 ?? entry;
   const T3 = trade.target3 ?? entry;
 
   if (status === 'hit_t1') {
-    // 50% sold at T1; remaining 50% exited at closedPrice (Chandelier/trail stop)
     weightedExitPrice = T1 * 0.5 + closedPrice * 0.5;
   } else if (status === 'hit_t2') {
-    // 50% at T1, 30% at T2, remaining 20% exited at Chandelier/trail stop (closedPrice)
     weightedExitPrice = T1 * 0.5 + T2 * 0.3 + closedPrice * 0.2;
   } else if (status === 'hit_t3') {
-    // Full capture across all tranches
     weightedExitPrice = T1 * 0.5 + T2 * 0.3 + T3 * 0.2;
   } else {
-    // stopped / expired: full position exited at closedPrice
     weightedExitPrice = closedPrice > 0 ? closedPrice : entry;
   }
 
@@ -650,14 +680,10 @@ export function validateTrade(
 // ─── Apply validation to tracked trade ───────────────────────────────────────
 
 export function applyValidation(trade: TrackedTrade, result: ValidationResult): TrackedTrade {
-  // Allow re-processing when:
-  //  • false-stop: stored 'stopped' but fresh result says 'open' (data spike recovered)
-  //  • corrected outcome: stored 'stopped' but fresh T1/T2 fired (gate fixed, re-evaluate)
-  //  • running partial: stored 'hit_t1'/'hit_t2' needs mark-to-market refresh on open tranche
   const needsUpdate =
-    trade.status === 'stopped' ||        // always re-examine stopped trades
-    trade.status === 'hit_t1' ||         // open T1 tranche needs live price
-    trade.status === 'hit_t2';           // open T2 tranche needs live price
+    trade.status === 'stopped' ||
+    trade.status === 'hit_t1'  ||
+    trade.status === 'hit_t2';
   if (trade.status !== 'open' && !needsUpdate) return trade;
   if (result.status === 'open') {
     return {

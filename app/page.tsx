@@ -3289,7 +3289,7 @@ function HomePageInner() {
                 <div className="font-bold text-red-300">ACTION REQUIRED:</div>
                 <div>1. EXIT at market open tomorrow morning</div>
                 <div>2. Place SELL order for ALL shares of {a.symbol.replace('.NS','').replace('.BO','')}</div>
-                <div>3. Do NOT hold hoping for recovery — 10 gates confirmed genuine breakdown</div>
+                <div>3. Do NOT hold hoping for recovery — all 10 gates (G0-G9 + Chandelier trail) confirmed genuine breakdown</div>
               </div>
             </div>
           ))}
@@ -4165,7 +4165,7 @@ function HomePageInner() {
                       <th className="px-2 py-1 text-right font-medium">MAE-R</th>
                       <th className="px-2 py-1 text-right font-medium">Days</th>
                       <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                      <th className="px-2 py-1 text-center font-medium">Gate Status</th>
+                      <th className="px-2 py-1 text-center font-medium cursor-help" title="10-Gate Cascade (Phase-3 calibrated, v6)&#10;Stop: max(1.5×ATR, 5-bar swing low×0.997) clamped [2.5%,6.5%]&#10;G-GAP: gap-down → instant exit at open&#10;G0: Wyckoff Spring — dip &lt;0.5×ATR deep + close above stop&#10;G1: RSI-2 &lt;25 Capitulation flush&#10;G2: 2-Day Confirm — first day low-vol OR narrow bar (&lt;0.7×ATR)&#10;G3: Hammer — lower wick ≥40%, close loc ≥55%&#10;G4: OBV 5d slope rising (accumulation)&#10;G5: Narrow Sweep — range &lt;0.75×ATR + close above stop&#10;G6: Low-Vol Sweep — vol &lt;0.65×avg + close above stop&#10;G7: Isolated Red — prev candle was green&#10;G8: Close Recovery — recovered &gt;60% of stop-to-low range&#10;G9: Structure OK — close ≥ 5-bar swing low × 0.997&#10;🛡 = shielded (false stop), 🛑 = all gates passed (real stop)">Gate Status</th>
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
@@ -5507,7 +5507,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">Days</th>
                             <th className="px-2 py-1 text-center font-medium">Expiry</th>
                             <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                            <th className="px-2 py-1 text-center font-medium">Gate Status</th>
+                            <th className="px-2 py-1 text-center font-medium cursor-help" title="10-Gate Cascade (Phase-3 calibrated, v6)&#10;Stop: max(1.5×ATR, 5-bar swing low×0.997) clamped [2.5%,6.5%]&#10;G-GAP: gap-down → instant exit at open&#10;G0: Wyckoff Spring — dip &lt;0.5×ATR deep + close above stop&#10;G1: RSI-2 &lt;25 Capitulation flush&#10;G2: 2-Day Confirm — first day low-vol OR narrow bar (&lt;0.7×ATR)&#10;G3: Hammer — lower wick ≥40%, close loc ≥55%&#10;G4: OBV 5d slope rising (accumulation)&#10;G5: Narrow Sweep — range &lt;0.75×ATR + close above stop&#10;G6: Low-Vol Sweep — vol &lt;0.65×avg + close above stop&#10;G7: Isolated Red — prev candle was green&#10;G8: Close Recovery — recovered &gt;60% of stop-to-low range&#10;G9: Structure OK — close ≥ 5-bar swing low × 0.997&#10;🛡 = shielded (false stop), 🛑 = all gates passed (real stop)">Gate Status</th>
                             <th className="px-2 py-1 text-left font-medium">Exit Model</th>
                             <th className="px-2 py-1 text-left font-medium">Sector</th>
                             <th className="px-2 py-1 text-right font-medium">Conv</th>
