@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, Fragment, useEffect } from 'react';
+import { useState, useRef, Fragment, useEffect, useMemo, useCallback } from 'react';
 import { fetchOHLCVClient } from '@/lib/fetchClient';
 import { analyzeStock, type StageRating, type ParamSetKey, type AnalysisResult } from '@/lib/stockEngine';
 import type { Candle } from '@/lib/compute';
@@ -705,22 +705,59 @@ export default function PBFBAnalyzer() {
     }
   }
 
-  // Feature Alignment Score — how similar is this event's candle profile
-  // to the historical centroid of actionable breakouts (0–100)
-  function computeFAS(r: ForensicResult): number | null {
-    if (!brainData || brainData.eventCount < 10 || !r.bestResult) return null;
-    const br = r.bestResult;
-    const c  = brainData.centroid;
-    const diffs: number[] = [];
-    if (c.closeLoc > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.closeLoc      - c.closeLoc)     / 50));
-    if (c.bodyPct > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.bodyPct       - c.bodyPct)      / 40));
-    if (c.upperWickPct > 0) diffs.push(Math.max(0, 1 - Math.abs(br.upperWickPct  - c.upperWickPct) / 30));
-    if (c.volRatio20 > 0)   diffs.push(Math.max(0, 1 - Math.abs(br.exactVolRatio20 - c.volRatio20) / 3));
-    if (c.volPre5 > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.exactVolVsPre5  - c.volPre5)    / 4));
-    if (c.rangeATR > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.exactRangeATR14 - c.rangeATR)   / 2));
-    if (c.rsi2 > 0)         diffs.push(Math.max(0, 1 - Math.abs(br.rsi2           - c.rsi2)        / 40));
-    return diffs.length > 0 ? Math.round(diffs.reduce((a, b) => a + b) / diffs.length * 100) : null;
+  // B2: FAS scores memoized — computed once when results or brainData change
+  const fasMap = useMemo<Record<string, number | null>>(() => {
+    if (!brainData || brainData.eventCount < 10) return {};
+    const c = brainData.centroid;
+    const map: Record<string, number | null> = {};
+    for (const r of results) {
+      const key = `${r.symbol}::${r.date}::${r.nBefore}`;
+      if (!r.bestResult) { map[key] = null; continue; }
+      const br = r.bestResult;
+      const diffs: number[] = [];
+      if (c.closeLoc > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.closeLoc        - c.closeLoc)     / 50));
+      if (c.bodyPct > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.bodyPct         - c.bodyPct)      / 40));
+      if (c.upperWickPct > 0) diffs.push(Math.max(0, 1 - Math.abs(br.upperWickPct    - c.upperWickPct) / 30));
+      if (c.volRatio20 > 0)   diffs.push(Math.max(0, 1 - Math.abs(br.exactVolRatio20 - c.volRatio20)   / 3));
+      if (c.volPre5 > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.exactVolVsPre5  - c.volPre5)      / 4));
+      if (c.rangeATR > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.exactRangeATR14 - c.rangeATR)     / 2));
+      if (c.rsi2 > 0)         diffs.push(Math.max(0, 1 - Math.abs(br.rsi2            - c.rsi2)         / 40));
+      map[key] = diffs.length > 0 ? Math.round(diffs.reduce((a, b) => a + b) / diffs.length * 100) : null;
+    }
+    return map;
+  }, [results, brainData]);
+
+  function getFAS(r: ForensicResult): number | null {
+    return fasMap[`${r.symbol}::${r.date}::${r.nBefore}`] ?? null;
   }
+
+  // S3: top miss conditions — aggregate failed checklist items across missed/zone-only events
+  const topMissConditions = useMemo(() => {
+    const nResults = results.filter(r => r.nBefore === activeN);
+    const missed = nResults.filter(r => r.classification === 'missed' || r.classification === 'zone_only');
+    const counts = new Map<string, number>();
+    for (const r of missed) {
+      const failed = r.bestResult?.checklist?.filter(c => !c.pass) ?? [];
+      for (const c of failed) {
+        counts.set(c.label, (counts.get(c.label) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([label, count]) => ({ label, count, pct: missed.length > 0 ? (count / missed.length) * 100 : 0 }));
+  }, [results, activeN]);
+
+  // S1: best-N for the star badge
+  const bestNForBadge = useMemo(() => {
+    let bestN = 1, bestRate = -1;
+    for (let nb = 1; nb <= maxNBefore; nb++) {
+      const rs = results.filter(r => r.nBefore === nb);
+      const rate = rs.length > 0 ? rs.filter(r => r.classification === 'actionable').length / rs.length : 0;
+      if (rate > bestRate) { bestRate = rate; bestN = nb; }
+    }
+    return results.length > 0 ? bestN : null;
+  }, [results, maxNBefore]);
 
   // 20-dim candle-shape fingerprint over the 10 candles ending at the signal day:
   // 10 min-max-normalized closes (chart shape) + 10 max-normalized volumes (volume shape).
@@ -767,7 +804,8 @@ export default function PBFBAnalyzer() {
         dateISO = d.toISOString().slice(0, 10);
       }
 
-      evts.push({ symbol, eventIdx: i, date, dateISO, movePct, volMult: cur.v / v20, isUCLock, candles });
+      const volMult = v20 > 0 ? cur.v / v20 : 1;
+      evts.push({ symbol, eventIdx: i, date, dateISO, movePct, volMult, isUCLock, candles });
       i += 2;  // Bug 20 fix: skip 1 bar only — i+=10 missed events 2-10 bars apart
     }
     return evts;
@@ -798,23 +836,31 @@ export default function PBFBAnalyzer() {
       } catch { /* skip */ }
       setProgress(p => ({ ...p, done: p.done + 1 }));
     }
-    setEvents(allEvents);
+    // B4: de-duplicate by (symbol, date) — keep the one with highest movePct
+    const seen = new Map<string, BreakoutEvent>();
+    for (const ev of allEvents) {
+      const key = `${ev.symbol}::${ev.dateISO ?? ev.date}`;
+      const existing = seen.get(key);
+      if (!existing || ev.movePct > existing.movePct) seen.set(key, ev);
+    }
+    const deduped = Array.from(seen.values());
+    setEvents(deduped);
 
-    if (allEvents.length === 0) {
-      setError(`No monster-move events found (≥${minMovePct}% + ≥${minVolMult}× vol, or UC lock) in the selected stocks.`);
+    if (deduped.length === 0) {
+      setError(`No monster-move events found (≥${minMovePct}% + ≥${minVolMult}× vol, or UC lock) in the selected stocks. Note: moves >25% are excluded as likely corporate actions.`);
       setLoading(false);
       return;
     }
 
     // Phase 2: replay all 6 param sets at each N before each event
     const Ns = Array.from({ length: maxNBefore }, (_, i) => i + 1);
-    const totalWork = allEvents.length * Ns.length * PARAM_SET_KEYS.length;
+    const totalWork = deduped.length * Ns.length * PARAM_SET_KEYS.length;
     setProgress({ done: 0, total: totalWork, phase: 'Replaying screener N days before each event' });
 
     const allResults: ForensicResult[] = [];
     let workDone = 0;
 
-    for (const ev of allEvents) {
+    for (const ev of deduped) {
       if (abortRef.current) break;
       for (const nb of Ns) {
         const cutIdx = ev.eventIdx - nb;
@@ -866,9 +912,48 @@ export default function PBFBAnalyzer() {
 
     setProgress(p => ({ ...p, done: totalWork }));
     setResults(allResults);
-    setActiveN(1);
+    // S1: auto-select the N with the highest actionable detection rate
+    let bestN = 1, bestRate = -1;
+    for (const nb of Ns) {
+      const rs = allResults.filter(r => r.nBefore === nb);
+      const rate = rs.length > 0 ? rs.filter(r => r.classification === 'actionable').length / rs.length : 0;
+      if (rate > bestRate) { bestRate = rate; bestN = nb; }
+    }
+    setActiveN(bestN);
     setLoading(false);
     loadBrainData();
+  }
+
+  // S4: export helpers
+  const copyMissedSymbols = useCallback(() => {
+    const nRes = results.filter(r => r.nBefore === activeN);
+    const syms = nRes
+      .filter(r => filterClass === 'all' ? (r.classification === 'missed' || r.classification === 'zone_only') : r.classification === filterClass)
+      .map(r => r.symbol.replace('.NS', '').replace('.BO', ''))
+      .filter((s, i, arr) => arr.indexOf(s) === i)
+      .join('\n');
+    navigator.clipboard.writeText(syms).catch(() => {});
+  }, [results, activeN, filterClass]);
+
+  function exportCSV() {
+    const headers = ['Symbol', 'Date', 'Move%', 'VolMult', 'BestStage', 'DNA_FAS', 'BestParamSet', 'Verdict', ...PARAM_SET_KEYS.map(k => PARAM_SET_LABELS[k])];
+    const rows = displayed.map(r => [
+      r.symbol.replace('.NS', '').replace('.BO', ''),
+      r.dateISO ?? r.date,
+      r.movePct.toFixed(2),
+      r.volMult.toFixed(2),
+      r.bestStage,
+      getFAS(r)?.toFixed(0) ?? '',
+      r.bestParamSet ? PARAM_SET_LABELS[r.bestParamSet] : '',
+      r.classification,
+      ...PARAM_SET_KEYS.map(k => r.stages[k] ?? 'NO_SIGNAL'),
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `pbfb_n${activeN}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
   }
 
   // ── Sort + filter ────────────────────────────────────────────────────────────
@@ -1203,6 +1288,11 @@ export default function PBFBAnalyzer() {
                 ))}
               </div>
               <div className="text-[9px] text-slate-600 text-center">Tests each N from 1→{maxNBefore} simultaneously</div>
+              {symCount > 0 && (
+                <div className="text-[9px] text-slate-700 text-center mt-0.5">
+                  ~{Math.round(symCount * maxNBefore * PARAM_SET_KEYS.length * 0.05)}s est. · {symCount * maxNBefore * PARAM_SET_KEYS.length} analyses
+                </div>
+              )}
             </div>
 
             <div className="bg-slate-900/40 rounded p-2.5 space-y-2">
@@ -1303,7 +1393,10 @@ export default function PBFBAnalyzer() {
               const actRate = s.total > 0 ? (s.actionable / s.total * 100).toFixed(0) : '0';
               return (
                 <button key={nb} onClick={() => setActiveN(nb)}
-                  className={`flex-1 py-1.5 px-2 rounded text-center transition-colors ${activeN === nb ? 'bg-indigo-800/60 border border-indigo-600' : 'hover:bg-slate-700/40 border border-transparent'}`}>
+                  className={`flex-1 py-1.5 px-2 rounded text-center transition-colors relative ${activeN === nb ? 'bg-indigo-800/60 border border-indigo-600' : 'hover:bg-slate-700/40 border border-transparent'}`}>
+                  {bestNForBadge === nb && (
+                    <span className="absolute -top-1 -right-1 text-[9px] text-amber-400" title="Best detection rate across all N values">★</span>
+                  )}
                   <div className="text-[11px] font-bold text-slate-200 font-mono">{nb}d before</div>
                   <div className="text-[9px] mt-0.5">
                     <span className="text-emerald-400">{actRate}% act</span>
@@ -1541,13 +1634,45 @@ export default function PBFBAnalyzer() {
             </div>
           )}
 
+          {/* S3: Top miss conditions panel */}
+          {topMissConditions.length > 0 && (
+            <div className="bg-slate-800/30 rounded-lg p-3 border border-red-900/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">
+                  Top miss conditions — {activeN}d before
+                </div>
+                <div className="text-[9px] text-slate-600">
+                  across {nResults.filter(r => r.classification === 'missed' || r.classification === 'zone_only').length} missed/zone-only events
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {topMissConditions.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[9px] text-red-400 font-mono w-4 text-right">{i + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 truncate flex-1">{item.label}</span>
+                        <span className="text-[10px] font-mono font-bold text-red-400 shrink-0">{item.count}×</span>
+                        <span className="text-[9px] text-slate-600 shrink-0 w-8 text-right">{item.pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-700/40 rounded-full h-1 mt-0.5">
+                        <div className="h-1 rounded-full bg-red-700/60 transition-all" style={{ width: `${item.pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[9px] text-slate-700 mt-2">These are the most common conditions blocking your screener from catching monster moves. Fix the #1 condition and re-run to measure impact.</div>
+            </div>
+          )}
+
           {/* Event table with expandable rows */}
           <div className="bg-slate-800/30 rounded-lg overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/50">
               <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                 {activeN}d before · {displayed.length} event{displayed.length !== 1 ? 's' : ''}
               </div>
-              <div className="flex gap-1 ml-auto">
+              <div className="flex gap-1 ml-auto flex-wrap items-center">
                 {(['all', 'actionable', 'on_radar', 'zone_only', 'missed'] as const).map(fc => (
                   <button key={fc} onClick={() => setFilterClass(fc)}
                     className={`px-2 py-0.5 rounded text-[10px] border transition-colors ${filterClass === fc ? 'bg-slate-600 border-slate-500 text-slate-200' : 'bg-transparent border-slate-700 text-slate-500 hover:text-slate-300'}`}
@@ -1555,6 +1680,17 @@ export default function PBFBAnalyzer() {
                     {fc === 'all' ? 'All' : fc === 'actionable' ? '✓ Actionable' : fc === 'on_radar' ? '~ On Radar' : fc === 'zone_only' ? '◎ Zone Only' : '✗ Missed'}
                   </button>
                 ))}
+                <div className="w-px h-4 bg-slate-700 mx-1" />
+                <button onClick={copyMissedSymbols}
+                  title={filterClass === 'all' ? 'Copy all missed+zone-only symbols' : `Copy ${filterClass} symbols`}
+                  className="px-2 py-0.5 rounded text-[10px] border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors">
+                  📋 Copy
+                </button>
+                <button onClick={exportCSV}
+                  title="Export current view as CSV"
+                  className="px-2 py-0.5 rounded text-[10px] border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors">
+                  ↓ CSV
+                </button>
               </div>
             </div>
 
@@ -1606,7 +1742,7 @@ export default function PBFBAnalyzer() {
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             {(() => {
-                              const fas = computeFAS(r);
+                              const fas = getFAS(r);
                               if (fas == null) return <span className="text-slate-700 text-[9px]">—</span>;
                               const col = fas >= 75 ? '#4ade80' : fas >= 50 ? '#facc15' : '#64748b';
                               return (
