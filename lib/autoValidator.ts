@@ -212,7 +212,11 @@ export function validateTrade(
 
     // ── #5 CHANDELIER TRAIL after T2 (before T3) ──────────────────────────
     if (t2Hit && trade.target3 && trade.target3 > 0) {
-      const atr = computeATR14(candlesSinceEntry, i);
+      const rawAtr = computeATR14(candlesSinceEntry, i);
+      // When fewer than 14 post-entry bars exist, computeATR14 underestimates ATR
+      // (uses 2-3 bars). Fall back to the ATR captured at entry time.
+      const atr14Floor = (trade as any).atr14AtEntry > 0 ? (trade as any).atr14AtEntry : 0;
+      const atr = rawAtr > 0 ? Math.max(rawAtr, atr14Floor * 0.5) : atr14Floor;
       const chandelier = highestCloseSinceT2 - 1.5 * atr;
       if (chandelier > dynamicStop && chandelier < (trade.target3 ?? Infinity)) {
         const prev = dynamicStop;
@@ -489,14 +493,19 @@ export function validateTrade(
         // If the 5-bar swing low itself is breached on a close, that is a
         // genuine breakdown and no shield applies.
         if (!blocked) {
-          const sw5 = fiveBarSwingLow(candlesSinceEntry, i);
-          const structureIntact = sw5 > 0 && close >= sw5 * 0.997;
+          // Use the entry-time 5-bar swing low (stored at trackTrade() time).
+          // This is the same structural level that SET the stop — comparing against
+          // the current 5-bar low would be apples-to-oranges after several hold days.
+          const refLow = (trade as any).sw5LowAtEntry > 0
+            ? (trade as any).sw5LowAtEntry
+            : fiveBarSwingLow(candlesSinceEntry, i); // legacy fallback for pre-fix trades
+          const structureIntact = refLow > 0 && close >= refLow * 0.997;
           logEntry.gatesTested.push({
             gate: 'G9 Structure OK',
             passed: structureIntact,
             reason: structureIntact
-              ? `Close ₹${close.toFixed(2)} ≥ 5-bar swing low ₹${sw5.toFixed(2)}×0.997 — structure intact, stop level is noise`
-              : `Close ₹${close.toFixed(2)} < swing low ₹${sw5.toFixed(2)} — structural level broken, genuine exit`,
+              ? `Close ₹${close.toFixed(2)} ≥ entry swing low ₹${refLow.toFixed(2)}×0.997 — original structure intact`
+              : `Close ₹${close.toFixed(2)} < entry swing low ₹${refLow.toFixed(2)} — structural level broken, genuine exit`,
           });
           if (structureIntact) { blocked = true; logEntry.result = 'SHIELDED'; }
         }

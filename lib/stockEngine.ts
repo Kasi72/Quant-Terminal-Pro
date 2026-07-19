@@ -105,6 +105,8 @@ export interface PriceEngine {
   hh252: number;           // 52-week highest high before signal bar
   pctFrom52W: number;      // % close is below the 52W high (0 = at the high)
   breakoutTier: 'A+' | 'A' | 'B'; // A+=VCP near 52W, A=near 52W, B=zone only
+  sw5LowAtEntry: number;   // 5-bar swing low used by Phase-3 structure stop (for G9 gate)
+  atr14AtEntry: number;    // ATR-14 at signal bar (for Chandelier fallback in autoValidator)
 }
 
 export interface ChecklistItem { label: string; pass: boolean; value: string; }
@@ -1225,6 +1227,7 @@ function buildNullPriceEngine(): PriceEngine {
     failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
     tradeValid: false,
     hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
+    sw5LowAtEntry: 0, atr14AtEntry: 0,
   };
 }
 
@@ -1573,6 +1576,8 @@ function buildTradeEngine(
     hh252: safe(hh252),
     pctFrom52W: safe(pctFrom52W),
     breakoutTier,
+    sw5LowAtEntry: 0,
+    atr14AtEntry: safe(atr14),
   };
 }
 
@@ -2445,6 +2450,8 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,
     tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.2,
+    sw5LowAtEntry: sw5Low,     // original 5-bar swing low used to set structure stop
+    atr14AtEntry: atr14,       // ATR-14 at signal bar for Chandelier fallback
   };
 }
 
@@ -3651,6 +3658,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         timeStop3d: plannedEntry, timeStop5d: plannedEntry + riskPerShare, timeStop10d: plannedEntry + 2 * riskPerShare,
         tradeValid: true,
         hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
+        sw5LowAtEntry: 0, atr14AtEntry: 0,
       };
     } else {
       priceEngine = {
@@ -3666,6 +3674,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
         tradeValid: false,
         hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
+        sw5LowAtEntry: 0, atr14AtEntry: 0,
       };
     }
 

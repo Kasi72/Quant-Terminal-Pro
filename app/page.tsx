@@ -2506,6 +2506,8 @@ function HomePageInner() {
       zoneExplosion: zeInfo || undefined,
       monsterBadge: monsterBadgeType || undefined,
       regimeAtEntry: marketRegime?.label || undefined,
+      sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
+      atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
     };
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
   }
@@ -3504,6 +3506,7 @@ function HomePageInner() {
                           rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
                           failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0, tradeValid: c.tv,
                           hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
+                          sw5LowAtEntry: 0, atr14AtEntry: 0,
                         },
                         conditionsMet: 0, totalConditions: 20, checklist: [],
                         momentum: { emaAligned: false, ema20: 0, ema50: 0, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: 0, obvSlope10: 0, adx14: 20, adxInRange: true, gapAdjustedRR: 0, momentumScore: c.ms, rsNifty20: 1.0 },

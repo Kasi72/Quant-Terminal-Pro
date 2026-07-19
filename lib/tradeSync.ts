@@ -36,6 +36,8 @@ function toRow(t: TrackedTrade) {
     notes: a.notes ?? null,
     tf_alignment: t.tfAlignment ?? null,
     rs_rank: safeNum(t.rsRank) ?? null,
+    sw5_low_at_entry: safeNum(t.sw5LowAtEntry) ?? null,
+    atr14_at_entry: safeNum(t.atr14AtEntry) ?? null,
     raw_json: t,
     updated_at: new Date().toISOString(),
   };
@@ -75,6 +77,8 @@ function fromRow(row: any): TrackedTrade {
     pnlPct: safeNum(row.pnl_pct) ?? base.pnlPct,
     tfAlignment: row.tf_alignment ?? base.tfAlignment,
     rsRank: safeNum(row.rs_rank) ?? base.rsRank,
+    sw5LowAtEntry: safeNum(row.sw5_low_at_entry) ?? base.sw5LowAtEntry,
+    atr14AtEntry: safeNum(row.atr14_at_entry) ?? base.atr14AtEntry,
   } as TrackedTrade;
 }
 
