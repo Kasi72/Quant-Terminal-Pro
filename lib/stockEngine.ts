@@ -2429,12 +2429,18 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
   const t10 = tick(Math.max(entry * (1 + 5.0 * atrPct / 100), t7 + 0.05)); // T3: 5×ATR
 
   const rewardRisk = riskAbs > 0 ? (t7 - entry) / riskAbs : 0; // R:R at T2
+  // disasterStop = hard clamp at 6.5% below entry (the widest permitted stop).
+  // Needed by checkTradeStatus() fallback path — without it, disaster branch never fires
+  // because buildNullPriceEngine() returns disasterStop=0.
+  const disasterStop = tick(entry * (1 - 6.5 / 100));
   return {
     ...buildNullPriceEngine(),
     plannedEntry: tick(entry),
     tacticalStop: stop,
     tacticalRiskPct: riskPct,
     riskPerShare: riskAbs,
+    disasterStop,
+    disasterRiskPct: 6.5,
     target5: t5, target7: t7, target10: t10,
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,

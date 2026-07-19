@@ -10,8 +10,9 @@ export interface TradeSheet {
   stopLoss: number;
   target1: number;
   target2: number;
+  target3: number;
   trailRule: string;
-  breakEvenTrigger: number;   // price level that triggers breakeven stop
+  breakEvenTrigger: number;   // price level that triggers breakeven stop (= T1 or +2%, whichever is lower)
   breakEvenStop: number;      // stop moves here once trigger is hit (+0.5% entry)
   totalCost: number;
   maxRisk: number;
@@ -34,9 +35,13 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
   if (riskPerShare <= 0) return null;
   const safeT1 = Number.isFinite(r.priceEngine.target5) ? r.priceEngine.target5 : entry + riskPerShare * 2;
   const safeT2 = Number.isFinite(r.priceEngine.target7) ? r.priceEngine.target7 : entry + riskPerShare * 3;
+  const safeT3 = Number.isFinite(r.priceEngine.target10) ? r.priceEngine.target10 : entry + riskPerShare * 5;
   const maxRisk = accountSize * (riskPct / 100);
   const qty = Math.floor(maxRisk / riskPerShare);
   if (qty <= 0) return null;
+  // Breakeven trigger: whichever comes first — T1 or +2%. For low-ATR stocks T1<2%,
+  // so hardcoding +2% would fire AFTER T1 which is backwards (trail fires too late).
+  const beTrigger = Math.min(safeT1, Math.round(entry * 1.02 * 100) / 100);
   return {
     symbol: r.symbol,
     action: 'BUY',
@@ -45,9 +50,10 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
     stopLoss: Math.round(sl * 100) / 100,
     target1: Math.round(safeT1 * 100) / 100,
     target2: Math.round(safeT2 * 100) / 100,
-    breakEvenTrigger: Math.round(entry * 1.02 * 100) / 100,
+    target3: Math.round(safeT3 * 100) / 100,
+    breakEvenTrigger: Math.round(beTrigger * 100) / 100,
     breakEvenStop:   Math.round(entry * 1.005 * 100) / 100,
-    trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when price touches ₹${(entry * 1.02).toFixed(2)} (+2%). Trail to entry after T1.`,
+    trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when T1 ₹${safeT1.toFixed(2)} hit. Sell 50% at T1, 30% at T2, 20% at T3.`,
     totalCost: Math.round(qty * entry),
     maxRisk: Math.round(qty * riskPerShare),
     riskPct,
@@ -62,8 +68,9 @@ export function tradeSheetToClipboard(ts: TradeSheet): string {
     `ENTRY: ₹${ts.entry.toFixed(2)} (Limit)`,
     `QTY: ${ts.qty} shares`,
     `STOP LOSS: ₹${ts.stopLoss.toFixed(2)} (SL-M)`,
-    `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%)`,
-    `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%)`,
+    `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%) — R:R ≈ 1.0R`,
+    `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%) — R:R ≈ 2.0R`,
+    `TARGET 3: ₹${ts.target3.toFixed(2)} (Sell 20%) — R:R ≈ 3.3R`,
     `TRAIL: ${ts.trailRule}`,
     `CAPITAL: ₹${(ts.totalCost / 100000).toFixed(2)}L`,
     `MAX RISK: ₹${ts.maxRisk.toLocaleString('en-IN')}`,
@@ -244,23 +251,29 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     updated.pnlPct = ((trade.stopLoss - trade.entryPrice) / trade.entryPrice) * 100;
     updated.pnlR = (trade.stopLoss - trade.entryPrice) / riskPerShare;
   } else if (currentPrice >= trade.target3) {
+    // Weighted exit: 50%@T1 + 30%@T2 + 20%@T3 (matches validateTrade() model)
     updated.status = 'hit_t3';
     updated.closedPrice = trade.target3;
     updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((trade.target3 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.target3 - trade.entryPrice) / riskPerShare : 0;
+    const weightedT3 = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
+    updated.pnlPct = ((weightedT3 - trade.entryPrice) / trade.entryPrice) * 100;
+    updated.pnlR = riskPerShare > 0 ? (weightedT3 - trade.entryPrice) / riskPerShare : 0;
   } else if (currentPrice >= trade.target2) {
+    // Weighted exit: 50%@T1 + 30%@T2 + 20%@currentPrice
     updated.status = 'hit_t2';
     updated.closedPrice = trade.target2;
     updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((trade.target2 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.target2 - trade.entryPrice) / riskPerShare : 0;
+    const weightedT2 = trade.target1 * 0.5 + trade.target2 * 0.3 + currentPrice * 0.2;
+    updated.pnlPct = ((weightedT2 - trade.entryPrice) / trade.entryPrice) * 100;
+    updated.pnlR = riskPerShare > 0 ? (weightedT2 - trade.entryPrice) / riskPerShare : 0;
   } else if (currentPrice >= trade.target1) {
+    // Weighted exit: 50%@T1 + 50%@currentPrice (held for T2, rest at current)
     updated.status = 'hit_t1';
     updated.closedPrice = trade.target1;
     updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((trade.target1 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.target1 - trade.entryPrice) / riskPerShare : 0;
+    const weightedT1 = trade.target1 * 0.5 + currentPrice * 0.5;
+    updated.pnlPct = ((weightedT1 - trade.entryPrice) / trade.entryPrice) * 100;
+    updated.pnlR = riskPerShare > 0 ? (weightedT1 - trade.entryPrice) / riskPerShare : 0;
   } else if (daysHeld >= 20) {
     updated.status = 'expired';
     updated.closedPrice = currentPrice;

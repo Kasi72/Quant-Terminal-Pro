@@ -2095,13 +2095,11 @@ function HomePageInner() {
           if (t.status !== 'open' && t.status !== 'stopped' && t.status !== 'hit_t1' && t.status !== 'hit_t2') continue;
           // Sync stop/targets from fresh scan results only when param set matches
           const freshResult = newResults.find(r => r.symbol === t.symbol);
+          // Only sync STOP (for trailing/formula propagation). NEVER overwrite targets —
+          // targets are locked at entry time. Overwriting causes T1/T2 to drift as ATR
+          // changes post-entry, making it impossible for the validator to match real execution.
           if (freshResult && freshResult.priceEngine.tacticalStop > 0 && freshResult.paramSetKey === t.paramSetKey && freshResult.priceEngine.tacticalStop < t.entryPrice) {
-            updated[i] = { ...updated[i],
-              stopLoss: freshResult.priceEngine.tacticalStop,
-              target1: freshResult.priceEngine.target5,
-              target2: freshResult.priceEngine.target7,
-              target3: freshResult.priceEngine.target10,
-            };
+            updated[i] = { ...updated[i], stopLoss: freshResult.priceEngine.tacticalStop };
           }
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;

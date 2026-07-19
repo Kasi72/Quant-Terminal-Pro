@@ -228,7 +228,6 @@ export function validateTrade(
     const gapDownOpen   = open < dynamicStop;
     const intradayBreak = !gapDownOpen && lo <= dynamicStop;
     const stopBreached  = gapDownOpen || intradayBreak;
-    let preT1Stop = 0;
 
     if (stopBreached) {
       // ── DAY-1 FORTRESS ────────────────────────────────────────────────────
@@ -258,9 +257,12 @@ export function validateTrade(
       if (hi > mfePrice) mfePrice = hi;
       if (lo < maePrice) maePrice = lo;
 
+      // If T1 is reached on the same bar that also touches stop, T1 fills first —
+      // breakout bias: in real execution a limit sell at T1 fills before the SL-M.
+      // We skip the gate cascade entirely; T1 processing runs in the TARGET CHECKS block below.
       const t1InRange = !t1Hit && effectiveT1 < Infinity && hi >= effectiveT1;
       if (t1InRange) {
-        preT1Stop = dynamicStop;
+        // do nothing here — fall through to TARGET CHECKS which handles T1
       } else {
         // ── INTRADAY STOP — run Phase-3 calibrated gate cascade ──
         const dipBelowStop = dynamicStop > 0 ? (dynamicStop - lo) / dynamicStop * 100 : 0;
@@ -561,11 +563,8 @@ export function validateTrade(
         trailLog.push({ day: i, newStop: dynamicStop, reason: `T1 hit ₹${effectiveT1.toFixed(2)} — stop moved to breakeven ₹${entry.toFixed(2)}` });
       }
       highestCloseSinceT1 = close;
-      if (preT1Stop > 0) {
-        closedPrice = preT1Stop;
-        exitBarIdx  = i;
-        break;
-      }
+      // When stop and T1 both trigger on the same bar, T1 fills first (CRIT-3 fix).
+      // No break here — trade continues as hit_t1 with breakeven stop active.
     }
 
     if (t1Hit && !t2Hit && trade.target2 && trade.target2 > 0 && hi >= trade.target2) {
@@ -593,20 +592,9 @@ export function validateTrade(
     if (t2Hit && close > highestCloseSinceT2) highestCloseSinceT2 = close;
   }
 
-  // ── FALSE-STOP OVERRIDE ───────────────────────────────────────────────────
-  if (status === 'stopped') {
-    const lastClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
-    if (lastClose > entry * 1.02) {
-      status = 'open';
-      closedDate = '';
-      exitBarIdx = -1;
-      for (const c of candlesSinceEntry) {
-        if (c.h > mfePrice) mfePrice = c.h;
-        if (c.l < maePrice) maePrice = c.l;
-      }
-      closedPrice = lastClose;
-    }
-  }
+  // FALSE-STOP OVERRIDE removed: once all 10 gates confirm a real stop, the trade is exited.
+  // Post-stop price recovery does NOT change the outcome — in real trading the position is
+  // already closed. Keeping stopped trades as 'stopped' is required for accurate EV_R stats.
 
   // ── RUNNING T1/T2 MARK-TO-MARKET ──────────────────────────────────────────
   const lastCandleClose = candlesSinceEntry[candlesSinceEntry.length - 1]?.c ?? 0;
