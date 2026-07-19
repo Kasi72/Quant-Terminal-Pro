@@ -5,6 +5,13 @@ import { computeStatsFeatures, computeBayesianProb, type StatsFeatures } from '.
 import { computeAdvancedFeatures, type AdvancedFeatures } from './advancedEngine';
 export type { AdvancedFeatures };
 
+// ── Memoization caches for expensive O(N) indicator computations ────────────────
+// WeakMap ensures automatic cleanup when candles array is garbage collected
+const atr14Cache = new WeakMap<Candle[], number[]>();
+const emaCache = new WeakMap<Candle[], Map<number, number[]>>();
+const rsiCache = new WeakMap<Candle[], Map<number, number>>();
+const dmiCache = new WeakMap<Candle[], { diPlus: number[], diMinus: number[], adx: number[] }>();
+
 export interface Candle { ts: number; o: number; h: number; l: number; c: number; v: number; }
 
 export type StageRating = 'NO_SIGNAL' | 'COMPRESSION_WATCH' | 'EARLY_INFLECTION' | 'PRE_BREAKOUT' | 'BUY' | 'STRONG_BUY' | 'ULTRA_STRONG_BUY';
@@ -572,6 +579,11 @@ function safe(val: number, fallback = 0): number {
 // ─── v7.2 MOMENTUM HELPERS ──────────────────────────────────────────────────
 
 function computeEMA(candles: Candle[], period: number): number[] {
+  // Memoization: check cache for this candles array and period
+  if (!emaCache.has(candles)) emaCache.set(candles, new Map());
+  const periodMap = emaCache.get(candles)!;
+  if (periodMap.has(period)) return periodMap.get(period)!;
+
   const result: number[] = new Array(candles.length).fill(0);
   if (candles.length === 0) return result;
   const k = 2 / (period + 1);
@@ -583,17 +595,24 @@ function computeEMA(candles: Candle[], period: number): number[] {
   for (let i = seedLen; i < candles.length; i++) {
     result[i] = candles[i].c * k + result[i - 1] * (1 - k);
   }
+  periodMap.set(period, result);
   return result;
 }
 
 // Full per-bar DMI arrays (Wilder smoothing, period=14)
 // Returns diPlus[], diMinus[], adx[] — index-aligned with candles[]
 function computeDMI(candles: Candle[], period = 14): { diPlus: number[]; diMinus: number[]; adx: number[] } {
+  // Memoization: return cached result if already computed for this candles array
+  if (dmiCache.has(candles)) return dmiCache.get(candles)!;
+
   const n = candles.length;
   const diPlus  = new Array<number>(n).fill(0);
   const diMinus = new Array<number>(n).fill(0);
   const adxArr  = new Array<number>(n).fill(20);
-  if (n < period + 2) return { diPlus, diMinus, adx: adxArr };
+  if (n < period + 2) {
+    dmiCache.set(candles, { diPlus, diMinus, adx: adxArr });
+    return { diPlus, diMinus, adx: adxArr };
+  }
 
   const dmP: number[] = [0], dmM: number[] = [0], trArr: number[] = [0];
   for (let i = 1; i < n; i++) {
@@ -634,7 +653,9 @@ function computeDMI(candles: Candle[], period = 14): { diPlus: number[]; diMinus
       adxArr[i] = adxVal;
     }
   }
-  return { diPlus, diMinus, adx: adxArr };
+  const result = { diPlus, diMinus, adx: adxArr };
+  dmiCache.set(candles, result);
+  return result;
 }
 
 // How many bars ago did DI+ cross above DI-? Returns 0=today, 1=yesterday … 99=no cross in window
@@ -883,6 +904,9 @@ function percentileRank(window: number[], value: number): number {
 // ─── ATR14 — Wilder's smoothing ───────────────────────────────────────────────
 
 function computeATR14(candles: Candle[]): number[] {
+  // Memoization: return cached result if already computed for this candles array
+  if (atr14Cache.has(candles)) return atr14Cache.get(candles)!;
+
   const result: number[] = new Array(candles.length).fill(0);
   if (candles.length === 0) return result;
 
@@ -900,6 +924,7 @@ function computeATR14(candles: Candle[]): number[] {
     for (let i = 1; i < candles.length; i++) {
       result[i] = trs[i];
     }
+    atr14Cache.set(candles, result);
     return result;
   }
 
@@ -911,12 +936,18 @@ function computeATR14(candles: Candle[]): number[] {
     result[i] = (result[i - 1] * 13 + trs[i]) / 14;
   }
 
+  atr14Cache.set(candles, result);
   return result;
 }
 
 // ─── RSI ─────────────────────────────────────────────────────────────────────
 
 function computeRSI(candles: Candle[], period: number): number {
+  // Memoization: check cache for this candles array and period
+  if (!rsiCache.has(candles)) rsiCache.set(candles, new Map());
+  const periodMap = rsiCache.get(candles)!;
+  if (periodMap.has(period)) return periodMap.get(period)!;
+
   const needed = period + 20;
   if (candles.length < needed) return 50;
 
@@ -943,7 +974,9 @@ function computeRSI(candles: Candle[], period: number): number {
 
   if (avgLoss < 1e-10) return avgGain < 1e-10 ? 50 : 100;
   const rs = avgGain / avgLoss;
-  return 100 - 100 / (1 + rs);
+  const result = 100 - 100 / (1 + rs);
+  periodMap.set(period, result);
+  return result;
 }
 
 // ─── COMPRESSION ZONE ─────────────────────────────────────────────────────────
