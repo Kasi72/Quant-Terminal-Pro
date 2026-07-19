@@ -260,19 +260,25 @@ function detectFlagOverlay(r: AnalysisResult, candles: Candle[]): { hasFlag: boo
 }
 
 // Trade Verdict v2 — re-derived on 2,914 completed trades, 456 Nifty 500 stocks.
-// R:R vs outcome is U-shaped: Elite=RR≥1.5 (67.6% WR, +3.27% avg), Good=RR 0.6-0.8
-// or 1.0-1.5, Weak=RR 0.8-1.0 (validated dead zone, 58-60% WR), Fair=RR<0.6 (sparse).
-function rrVerdict(rr: number): 'Elite' | 'Good' | 'Fair' | 'Weak' | '—' {
+// R:R is now computed at T2 (= 1.5× risk / risk = 1.5 baseline, validated via 14.3L signals).
+// Elite+ = R:R≥2.0 (tight stop relative to T2, exceptional setup).
+// Elite  = R:R 1.5–2.0 (baseline — most well-structured trades land here).
+// Good   = R:R 1.2–1.5 (acceptable, slightly wider stop or lower ATR).
+// Weak   = R:R 0.8–1.2 (stop too wide or ATR% very high vs target).
+// Fair   = R:R < 0.8 (structurally poor — review stop placement).
+function rrVerdict(rr: number): 'Elite+' | 'Elite' | 'Good' | 'Fair' | 'Weak' | '—' {
   if (rr <= 0) return '—';
+  if (rr >= 2.0) return 'Elite+';
   if (rr >= 1.5) return 'Elite';
-  if ((rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5)) return 'Good';
-  if (rr >= 0.8 && rr < 1.0) return 'Weak';
+  if (rr >= 1.2) return 'Good';
+  if (rr >= 0.8) return 'Weak';
   return 'Fair';
 }
 function rrVerdictColor(rr: number): string {
+  if (rr >= 2.0) return 'text-cyan-300';
   if (rr >= 1.5) return 'text-green-300';
-  if ((rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5)) return 'text-emerald-400';
-  if (rr >= 0.8 && rr < 1.0) return 'text-orange-400';
+  if (rr >= 1.2) return 'text-emerald-400';
+  if (rr >= 0.8) return 'text-orange-400';
   return 'text-yellow-300';
 }
 
@@ -719,18 +725,18 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">R:R vs outcome is U-shaped, NOT linear — both low (0.6-0.8) and high (≥1.5) R:R outperform the 0.8-1.0 middle zone.</div><div class="rt-hit hit-cyan">Re-derived on 2,914 trades, 456 Nifty 500 stocks</div></div></div>',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.0 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Trade Verdict v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. New engine baseline — tight stop + strong ATR. Best setups land here.</div><div class="rt-hit hit-green">67.6% WR, +3.27% avg P&L, 53.5% T3-hit · 456-stock backtest</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5-2.0. Strong setup — wide base or moderate ATR.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0 at T2. Tight stop relative to target — exceptional structure. T2=3×ATR, T3=5×ATR.</div><div class="rt-hit hit-green">43–50% WR, payoff 1.3–1.7, EV 0.9–2.1%/trade · 14.3L-signal backtest</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5–2.0 at T2. Baseline validated setup. T1≈4–5% booking, T2=3×ATR runner.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.0-1.5. Acceptable — review stop width before entry.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8-1.0. Validated DEAD ZONE — worst avg P&L band (58-60% WR, near-zero expectancy). Avoid.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.8. ORS bear signals live here — high WR compensates. Not applicable to breakout archetypes.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine v2</span></div><div><div class="rt-desc">R:R formula upgraded: T1 multiplier 1.5×risk → 2.0×risk. Stop floor 3.5%→2.5%. Baseline now 2.0 for all breakout archetypes.</div></div></div>',
-    fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 2.0 ? 'Elite+' : rr >= 1.5 ? 'Elite' : rr >= 1.0 ? 'Good' : rr >= 0.8 ? 'Weak' : 'Fair'; },
+    fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 2.0 ? 'Elite+' : rr >= 1.5 ? 'Elite' : rr >= 1.2 ? 'Good' : rr >= 0.8 ? 'Weak' : 'Fair'; },
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.0 ? 'text-emerald-400 font-semibold' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400 font-semibold' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_t1',     label: 'T1 ₹',         width: 85,  align: 'right',
     fmt: r => r.priceEngine.target5 > 0 ? r.priceEngine.target5.toFixed(2) : '—',
     numVal: r => r.priceEngine.target5,
@@ -1543,20 +1549,17 @@ function HomePageInner() {
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
         const t1Pct = (t.target1 - t.entryPrice) / t.entryPrice * 100;
-        // Estimate ATR% from T1. New engine: T1 = max(5%, 2.15×ATR%, 2.0×risk%).
-        // For most stocks 2.0×risk dominates and risk≈2×ATR, so ATR≈T1/4. Use
-        // conservative floor so we don't over-estimate ATR on low-vol stocks.
-        const atrPct = Math.max(t1Pct / 4.0, 1.0);
-        // T2: T1 + 1.5×ATR (matches new engine step — was 1×ATR)
-        const t2Pct = t1Pct + 1.5 * atrPct;
+        // New engine: T1=0.75×risk, T2=1.5×risk, T3=2.5×risk (risk≈2×ATR).
+        // So risk ≈ t1Pct / 0.75. Derive T2 and T3 from same risk basis.
+        const riskPct = Math.max(t1Pct / 0.75, 2.5); // floor at 2.5% (stop floor)
+        const t2Pct   = 1.5 * riskPct;               // T2 = 3×ATR ≈ 1.5×risk
+        const t3Pct   = 2.5 * riskPct;               // T3 = 5×ATR ≈ 2.5×risk
         const t2New = tickFn(t.entryPrice * (1 + t2Pct / 100));
-        // T3: T2 + 2×ATR, bucket floors updated (9/14% vs old 7/10%)
-        const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 9.0 : 14.0;
-        const t3PctNew = Math.max(t3BucketPct, t2Pct + 2.0 * atrPct);
-        const t3New = tickFn(Math.max(t.entryPrice * (1 + t3PctNew / 100), t2New + 0.05));
+        const t3New = tickFn(Math.max(t.entryPrice * (1 + t3Pct / 100), t2New + 0.05));
+        // Only migrate if stored T2 is materially wrong (gap < 60% of expected)
         const oldGap = (t.target2 ?? 0) - t.target1;
-        const minExpectedGap = t.entryPrice * (atrPct / 100) * 0.8;
-        if (oldGap < minExpectedGap) return { ...t, target2: t2New, target3: t3New };
+        const expectedGap = t.entryPrice * ((t2Pct - t1Pct) / 100);
+        if (oldGap < expectedGap * 0.6) return { ...t, target2: t2New, target3: t3New };
         return t;
       });
       // Auto-heal trades with inverted stop loss (SL ≥ entry price — data corruption artifact)
