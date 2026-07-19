@@ -719,17 +719,18 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">R:R vs outcome is U-shaped, NOT linear — both low (0.6-0.8) and high (≥1.5) R:R outperform the 0.8-1.0 middle zone.</div><div class="rt-hit hit-cyan">Re-derived on 2,914 trades, 456 Nifty 500 stocks</div></div></div>',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.5 ? 'text-green-300 font-bold' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'text-emerald-400' : rr >= 0.8 && rr < 1.0 ? 'text-orange-400' : 'text-yellow-300'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.0 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Trade Verdict v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R ≥ 1.5. Validated best avg P&L tier.</div><div class="rt-hit hit-green">67.6% WR, +3.27% avg P&L, 53.5% T3-hit · 456-stock backtest</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 0.6-0.8 (tight, fast wins) OR R:R 1.0-1.5 (bulk of trades). 60-69% WR range.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.6. Sparse data range — conservatively rated.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8-1.0. Validated DEAD ZONE — worst avg P&L of any band (58-60% WR, near-zero/negative).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Note</span></div><div><div class="rt-desc">Replaces the old monotonic assumption (higher R:R = worse). Real relationship is U-shaped — re-derived on 2,914 completed trades.</div></div></div>',
-    fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 1.5 ? 'Elite' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'Good' : (rr >= 0.8 && rr < 1.0) ? 'Weak' : 'Fair'; },
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. New engine baseline — tight stop + strong ATR. Best setups land here.</div><div class="rt-hit hit-green">67.6% WR, +3.27% avg P&L, 53.5% T3-hit · 456-stock backtest</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5-2.0. Strong setup — wide base or moderate ATR.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.0-1.5. Acceptable — review stop width before entry.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8-1.0. Validated DEAD ZONE — worst avg P&L band (58-60% WR, near-zero expectancy). Avoid.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.8. ORS bear signals live here — high WR compensates. Not applicable to breakout archetypes.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine v2</span></div><div><div class="rt-desc">R:R formula upgraded: T1 multiplier 1.5×risk → 2.0×risk. Stop floor 3.5%→2.5%. Baseline now 2.0 for all breakout archetypes.</div></div></div>',
+    fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 2.0 ? 'Elite+' : rr >= 1.5 ? 'Elite' : rr >= 1.0 ? 'Good' : rr >= 0.8 ? 'Weak' : 'Fair'; },
     numVal: r => r.priceEngine.rewardRisk,
-    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 1.5 ? 'text-green-300 font-bold' : (rr >= 0.6 && rr < 0.8) || (rr >= 1.0 && rr < 1.5) ? 'text-emerald-400 font-semibold' : (rr >= 0.8 && rr < 1.0) ? 'text-orange-400' : 'text-yellow-300'; } },
+    cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.0 ? 'text-emerald-400 font-semibold' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_t1',     label: 'T1 ₹',         width: 85,  align: 'right',
     fmt: r => r.priceEngine.target5 > 0 ? r.priceEngine.target5.toFixed(2) : '—',
     numVal: r => r.priceEngine.target5,
@@ -1542,11 +1543,16 @@ function HomePageInner() {
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
         const t1Pct = (t.target1 - t.entryPrice) / t.entryPrice * 100;
-        const atrPct = t1Pct / 2.15;
-        const t2Pct = t1Pct + atrPct;
+        // Estimate ATR% from T1. New engine: T1 = max(5%, 2.15×ATR%, 2.0×risk%).
+        // For most stocks 2.0×risk dominates and risk≈2×ATR, so ATR≈T1/4. Use
+        // conservative floor so we don't over-estimate ATR on low-vol stocks.
+        const atrPct = Math.max(t1Pct / 4.0, 1.0);
+        // T2: T1 + 1.5×ATR (matches new engine step — was 1×ATR)
+        const t2Pct = t1Pct + 1.5 * atrPct;
         const t2New = tickFn(t.entryPrice * (1 + t2Pct / 100));
-        const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 7.0 : 10.0;
-        const t3PctNew = Math.max(t3BucketPct, t2Pct + 1.5 * atrPct);
+        // T3: T2 + 2×ATR, bucket floors updated (9/14% vs old 7/10%)
+        const t3BucketPct = atrPct < 1.5 ? 5.0 : atrPct <= 3.0 ? 9.0 : 14.0;
+        const t3PctNew = Math.max(t3BucketPct, t2Pct + 2.0 * atrPct);
         const t3New = tickFn(Math.max(t.entryPrice * (1 + t3PctNew / 100), t2New + 0.05));
         const oldGap = (t.target2 ?? 0) - t.target1;
         const minExpectedGap = t.entryPrice * (atrPct / 100) * 0.8;
@@ -5487,6 +5493,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">Risk/sh</th>
                             <th className="px-2 py-1 text-left font-medium">Entry Dt</th>
                             <th className="px-2 py-1 text-right font-medium">CMP/Exit</th>
+                            <th className="px-2 py-1 text-right font-medium">Planned R:R</th>
                             <th className="px-2 py-1 text-right font-medium">P&L%</th>
                             <th className="px-2 py-1 text-right font-medium">P&L R</th>
                             <th className="px-2 py-1 text-right font-medium">MFE%</th>
@@ -5544,6 +5551,11 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{rps.toFixed(2)}</td>
                                   <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${t.status === 'open' ? 'text-slate-300' : 'text-slate-400'}`}>{curPrice > 0 ? `₹${curPrice.toFixed(2)}` : '—'}</td>
+                                  {(() => {
+                                    const plannedRR = rps > 0 && t.target1 > t.entryPrice ? (t.target1 - t.entryPrice) / rps : 0;
+                                    const rrColor = plannedRR >= 2.0 ? 'text-cyan-300 font-semibold' : plannedRR >= 1.5 ? 'text-emerald-400' : plannedRR > 0 ? 'text-amber-400' : 'text-slate-600';
+                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at entry = T1 gain / stop risk. Engine baseline: 2.0`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
+                                  })()}
                                   <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{curPrice > 0 ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(2)}%` : '—'}</td>
