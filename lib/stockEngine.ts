@@ -466,7 +466,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 0.8, minExactVolVsPre5: 1.5,
-    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 60, maxCandleRisk: 8.5,
+    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 35, maxCandleRisk: 8.5,
     minUltraPrecisionScore: 0, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
@@ -509,7 +509,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       minLowerWickPct: 20,      // lower tail ≥ 20% of range (demand absorption proof — backtest-validated sweet spot)
       maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
       tpPct: 3,
-      slAtrMult: 3.0,
+      slAtrMult: 2.0,
       maxHoldBars: 25,          // extended from 20 for larger reversal captures
     },
   },
@@ -526,7 +526,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
     minExactVolRatio20: 1.5, minExactVolVsPre5: 3.5,
-    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 20, maxCandleRisk: 6.0,
+    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 6.0,
     minUltraPrecisionScore: 5, minRSI2: 50,
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
@@ -2409,29 +2409,27 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
 }
 
 function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEngine {
-  // ── Stop: ATR 1.5× + 5-bar structure, clamped [2.5%, 6.5%] ──────────────
-  // Phase-3 scientific backtest (1.07L signal bars, 12 stop methods):
-  //   STRUCT max(1.5×ATR, 5-bar swing low ×0.997) wins all 4 ATR bands.
-  //   EV_R: -0.029R vs -0.044R for ATR 2× (+34% improvement).
-  //   Avg stop shrinks 7.18% → 5.23%; R:R@T2 improves 1.50 → 2.00.
-  // Logic: "use 1.5×ATR breathing room; if recent structure is tighter, use that."
-  const atrStop    = entry - 1.5 * atr14;
+  // ── Stop: ATR 2× + 5-bar structure, clamped [3.5%, 6.5%] ──────────────
+  // Cross-band target_validation_study rank #1 (107K filtered signals):
+  //   Stop=2×ATR universal optimal across TIGHT/NORMAL/VOLAT/HIGH bands.
+  //   Gives trades room to breathe; avoids whipsaw on 1.5× which sweeps 35%+ of signals.
+  // Logic: "use 2×ATR breathing room; if recent structure is tighter, use that."
+  const atrStop    = entry - 2.0 * atr14;
   const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
   const rawStop    = tick(Math.max(0, Math.max(atrStop, structStop))); // tighter wins
-  const floorStop  = tick(entry * (1 - 2.5 / 100));
+  const floorStop  = tick(entry * (1 - 3.5 / 100));
   const capStop    = tick(entry * (1 - 6.5 / 100));
   const stop = Math.min(floorStop, Math.max(capStop, rawStop));
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
   const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
 
-  // ── T1/T2/T3: ATR-absolute positions (validated via 14.3L-signal backtest) ──
-  // T1=1.5×ATR, T2=3×ATR, T3=5×ATR above entry — held fixed in ATR terms.
-  // With stop=1.5×ATR, R:R@T2 = 3/1.5 = 2.0 (up from 1.5 with old 2×ATR stop).
-  // Weighted cascade R:R = (1.0 + 2.0 + 3.33) / 3 = 2.11 overall.
-  const t5  = tick(entry * (1 + 1.5 * atrPct / 100));   // T1: 1.5×ATR
-  const t7  = tick(entry * (1 + 3.0 * atrPct / 100));   // T2: 3×ATR,  R:R≈2.0
-  const t10 = tick(Math.max(entry * (1 + 5.0 * atrPct / 100), t7 + 0.05)); // T3: 5×ATR
+  // ── T1/T2/T3: ATR-absolute positions (cross-band study rank #1) ──
+  // T1=1.25×ATR, T2=2.75×ATR, T3=4.75×ATR — universal optimal across all ATR bands.
+  // With stop=2×ATR, R:R@T1=0.63, R:R@T2=1.38, R:R@T3=2.38 — tight T1 improves hit rate.
+  const t5  = tick(entry * (1 + 1.25 * atrPct / 100));   // T1: 1.25×ATR
+  const t7  = tick(entry * (1 + 2.75 * atrPct / 100));   // T2: 2.75×ATR
+  const t10 = tick(Math.max(entry * (1 + 4.75 * atrPct / 100), t7 + 0.05)); // T3: 4.75×ATR
 
   const rewardRisk = riskAbs > 0 ? (t7 - entry) / riskAbs : 0; // R:R at T2
   // disasterStop = hard clamp at 6.5% below entry (the widest permitted stop).
