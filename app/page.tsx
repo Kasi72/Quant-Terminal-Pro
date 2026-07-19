@@ -5555,9 +5555,10 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${t.status === 'open' ? 'text-slate-300' : 'text-slate-400'}`}>{curPrice > 0 ? `₹${curPrice.toFixed(2)}` : '—'}</td>
                                   {(() => {
-                                    const plannedRR = rps > 0 && t.target1 > t.entryPrice ? (t.target1 - t.entryPrice) / rps : 0;
-                                    const rrColor = plannedRR >= 2.0 ? 'text-cyan-300 font-semibold' : plannedRR >= 1.5 ? 'text-emerald-400' : plannedRR > 0 ? 'text-amber-400' : 'text-slate-600';
-                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at entry = T1 gain / stop risk. Engine baseline: 2.0`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
+                                    const rrBase = t.target2 > t.entryPrice ? t.target2 : t.target1;
+                                    const plannedRR = rps > 0 && rrBase > t.entryPrice ? (rrBase - t.entryPrice) / rps : 0;
+                                    const rrColor = plannedRR >= 2.0 ? 'text-cyan-300 font-semibold' : plannedRR >= 1.5 ? 'text-emerald-400 font-semibold' : plannedRR >= 1.2 ? 'text-emerald-400' : plannedRR > 0 ? 'text-amber-400' : 'text-slate-600';
+                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at T2 = T2 gain / stop risk. Baseline: 1.5 (14.3L-signal backtest)`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
                                   })()}
                                   <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{curPrice > 0 ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
