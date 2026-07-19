@@ -23,7 +23,7 @@ async function tryFetch(sym: string): Promise<{ ok: boolean; data?: unknown; sta
   for (const host of HOSTS) {
     try {
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false`;
-      const r = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) });
+      const r = await fetch(url, { headers: YF_HEADERS, signal: AbortSignal.timeout(5000) });
       if (r.status === 404) return { ok: false, status: 404 };
       if (r.status === 429) return { ok: false, status: 429, rateLimited: true };
       if (!r.ok) continue;
@@ -37,8 +37,9 @@ async function tryFetchWithRetry(sym: string, maxRetries = 2): Promise<{ ok: boo
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const result = await tryFetch(sym);
     if (result.ok || result.status === 404) return result;
-    if (result.rateLimited && attempt < maxRetries) { await sleep(500 * (attempt + 1)); continue; }
-    if (!result.ok && attempt < maxRetries) { await sleep(300); continue; }
+    // Shorter sleeps — fail fast so the scan worker can move to the next symbol
+    if (result.rateLimited && attempt < maxRetries) { await sleep(200 * (attempt + 1)); continue; }
+    if (!result.ok && attempt < maxRetries) { await sleep(150); continue; }
     return result;
   }
   return { ok: false };
@@ -241,7 +242,7 @@ async function fetchFromNSE(bareSymbol: string): Promise<Record<string, unknown>
   try {
     const cr = await fetch('https://www.nseindia.com/report-detail/eq_security', {
       headers: { ...NSE_BASE_HEADERS, referer: 'https://www.nseindia.com/', 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate', 'upgrade-insecure-requests': '1' },
-      signal: AbortSignal.timeout(6000), redirect: 'follow',
+      signal: AbortSignal.timeout(3000), redirect: 'follow',
     });
     const setCookieFn = (cr.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie;
     cookies = setCookieFn
@@ -256,7 +257,7 @@ async function fetchFromNSE(bareSymbol: string): Promise<Record<string, unknown>
   try {
     const dr = await fetch(`https://www.nseindia.com/api/historicalOR/generateSecurityWiseHistoricalData?${params}`, {
       headers: { ...NSE_BASE_HEADERS, referer: 'https://www.nseindia.com/report-detail/eq_security', ...(cookies ? { cookie: cookies } : {}) },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!dr.ok) return null;
     const json = await dr.json();

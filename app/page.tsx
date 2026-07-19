@@ -1715,7 +1715,6 @@ function HomePageInner() {
     abortRef.current = false;
     const preScanSnapshot = resultsRef.current;
     setPreviousResults(preScanSnapshot);
-    setScanStartTime(Date.now());
     setScanning(true); scanningRef.current = true;
     try {
     setResults([]);
@@ -1734,11 +1733,12 @@ function HomePageInner() {
 
     const newResults: AnalysisResult[] = [];
     const freshCandleMap: Record<string, Candle[]> = {};
+    const freshFullCandleMap: Record<string, Candle[]> = {};  // full history for post-scan cluster breakdown
     const freshClenowMap: Record<string, {score: number; r2: number; annReturn: number; quality: string}> = {};
     const freshSatMap: Record<string, SelfAdaptiveTrendResult> = {};
     const newMultiResults: MultiAnalysisResult[] = [];
     const newFailed: Array<{sym: string; err: string}> = [];
-    const CONCURRENCY = 6;
+    const CONCURRENCY = 12;
     const queue = [...scanSymbols];
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1773,6 +1773,8 @@ function HomePageInner() {
         } catch {}
       }
     }
+    // Start ETA clock only after the Nifty/VIX prefetch — otherwise those 3-5s inflate perStock estimate
+    setScanStartTime(Date.now());
 
     async function processOne(sym: string) {
       if (abortRef.current) return;
@@ -1787,11 +1789,9 @@ function HomePageInner() {
         } else if (lookback > 1) {
           result = analyzeStockWithLookback(candles, paramSetKey, lookback);
           result.symbol = resolvedSymbol.trim();
-          result.clusterBreakdown = computeClusterBreakdown(candles);
         } else {
           result = analyzeStock(candles, paramSetKey);
           result.symbol = resolvedSymbol.trim();
-          result.clusterBreakdown = computeClusterBreakdown(candles);
         }
         // Monster scan
         result.monster = detectMonster(candles, candles.length - 1, result);
@@ -1821,6 +1821,8 @@ function HomePageInner() {
         // Cache candles for sparkline + validation (batched — setCandleCache called once post-scan)
         const sliced = candles.slice(-60);
         freshCandleMap[result.symbol] = sliced;
+        // Keep full history for post-scan cluster breakdown (not in React state — GC'd after scan)
+        freshFullCandleMap[result.symbol] = candles;
         newResults.push(result);
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
@@ -1853,6 +1855,32 @@ function HomePageInner() {
     setCandleCache(prev => ({ ...prev, ...freshCandleMap }));
     setFailedSymbols(newFailed);
     setLastScanSymbols(scanSymbols);
+
+    // ── Post-scan cluster breakdown (async, chunked to keep UI responsive) ───────
+    // During the scan, computeClusterBreakdown is skipped to avoid blocking the
+    // event loop between fetch responses (6 engine calls × ~10ms = 60ms per stock).
+    // Now that network is done, compute it in 15-stock chunks with yielding.
+    // Priority: BUY+ signals first (visible in table), then rest in background.
+    if (!scanAll && !abortRef.current) {
+      const buySignals = newResults.filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage));
+      const restSignals = newResults.filter(r => !['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage));
+      const ordered = [...buySignals, ...restSignals];
+      const CHUNK = 15;
+      for (let i = 0; i < ordered.length; i += CHUNK) {
+        if (abortRef.current) break;
+        await new Promise<void>(resolve => setTimeout(resolve, 0)); // yield to browser
+        const chunk = ordered.slice(i, i + CHUNK);
+        for (const r of chunk) {
+          const full = freshFullCandleMap[r.symbol];
+          if (full) r.clusterBreakdown = computeClusterBreakdown(full);
+        }
+        // Flush after each BUY+ chunk so columns populate promptly; rest is lower priority
+        if (i < buySignals.length) setResults([...newResults]);
+      }
+      setResults([...newResults]); // final flush with all cluster data
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
     // Flag pattern + Guppy Coiled overlay detection on qualifying signals
     const newFlagMap: Record<string, {poleGain: number; flagDays: number; measuredTarget: number}> = {};
     const newGuppyCoilMap: Record<string, {avgSpread: number; minSpread: number}> = {};
