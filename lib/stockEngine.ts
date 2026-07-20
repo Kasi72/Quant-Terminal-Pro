@@ -2473,38 +2473,37 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
   // TIGHT<1.5% | NORMAL 1.5-2.5% | VOLAT 2.5-3.5% | HIGH>3.5%
   const isTight = atrPct < 1.5;
 
-  // ── Stop: ATR 2× + 5-bar structure, clamped [floor%, 6.5%] ─────────────
-  // Cross-band target_validation_study rank #1: Stop=2×ATR universal optimal.
-  // Floor differs by band: TIGHT stocks (ATR<1.5%) have 2×ATR≈2-3%, so 2.5% floor
-  // preserves the backtest's actual stop. Non-tight gets 3.5% to ensure meaningful risk.
-  const atrStop    = entry - 2.0 * atr14;
+  // ── Stop: 4×ATR wide positional stop, clamped [floor%, 10%] ────────────
+  // SL sweep on 22K signals (sl_sweet_spot.js, 2026-07-20): per-trade expectancy
+  // maximised at 4.25-5×ATR across all archetypes. The 3×ATR stop prematurely
+  // cuts ~25% of winning trades (MAE 75th pctile = 7.6–10.1%); widening to
+  // 4×ATR (≈10% for 2.5% ATR stocks) retains those trades and lifts ULTRA E
+  // from 0.6-1.8% → 1.3-3.1% per trade. R:R is now measured at T3 (primary
+  // 5% target) to match the actual exit strategy.
+  const atrStop    = entry - 4.0 * atr14;
   const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
-  const rawStop    = tick(Math.max(0, Math.max(atrStop, structStop)));
+  // Use the WIDER (lower) of ATR-based and structure-based to hold through dips.
+  const rawStop    = tick(Math.max(0, Math.min(atrStop, structStop)));
   const floorPct   = isTight ? 2.5 : 3.5;
   const floorStop  = tick(entry * (1 - floorPct / 100));
-  const capStop    = tick(entry * (1 - 6.5 / 100));
+  const capStop    = tick(entry * (1 - 10.0 / 100));   // wide positional cap: 10%
   const stop = Math.min(floorStop, Math.max(capStop, rawStop));
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
 
   // ── T1/T2/T3: optimized for 5% PROFIT TARGET ──
-  // Deep backtest: 3,257 trades × 30 NIFTY stocks
-  // Optimal config achieves: 63.7% hit rate on 5% targets, 1.60% expectancy
-  // Entry gates: Body ≥60%, Close Location ≥40%, same-day close
-  // Stop: 3×ATR = 7.5% risk (already optimized)
-  // T1=1.5×ATR, T2=2.5×ATR, T3=5.0×ATR
-  const t1Mult = 1.5;  // 1.5× T1 (intermediate scaling point)
-  const t2Mult = 2.5;  // 2.5× T2 (secondary target)
-  const t3Mult = 5.0;  // 5.0× T3 (5% PROFIT TARGET - primary exit)
-  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));           // T1: 1.5× (intermediate)
-  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: 2.5× (secondary)
-  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: 5.0× (5% goal)
+  // T1=1.5×ATR, T2=2.5×ATR, T3=5.0×ATR (primary 5% target)
+  const t1Mult = 1.5;
+  const t2Mult = 2.5;
+  const t3Mult = 5.0;
+  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));
+  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));
+  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
 
-  const rewardRisk = riskAbs > 0 ? (t7 - entry) / riskAbs : 0; // R:R at T2
-  // disasterStop = hard clamp at 6.5% below entry (the widest permitted stop).
-  // Needed by checkTradeStatus() fallback path — without it, disaster branch never fires
-  // because buildNullPriceEngine() returns disasterStop=0.
-  const disasterStop = tick(entry * (1 - 6.5 / 100));
+  // R:R measured at T3 (primary exit) since stop is now wide positional stop.
+  const rewardRisk = riskAbs > 0 ? (t10 - entry) / riskAbs : 0;
+  // disasterStop slightly below the 10% cap; used by checkTradeStatus() fallback.
+  const disasterStop = tick(entry * (1 - 10.5 / 100));
   return {
     ...buildNullPriceEngine(),
     plannedEntry: tick(entry),
@@ -2512,13 +2511,13 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
     tacticalRiskPct: riskPct,
     riskPerShare: riskAbs,
     disasterStop,
-    disasterRiskPct: 6.5,
+    disasterRiskPct: 10.5,
     target5: t5, target7: t7, target10: t10,
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,
-    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.2,
-    sw5LowAtEntry: sw5Low,     // original 5-bar swing low used to set structure stop
-    atr14AtEntry: atr14,       // ATR-14 at signal bar for Chandelier fallback
+    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.0,
+    sw5LowAtEntry: sw5Low,
+    atr14AtEntry: atr14,
   };
 }
 
