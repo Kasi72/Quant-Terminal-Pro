@@ -2462,13 +2462,15 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
 
-  // ── T1/T2/T3: per-band optimal from target_validation_study cascade model ──
-  // TIGHT band rank #1: T1=1.25×, T2=3.25×, T3=5.75× (EV=1.181%, Score=619.76)
-  //   Low-ATR stocks drift farther in absolute % terms — extended T2/T3 captures this.
-  // NORMAL/VOLAT/HIGH rank #1: T1=1.25×, T2=2.75×, T3=4.75× (cross-band optimum)
-  const t2Mult = isTight ? 3.25 : 2.75;
-  const t3Mult = isTight ? 5.75 : 4.75;
-  const t5  = tick(entry * (1 + 1.25 * atrPct / 100));             // T1: 1.25×ATR (all bands)
+  // ── T1/T2/T3: optimized for high win-rate from target_validation_study ──
+  // TIGHT band: T1=1.5×, T2=3.25×, T3=5.75× (WR=50.5%, EV=1.194%, Score=603.07)
+  //   50.5%+ win rate on low-ATR stocks with strong payoff
+  // NORMAL/VOLAT/HIGH: T1=1.5×, T2=3×, T3=5× (WR=50.6%, EV=1.171%, Score=592.14)
+  //   50.6% win rate cross-band — sweetest spot balancing WR & EV
+  const t1Mult = 1.5;  // 1.5× T1 (was 1.25×) — +0.5-0.6% WR improvement
+  const t2Mult = isTight ? 3.25 : 3.0;
+  const t3Mult = isTight ? 5.75 : 5.0;
+  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));           // T1: 1.5× (optimized for WR)
   const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: band-adapted
   const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: band-adapted
 
