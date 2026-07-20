@@ -2465,13 +2465,10 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
   // ── T1/T2/T3: per-band optimal from target_validation_study cascade model ──
   // TIGHT band rank #1: T1=1.25×, T2=3.25×, T3=5.75× (EV=1.181%, Score=619.76)
   //   Low-ATR stocks drift farther in absolute % terms — extended T2/T3 captures this.
-  // NORMAL/VOLAT rank #1: T1=1.25×, T2=2.75×, T3=4.75× (cross-band optimum)
-  // HIGH band optimization: T1=1.75×, T2=3.25×, T3=5.25× (EV=2.115%, +2-3% vs universal)
-  const isHigh = atrPct > 3.5;
-  const t1Mult = isHigh ? 1.75 : 1.25;
-  const t2Mult = isTight ? 3.25 : (isHigh ? 3.25 : 2.75);
-  const t3Mult = isTight ? 5.75 : (isHigh ? 5.25 : 4.75);
-  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));           // T1: band-adapted (1.25× default, 1.75× for HIGH)
+  // NORMAL/VOLAT/HIGH rank #1: T1=1.25×, T2=2.75×, T3=4.75× (cross-band optimum)
+  const t2Mult = isTight ? 3.25 : 2.75;
+  const t3Mult = isTight ? 5.75 : 4.75;
+  const t5  = tick(entry * (1 + 1.25 * atrPct / 100));             // T1: 1.25×ATR (all bands)
   const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: band-adapted
   const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: band-adapted
 
