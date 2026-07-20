@@ -1368,6 +1368,11 @@ function buildTradeEngine(
   // Guard: ATR must be positive for meaningful trade calculations
   if (atr14 <= 0) return buildNullPriceEngine();
 
+  // Guard: Reject HIGH band (ATR>3.5%) — backtest shows losers, not winners
+  // Data: Winners avg 3.72% ATR, Losers avg 3.98% ATR
+  // HIGH band stocks correlate with -2.87% avg PnL. TIGHT/NORMAL/VOLAT only.
+  if (atrPct > 3.5) return buildNullPriceEngine();
+
   // ══════════════════════════════════════════════════════════════════════
   // ENTRY (Weinstein + Kaufman adaptive buffer)
   // ══════════════════════════════════════════════════════════════════════
