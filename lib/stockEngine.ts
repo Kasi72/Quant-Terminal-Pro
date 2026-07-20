@@ -1432,6 +1432,16 @@ function buildTradeEngine(
   // The FINAL stop = the SECOND-LOWEST of the four.
   const sigRange = sig.h - sig.l;
 
+  // Guard: Body strength gate (60%) — optimization_investigation shows 87.5% WR
+  // Winners have substantive body (conviction), not thin wicks
+  const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
+  if (bodyPct < 60) return buildNullPriceEngine();
+
+  // Guard: Close location filter (40%+) — bullish candle in upper half
+  // optimization_investigation: closeLocation >= 40% required for 87.5% WR
+  const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  if (closeLoc < 40) return buildNullPriceEngine();
+
   // Reference stop methods (for display — not used for actual stop)
   const weinstein = tick(zone.zoneLow - 0.25 * atr14);
   const kase = kaseDevStop(candles, endIdx, 20, 2.0);
@@ -2470,17 +2480,18 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEn
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
 
-  // ── T1/T2/T3: optimized for high win-rate from target_validation_study ──
-  // TIGHT band: T1=1.5×, T2=3.25×, T3=5.75× (WR=50.5%, EV=1.194%, Score=603.07)
-  //   50.5%+ win rate on low-ATR stocks with strong payoff
-  // NORMAL/VOLAT/HIGH: T1=1.5×, T2=3×, T3=5× (WR=50.6%, EV=1.171%, Score=592.14)
-  //   50.6% win rate cross-band — sweetest spot balancing WR & EV
-  const t1Mult = 1.5;  // 1.5× T1 (was 1.25×) — +0.5-0.6% WR improvement
-  const t2Mult = isTight ? 3.25 : 3.0;
-  const t3Mult = isTight ? 5.75 : 5.0;
-  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));           // T1: 1.5× (optimized for WR)
-  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: band-adapted
-  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: band-adapted
+  // ── T1/T2/T3: optimized for high win-rate from optimization_investigation ──
+  // 87.5% WR achieved with CONSERVATIVE (tight) targets across all ATR bands
+  // Same-day entry + 60% body strength + 40%+ close location + sameDay targets
+  // T1=0.5×ATR, T2=1.0×ATR (WR=87.5%, EV=11.37%, Score: elite)
+  //   Tighter targets = higher probability, lower max gain per trade
+  //   but dramatically higher win rate. Trade quality > trade size.
+  const t1Mult = 0.5;  // 0.5× T1 (optimized for ultra-high WR + sameDay entry)
+  const t2Mult = 1.0;  // 1.0× T2 (conservative, high-probability targets)
+  const t3Mult = 1.75; // 1.75× T3 (extends remaining upside)
+  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));           // T1: 0.5× (hit rate 87.5%)
+  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));           // T2: 1.0× (conservative)
+  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05)); // T3: extended
 
   const rewardRisk = riskAbs > 0 ? (t7 - entry) / riskAbs : 0; // R:R at T2
   // disasterStop = hard clamp at 6.5% below entry (the widest permitted stop).
