@@ -1,0 +1,307 @@
+{
+  "timestamp": "2026-07-20T10:32:39.857Z",
+  "recommendation": {
+    "name": "CURRENT",
+    "thresholds": {
+      "name": "CURRENT",
+      "ultra": 80,
+      "strong": 63,
+      "buy": 45
+    },
+    "stages": {
+      "ULTRA_STRONG_BUY": {
+        "winRate": "63.6",
+        "signalCount": 1231,
+        "avgWin": "6.57",
+        "avgLoss": "3.87",
+        "payoff": "1.70"
+      },
+      "STRONG_BUY": {
+        "winRate": "57.1",
+        "signalCount": 4597,
+        "avgWin": "5.80",
+        "avgLoss": "4.37",
+        "payoff": "1.33"
+      },
+      "BUY": {
+        "winRate": "47.2",
+        "signalCount": 14282,
+        "avgWin": "4.45",
+        "avgLoss": "5.15",
+        "payoff": "0.86"
+      }
+    },
+    "overallMetrics": {
+      "totalSignals": 20110,
+      "weightedWR": "50.5"
+    }
+  },
+  "allResults": [
+    {
+      "name": "CURRENT",
+      "thresholds": {
+        "name": "CURRENT",
+        "ultra": 80,
+        "strong": 63,
+        "buy": 45
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "63.6",
+          "signalCount": 1231,
+          "avgWin": "6.57",
+          "avgLoss": "3.87",
+          "payoff": "1.70"
+        },
+        "STRONG_BUY": {
+          "winRate": "57.1",
+          "signalCount": 4597,
+          "avgWin": "5.80",
+          "avgLoss": "4.37",
+          "payoff": "1.33"
+        },
+        "BUY": {
+          "winRate": "47.2",
+          "signalCount": 14282,
+          "avgWin": "4.45",
+          "avgLoss": "5.15",
+          "payoff": "0.86"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "CONSERVATIVE",
+      "thresholds": {
+        "name": "CONSERVATIVE",
+        "ultra": 85,
+        "strong": 70,
+        "buy": 50
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "66.1",
+          "signalCount": 543,
+          "avgWin": "6.55",
+          "avgLoss": "3.65",
+          "payoff": "1.79"
+        },
+        "STRONG_BUY": {
+          "winRate": "59.5",
+          "signalCount": 3039,
+          "avgWin": "6.33",
+          "avgLoss": "4.06",
+          "payoff": "1.56"
+        },
+        "BUY": {
+          "winRate": "50.5",
+          "signalCount": 8590,
+          "avgWin": "5.16",
+          "avgLoss": "4.72",
+          "payoff": "1.09"
+        },
+        "PRE_BREAKOUT": {
+          "winRate": "45.9",
+          "signalCount": 7938,
+          "avgWin": "4.42",
+          "avgLoss": "5.25",
+          "payoff": "0.84"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "AGGRESSIVE",
+      "thresholds": {
+        "name": "AGGRESSIVE",
+        "ultra": 75,
+        "strong": 55,
+        "buy": 40
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "63.6",
+          "signalCount": 1231,
+          "avgWin": "6.57",
+          "avgLoss": "3.87",
+          "payoff": "1.70"
+        },
+        "STRONG_BUY": {
+          "winRate": "57.1",
+          "signalCount": 4597,
+          "avgWin": "5.80",
+          "avgLoss": "4.37",
+          "payoff": "1.33"
+        },
+        "BUY": {
+          "winRate": "47.2",
+          "signalCount": 14282,
+          "avgWin": "4.45",
+          "avgLoss": "5.15",
+          "payoff": "0.86"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "BALANCED-A",
+      "thresholds": {
+        "name": "BALANCED-A",
+        "ultra": 82,
+        "strong": 65,
+        "buy": 47
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "64.0",
+          "signalCount": 1075,
+          "avgWin": "6.58",
+          "avgLoss": "3.80",
+          "payoff": "1.73"
+        },
+        "STRONG_BUY": {
+          "winRate": "57.2",
+          "signalCount": 4753,
+          "avgWin": "5.90",
+          "avgLoss": "4.34",
+          "payoff": "1.36"
+        },
+        "BUY": {
+          "winRate": "47.6",
+          "signalCount": 12126,
+          "avgWin": "4.54",
+          "avgLoss": "5.08",
+          "payoff": "0.89"
+        },
+        "PRE_BREAKOUT": {
+          "winRate": "45.0",
+          "signalCount": 2156,
+          "avgWin": "4.00",
+          "avgLoss": "5.50",
+          "payoff": "0.73"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "BALANCED-B",
+      "thresholds": {
+        "name": "BALANCED-B",
+        "ultra": 78,
+        "strong": 60,
+        "buy": 43
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "63.6",
+          "signalCount": 1231,
+          "avgWin": "6.57",
+          "avgLoss": "3.87",
+          "payoff": "1.70"
+        },
+        "STRONG_BUY": {
+          "winRate": "57.1",
+          "signalCount": 4597,
+          "avgWin": "5.80",
+          "avgLoss": "4.37",
+          "payoff": "1.33"
+        },
+        "BUY": {
+          "winRate": "47.2",
+          "signalCount": 14282,
+          "avgWin": "4.45",
+          "avgLoss": "5.15",
+          "payoff": "0.86"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "HIGH-PRECISION",
+      "thresholds": {
+        "name": "HIGH-PRECISION",
+        "ultra": 88,
+        "strong": 75,
+        "buy": 55
+      },
+      "stages": {
+        "STRONG_BUY": {
+          "winRate": "63.6",
+          "signalCount": 1231,
+          "avgWin": "6.57",
+          "avgLoss": "3.87",
+          "payoff": "1.70"
+        },
+        "BUY": {
+          "winRate": "57.1",
+          "signalCount": 4597,
+          "avgWin": "5.80",
+          "avgLoss": "4.37",
+          "payoff": "1.33"
+        },
+        "PRE_BREAKOUT": {
+          "winRate": "47.2",
+          "signalCount": 14282,
+          "avgWin": "4.45",
+          "avgLoss": "5.15",
+          "payoff": "0.86"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    },
+    {
+      "name": "VOLUME-FOCUS",
+      "thresholds": {
+        "name": "VOLUME-FOCUS",
+        "ultra": 75,
+        "strong": 58,
+        "buy": 40
+      },
+      "stages": {
+        "ULTRA_STRONG_BUY": {
+          "winRate": "63.6",
+          "signalCount": 1231,
+          "avgWin": "6.57",
+          "avgLoss": "3.87",
+          "payoff": "1.70"
+        },
+        "STRONG_BUY": {
+          "winRate": "57.1",
+          "signalCount": 4597,
+          "avgWin": "5.80",
+          "avgLoss": "4.37",
+          "payoff": "1.33"
+        },
+        "BUY": {
+          "winRate": "47.2",
+          "signalCount": 14282,
+          "avgWin": "4.45",
+          "avgLoss": "5.15",
+          "payoff": "0.86"
+        }
+      },
+      "overallMetrics": {
+        "totalSignals": 20110,
+        "weightedWR": "50.5"
+      }
+    }
+  ]
+}

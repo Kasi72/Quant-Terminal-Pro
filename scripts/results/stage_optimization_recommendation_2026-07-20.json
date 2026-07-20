@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-07-20T10:34:00.963Z",
+  "dataSource": "target_validation_study_2026-07-19T07-00.txt (1.43M signals)",
+  "recommendations": [
+    {
+      "name": "CURRENT (Conservative)",
+      "thresholds": {
+        "ultra": 80,
+        "strong": 63,
+        "buy": 45
+      },
+      "description": "Standard setting. Good WR across all stages.",
+      "expectedWR": "48-50%",
+      "useCase": "Baseline - proven, balanced approach"
+    },
+    {
+      "name": "PRECISION (High-Selectivity)",
+      "thresholds": {
+        "ultra": 82,
+        "strong": 68,
+        "buy": 50
+      },
+      "description": "Higher thresholds. Fewer signals, higher quality.",
+      "expectedWR": "51-53%",
+      "useCase": "When WR > signal count matters"
+    },
+    {
+      "name": "AGGRESSIVE (High-Volume)",
+      "thresholds": {
+        "ultra": 78,
+        "strong": 60,
+        "buy": 40
+      },
+      "description": "Lower thresholds. More signals, lower WR.",
+      "expectedWR": "46-48%",
+      "useCase": "When you want more opportunities"
+    },
+    {
+      "name": "OPTIMIZED (Recommended)",
+      "thresholds": {
+        "ultra": 80,
+        "strong": 62,
+        "buy": 43
+      },
+      "description": "Balanced improvement on current. +1-2% WR gain.",
+      "expectedWR": "49-51%",
+      "useCase": "Best overall improvement from backtest"
+    }
+  ],
+  "currentMetrics": {
+    "overall_wr": "48-50%",
+    "ultra_wr": "52.5%",
+    "strong_wr": "47.9%",
+    "buy_wr": "45%"
+  }
+}

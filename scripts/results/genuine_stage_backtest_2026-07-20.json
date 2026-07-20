@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-07-20T10:57:28.259Z",
+  "stocks_tested": 50,
+  "output": {
+    "CURRENT": {
+      "ULTRA": {
+        "trades": 193,
+        "winRate": "19.7",
+        "avgPnl": "-1.14"
+      },
+      "STRONG": {
+        "trades": 5162,
+        "winRate": "11.8",
+        "avgPnl": "-2.68"
+      },
+      "BUY": {
+        "trades": 32410,
+        "winRate": "11.6",
+        "avgPnl": "-2.87"
+      }
+    },
+    "OPT-A": {
+      "ULTRA": {
+        "trades": 193,
+        "winRate": "19.7",
+        "avgPnl": "-1.14"
+      },
+      "STRONG": {
+        "trades": 6283,
+        "winRate": "11.8",
+        "avgPnl": "-2.75"
+      },
+      "BUY": {
+        "trades": 35068,
+        "winRate": "11.7",
+        "avgPnl": "-2.84"
+      }
+    },
+    "OPT-B": {
+      "ULTRA": {
+        "trades": 249,
+        "winRate": "18.5",
+        "avgPnl": "-1.14"
+      },
+      "STRONG": {
+        "trades": 8496,
+        "winRate": "11.6",
+        "avgPnl": "-2.74"
+      },
+      "BUY": {
+        "trades": 36243,
+        "winRate": "11.6",
+        "avgPnl": "-2.85"
+      }
+    }
+  },
+  "recommendation": "OPT-A if +0.5-1% WR gain, else keep CURRENT"
+}

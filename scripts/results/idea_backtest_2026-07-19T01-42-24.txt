@@ -1,0 +1,36 @@
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Idea Backtest Results   2026-07-19T01:42:24.223Z
+Universe: 1616 NIFTY ALL symbols | OOS cutoff: 2025-05-05 | Target: +5% | MaxHold: 20 bars | MinTurn: 5M
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Baseline reference (existing archetypes, OOS):
+  VF 47.9% PF=0.85 | CC 44.3% PF=0.84 | MP 43.8% PF=0.77 | EMA 40.9% PF=0.62 | PS 52.6% PF=1.12 | ORS 66.7% PF=1.62
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+52-Wk High Breakout     (within5% + break5d + vol≥2× + EMA50)
+  Full: n=7987  Hit5=48.0%  PF=0.96  AvgP&L=-0.10%  MedMFE=4.75%  AvgMAE=-1.47%  AvgDays=3.4  AvgRisk=5.00%
+  OOS:  n=1197   Hit5=47.4%  PF=0.97  AvgP&L=-0.08%  MedMFE=4.39%  AvgMAE=-1.31%  AvgDays=3.6  AvgRisk=5.00%
+  IS→OOS decay: 0.6pp  (Full 48.0% → OOS 47.4%)
+
+Volatility Squeeze→Exp  (avg5<70%avg20 + range>1.5× + cloc≥70% + EMA20)
+  Full: n=5145  Hit5=44.4%  PF=0.84  AvgP&L=-0.42%  MedMFE=3.84%  AvgMAE=-1.42%  AvgDays=4.1  AvgRisk=5.00%
+  OOS:  n=1304   Hit5=40.0%  PF=0.71  AvgP&L=-0.80%  MedMFE=3.07%  AvgMAE=-1.46%  AvgDays=4.2  AvgRisk=5.00%
+  IS→OOS decay: 4.4pp  (Full 44.4% → OOS 40.0%)
+
+Trend Pullback+RSI2≤10  (ADX≥25 + EMA50 + RSI2≤10)
+  Full: n=22595  Hit5=48.1%  PF=0.98  AvgP&L=-0.06%  MedMFE=4.74%  AvgMAE=-1.51%  AvgDays=4.1  AvgRisk=5.00%
+  OOS:  n=5905   Hit5=45.4%  PF=0.88  AvgP&L=-0.30%  MedMFE=4.24%  AvgMAE=-1.48%  AvgDays=4.1  AvgRisk=5.00%
+  IS→OOS decay: 2.7pp  (Full 48.1% → OOS 45.4%)
+
+Multi-Archetype ≥2      (≥2 of 6 archetypes fire same bar)
+  Full: n=134  Hit5=44.8%  PF=0.83  AvgP&L=-0.45%  MedMFE=3.96%  AvgMAE=-1.16%  AvgDays=3.6  AvgRisk=5.00%
+  OOS:  n=38   Hit5=52.6%  PF=1.18  AvgP&L=+0.39%  MedMFE=5.01%  AvgMAE=-1.43%  AvgDays=4.3  AvgRisk=5.00%
+  IS→OOS decay: -7.8pp  (Full 44.8% → OOS 52.6%)
+
+Gap-Confirm Entry       (any engine signal + next-open gap≥0.5%)
+  Full: n=2021  Hit5=47.5%  PF=0.95  AvgP&L=-0.14%  MedMFE=4.70%  AvgMAE=-1.32%  AvgDays=3.2  AvgRisk=5.00%
+  OOS:  n=452   Hit5=44.0%  PF=0.86  AvgP&L=-0.35%  MedMFE=4.25%  AvgMAE=-1.58%  AvgDays=3.9  AvgRisk=5.00%
+  IS→OOS decay: 3.5pp  (Full 47.5% → OOS 44.0%)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════

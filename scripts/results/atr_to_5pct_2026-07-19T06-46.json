@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-07-19T06:46:07.363Z",
+  "config": {
+    "targetPct": 5,
+    "horizon": 20
+  },
+  "totals": {
+    "processed": 1617,
+    "totalSignals": 1422964,
+    "hitsAt5Pct": 913121,
+    "hitRate": 64.2,
+    "hitsAt4Atr": 879054,
+    "t1CoverageRate": 96.3
+  },
+  "atrPctDistribution": {
+    "lt1": 557,
+    "1to2": 41363,
+    "2to3": 251195,
+    "gt3": 1129849
+  },
+  "atrMultiplesNeededToHit5": {
+    "0–1×ATR": 73956,
+    "1–1.5×ATR": 269994,
+    "1.5–2×ATR": 244287,
+    "2–2.5×ATR": 145689,
+    "2.5–3×ATR": 79069,
+    "3–3.5×ATR": 42340,
+    "3.5–4×ATR": 23719,
+    "4–4.5×ATR": 13804,
+    "4.5–5×ATR": 8040,
+    "Never hit 5%": 522066
+  },
+  "maxMfeDistribution": {
+    "0–1×ATR": 412660,
+    "1–1.5×ATR": 169407,
+    "1.5–2×ATR": 146746,
+    "2–2.5×ATR": 124114,
+    "2.5–3×ATR": 103024,
+    "3–3.5×ATR": 85496,
+    "3.5–4×ATR": 70231,
+    "4–4.5×ATR": 57871,
+    "4.5–5×ATR": 46248,
+    "Never hit 5%": 207167
+  }
+}

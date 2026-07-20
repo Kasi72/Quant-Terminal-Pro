@@ -1,0 +1,140 @@
+{
+  "generated": "2026-07-18T20:15:56.165Z",
+  "variants": {
+    "A": "GPT structural + ADX, no maxBsc",
+    "B": "GPT structural + maxBsc≤3, realistic ADX",
+    "C": "GPT structural + ADX≥25"
+  },
+  "rows": [
+    {
+      "archetype": "VolumeFootprint",
+      "variants": [
+        {
+          "variant": "A",
+          "all": {
+            "n": 74,
+            "hit5_10_pct": "43.2",
+            "hit5_20_pct": "45.9",
+            "medMFE": "5.03",
+            "avgMAE": "1.66",
+            "avgDays": "2.4",
+            "pf5": "0.67",
+            "avgRisk": "6.50",
+            "nWinners": 34,
+            "nLosers": 39
+          },
+          "oos": {
+            "n": 13,
+            "hit5_10_pct": "53.8",
+            "hit5_20_pct": "53.8",
+            "medMFE": "5.44",
+            "avgMAE": "0.81",
+            "avgDays": "1.1",
+            "pf5": "0.90",
+            "avgRisk": "6.50",
+            "nWinners": 7,
+            "nLosers": 6
+          }
+        },
+        {
+          "variant": "B",
+          "all": {
+            "n": 40,
+            "hit5_10_pct": "50.0",
+            "hit5_20_pct": "55.0",
+            "medMFE": "5.48",
+            "avgMAE": "2.56",
+            "avgDays": "3.6",
+            "pf5": "1.00",
+            "avgRisk": "6.50",
+            "nWinners": 22,
+            "nLosers": 17
+          },
+          "oos": {
+            "n": 11,
+            "hit5_10_pct": "54.5",
+            "hit5_20_pct": "54.5",
+            "medMFE": "5.38",
+            "avgMAE": "1.75",
+            "avgDays": "3.3",
+            "pf5": "1.15",
+            "avgRisk": "6.50",
+            "nWinners": 6,
+            "nLosers": 4
+          }
+        },
+        {
+          "variant": "C",
+          "all": {
+            "n": 508,
+            "hit5_10_pct": "47.8",
+            "hit5_20_pct": "50.2",
+            "medMFE": "5.11",
+            "avgMAE": "1.96",
+            "avgDays": "2.6",
+            "pf5": "0.79",
+            "avgRisk": "6.49",
+            "nWinners": 255,
+            "nLosers": 247
+          },
+          "oos": {
+            "n": 107,
+            "hit5_10_pct": "41.1",
+            "hit5_20_pct": "42.1",
+            "medMFE": "3.99",
+            "avgMAE": "1.17",
+            "avgDays": "2.2",
+            "pf5": "0.58",
+            "avgRisk": "6.50",
+            "nWinners": 45,
+            "nLosers": 60
+          }
+        }
+      ]
+    },
+    {
+      "archetype": "CompressionCoil",
+      "variants": []
+    },
+    {
+      "archetype": "MomentumPocket",
+      "variants": [
+        {
+          "variant": "A",
+          "all": {
+            "n": 18,
+            "hit5_10_pct": "38.9",
+            "hit5_20_pct": "38.9",
+            "medMFE": "2.09",
+            "avgMAE": "2.16",
+            "avgDays": "4.1",
+            "pf5": "0.60",
+            "avgRisk": "6.50",
+            "nWinners": 7,
+            "nLosers": 9
+          },
+          "oos": {
+            "n": 7,
+            "hit5_10_pct": "28.6",
+            "hit5_20_pct": "28.6",
+            "medMFE": "2.09",
+            "avgMAE": "2.47",
+            "avgDays": "6.0",
+            "pf5": "0.38",
+            "avgRisk": "6.50",
+            "nWinners": 2,
+            "nLosers": 4
+          }
+        }
+      ]
+    },
+    {
+      "archetype": "EMAStack",
+      "variants": []
+    },
+    {
+      "archetype": "PerfectStorm",
+      "variants": []
+    }
+  ]
+}

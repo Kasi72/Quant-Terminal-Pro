@@ -1,0 +1,336 @@
+{
+  "meta": {
+    "dataDir": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+    "files": 1616,
+    "universeCount": 1616,
+    "oosCut": "2025-05-05",
+    "convention": "R5 next-open +5 target stop-first clamp 3.5%-6.5% 20 bars non-overlap",
+    "paramFile": "C:\\Users\\drkkr\\.codex\\attachments\\91a92d2b-ab92-43d9-bb72-329b4562f6d8\\pasted-text.txt",
+    "generated": "2026-07-19T04:00:30.522Z"
+  },
+  "expected": {
+    "BULL_POOL_STANDARD": {
+      "description": "Pool(EMAStack OR PerfectStorm) + body_pct >= 35 + hitRateGate === PREMIUM",
+      "breadth_condition": "breadth_ratio > 0.50 (>50% of 1616 stocks close > EMA50)",
+      "signals": [
+        "EMAStack (optimized_ultraselective_8plus)",
+        "PerfectStorm (sniper_95plus)"
+      ],
+      "oos_n": 24,
+      "oos_hit5_pct": 75,
+      "oos_pf": 2.78,
+      "oos_avg_pnl_pct": 2.4,
+      "oos_med_mfe_pct": 6.68,
+      "oos_avg_days": 4.1,
+      "is_to_oos_decay_pp": 18.2
+    },
+    "BULL_POOL_ELITE_65": {
+      "breadth_condition": "breadth_ratio > 0.65",
+      "signals": [
+        "EMAStack"
+      ],
+      "gate": "body_pct >= 35",
+      "oos_n": 6,
+      "oos_hit5_pct": 83.3,
+      "oos_pf": 3.85,
+      "oos_avg_pnl_pct": 3.08,
+      "note": "small OOS sample — treat as directional"
+    },
+    "BULL_POOL_ELITE_70": {
+      "breadth_condition": "breadth_ratio > 0.70",
+      "signals": [
+        "EMAStack",
+        "PerfectStorm"
+      ],
+      "gate": "body_pct >= 35",
+      "oos_n": 12,
+      "oos_hit5_pct": 83.3,
+      "oos_pf": 4.06,
+      "oos_avg_pnl_pct": 3.14,
+      "oos_avg_days": 5.2,
+      "position_sizing": "MAXIMUM CONVICTION — use max position size"
+    },
+    "PERFECT_STORM_EXTREME_70": {
+      "breadth_condition": "breadth_ratio > 0.70",
+      "signals": [
+        "PerfectStorm only"
+      ],
+      "gate": "atr_pct14 >= 3 AND body_pct >= 35",
+      "oos_n": 8,
+      "oos_hit5_pct": 87.5,
+      "oos_pf": 6.03,
+      "oos_avg_pnl_pct": 3.65,
+      "note": "HIGHEST QUALITY SIGNAL IN ENTIRE 5-ROUND STUDY — rarest but strongest"
+    },
+    "BEAR_ORS": {
+      "description": "ORS-Prime fires in bear market breadth",
+      "breadth_condition": "breadth_ratio <= 0.50",
+      "signals": [
+        "ORS-Prime (ors_prime_reversal)"
+      ],
+      "gate": "adx14 >= 20 (engine gate) + full ORS score composite",
+      "oos_n": 53,
+      "oos_hit5_pct": 66,
+      "oos_pf": 1.84,
+      "oos_avg_pnl_pct": 1.51,
+      "oos_med_mfe_pct": 6,
+      "oos_avg_days": 1.4,
+      "is_to_oos_decay_pp": -0.1
+    }
+  },
+  "result": {
+    "ROUTE_optimized_deployable_20plus": {
+      "label": "VolumeFootprint",
+      "all": {
+        "n": 13,
+        "wins": 9,
+        "hit5": 69.23076923076923,
+        "pf": 1.7770490265228056,
+        "avgPnl": 1.5136245830385886,
+        "medMFE": 5.6847545219638125,
+        "avgMAE": 1.0920486538304013,
+        "avgDays": 3.4444444444444446
+      },
+      "oos": {
+        "n": 2,
+        "wins": 1,
+        "hit5": 50,
+        "pf": 0.8307062436028675,
+        "avgPnl": -0.5094874322326213,
+        "medMFE": 6.127886323268205,
+        "avgMAE": 2.6021314387211367,
+        "avgDays": 4
+      }
+    },
+    "ROUTE_optimized_highprecision_15plus": {
+      "label": "CompressionCoil",
+      "all": {
+        "n": 12,
+        "wins": 8,
+        "hit5": 66.66666666666666,
+        "pf": 2.0875280499319455,
+        "avgPnl": 1.7365484022556401,
+        "medMFE": 6.938436515901303,
+        "avgMAE": 0.5776486974621156,
+        "avgDays": 4
+      },
+      "oos": {
+        "n": 4,
+        "wins": 2,
+        "hit5": 50,
+        "pf": 1.0000000000000009,
+        "avgPnl": 2.220446049250313e-15,
+        "medMFE": 6.061306045136405,
+        "avgMAE": 1.2213855073802835,
+        "avgDays": 6.5
+      }
+    },
+    "ROUTE_optimized_elite_10plus": {
+      "label": "MomentumPocket",
+      "all": {
+        "n": 419,
+        "wins": 201,
+        "hit5": 47.97136038186158,
+        "pf": 0.8778818674004176,
+        "avgPnl": -0.3336538300672356,
+        "medMFE": 4.642676696794479,
+        "avgMAE": 1.33104130289513,
+        "avgDays": 4.313432835820896
+      },
+      "oos": {
+        "n": 141,
+        "wins": 64,
+        "hit5": 45.39007092198582,
+        "pf": 0.8575866019887359,
+        "avgPnl": -0.37688055182893176,
+        "medMFE": 3.904358353510907,
+        "avgMAE": 1.5151157575360346,
+        "avgDays": 4.390625
+      }
+    },
+    "ROUTE_optimized_ultraselective_8plus": {
+      "label": "EMAStack",
+      "all": {
+        "n": 265,
+        "wins": 142,
+        "hit5": 53.58490566037736,
+        "pf": 1.069959944338958,
+        "avgPnl": 0.17518398876718688,
+        "medMFE": 5.261567077423853,
+        "avgMAE": 1.1949842639246213,
+        "avgDays": 3.1267605633802815
+      },
+      "oos": {
+        "n": 79,
+        "wins": 31,
+        "hit5": 39.24050632911392,
+        "pf": 0.575012366761928,
+        "avgPnl": -1.4501192388074635,
+        "medMFE": 3.4972677595628414,
+        "avgMAE": 2.3883607399145617,
+        "avgDays": 4.032258064516129
+      }
+    },
+    "ROUTE_sniper_95plus": {
+      "label": "PerfectStorm",
+      "all": {
+        "n": 90,
+        "wins": 41,
+        "hit5": 45.55555555555556,
+        "pf": 0.6487607766880702,
+        "avgPnl": -1.2331893762568022,
+        "medMFE": 4.207792207792202,
+        "avgMAE": 1.4232573127709829,
+        "avgDays": 3.1463414634146343
+      },
+      "oos": {
+        "n": 23,
+        "wins": 16,
+        "hit5": 69.56521739130434,
+        "pf": 1.8048754243411018,
+        "avgPnl": 1.5511135314961588,
+        "medMFE": 5.699930699930696,
+        "avgMAE": 1.7327361838195838,
+        "avgDays": 4.125
+      }
+    },
+    "ROUTE_ors_prime_reversal": {
+      "label": "ORS-Prime",
+      "all": {
+        "n": 337,
+        "wins": 236,
+        "hit5": 70.02967359050444,
+        "pf": 1.8729673434241325,
+        "avgPnl": 1.6319990396468464,
+        "medMFE": 6.387225548902202,
+        "avgMAE": 1.1212581460007132,
+        "avgDays": 1.5296610169491525
+      },
+      "oos": {
+        "n": 58,
+        "wins": 39,
+        "hit5": 67.24137931034483,
+        "pf": 1.7485985082947149,
+        "avgPnl": 1.439346882907191,
+        "medMFE": 6.000000000000003,
+        "avgMAE": 1.1730230674874862,
+        "avgDays": 1.435897435897436
+      }
+    },
+    "BULL_POOL_STANDARD": {
+      "label": "BULL_POOL_STANDARD",
+      "all": {
+        "n": 118,
+        "wins": 69,
+        "hit5": 58.47457627118644,
+        "pf": 1.167666613643231,
+        "avgPnl": 0.4198216371461767,
+        "medMFE": 6.068727294383902,
+        "avgMAE": 1.0667662550532506,
+        "avgDays": 2.550724637681159
+      },
+      "oos": {
+        "n": 18,
+        "wins": 14,
+        "hit5": 77.77777777777779,
+        "pf": 2.6947566343318674,
+        "avgPnl": 2.4457571272509435,
+        "medMFE": 6.67518364739699,
+        "avgMAE": 1.7593409460771705,
+        "avgDays": 4
+      }
+    },
+    "BULL_POOL_ELITE_65": {
+      "label": "BULL_POOL_ELITE_65",
+      "all": {
+        "n": 23,
+        "wins": 19,
+        "hit5": 82.6086956521739,
+        "pf": 4.871794871794874,
+        "avgPnl": 3.282608695652174,
+        "medMFE": 8.88256128897839,
+        "avgMAE": 0.43467070862090706,
+        "avgDays": 2.1052631578947367
+      },
+      "oos": {
+        "n": 5,
+        "wins": 4,
+        "hit5": 80,
+        "pf": 3.0769230769230775,
+        "avgPnl": 2.7,
+        "medMFE": 7.07070707070707,
+        "avgMAE": 0,
+        "avgDays": 2.5
+      }
+    },
+    "BULL_POOL_ELITE_70": {
+      "label": "BULL_POOL_ELITE_70",
+      "all": {
+        "n": 15,
+        "wins": 11,
+        "hit5": 73.33333333333333,
+        "pf": 2.1153846153846154,
+        "avgPnl": 1.9333333333333333,
+        "medMFE": 6.068727294383902,
+        "avgMAE": 1.7505884280690927,
+        "avgDays": 3.909090909090909
+      },
+      "oos": {
+        "n": 9,
+        "wins": 7,
+        "hit5": 77.77777777777779,
+        "pf": 2.692307692307693,
+        "avgPnl": 2.4444444444444446,
+        "medMFE": 5.9459459459459465,
+        "avgMAE": 2.017940379486284,
+        "avgDays": 5.142857142857143
+      }
+    },
+    "PERFECT_STORM_EXTREME_70": {
+      "label": "PERFECT_STORM_EXTREME_70",
+      "all": {
+        "n": 8,
+        "wins": 5,
+        "hit5": 62.5,
+        "pf": 1.2820512820512822,
+        "avgPnl": 0.6875,
+        "medMFE": 5.009131228802505,
+        "avgMAE": 2.8251165312807975,
+        "avgDays": 5.6
+      },
+      "oos": {
+        "n": 6,
+        "wins": 5,
+        "hit5": 83.33333333333334,
+        "pf": 3.8461538461538485,
+        "avgPnl": 3.083333333333334,
+        "medMFE": 6.068727294383902,
+        "avgMAE": 2.8251165312807975,
+        "avgDays": 5.6
+      }
+    },
+    "BEAR_ORS": {
+      "label": "BEAR_ORS",
+      "all": {
+        "n": 323,
+        "wins": 228,
+        "hit5": 70.58823529411765,
+        "pf": 1.925140825418762,
+        "avgPnl": 1.6960852266651365,
+        "medMFE": 6.456838694746585,
+        "avgMAE": 1.0760271529688983,
+        "avgDays": 1.4649122807017543
+      },
+      "oos": {
+        "n": 55,
+        "wins": 38,
+        "hit5": 69.0909090909091,
+        "pf": 1.9285839126232882,
+        "avgPnl": 1.6633112583384921,
+        "medMFE": 6.000000000000003,
+        "avgMAE": 1.203892095579262,
+        "avgDays": 1.4473684210526316
+      }
+    }
+  }
+}

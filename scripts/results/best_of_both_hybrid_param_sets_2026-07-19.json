@@ -1,0 +1,173 @@
+{
+  "schemaVersion": "1.0",
+  "strategyName": "Best of Our Engine + GPT Luna Hybrid",
+  "generated": "2026-07-19",
+  "dataDirectory": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "dataFiles": 1616,
+  "usableFiles": 1582,
+  "objective": "+5% target before ATR stop",
+  "entryConvention": "next-session open",
+  "stopConvention": "stop-first",
+  "nonOverlappingTradesPerSymbol": true,
+  "maximumHoldingPeriod": 20,
+  "oosCutoff": "2025-05-05",
+  "selectionPrinciple": "Keep proven broad-sample winners; adopt hybrid trend-confirmation improvements only when OOS PF, average P&L, and sample size improve together.",
+  "remainingThreeConclusion": "VolumeFootprint improved to 71.21% OOS Hit5 with n=66. MomentumPocket did not produce a defensible improvement beyond its proven recovery-pocket set. PerfectStorm reached 80% OOS Hit5 only on n=15 and remains experimental.",
+  "paramSets": {
+    "VolumeFootprint": {
+      "paramSetKey": "optimized_deployable_20plus",
+      "name": "Volume Footprint Scout - ATR Confirmed Upgrade",
+      "status": "robust_candidate",
+      "source": "hybrid volatility-aware search; higher OOS Hit5 with 66 OOS trades",
+      "params": {
+        "minVolRatio": 5.5,
+        "minCloseLoc": 68,
+        "maxUpperWick": 25,
+        "minHi20Frac": 0.92,
+        "minRangeATR": 3.5,
+        "maxGapDownPct": 0,
+        "minCMF20": 0.15,
+        "minOBVSlope10": 0.5,
+        "minAtrPct14": 2.5,
+        "minCloseVsEMA20": 0.5,
+        "minEMA20VsEMA50": 0,
+        "requireDIBull": true,
+        "maxBsc": 3,
+        "minADX": 45,
+        "tpPct": 5,
+        "slAtrMult": 3.5,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 291, "hit5Pct": 67.35, "profitFactor": 1.03, "avgPnlPct": 0.08, "mfePct": 12.0, "maePct": -9.52 },
+        "oos": { "n": 66, "hit5Pct": 71.21, "profitFactor": 1.37, "avgPnlPct": 0.95, "mfePct": 11.56, "maePct": -8.03 }
+      }
+    },
+    "CompressionCoil": {
+      "paramSetKey": "optimized_highprecision_15plus",
+      "name": "Compression Coil - Hybrid Trend Confirmed",
+      "status": "robust",
+      "source": "hybrid 5000-combination search",
+      "params": {
+        "minCompressionBars": 9,
+        "maxCompressionBars": 16,
+        "minVolumeDeclineDays": 1,
+        "minPricePos20": 60,
+        "maxBBWidthPctl": 40,
+        "maxRangeATR": 1.1,
+        "minCloseLoc": 55,
+        "minBodyPct": 20,
+        "maxCandleRisk": 12,
+        "minCMF20": 0.15,
+        "minOBVSlope10": -1,
+        "minGateVolRatio": 3,
+        "minCloseVsEMA20": 1,
+        "minEMA20VsEMA50": 0,
+        "requireDIBull": true,
+        "maxBsc": 3,
+        "minADX": 45,
+        "tpPct": 5,
+        "slAtrMult": 3,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 151, "hit5Pct": 67.55, "profitFactor": 1.42, "avgPnlPct": 1.01, "mfePct": 315.11, "maePct": -11.4 },
+        "oos": { "n": 38, "hit5Pct": 81.58, "profitFactor": 3.84, "avgPnlPct": 3.02, "mfePct": 13.17, "maePct": -9.41 }
+      }
+    },
+    "MomentumPocket": {
+      "paramSetKey": "optimized_elite_10plus",
+      "name": "Momentum Pocket - Proven Recovery Zone",
+      "status": "robust",
+      "source": "previous robust recovery-pocket candidate retained; hybrid over-tightened sample size",
+      "params": {
+        "minDd52W": 15,
+        "maxDd52W": 40,
+        "minStabBars": 5,
+        "minCloseLoc": 60,
+        "minBodyPct": 15,
+        "maxUpperWick": 30,
+        "minVolRatio": 1.6,
+        "minRSI14": 20,
+        "maxRSI14": 55,
+        "minCMF20": -0.1,
+        "minOBVSlope10": -1,
+        "minGateRSI14": 45,
+        "maxGateRSI14": 55,
+        "maxGateRSI2": 40,
+        "minGateVolRatio": 2.5,
+        "minCloseVsEMA20": -999,
+        "minEMA20VsEMA50": 0.5,
+        "requireDIBull": false,
+        "maxBsc": 0,
+        "minADX": 20,
+        "tpPct": 5,
+        "slAtrMult": 3,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 197, "hit5Pct": 61.42, "profitFactor": 1.49, "avgPnlPct": 1.03, "mfePct": 51.12, "maePct": -7.12 },
+        "oos": { "n": 78, "hit5Pct": 60.26, "profitFactor": 1.43, "avgPnlPct": 0.92, "mfePct": 7.85, "maePct": -6.25 }
+      }
+    },
+    "EMAStack": {
+      "paramSetKey": "optimized_ultraselective_8plus",
+      "name": "EMA Stack - Hybrid Fresh Trend",
+      "status": "robust_candidate",
+      "source": "hybrid 5000-combination search",
+      "params": {
+        "minBelowBars": 1,
+        "minEMA10VsEma20": 0.2,
+        "minBodyPct": 40,
+        "maxUpperWick": 12,
+        "maxCandleRisk": 8,
+        "minVolRatio": 1.6,
+        "maxRSI2Last5": 40,
+        "minCMF20": 0.1,
+        "minOBVSlope10": 0.5,
+        "minCloseVsEMA20": -0.5,
+        "minEMA20VsEMA50": 0,
+        "requireDIBull": true,
+        "maxBsc": 0,
+        "minADX": 15,
+        "tpPct": 5,
+        "slAtrMult": 3,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 133, "hit5Pct": 68.42, "profitFactor": 1.18, "avgPnlPct": 0.53, "mfePct": 746.45, "maePct": -9.7 },
+        "oos": { "n": 31, "hit5Pct": 74.19, "profitFactor": 1.49, "avgPnlPct": 1.22, "mfePct": 12.07, "maePct": -8.6 }
+      }
+    },
+    "PerfectStorm": {
+      "paramSetKey": "sniper_95plus",
+      "name": "Perfect Storm - ATR Volatility Candidate",
+      "status": "experimental_do_not_promote",
+      "source": "ATR-aware search; OOS result is attractive but exact replay has only 15 OOS trades and full PF remains below 1",
+      "params": {
+        "minFires": 2,
+        "minADXGate": 25,
+        "minQualityTier": 2,
+        "maxCandleRisk": 16,
+        "minCMF20": 0.1,
+        "minOBVSlope10": -1.5,
+        "minAtrPct14": 3,
+        "maxAtrPct14": 6,
+        "minCloseVsEMA20": -999,
+        "minEMA20VsEMA50": 0.5,
+        "tpPct": 5,
+        "slAtrMult": 3.5,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 60, "hit5Pct": 63.33, "profitFactor": 0.62, "avgPnlPct": -2.02, "mfePct": 11.66, "maePct": -14.09 },
+        "oos": { "n": 15, "hit5Pct": 80.0, "profitFactor": 5.41, "avgPnlPct": 3.45, "mfePct": 13.02, "maePct": -6.98 }
+      }
+    }
+  },
+  "sourceReports": {
+    "hybridSearch": "scripts/results/hybrid_hypertune_2026-07-18T20-27-38-333Z.json",
+    "hybridValidation": "scripts/results/five_percent_objective_2026-07-18T20-28-35-409Z.txt",
+    "provenBaseValidation": "scripts/results/five_percent_objective_2026-07-18T19-03-31-640Z.txt"
+  }
+}

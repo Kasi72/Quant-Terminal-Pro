@@ -1,0 +1,225 @@
+Archetype Hyper-Tuner   2026-07-17T18:53:19.671Z
+Workers=4  Combos/set=15000  MinOOS=50  IS_CUT=2025-05-05
+Files: 1617
+
+Step 1: Collecting events from all stocks...
+  402/1617 files  807/1617 files  1212/1617 files  1617/1617 files
+
+Event pools:
+  Set1 VolumeFootprint   : 76,210 events
+  Set2 CompressionCoil   : 53,516 events
+  Set3 MomentumPocket    : 1,64,905 events
+  Set4 EMAStack          : 1,06,131 events
+  Set5 PerfectStorm      : 1,11,788 events
+  Set6 ORS-Prime         : 0 events
+
+Step 2: Sweeping combos per set...
+
+
+────────────────────────────────────────────────────────────────────────────────
+Sweeping 15,000 combos — Set1 — Volume Footprint Scout
+  Pool: 76,210 (IS=51,078 OOS=25,132)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+RESULTS — Set1 — Volume Footprint Scout
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Rank  Full_n Full_WR Full_PF Full_Avg | IS_n IS_WR IS_PF IS_Avg | OOS_n OOS_WR OOS_PF OOS_Avg Wil Fit | Detection params | Exit
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1     235   65.5    1.03     0.07 |  179  61.5  0.87  -0.35 |    56   78.6   1.95    1.45 68.3 70.6 | minVolRatio=4.70 minCloseLoc=89.00 maxUpperWick=12.00 maxNearHi20Pct=9.00 minRangeATR=1.60 maxGapDownPct=-2.10 requireDIBull=1.00 maxBsc=5.00 minADX=15.00  |  TP=4% SL=2.5xATR Hold=25d
+   2     295   65.8    1.01     0.03 |  214  60.3  0.81  -0.44 |    81   80.2   2.07    1.24 72.0 70.6 | minVolRatio=2.90 minCloseLoc=90.00 maxUpperWick=16.00 maxNearHi20Pct=2.00 minRangeATR=1.60 maxGapDownPct=-1.50 requireDIBull=0.00 maxBsc=3.00 minADX=15.00  |  TP=3% SL=2xATR Hold=20d
+   3     243   69.5    1.02     0.04 |  179  65.9  0.86  -0.42 |    64   79.7   1.81    1.35 70.3 66.5 | minVolRatio=4.30 minCloseLoc=90.00 maxUpperWick=10.00 maxNearHi20Pct=4.00 minRangeATR=1.50 maxGapDownPct=-3.20 requireDIBull=1.00 maxBsc=3.00 minADX=0.00  |  TP=4% SL=3xATR Hold=25d
+   4     183   59.0    1.31     0.85 |  131  55.7  1.13   0.37 |    52   67.3   1.85    2.06 56.0 66.4 | minVolRatio=3.60 minCloseLoc=69.00 maxUpperWick=9.00 maxNearHi20Pct=14.00 minRangeATR=1.80 maxGapDownPct=-2.40 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=8% SL=3xATR Hold=20d
+   5     182   69.2    1.07     0.13 |  107  62.6  0.78  -0.54 |    75   78.7   1.87    1.09 70.0 65.3 | minVolRatio=2.60 minCloseLoc=69.00 maxUpperWick=13.00 maxNearHi20Pct=15.00 minRangeATR=1.70 maxGapDownPct=-2.10 requireDIBull=1.00 maxBsc=0.00 minADX=20.00  |  TP=3% SL=2.5xATR Hold=20d
+   6     168   62.5    1.01     0.03 |  117  57.3  0.81  -0.59 |    51   74.5   1.70    1.46 63.4 65.1 | minVolRatio=4.90 minCloseLoc=77.00 maxUpperWick=17.00 maxNearHi20Pct=15.00 minRangeATR=1.70 maxGapDownPct=-3.50 requireDIBull=1.00 maxBsc=0.00 minADX=15.00  |  TP=5% SL=3xATR Hold=25d
+   7     168   60.1    1.22     0.30 |  109  53.2  0.96  -0.07 |    59   72.9   1.93    0.98 62.5 64.8 | minVolRatio=2.30 minCloseLoc=90.00 maxUpperWick=16.00 maxNearHi20Pct=4.00 minRangeATR=2.20 maxGapDownPct=-2.30 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=3% SL=1.5xATR Hold=10d
+   8     167   65.9    1.13     0.30 |  106  60.4  0.91  -0.23 |    61   75.4   1.70    1.22 65.4 64.5 | minVolRatio=2.20 minCloseLoc=87.00 maxUpperWick=10.00 maxNearHi20Pct=9.00 minRangeATR=1.60 maxGapDownPct=-1.50 requireDIBull=0.00 maxBsc=0.00 minADX=20.00  |  TP=4% SL=2.5xATR Hold=25d
+   9     264   65.9    1.14     0.24 |  195  62.6  0.98  -0.03 |    69   75.4   1.81    1.01 66.0 64.0 | minVolRatio=4.90 minCloseLoc=83.00 maxUpperWick=11.00 maxNearHi20Pct=16.00 minRangeATR=1.70 maxGapDownPct=-2.20 requireDIBull=0.00 maxBsc=5.00 minADX=0.00  |  TP=3% SL=2xATR Hold=10d
+  10     168   55.4    1.10     0.29 |  103  47.6  0.82  -0.59 |    65   67.7   1.80    1.70 57.6 62.6 | minVolRatio=2.30 minCloseLoc=77.00 maxUpperWick=9.00 maxNearHi20Pct=16.00 minRangeATR=2.10 maxGapDownPct=-3.50 requireDIBull=0.00 maxBsc=3.00 minADX=15.00  |  TP=6% SL=2.5xATR Hold=25d
+  11     258   69.4    1.08     0.16 |  170  64.7  0.87  -0.28 |    88   78.4   1.76    1.01 70.4 62.5 | minVolRatio=2.90 minCloseLoc=82.00 maxUpperWick=13.00 maxNearHi20Pct=17.00 minRangeATR=1.80 maxGapDownPct=-2.70 requireDIBull=1.00 maxBsc=0.00 minADX=15.00  |  TP=3% SL=2.5xATR Hold=20d
+  12     284   66.5    1.02     0.04 |  196  61.2  0.82  -0.41 |    88   78.4   1.78    1.03 70.4 62.3 | minVolRatio=3.00 minCloseLoc=61.00 maxUpperWick=10.00 maxNearHi20Pct=16.00 minRangeATR=1.60 maxGapDownPct=-3.20 requireDIBull=0.00 maxBsc=1.00 minADX=15.00  |  TP=3% SL=2xATR Hold=20d
+  13     266   66.2    1.07     0.18 |  199  63.3  0.94  -0.15 |    67   74.6   1.67    1.14 65.0 61.7 | minVolRatio=3.90 minCloseLoc=60.00 maxUpperWick=11.00 maxNearHi20Pct=7.00 minRangeATR=1.60 maxGapDownPct=-2.10 requireDIBull=0.00 maxBsc=3.00 minADX=15.00  |  TP=4% SL=3xATR Hold=20d
+  14     195   64.1    1.14     0.31 |  125  59.2  0.94  -0.15 |    70   72.9   1.65    1.11 63.4 60.3 | minVolRatio=2.40 minCloseLoc=65.00 maxUpperWick=9.00 maxNearHi20Pct=16.00 minRangeATR=2.10 maxGapDownPct=-3.20 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=4% SL=2.5xATR Hold=25d
+  15     186   60.2    1.05     0.11 |  128  55.5  0.85  -0.39 |    58   70.7   1.74    1.21 60.1 59.7 | minVolRatio=3.10 minCloseLoc=86.00 maxUpperWick=9.00 maxNearHi20Pct=5.00 minRangeATR=1.70 maxGapDownPct=-2.50 requireDIBull=1.00 maxBsc=1.00 minADX=15.00  |  TP=4% SL=2xATR Hold=25d
+  16     209   65.6    1.39     0.91 |  153  64.7  1.33   0.79 |    56   67.9   1.59    1.25 57.0 59.6 | minVolRatio=3.30 minCloseLoc=91.00 maxUpperWick=8.00 maxNearHi20Pct=16.00 minRangeATR=1.60 maxGapDownPct=-2.90 requireDIBull=1.00 maxBsc=99.00 minADX=25.00  |  TP=5% SL=2.5xATR Hold=25d
+  17     285   71.9    1.12     0.23 |  203  69.5  0.98  -0.04 |    82   78.0   1.64    0.90 69.7 59.2 | minVolRatio=2.30 minCloseLoc=63.00 maxUpperWick=10.00 maxNearHi20Pct=11.00 minRangeATR=2.30 maxGapDownPct=-2.50 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=3% SL=3xATR Hold=25d
+  18     198   55.6    1.23     0.57 |  135  51.1  1.06   0.17 |    63   65.1   1.71    1.42 54.8 59.2 | minVolRatio=2.70 minCloseLoc=81.00 maxUpperWick=15.00 maxNearHi20Pct=10.00 minRangeATR=2.50 maxGapDownPct=-3.20 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=6% SL=2.5xATR Hold=25d
+  19     346   57.8    1.36     0.95 |  249  55.8  1.25   0.67 |    97   62.9   1.64    1.66 54.6 59.1 | minVolRatio=2.70 minCloseLoc=85.00 maxUpperWick=10.00 maxNearHi20Pct=18.00 minRangeATR=1.80 maxGapDownPct=-2.70 requireDIBull=1.00 maxBsc=99.00 minADX=25.00  |  TP=8% SL=3xATR Hold=15d
+  20     178   58.4    1.49     1.24 |  128  57.8  1.40   1.04 |    50   60.0   1.70    1.76 48.4 59.0 | minVolRatio=2.50 minCloseLoc=76.00 maxUpperWick=8.00 maxNearHi20Pct=11.00 minRangeATR=1.90 maxGapDownPct=-2.40 requireDIBull=1.00 maxBsc=99.00 minADX=25.00  |  TP=8% SL=2.5xATR Hold=20d
+
+★ SWEET SPOT — Set1 — Volume Footprint Scout
+  FULL: n=235 WR=65.5% PF=1.03 Avg=0.07%
+  IS  : n=179 WR=61.5% PF=0.87 Avg=-0.35%
+  OOS : n=56 WR=78.6% PF=1.95 Avg=1.45% Wilson=68.3% Fitness=70.6
+  Full params:
+{
+    "minVolRatio": 4.7,
+    "minCloseLoc": 89,
+    "maxUpperWick": 12,
+    "maxNearHi20Pct": 9,
+    "minRangeATR": 1.6,
+    "maxGapDownPct": -2.1,
+    "requireDIBull": 1,
+    "maxBsc": 5,
+    "minADX": 15,
+    "tpPct": 4,
+    "slAtrMult": 2.5,
+    "maxHoldBars": 25
+}
+
+────────────────────────────────────────────────────────────────────────────────
+Sweeping 15,000 combos — Set2 — Compression Coil
+  Pool: 53,516 (IS=34,359 OOS=19,157)
+  ✗ No combos qualified
+
+────────────────────────────────────────────────────────────────────────────────
+Sweeping 15,000 combos — Set3 — Momentum Pocket
+  Pool: 1,64,905 (IS=1,08,365 OOS=56,540)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+RESULTS — Set3 — Momentum Pocket
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Rank  Full_n Full_WR Full_PF Full_Avg | IS_n IS_WR IS_PF IS_Avg | OOS_n OOS_WR OOS_PF OOS_Avg Wil Fit | Detection params | Exit
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1     218   70.2    1.38     0.75 |  140  65.0  1.05   0.11 |    78   79.5   2.54    1.91 71.0 87.3 | minDd52W=28.00 maxDd52W=48.00 minStabBars=5.00 minCloseLoc=76.00 minBodyPct=33.00 maxUpperWick=44.00 requireGreen=0.00 minVolRatio=1.60 minRSI14=14.00 maxRSI14=45.00 requireDIBull=0.00 maxBsc=5.00 minADX=0.00  |  TP=4% SL=2.5xATR Hold=15d
+   2     160   70.6    1.34     0.71 |  107  63.6  0.99  -0.02 |    53   84.9   2.82    2.19 75.1 86.7 | minDd52W=45.00 maxDd52W=47.00 minStabBars=1.00 minCloseLoc=57.00 minBodyPct=71.00 maxUpperWick=35.00 requireGreen=0.00 minVolRatio=1.30 minRSI14=13.00 maxRSI14=69.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=4% SL=2xATR Hold=15d
+   3     176   68.2    1.03     0.09 |  120  60.0  0.75  -0.82 |    56   85.7   2.51    2.04 76.4 82.4 | minDd52W=27.00 maxDd52W=66.00 minStabBars=2.00 minCloseLoc=62.00 minBodyPct=64.00 maxUpperWick=38.00 requireGreen=0.00 minVolRatio=2.70 minRSI14=32.00 maxRSI14=71.00 requireDIBull=1.00 maxBsc=1.00 minADX=20.00  |  TP=4% SL=3xATR Hold=15d
+   4     221   69.7    1.29     0.76 |  141  64.5  0.99  -0.04 |    80   78.8   2.25    2.18 70.4 81.7 | minDd52W=30.00 maxDd52W=46.00 minStabBars=1.00 minCloseLoc=66.00 minBodyPct=22.00 maxUpperWick=26.00 requireGreen=0.00 minVolRatio=0.80 minRSI14=19.00 maxRSI14=47.00 requireDIBull=0.00 maxBsc=1.00 minADX=15.00  |  TP=5% SL=3xATR Hold=25d
+   5     198   71.2    1.10     0.26 |  145  67.6  0.89  -0.34 |    53   81.1   2.41    1.90 70.9 81.7 | minDd52W=40.00 maxDd52W=60.00 minStabBars=7.00 minCloseLoc=45.00 minBodyPct=33.00 maxUpperWick=19.00 requireGreen=1.00 minVolRatio=0.90 minRSI14=37.00 maxRSI14=64.00 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=4% SL=2.5xATR Hold=20d
+   6     316   63.3    1.27     0.76 |  210  59.0  0.99  -0.04 |   106   71.7   2.36    2.34 64.0 80.8 | minDd52W=42.00 maxDd52W=52.00 minStabBars=6.00 minCloseLoc=31.00 minBodyPct=58.00 maxUpperWick=35.00 requireGreen=1.00 minVolRatio=1.90 minRSI14=21.00 maxRSI14=52.00 requireDIBull=0.00 maxBsc=99.00 minADX=15.00  |  TP=6% SL=3xATR Hold=15d
+   7     279   57.0    1.12     0.30 |  173  47.4  0.73  -0.82 |   106   72.6   2.43    2.13 65.0 80.3 | minDd52W=37.00 maxDd52W=46.00 minStabBars=8.00 minCloseLoc=74.00 minBodyPct=75.00 maxUpperWick=36.00 requireGreen=1.00 minVolRatio=1.90 minRSI14=16.00 maxRSI14=62.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=5% SL=1.5xATR Hold=10d
+   8     178   55.6    1.10     0.28 |  126  47.6  0.82  -0.59 |    52   75.0   2.34    2.39 64.1 80.2 | minDd52W=34.00 maxDd52W=49.00 minStabBars=1.00 minCloseLoc=48.00 minBodyPct=69.00 maxUpperWick=17.00 requireGreen=1.00 minVolRatio=0.80 minRSI14=47.00 maxRSI14=52.00 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=6% SL=3xATR Hold=10d
+   9     164   51.8    1.22     0.60 |  102  41.2  0.75  -0.82 |    62   69.4   2.76    2.93 59.1 80.0 | minDd52W=30.00 maxDd52W=55.00 minStabBars=7.00 minCloseLoc=76.00 minBodyPct=70.00 maxUpperWick=28.00 requireGreen=0.00 minVolRatio=2.20 minRSI14=23.00 maxRSI14=70.00 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=8% SL=2xATR Hold=10d
+  10     440   63.9    1.06     0.20 |  276  55.1  0.73  -1.22 |   164   78.7   2.29    2.60 73.0 79.2 | minDd52W=41.00 maxDd52W=59.00 minStabBars=1.00 minCloseLoc=50.00 minBodyPct=25.00 maxUpperWick=36.00 requireGreen=0.00 minVolRatio=1.90 minRSI14=28.00 maxRSI14=48.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=6% SL=2.5xATR Hold=25d
+  11     225   69.3    1.05     0.10 |  156  63.5  0.80  -0.49 |    69   82.6   2.37    1.43 73.9 79.2 | minDd52W=42.00 maxDd52W=55.00 minStabBars=1.00 minCloseLoc=58.00 minBodyPct=30.00 maxUpperWick=15.00 requireGreen=1.00 minVolRatio=1.80 minRSI14=26.00 maxRSI14=51.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=3% SL=1.5xATR Hold=25d
+  12    1504   64.6    1.21     0.53 | 1005  59.6  0.94  -0.17 |   499   74.5   2.16    1.92 71.2 79.1 | minDd52W=34.00 maxDd52W=60.00 minStabBars=8.00 minCloseLoc=73.00 minBodyPct=25.00 maxUpperWick=19.00 requireGreen=1.00 minVolRatio=1.20 minRSI14=14.00 maxRSI14=62.00 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=5% SL=2.5xATR Hold=10d
+  13     322   69.3    1.54     1.41 |  221  67.9  1.38   1.10 |   101   72.3   2.01    2.09 64.4 78.2 | minDd52W=44.00 maxDd52W=63.00 minStabBars=8.00 minCloseLoc=74.00 minBodyPct=27.00 maxUpperWick=19.00 requireGreen=1.00 minVolRatio=1.20 minRSI14=42.00 maxRSI14=73.00 requireDIBull=0.00 maxBsc=99.00 minADX=15.00  |  TP=6% SL=3xATR Hold=20d
+  14     173   71.7    1.28     0.61 |  109  67.0  1.00   0.01 |    64   79.7   2.11    1.62 70.3 78.2 | minDd52W=32.00 maxDd52W=47.00 minStabBars=1.00 minCloseLoc=68.00 minBodyPct=59.00 maxUpperWick=38.00 requireGreen=0.00 minVolRatio=1.40 minRSI14=25.00 maxRSI14=47.00 requireDIBull=1.00 maxBsc=99.00 minADX=0.00  |  TP=4% SL=2xATR Hold=25d
+  15     694   71.3    1.08     0.21 |  445  64.9  0.80  -0.64 |   249   82.7   2.16    1.75 78.4 77.2 | minDd52W=33.00 maxDd52W=55.00 minStabBars=2.00 minCloseLoc=51.00 minBodyPct=44.00 maxUpperWick=20.00 requireGreen=1.00 minVolRatio=2.30 minRSI14=18.00 maxRSI14=68.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=4% SL=3xATR Hold=15d
+  16     289   78.5    1.38     0.85 |  203  76.4  1.21   0.51 |    86   83.7   1.97    1.65 76.2 77.0 | minDd52W=42.00 maxDd52W=63.00 minStabBars=2.00 minCloseLoc=48.00 minBodyPct=74.00 maxUpperWick=32.00 requireGreen=0.00 minVolRatio=1.70 minRSI14=16.00 maxRSI14=56.00 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=4% SL=3xATR Hold=20d
+  17     160   61.9    1.37     0.92 |  102  57.8  1.06   0.18 |    58   69.0   2.26    2.23 58.3 76.9 | minDd52W=28.00 maxDd52W=72.00 minStabBars=7.00 minCloseLoc=33.00 minBodyPct=46.00 maxUpperWick=41.00 requireGreen=0.00 minVolRatio=3.10 minRSI14=40.00 maxRSI14=59.00 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=6% SL=3xATR Hold=15d
+  18     308   63.3    1.14     0.45 |  213  59.2  0.90  -0.36 |    95   72.6   2.22    2.27 64.6 76.7 | minDd52W=43.00 maxDd52W=54.00 minStabBars=3.00 minCloseLoc=77.00 minBodyPct=68.00 maxUpperWick=45.00 requireGreen=0.00 minVolRatio=1.50 minRSI14=20.00 maxRSI14=48.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=6% SL=3xATR Hold=15d
+  19    1570   69.8    1.35     1.06 | 1019  66.8  1.16   0.53 |   551   75.3   1.87    2.06 72.2 76.6 | minDd52W=34.00 maxDd52W=52.00 minStabBars=1.00 minCloseLoc=32.00 minBodyPct=57.00 maxUpperWick=27.00 requireGreen=1.00 minVolRatio=1.10 minRSI14=15.00 maxRSI14=46.00 requireDIBull=0.00 maxBsc=99.00 minADX=25.00  |  TP=6% SL=3xATR Hold=25d
+  20     699   68.0    1.22     0.72 |  470  64.3  1.00  -0.01 |   229   75.5   1.99    2.22 70.6 76.4 | minDd52W=41.00 maxDd52W=55.00 minStabBars=5.00 minCloseLoc=43.00 minBodyPct=74.00 maxUpperWick=41.00 requireGreen=1.00 minVolRatio=1.50 minRSI14=14.00 maxRSI14=69.00 requireDIBull=0.00 maxBsc=99.00 minADX=15.00  |  TP=6% SL=3xATR Hold=25d
+
+★ SWEET SPOT — Set3 — Momentum Pocket
+  FULL: n=218 WR=70.2% PF=1.38 Avg=0.75%
+  IS  : n=140 WR=65.0% PF=1.05 Avg=0.11%
+  OOS : n=78 WR=79.5% PF=2.54 Avg=1.91% Wilson=71.0% Fitness=87.3
+  Full params:
+{
+    "minDd52W": 28,
+    "maxDd52W": 48,
+    "minStabBars": 5,
+    "minCloseLoc": 76,
+    "minBodyPct": 33,
+    "maxUpperWick": 44,
+    "requireGreen": 0,
+    "minVolRatio": 1.6,
+    "minRSI14": 14,
+    "maxRSI14": 45,
+    "requireDIBull": 0,
+    "maxBsc": 5,
+    "minADX": 0,
+    "tpPct": 4,
+    "slAtrMult": 2.5,
+    "maxHoldBars": 15
+}
+
+────────────────────────────────────────────────────────────────────────────────
+Sweeping 15,000 combos — Set4 — EMA Stack Crossover
+  Pool: 1,06,131 (IS=68,860 OOS=37,271)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+RESULTS — Set4 — EMA Stack Crossover
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Rank  Full_n Full_WR Full_PF Full_Avg | IS_n IS_WR IS_PF IS_Avg | OOS_n OOS_WR OOS_PF OOS_Avg Wil Fit | Detection params | Exit
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1     177   63.3    1.56     1.42 |  109  57.8  1.09   0.29 |    68   72.1   3.65    3.23 62.4 87.9 | minBelowBars=3.00 minEMA10VsEma20=0.30 minBodyPct=63.00 maxUpperWick=20.00 maxCandleRisk=9.00 minVolRatio=1.10 maxRSI2Last5=27.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=20.00  |  TP=7% SL=3xATR Hold=15d
+   2     213   63.4    1.33     0.73 |  122  57.4  0.95  -0.13 |    91   71.4   2.47    1.88 63.1 83.0 | minBelowBars=3.00 minEMA10VsEma20=0.40 minBodyPct=36.00 maxUpperWick=26.00 maxCandleRisk=8.00 minVolRatio=1.00 maxRSI2Last5=43.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=20.00  |  TP=5% SL=2.5xATR Hold=10d
+   3     173   66.5    1.19     0.32 |  109  60.6  0.88  -0.24 |    64   76.6   2.23    1.27 66.9 76.3 | minBelowBars=3.00 minEMA10VsEma20=0.20 minBodyPct=35.00 maxUpperWick=26.00 maxCandleRisk=10.00 minVolRatio=2.50 maxRSI2Last5=45.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=3% SL=1.5xATR Hold=20d
+   4     217   69.6    1.16     0.28 |  130  63.8  0.85  -0.32 |    87   78.2   2.11    1.18 70.1 72.5 | minBelowBars=2.00 minEMA10VsEma20=0.30 minBodyPct=67.00 maxUpperWick=17.00 maxCandleRisk=7.00 minVolRatio=1.10 maxRSI2Last5=31.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=99.00 minADX=20.00  |  TP=3% SL=3xATR Hold=10d
+   5     295   64.4    1.08     0.15 |  175  55.4  0.74  -0.57 |   120   77.5   2.09    1.19 70.7 71.5 | minBelowBars=3.00 minEMA10VsEma20=0.20 minBodyPct=41.00 maxUpperWick=31.00 maxCandleRisk=9.00 minVolRatio=2.10 maxRSI2Last5=27.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=0.00  |  TP=3% SL=1.5xATR Hold=10d
+   6     164   73.2    1.12     0.24 |  107  69.2  0.88  -0.28 |    57   80.7   2.00    1.21 70.8 70.1 | minBelowBars=4.00 minEMA10VsEma20=0.40 minBodyPct=47.00 maxUpperWick=31.00 maxCandleRisk=12.00 minVolRatio=1.30 maxRSI2Last5=38.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=3% SL=2xATR Hold=15d
+   7     280   50.0    1.35     0.99 |  173  45.1  1.05   0.16 |   107   57.9   2.12    2.34 50.0 64.1 | minBelowBars=3.00 minEMA10VsEma20=0.30 minBodyPct=53.00 maxUpperWick=31.00 maxCandleRisk=10.00 minVolRatio=1.20 maxRSI2Last5=56.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=20.00  |  TP=8% SL=1.5xATR Hold=25d
+   8     205   69.3    1.27     0.58 |  128  67.2  1.09   0.23 |    77   72.7   1.68    1.17 63.7 63.3 | minBelowBars=3.00 minEMA10VsEma20=0.40 minBodyPct=53.00 maxUpperWick=25.00 maxCandleRisk=10.00 minVolRatio=1.50 maxRSI2Last5=34.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=4% SL=2xATR Hold=20d
+   9     261   64.4    1.06     0.11 |  154  57.8  0.78  -0.49 |   107   73.8   1.80    0.98 66.3 61.7 | minBelowBars=2.00 minEMA10VsEma20=0.30 minBodyPct=42.00 maxUpperWick=26.00 maxCandleRisk=10.00 minVolRatio=2.50 maxRSI2Last5=27.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=3% SL=1.5xATR Hold=15d
+  10     193   68.9    1.16     0.37 |  119  65.5  0.96  -0.11 |    74   74.3   1.62    1.13 65.2 61.6 | minBelowBars=3.00 minEMA10VsEma20=0.30 minBodyPct=55.00 maxUpperWick=26.00 maxCandleRisk=10.00 minVolRatio=2.30 maxRSI2Last5=26.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=99.00 minADX=0.00  |  TP=4% SL=2.5xATR Hold=20d
+  11     523   67.5    1.08     0.20 |  314  63.4  0.85  -0.44 |   209   73.7   1.66    1.16 68.4 61.6 | minBelowBars=3.00 minEMA10VsEma20=0.20 minBodyPct=45.00 maxUpperWick=33.00 maxCandleRisk=8.00 minVolRatio=1.30 maxRSI2Last5=40.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=0.00  |  TP=4% SL=2.5xATR Hold=20d
+  12     240   71.3    1.04     0.08 |  144  66.0  0.79  -0.54 |    96   79.2   1.73    1.00 71.6 61.3 | minBelowBars=2.00 minEMA10VsEma20=0.30 minBodyPct=58.00 maxUpperWick=33.00 maxCandleRisk=12.00 minVolRatio=3.30 maxRSI2Last5=40.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=3% SL=2xATR Hold=20d
+  13     168   50.6    1.18     0.45 |  115  46.1  0.94  -0.18 |    53   60.4   2.03    1.82 49.1 61.2 | minBelowBars=3.00 minEMA10VsEma20=0.20 minBodyPct=40.00 maxUpperWick=19.00 maxCandleRisk=9.00 minVolRatio=1.30 maxRSI2Last5=33.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=5.00 minADX=15.00  |  TP=6% SL=1.5xATR Hold=20d
+  14     182   65.9    1.13     0.31 |  121  62.0  0.97  -0.08 |    61   73.8   1.58    1.08 63.6 59.3 | minBelowBars=2.00 minEMA10VsEma20=0.40 minBodyPct=68.00 maxUpperWick=23.00 maxCandleRisk=10.00 minVolRatio=1.30 maxRSI2Last5=48.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=1.00 minADX=15.00  |  TP=4% SL=2xATR Hold=20d
+  15     275   75.6    1.25     0.46 |  172  75.0  1.12   0.24 |   103   76.7   1.56    0.82 69.2 58.6 | minBelowBars=3.00 minEMA10VsEma20=0.30 minBodyPct=43.00 maxUpperWick=32.00 maxCandleRisk=11.00 minVolRatio=1.20 maxRSI2Last5=52.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=3% SL=2.5xATR Hold=15d
+  16     225   76.0    1.45     0.94 |  129  76.7  1.52   1.04 |    96   75.0   1.36    0.80 67.1 57.3 | minBelowBars=2.00 minEMA10VsEma20=0.50 minBodyPct=33.00 maxUpperWick=18.00 maxCandleRisk=11.00 minVolRatio=1.00 maxRSI2Last5=54.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=3.00 minADX=15.00  |  TP=4% SL=2.5xATR Hold=25d
+  17     171   53.8    1.32     0.76 |  105  49.5  1.12   0.31 |    66   60.6   1.71    1.47 50.5 56.8 | minBelowBars=3.00 minEMA10VsEma20=0.20 minBodyPct=62.00 maxUpperWick=33.00 maxCandleRisk=12.00 minVolRatio=3.20 maxRSI2Last5=53.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=15.00  |  TP=6% SL=1.5xATR Hold=20d
+  18     184   72.8    1.29     0.49 |  116  70.7  1.19   0.34 |    68   76.5   1.49    0.75 67.1 56.6 | minBelowBars=3.00 minEMA10VsEma20=0.30 minBodyPct=58.00 maxUpperWick=28.00 maxCandleRisk=11.00 minVolRatio=1.40 maxRSI2Last5=43.00 todayCrossOnly=1.00 requireDIBull=0.00 maxBsc=5.00 minADX=15.00  |  TP=3% SL=3xATR Hold=10d
+  19     191   75.9    1.23     0.42 |  110  73.6  1.08   0.17 |    81   79.0   1.48    0.77 70.7 55.9 | minBelowBars=2.00 minEMA10VsEma20=0.30 minBodyPct=37.00 maxUpperWick=19.00 maxCandleRisk=12.00 minVolRatio=1.80 maxRSI2Last5=34.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=5.00 minADX=15.00  |  TP=3% SL=2.5xATR Hold=20d
+  20     178   56.7    1.20     0.60 |  107  53.3  0.99  -0.03 |    71   62.0   1.62    1.55 52.2 55.3 | minBelowBars=2.00 minEMA10VsEma20=0.50 minBodyPct=47.00 maxUpperWick=23.00 maxCandleRisk=7.00 minVolRatio=1.30 maxRSI2Last5=55.00 todayCrossOnly=1.00 requireDIBull=1.00 maxBsc=99.00 minADX=20.00  |  TP=7% SL=3xATR Hold=15d
+
+★ SWEET SPOT — Set4 — EMA Stack Crossover
+  FULL: n=177 WR=63.3% PF=1.56 Avg=1.42%
+  IS  : n=109 WR=57.8% PF=1.09 Avg=0.29%
+  OOS : n=68 WR=72.1% PF=3.65 Avg=3.23% Wilson=62.4% Fitness=87.9
+  Full params:
+{
+    "minBelowBars": 3,
+    "minEMA10VsEma20": 0.3,
+    "minBodyPct": 63,
+    "maxUpperWick": 20,
+    "maxCandleRisk": 9,
+    "minVolRatio": 1.1,
+    "maxRSI2Last5": 27,
+    "todayCrossOnly": 1,
+    "requireDIBull": 1,
+    "maxBsc": 99,
+    "minADX": 20,
+    "tpPct": 7,
+    "slAtrMult": 3,
+    "maxHoldBars": 15
+}
+
+────────────────────────────────────────────────────────────────────────────────
+Sweeping 15,000 combos — Set5 — Perfect Storm
+  Pool: 1,11,788 (IS=73,559 OOS=38,229)
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+RESULTS — Set5 — Perfect Storm
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Rank  Full_n Full_WR Full_PF Full_Avg | IS_n IS_WR IS_PF IS_Avg | OOS_n OOS_WR OOS_PF OOS_Avg Wil Fit | Detection params | Exit
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1     368   66.3    1.08     0.24 |  238  60.9  0.88  -0.39 |   130   76.2   1.63    1.38 69.5 64.7 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=5% SL=3xATR Hold=15d
+   2     368   66.3    1.08     0.24 |  238  60.9  0.88  -0.39 |   130   76.2   1.63    1.38 69.5 64.7 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=5% SL=3xATR Hold=15d
+   3     368   66.3    1.08     0.24 |  238  60.9  0.88  -0.39 |   130   76.2   1.63    1.38 69.5 64.7 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=5% SL=3xATR Hold=15d
+   4     368   66.3    1.08     0.24 |  238  60.9  0.88  -0.39 |   130   76.2   1.63    1.38 69.5 64.7 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=5% SL=3xATR Hold=15d
+   5     368   66.3    1.08     0.24 |  238  60.9  0.88  -0.39 |   130   76.2   1.63    1.38 69.5 64.7 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=5% SL=3xATR Hold=15d
+   6     369   71.3    1.05     0.10 |  239  65.3  0.82  -0.43 |   130   82.3   1.83    1.08 76.2 64.6 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=3% SL=2xATR Hold=10d
+   7     369   71.3    1.05     0.10 |  239  65.3  0.82  -0.43 |   130   82.3   1.83    1.08 76.2 64.6 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=3% SL=2xATR Hold=10d
+   8     368   64.1    1.20     0.72 |  238  60.9  1.04   0.15 |   130   70.0   1.60    1.76 63.0 63.2 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=25d
+   9     368   64.1    1.20     0.72 |  238  60.9  1.04   0.15 |   130   70.0   1.60    1.76 63.0 63.2 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=25d
+  10     368   64.1    1.20     0.72 |  238  60.9  1.04   0.15 |   130   70.0   1.60    1.76 63.0 63.2 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=25d
+  11     368   64.1    1.20     0.72 |  238  60.9  1.04   0.15 |   130   70.0   1.60    1.76 63.0 63.2 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=25d
+  12     368   64.1    1.20     0.72 |  238  60.9  1.04   0.15 |   130   70.0   1.60    1.76 63.0 63.2 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=25d
+  13     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  14     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  15     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  16     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  17     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  18     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  19     368   61.1    1.18     0.57 |  238  56.7  0.99  -0.04 |   130   69.2   1.65    1.69 62.2 62.9 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=7% SL=3xATR Hold=15d
+  20     369   64.8    1.05     0.13 |  239  59.0  0.84  -0.43 |   130   75.4   1.69    1.16 68.7 62.8 | minFires=3.00 requireDMI=0.00 minADX=45.00  |  TP=4% SL=2xATR Hold=10d
+
+★ SWEET SPOT — Set5 — Perfect Storm
+  FULL: n=368 WR=66.3% PF=1.08 Avg=0.24%
+  IS  : n=238 WR=60.9% PF=0.88 Avg=-0.39%
+  OOS : n=130 WR=76.2% PF=1.63 Avg=1.38% Wilson=69.5% Fitness=64.7
+  Full params:
+{
+    "minFires": 3,
+    "requireDMI": 0,
+    "minADX": 45,
+    "tpPct": 5,
+    "slAtrMult": 3,
+    "maxHoldBars": 15
+}
+
+✅ Done in 142s
+Saved: D:\Claude code\stock-screener\scripts\results\archetype_hypertune_pnl_2026-07-17T18-55-41-516Z.json

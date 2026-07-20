@@ -1,0 +1,464 @@
+{
+  "generated": "2026-07-18T18:30:00.612Z",
+  "dataDir": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "tuneJson": "D:\\Claude code\\stock-screener\\scripts\\results\\five_percent_hypertune_2026-07-18T18-28-30-198Z.json",
+  "targetPct": 5,
+  "horizons": [
+    10,
+    20
+  ],
+  "window": 300,
+  "oosCut": "2025-05-05",
+  "convention": "exact analyzeStock; next-open entry; stop-first; non-overlap per symbol; complete 20-session outcomes only",
+  "tuning": {
+    "VolumeFootprint": {
+      "minVolRatio": 6,
+      "minCloseLoc": 75,
+      "maxUpperWick": 30,
+      "minHi20Frac": 0.9,
+      "minRangeATR": 3.5,
+      "maxGapDownPct": -5,
+      "requireDIBull": true,
+      "maxBsc": 99,
+      "minADX": 45,
+      "tpPct": 5,
+      "slAtrMult": 3,
+      "maxHoldBars": 20
+    },
+    "CompressionCoil": {
+      "minCompressionBars": 7,
+      "maxCompressionBars": 8,
+      "minVolumeDeclineDays": 1,
+      "minPricePos20": 60,
+      "maxBBWidthPctl": 15,
+      "maxRangeATR": 1.3,
+      "minCloseLoc": 70,
+      "minBodyPct": 65,
+      "maxCandleRisk": 12,
+      "requireDIBull": false,
+      "maxBsc": 0,
+      "minADX": 20,
+      "tpPct": 5,
+      "slAtrMult": 3.5,
+      "maxHoldBars": 20
+    },
+    "MomentumPocket": {
+      "minDd52W": 65,
+      "maxDd52W": 80,
+      "minStabBars": 8,
+      "minCloseLoc": 75,
+      "minBodyPct": 75,
+      "maxUpperWick": 40,
+      "minVolRatio": 2,
+      "minRSI14": 40,
+      "maxRSI14": 75,
+      "requireDIBull": true,
+      "maxBsc": 3,
+      "minADX": 35,
+      "tpPct": 5,
+      "slAtrMult": 3,
+      "maxHoldBars": 20
+    },
+    "EMAStack": {
+      "minBelowBars": 10,
+      "minEMA10VsEma20": 0.6,
+      "minBodyPct": 80,
+      "maxUpperWick": 50,
+      "maxCandleRisk": 10,
+      "minVolRatio": 2.5,
+      "maxRSI2Last5": 40,
+      "requireDIBull": false,
+      "maxBsc": 99,
+      "minADX": 20,
+      "tpPct": 5,
+      "slAtrMult": 2.5,
+      "maxHoldBars": 20
+    },
+    "PerfectStorm": {
+      "minFires": 2,
+      "minADXGate": 25,
+      "minQualityTier": 1,
+      "maxCandleRisk": 12,
+      "tpPct": 5,
+      "slAtrMult": 1,
+      "maxHoldBars": 20
+    }
+  },
+  "meta": {
+    "files": 1616,
+    "usable": 1582,
+    "short": 34
+  },
+  "clusters": {
+    "VolumeFootprint": {
+      "signals": 1289,
+      "trades": 1289,
+      "h10": {
+        "full": {
+          "n": 1289,
+          "wins": 789,
+          "wr": 61.210240496508916,
+          "hit5": 52.75407292474787,
+          "pf": 0.9022802781043452,
+          "avgPnl": -0.2994146086425336,
+          "avgMFE": 8.705551006486091,
+          "avgMAE": -7.543973720590362,
+          "targetCount": 680
+        },
+        "is": {
+          "n": 991,
+          "wins": 611,
+          "wr": 61.654894046417766,
+          "hit5": 53.884964682139255,
+          "pf": 0.8865375635000953,
+          "avgPnl": -0.36115773702936804,
+          "avgMFE": 9.073982539519195,
+          "avgMAE": -7.708943743657202,
+          "targetCount": 534
+        },
+        "oos": {
+          "n": 298,
+          "wins": 178,
+          "wr": 59.73154362416108,
+          "hit5": 48.99328859060403,
+          "pf": 0.964736448948206,
+          "avgPnl": -0.09408762800040918,
+          "avgMFE": 7.4803307070370995,
+          "avgMAE": -6.995365355290893,
+          "targetCount": 146
+        }
+      },
+      "h20": {
+        "full": {
+          "n": 1289,
+          "wins": 856,
+          "wr": 66.40806826997672,
+          "hit5": 63.69278510473235,
+          "pf": 0.9538898521558257,
+          "avgPnl": -0.1562254244435286,
+          "avgMFE": 12.59574251789911,
+          "avgMAE": -9.735968484270154,
+          "targetCount": 821
+        },
+        "is": {
+          "n": 991,
+          "wins": 666,
+          "wr": 67.20484359233097,
+          "hit5": 64.58123107971745,
+          "pf": 0.951345786095105,
+          "avgPnl": -0.16739704458612822,
+          "avgMFE": 13.180998381115941,
+          "avgMAE": -9.84553424626719,
+          "targetCount": 640
+        },
+        "oos": {
+          "n": 298,
+          "wins": 190,
+          "wr": 63.758389261744966,
+          "hit5": 60.738255033557046,
+          "pf": 0.9629474605054916,
+          "avgPnl": -0.1190741641706542,
+          "avgMFE": 10.649472180825711,
+          "avgMAE": -9.37160717507865,
+          "targetCount": 181
+        }
+      }
+    },
+    "CompressionCoil": {
+      "signals": 172,
+      "trades": 172,
+      "h10": {
+        "full": {
+          "n": 172,
+          "wins": 106,
+          "wr": 61.627906976744185,
+          "hit5": 48.837209302325576,
+          "pf": 0.9961988255557784,
+          "avgPnl": -0.009961640486163817,
+          "avgMFE": 6.637294196948592,
+          "avgMAE": -7.117184901410945,
+          "targetCount": 84
+        },
+        "is": {
+          "n": 122,
+          "wins": 74,
+          "wr": 60.65573770491803,
+          "hit5": 45.90163934426229,
+          "pf": 0.8917365908275795,
+          "avgPnl": -0.29851809060534384,
+          "avgMFE": 6.558727435893379,
+          "avgMAE": -7.484296920701025,
+          "targetCount": 56
+        },
+        "oos": {
+          "n": 50,
+          "wins": 32,
+          "wr": 64,
+          "hit5": 56.00000000000001,
+          "pf": 1.303474363598583,
+          "avgPnl": 0.6941160978046358,
+          "avgMFE": 6.828997093923318,
+          "avgMAE": -6.221431574343155,
+          "targetCount": 28
+        }
+      },
+      "h20": {
+        "full": {
+          "n": 172,
+          "wins": 122,
+          "wr": 70.93023255813954,
+          "hit5": 65.69767441860465,
+          "pf": 1.2804435828244964,
+          "avgPnl": 0.7367537678765002,
+          "avgMFE": 10.556164164478878,
+          "avgMAE": -9.550268428238224,
+          "targetCount": 113
+        },
+        "is": {
+          "n": 122,
+          "wins": 85,
+          "wr": 69.67213114754098,
+          "hit5": 64.75409836065575,
+          "pf": 1.1301111823195,
+          "avgPnl": 0.38148970897135437,
+          "avgMFE": 10.710744024271575,
+          "avgMAE": -10.186508080262957,
+          "targetCount": 79
+        },
+        "oos": {
+          "n": 50,
+          "wins": 37,
+          "wr": 74,
+          "hit5": 68,
+          "pf": 1.8515827846490462,
+          "avgPnl": 1.603598071605058,
+          "avgMFE": 10.178989306584702,
+          "avgMAE": -7.997843677297891,
+          "targetCount": 34
+        }
+      }
+    },
+    "MomentumPocket": {
+      "signals": 345,
+      "trades": 345,
+      "h10": {
+        "full": {
+          "n": 345,
+          "wins": 207,
+          "wr": 60,
+          "hit5": 47.82608695652174,
+          "pf": 1.1363765243817447,
+          "avgPnl": 0.30827702619193803,
+          "avgMFE": 42.757285591739645,
+          "avgMAE": -6.174072199627489,
+          "targetCount": 165
+        },
+        "is": {
+          "n": 225,
+          "wins": 137,
+          "wr": 60.88888888888889,
+          "hit5": 50.66666666666667,
+          "pf": 1.1553941591158632,
+          "avgPnl": 0.36179693362112225,
+          "avgMFE": 62.352883520332036,
+          "avgMAE": -6.967710775454813,
+          "targetCount": 114
+        },
+        "oos": {
+          "n": 120,
+          "wins": 70,
+          "wr": 58.333333333333336,
+          "hit5": 42.5,
+          "pf": 1.0974619838336652,
+          "avgPnl": 0.20792719976221852,
+          "avgMFE": 6.015539475628926,
+          "avgMAE": -4.68599986995125,
+          "targetCount": 51
+        }
+      },
+      "h20": {
+        "full": {
+          "n": 345,
+          "wins": 218,
+          "wr": 63.18840579710145,
+          "hit5": 57.391304347826086,
+          "pf": 1.043607756335591,
+          "avgPnl": 0.12387359422131684,
+          "avgMFE": 46.87720952977515,
+          "avgMAE": -8.280968990604846,
+          "targetCount": 198
+        },
+        "is": {
+          "n": 225,
+          "wins": 149,
+          "wr": 66.22222222222223,
+          "hit5": 61.33333333333333,
+          "pf": 1.056340590075342,
+          "avgPnl": 0.1677296019568601,
+          "avgMFE": 67.0833411575247,
+          "avgMAE": -9.203537273944658,
+          "targetCount": 138
+        },
+        "oos": {
+          "n": 120,
+          "wins": 69,
+          "wr": 57.49999999999999,
+          "hit5": 50,
+          "pf": 1.0161108212149355,
+          "avgPnl": 0.0416435797171746,
+          "avgMFE": 8.990712727744741,
+          "avgMAE": -6.5511534593427045,
+          "targetCount": 60
+        }
+      }
+    },
+    "EMAStack": {
+      "signals": 151,
+      "trades": 151,
+      "h10": {
+        "full": {
+          "n": 151,
+          "wins": 92,
+          "wr": 60.9271523178808,
+          "hit5": 52.980132450331126,
+          "pf": 0.8917809276216189,
+          "avgPnl": -0.33472005221161366,
+          "avgMFE": 8.20534928233735,
+          "avgMAE": -7.192908493817116,
+          "targetCount": 80
+        },
+        "is": {
+          "n": 83,
+          "wins": 56,
+          "wr": 67.46987951807229,
+          "hit5": 55.42168674698795,
+          "pf": 1.1494852170650527,
+          "avgPnl": 0.3848198974481301,
+          "avgMFE": 9.213582403340057,
+          "avgMAE": -6.631619893611855,
+          "targetCount": 46
+        },
+        "oos": {
+          "n": 68,
+          "wins": 36,
+          "wr": 52.94117647058824,
+          "hit5": 50,
+          "pf": 0.6744622049233661,
+          "avgPnl": -1.2129820495904184,
+          "avgMFE": 6.974711796407573,
+          "avgMAE": -7.878010755832357,
+          "targetCount": 34
+        }
+      },
+      "h20": {
+        "full": {
+          "n": 151,
+          "wins": 97,
+          "wr": 64.23841059602648,
+          "hit5": 62.913907284768214,
+          "pf": 0.9099037764028197,
+          "avgPnl": -0.31328026899402195,
+          "avgMFE": 10.814577365815941,
+          "avgMAE": -10.152816779643109,
+          "targetCount": 95
+        },
+        "is": {
+          "n": 83,
+          "wins": 57,
+          "wr": 68.67469879518072,
+          "hit5": 67.46987951807229,
+          "pf": 1.1468972701805156,
+          "avgPnl": 0.4355282777245285,
+          "avgMFE": 11.74147236064894,
+          "avgMAE": -9.808987522019654,
+          "targetCount": 56
+        },
+        "oos": {
+          "n": 68,
+          "wins": 40,
+          "wr": 58.82352941176471,
+          "hit5": 57.35294117647059,
+          "pf": 0.7008498268567557,
+          "avgPnl": -1.2272671716063694,
+          "avgMFE": 9.68322023976978,
+          "avgMAE": -10.572490726448203,
+          "targetCount": 39
+        }
+      }
+    },
+    "PerfectStorm": {
+      "signals": 24,
+      "trades": 24,
+      "h10": {
+        "full": {
+          "n": 24,
+          "wins": 11,
+          "wr": 45.83333333333333,
+          "hit5": 33.33333333333333,
+          "pf": 1.1006361471970652,
+          "avgPnl": 0.16922979805892122,
+          "avgMFE": 6.32626739017162,
+          "avgMAE": -6.134850203431373,
+          "targetCount": 8
+        },
+        "is": {
+          "n": 16,
+          "wins": 8,
+          "wr": 50,
+          "hit5": 31.25,
+          "pf": 1.1336392608139645,
+          "avgPnl": 0.2167608304293332,
+          "avgMFE": 7.294318122453763,
+          "avgMAE": -5.6241861214741,
+          "targetCount": 5
+        },
+        "oos": {
+          "n": 8,
+          "wins": 3,
+          "wr": 37.5,
+          "hit5": 37.5,
+          "pf": 1.0411852534465935,
+          "avgPnl": 0.07416773331809762,
+          "avgMFE": 4.390165925607338,
+          "avgMAE": -7.156178367345919,
+          "targetCount": 3
+        }
+      },
+      "h20": {
+        "full": {
+          "n": 24,
+          "wins": 11,
+          "wr": 45.83333333333333,
+          "hit5": 37.5,
+          "pf": 1.2176974740558772,
+          "avgPnl": 0.3660801868763102,
+          "avgMFE": 7.445261665345043,
+          "avgMAE": -8.64713864427331,
+          "targetCount": 9
+        },
+        "is": {
+          "n": 16,
+          "wins": 8,
+          "wr": 50,
+          "hit5": 37.5,
+          "pf": 1.3156851156881488,
+          "avgPnl": 0.5120364136554166,
+          "avgMFE": 8.625790648698478,
+          "avgMAE": -8.235473382526918,
+          "targetCount": 6
+        },
+        "oos": {
+          "n": 8,
+          "wins": 3,
+          "wr": 37.5,
+          "hit5": 37.5,
+          "pf": 1.0411852534465935,
+          "avgPnl": 0.07416773331809762,
+          "avgMFE": 5.084203698638175,
+          "avgMAE": -9.470469167766097,
+          "targetCount": 3
+        }
+      }
+    }
+  }
+}

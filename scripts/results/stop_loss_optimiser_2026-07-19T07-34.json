@@ -1,0 +1,879 @@
+{
+  "generatedAt": "2026-07-19T07:34:35.741Z",
+  "config": {
+    "horizon": 20,
+    "targets": {
+      "t1": "1.5×ATR",
+      "t2": "3×ATR",
+      "t3": "5×ATR"
+    },
+    "exits": {
+      "t1": "50%",
+      "t2": "30%",
+      "t3": "20%"
+    }
+  },
+  "totals": {
+    "processed": 1587,
+    "totalSignals": 1388604,
+    "methods": 44
+  },
+  "rankedByEV": [
+    {
+      "key": "pct_1.5",
+      "label": "Fixed 1.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 19.136,
+      "sweepRate": 38.384,
+      "t2HitRate": 10.622,
+      "t3HitRate": 5.119,
+      "ev": -0.0802,
+      "avgStopPct": 1.5,
+      "rrAtT2": 8.337
+    },
+    {
+      "key": "pct_2",
+      "label": "Fixed 2%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 23.902,
+      "sweepRate": 32.686,
+      "t2HitRate": 13.38,
+      "t3HitRate": 6.371,
+      "ev": -0.1067,
+      "avgStopPct": 2,
+      "rrAtT2": 6.253
+    },
+    {
+      "key": "pct_2.5",
+      "label": "Fixed 2.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 28.141,
+      "sweepRate": 27.748,
+      "t2HitRate": 15.837,
+      "t3HitRate": 7.462,
+      "ev": -0.1246,
+      "avgStopPct": 2.5,
+      "rrAtT2": 5.002
+    },
+    {
+      "key": "pct_3",
+      "label": "Fixed 3%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 31.979,
+      "sweepRate": 23.418,
+      "t2HitRate": 18.047,
+      "t3HitRate": 8.44,
+      "ev": -0.134,
+      "avgStopPct": 3,
+      "rrAtT2": 4.169
+    },
+    {
+      "key": "pct_3.5",
+      "label": "Fixed 3.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 35.3,
+      "sweepRate": 19.846,
+      "t2HitRate": 19.968,
+      "t3HitRate": 9.28,
+      "ev": -0.1503,
+      "avgStopPct": 3.5,
+      "rrAtT2": 3.573
+    },
+    {
+      "key": "pct_4",
+      "label": "Fixed 4%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 38.193,
+      "sweepRate": 16.857,
+      "t2HitRate": 21.626,
+      "t3HitRate": 9.996,
+      "ev": -0.1761,
+      "avgStopPct": 4,
+      "rrAtT2": 3.126
+    },
+    {
+      "key": "atr_1x",
+      "label": "ATR 1×",
+      "type": "atr",
+      "signals": 1388481,
+      "winRate": 37.694,
+      "sweepRate": 16.862,
+      "t2HitRate": 21.088,
+      "t3HitRate": 9.694,
+      "ev": -0.196,
+      "avgStopPct": 4.169,
+      "rrAtT2": 3
+    },
+    {
+      "key": "pct_4.5",
+      "label": "Fixed 4.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 40.789,
+      "sweepRate": 14.307,
+      "t2HitRate": 23.095,
+      "t3HitRate": 10.63,
+      "ev": -0.2026,
+      "avgStopPct": 4.5,
+      "rrAtT2": 2.779
+    },
+    {
+      "key": "ema21_buf0.5",
+      "label": "EMA(21) +0.5%buf",
+      "type": "ema",
+      "signals": 686400,
+      "winRate": 36.84,
+      "sweepRate": 19.613,
+      "t2HitRate": 21.653,
+      "t3HitRate": 10.547,
+      "ev": -0.2309,
+      "avgStopPct": 4.509,
+      "rrAtT2": 4.742
+    },
+    {
+      "key": "pct_5",
+      "label": "Fixed 5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 43.055,
+      "sweepRate": 12.172,
+      "t2HitRate": 24.382,
+      "t3HitRate": 11.18,
+      "ev": -0.2369,
+      "avgStopPct": 5,
+      "rrAtT2": 2.501
+    },
+    {
+      "key": "ema21_buf0.2",
+      "label": "EMA(21) +0.2%buf",
+      "type": "ema",
+      "signals": 651058,
+      "winRate": 36.387,
+      "sweepRate": 20.09,
+      "t2HitRate": 21.376,
+      "t3HitRate": 10.424,
+      "ev": -0.2386,
+      "avgStopPct": 4.463,
+      "rrAtT2": 4.829
+    },
+    {
+      "key": "hybrid_5b_0.3buf",
+      "label": "Hybrid(2×ATR ∨ 5L+0.3%)",
+      "type": "hybrid",
+      "signals": 1316747,
+      "winRate": 37.114,
+      "sweepRate": 18.854,
+      "t2HitRate": 20.979,
+      "t3HitRate": 9.75,
+      "ev": -0.2578,
+      "avgStopPct": 4.564,
+      "rrAtT2": 4.225
+    },
+    {
+      "key": "hybrid_5b_0.5buf",
+      "label": "Hybrid(2×ATR ∨ 5L+0.5%)",
+      "type": "hybrid",
+      "signals": 1334613,
+      "winRate": 37.835,
+      "sweepRate": 18.172,
+      "t2HitRate": 21.377,
+      "t3HitRate": 9.923,
+      "ev": -0.2648,
+      "avgStopPct": 4.665,
+      "rrAtT2": 4.022
+    },
+    {
+      "key": "ema10_buf0.5",
+      "label": "EMA(10) +0.5%buf",
+      "type": "ema",
+      "signals": 719522,
+      "winRate": 30.239,
+      "sweepRate": 24.994,
+      "t2HitRate": 17.704,
+      "t3HitRate": 8.697,
+      "ev": -0.2672,
+      "avgStopPct": 3.425,
+      "rrAtT2": 5.991
+    },
+    {
+      "key": "atr_1.25x",
+      "label": "ATR 1.25×",
+      "type": "atr",
+      "signals": 1388548,
+      "winRate": 42.737,
+      "sweepRate": 11.95,
+      "t2HitRate": 23.968,
+      "t3HitRate": 10.932,
+      "ev": -0.2704,
+      "avgStopPct": 5.211,
+      "rrAtT2": 2.4
+    },
+    {
+      "key": "swing5_buf0.3",
+      "label": "5-bar low +0.3%buf",
+      "type": "swing",
+      "signals": 1269523,
+      "winRate": 37.243,
+      "sweepRate": 18.977,
+      "t2HitRate": 21.03,
+      "t3HitRate": 9.727,
+      "ev": -0.2727,
+      "avgStopPct": 4.683,
+      "rrAtT2": 4.279
+    },
+    {
+      "key": "pct_5.5",
+      "label": "Fixed 5.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 45.043,
+      "sweepRate": 10.386,
+      "t2HitRate": 25.497,
+      "t3HitRate": 11.65,
+      "ev": -0.2812,
+      "avgStopPct": 5.5,
+      "rrAtT2": 2.274
+    },
+    {
+      "key": "ema10_buf0.2",
+      "label": "EMA(10) +0.2%buf",
+      "type": "ema",
+      "signals": 662709,
+      "winRate": 29.582,
+      "sweepRate": 25.6,
+      "t2HitRate": 17.326,
+      "t3HitRate": 8.545,
+      "ev": -0.2818,
+      "avgStopPct": 3.384,
+      "rrAtT2": 6.141
+    },
+    {
+      "key": "swing5_buf0.5",
+      "label": "5-bar low +0.5%buf",
+      "type": "swing",
+      "signals": 1285497,
+      "winRate": 38.005,
+      "sweepRate": 18.267,
+      "t2HitRate": 21.451,
+      "t3HitRate": 9.909,
+      "ev": -0.2829,
+      "avgStopPct": 4.799,
+      "rrAtT2": 4.068
+    },
+    {
+      "key": "swing5_buf0",
+      "label": "5-bar low +0%buf",
+      "type": "swing",
+      "signals": 1233779,
+      "winRate": 35.98,
+      "sweepRate": 20.174,
+      "t2HitRate": 20.307,
+      "t3HitRate": 9.404,
+      "ev": -0.2972,
+      "avgStopPct": 4.547,
+      "rrAtT2": 4.604
+    },
+    {
+      "key": "swing5_buf0.8",
+      "label": "5-bar low +0.8%buf",
+      "type": "swing",
+      "signals": 1297824,
+      "winRate": 39.303,
+      "sweepRate": 16.984,
+      "t2HitRate": 22.178,
+      "t3HitRate": 10.225,
+      "ev": -0.3029,
+      "avgStopPct": 5.01,
+      "rrAtT2": 3.679
+    },
+    {
+      "key": "hybrid_8b_0.3buf",
+      "label": "Hybrid(2×ATR ∨ 8L+0.3%)",
+      "type": "hybrid",
+      "signals": 1330930,
+      "winRate": 40.186,
+      "sweepRate": 15.884,
+      "t2HitRate": 22.702,
+      "t3HitRate": 10.492,
+      "ev": -0.308,
+      "avgStopPct": 5.194,
+      "rrAtT2": 3.625
+    },
+    {
+      "key": "hybrid_8b_0.5buf",
+      "label": "Hybrid(2×ATR ∨ 8L+0.5%)",
+      "type": "hybrid",
+      "signals": 1344441,
+      "winRate": 40.749,
+      "sweepRate": 15.367,
+      "t2HitRate": 23.013,
+      "t3HitRate": 10.62,
+      "ev": -0.317,
+      "avgStopPct": 5.283,
+      "rrAtT2": 3.472
+    },
+    {
+      "key": "pct_6",
+      "label": "Fixed 6%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 46.762,
+      "sweepRate": 8.896,
+      "t2HitRate": 26.447,
+      "t3HitRate": 12.052,
+      "ev": -0.3379,
+      "avgStopPct": 6,
+      "rrAtT2": 2.084
+    },
+    {
+      "key": "swing8_buf0.3",
+      "label": "8-bar low +0.3%buf",
+      "type": "swing",
+      "signals": 1240492,
+      "winRate": 40.398,
+      "sweepRate": 16.1,
+      "t2HitRate": 22.782,
+      "t3HitRate": 10.46,
+      "ev": -0.3509,
+      "avgStopPct": 5.406,
+      "rrAtT2": 3.699
+    },
+    {
+      "key": "swing8_buf0",
+      "label": "8-bar low +0%buf",
+      "type": "swing",
+      "signals": 1216503,
+      "winRate": 39.347,
+      "sweepRate": 17.103,
+      "t2HitRate": 22.188,
+      "t3HitRate": 10.199,
+      "ev": -0.3647,
+      "avgStopPct": 5.27,
+      "rrAtT2": 3.955
+    },
+    {
+      "key": "swing8_buf0.5",
+      "label": "8-bar low +0.5%buf",
+      "type": "swing",
+      "signals": 1250707,
+      "winRate": 41.017,
+      "sweepRate": 15.542,
+      "t2HitRate": 23.119,
+      "t3HitRate": 10.598,
+      "ev": -0.3647,
+      "avgStopPct": 5.515,
+      "rrAtT2": 3.536
+    },
+    {
+      "key": "atr_1.5x",
+      "label": "ATR 1.5×",
+      "type": "atr",
+      "signals": 1386157,
+      "winRate": 46.659,
+      "sweepRate": 8.514,
+      "t2HitRate": 26.196,
+      "t3HitRate": 11.881,
+      "ev": -0.3774,
+      "avgStopPct": 6.236,
+      "rrAtT2": 2
+    },
+    {
+      "key": "swing8_buf0.8",
+      "label": "8-bar low +0.8%buf",
+      "type": "swing",
+      "signals": 1257298,
+      "winRate": 42.078,
+      "sweepRate": 14.495,
+      "t2HitRate": 23.702,
+      "t3HitRate": 10.841,
+      "ev": -0.3916,
+      "avgStopPct": 5.714,
+      "rrAtT2": 3.227
+    },
+    {
+      "key": "pct_6.5",
+      "label": "Fixed 6.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 48.271,
+      "sweepRate": 7.643,
+      "t2HitRate": 27.278,
+      "t3HitRate": 12.392,
+      "ev": -0.4034,
+      "avgStopPct": 6.5,
+      "rrAtT2": 1.924
+    },
+    {
+      "key": "swing13_buf0.3",
+      "label": "13-bar low +0.3%buf",
+      "type": "swing",
+      "signals": 1179156,
+      "winRate": 43.191,
+      "sweepRate": 13.606,
+      "t2HitRate": 24.35,
+      "t3HitRate": 11.071,
+      "ev": -0.4462,
+      "avgStopPct": 6.14,
+      "rrAtT2": 3.2
+    },
+    {
+      "key": "swing13_buf0",
+      "label": "13-bar low +0%buf",
+      "type": "swing",
+      "signals": 1165897,
+      "winRate": 42.342,
+      "sweepRate": 14.415,
+      "t2HitRate": 23.881,
+      "t3HitRate": 10.875,
+      "ev": -0.4475,
+      "avgStopPct": 6.009,
+      "rrAtT2": 3.404
+    },
+    {
+      "key": "swing13_buf0.5",
+      "label": "13-bar low +0.5%buf",
+      "type": "swing",
+      "signals": 1184309,
+      "winRate": 43.696,
+      "sweepRate": 13.157,
+      "t2HitRate": 24.632,
+      "t3HitRate": 11.19,
+      "ev": -0.4624,
+      "avgStopPct": 6.244,
+      "rrAtT2": 3.074
+    },
+    {
+      "key": "pct_7",
+      "label": "Fixed 7%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 49.597,
+      "sweepRate": 6.557,
+      "t2HitRate": 28.006,
+      "t3HitRate": 12.691,
+      "ev": -0.4768,
+      "avgStopPct": 7,
+      "rrAtT2": 1.787
+    },
+    {
+      "key": "swing13_buf0.8",
+      "label": "13-bar low +0.8%buf",
+      "type": "swing",
+      "signals": 1185131,
+      "winRate": 44.577,
+      "sweepRate": 12.307,
+      "t2HitRate": 25.113,
+      "t3HitRate": 11.395,
+      "ev": -0.4912,
+      "avgStopPct": 6.43,
+      "rrAtT2": 2.828
+    },
+    {
+      "key": "atr_1.75x",
+      "label": "ATR 1.75×",
+      "type": "atr",
+      "signals": 1378813,
+      "winRate": 49.698,
+      "sweepRate": 6.092,
+      "t2HitRate": 27.915,
+      "t3HitRate": 12.6,
+      "ev": -0.5181,
+      "avgStopPct": 7.228,
+      "rrAtT2": 1.714
+    },
+    {
+      "key": "pct_7.5",
+      "label": "Fixed 7.5%",
+      "type": "pct",
+      "signals": 1388604,
+      "winRate": 50.75,
+      "sweepRate": 5.639,
+      "t2HitRate": 28.636,
+      "t3HitRate": 12.949,
+      "ev": -0.5607,
+      "avgStopPct": 7.5,
+      "rrAtT2": 1.667
+    },
+    {
+      "key": "atr_2x",
+      "label": "ATR 2×",
+      "type": "atr",
+      "signals": 1358069,
+      "winRate": 52.115,
+      "sweepRate": 4.404,
+      "t2HitRate": 29.323,
+      "t3HitRate": 13.212,
+      "ev": -0.6689,
+      "avgStopPct": 8.145,
+      "rrAtT2": 1.5
+    },
+    {
+      "key": "atr_2.25x",
+      "label": "ATR 2.25×",
+      "type": "atr",
+      "signals": 1315379,
+      "winRate": 54.118,
+      "sweepRate": 3.216,
+      "t2HitRate": 30.578,
+      "t3HitRate": 13.791,
+      "ev": -0.81,
+      "avgStopPct": 8.947,
+      "rrAtT2": 1.333
+    },
+    {
+      "key": "atr_2.5x",
+      "label": "ATR 2.5×",
+      "type": "atr",
+      "signals": 1245942,
+      "winRate": 55.855,
+      "sweepRate": 2.4,
+      "t2HitRate": 31.725,
+      "t3HitRate": 14.351,
+      "ev": -0.9262,
+      "avgStopPct": 9.618,
+      "rrAtT2": 1.2
+    },
+    {
+      "key": "atr_2.75x",
+      "label": "ATR 2.75×",
+      "type": "atr",
+      "signals": 1152480,
+      "winRate": 57.267,
+      "sweepRate": 1.812,
+      "t2HitRate": 32.703,
+      "t3HitRate": 14.879,
+      "ev": -1.052,
+      "avgStopPct": 10.164,
+      "rrAtT2": 1.091
+    },
+    {
+      "key": "atr_3x",
+      "label": "ATR 3×",
+      "type": "atr",
+      "signals": 1043364,
+      "winRate": 58.407,
+      "sweepRate": 1.383,
+      "t2HitRate": 33.528,
+      "t3HitRate": 15.31,
+      "ev": -1.1866,
+      "avgStopPct": 10.611,
+      "rrAtT2": 1
+    },
+    {
+      "key": "atr_3.25x",
+      "label": "ATR 3.25×",
+      "type": "atr",
+      "signals": 926060,
+      "winRate": 59.22,
+      "sweepRate": 1.089,
+      "t2HitRate": 34.134,
+      "t3HitRate": 15.655,
+      "ev": -1.3489,
+      "avgStopPct": 10.975,
+      "rrAtT2": 0.923
+    },
+    {
+      "key": "atr_3.5x",
+      "label": "ATR 3.5×",
+      "type": "atr",
+      "signals": 807754,
+      "winRate": 59.884,
+      "sweepRate": 0.864,
+      "t2HitRate": 34.63,
+      "t3HitRate": 15.918,
+      "ev": -1.5106,
+      "avgStopPct": 11.271,
+      "rrAtT2": 0.857
+    }
+  ],
+  "rankedByWinRate": [
+    {
+      "key": "atr_3.5x",
+      "label": "ATR 3.5×",
+      "winRate": 59.884,
+      "ev": -1.5106
+    },
+    {
+      "key": "atr_3.25x",
+      "label": "ATR 3.25×",
+      "winRate": 59.22,
+      "ev": -1.3489
+    },
+    {
+      "key": "atr_3x",
+      "label": "ATR 3×",
+      "winRate": 58.407,
+      "ev": -1.1866
+    },
+    {
+      "key": "atr_2.75x",
+      "label": "ATR 2.75×",
+      "winRate": 57.267,
+      "ev": -1.052
+    },
+    {
+      "key": "atr_2.5x",
+      "label": "ATR 2.5×",
+      "winRate": 55.855,
+      "ev": -0.9262
+    },
+    {
+      "key": "atr_2.25x",
+      "label": "ATR 2.25×",
+      "winRate": 54.118,
+      "ev": -0.81
+    },
+    {
+      "key": "atr_2x",
+      "label": "ATR 2×",
+      "winRate": 52.115,
+      "ev": -0.6689
+    },
+    {
+      "key": "pct_7.5",
+      "label": "Fixed 7.5%",
+      "winRate": 50.75,
+      "ev": -0.5607
+    },
+    {
+      "key": "atr_1.75x",
+      "label": "ATR 1.75×",
+      "winRate": 49.698,
+      "ev": -0.5181
+    },
+    {
+      "key": "pct_7",
+      "label": "Fixed 7%",
+      "winRate": 49.597,
+      "ev": -0.4768
+    },
+    {
+      "key": "pct_6.5",
+      "label": "Fixed 6.5%",
+      "winRate": 48.271,
+      "ev": -0.4034
+    },
+    {
+      "key": "pct_6",
+      "label": "Fixed 6%",
+      "winRate": 46.762,
+      "ev": -0.3379
+    },
+    {
+      "key": "atr_1.5x",
+      "label": "ATR 1.5×",
+      "winRate": 46.659,
+      "ev": -0.3774
+    },
+    {
+      "key": "pct_5.5",
+      "label": "Fixed 5.5%",
+      "winRate": 45.043,
+      "ev": -0.2812
+    },
+    {
+      "key": "swing13_buf0.8",
+      "label": "13-bar low +0.8%buf",
+      "winRate": 44.577,
+      "ev": -0.4912
+    },
+    {
+      "key": "swing13_buf0.5",
+      "label": "13-bar low +0.5%buf",
+      "winRate": 43.696,
+      "ev": -0.4624
+    },
+    {
+      "key": "swing13_buf0.3",
+      "label": "13-bar low +0.3%buf",
+      "winRate": 43.191,
+      "ev": -0.4462
+    },
+    {
+      "key": "pct_5",
+      "label": "Fixed 5%",
+      "winRate": 43.055,
+      "ev": -0.2369
+    },
+    {
+      "key": "atr_1.25x",
+      "label": "ATR 1.25×",
+      "winRate": 42.737,
+      "ev": -0.2704
+    },
+    {
+      "key": "swing13_buf0",
+      "label": "13-bar low +0%buf",
+      "winRate": 42.342,
+      "ev": -0.4475
+    }
+  ],
+  "bandAnalysis": {
+    "lt1": {
+      "label": "ATR<1%",
+      "topMethods": [
+        {
+          "key": "atr_1x",
+          "label": "ATR 1×",
+          "signals": 389,
+          "winRate": 48.329,
+          "ev": 0.3926
+        },
+        {
+          "key": "hybrid_5b_0.3buf",
+          "label": "Hybrid(2×ATR ∨ 5L+0.3%)",
+          "signals": 241,
+          "winRate": 54.772,
+          "ev": 0.3101
+        },
+        {
+          "key": "atr_1.25x",
+          "label": "ATR 1.25×",
+          "signals": 456,
+          "winRate": 48.904,
+          "ev": 0.2968
+        },
+        {
+          "key": "hybrid_8b_0.3buf",
+          "label": "Hybrid(2×ATR ∨ 8L+0.3%)",
+          "signals": 284,
+          "winRate": 55.282,
+          "ev": 0.2689
+        },
+        {
+          "key": "swing5_buf0.5",
+          "label": "5-bar low +0.5%buf",
+          "signals": 350,
+          "winRate": 56.857,
+          "ev": 0.2504
+        }
+      ]
+    },
+    "b1to2": {
+      "label": "ATR 1–2%",
+      "topMethods": [
+        {
+          "key": "ema21_buf0.5",
+          "label": "EMA(21) +0.5%buf",
+          "signals": 24658,
+          "winRate": 47.672,
+          "ev": 0.2099
+        },
+        {
+          "key": "hybrid_8b_0.3buf",
+          "label": "Hybrid(2×ATR ∨ 8L+0.3%)",
+          "signals": 39194,
+          "winRate": 48.413,
+          "ev": 0.2072
+        },
+        {
+          "key": "ema21_buf0.2",
+          "label": "EMA(21) +0.2%buf",
+          "signals": 22441,
+          "winRate": 46.789,
+          "ev": 0.2039
+        },
+        {
+          "key": "hybrid_8b_0.5buf",
+          "label": "Hybrid(2×ATR ∨ 8L+0.5%)",
+          "signals": 40090,
+          "winRate": 49.292,
+          "ev": 0.2002
+        },
+        {
+          "key": "ema10_buf0.5",
+          "label": "EMA(10) +0.5%buf",
+          "signals": 25103,
+          "winRate": 41.238,
+          "ev": 0.1984
+        }
+      ]
+    },
+    "b2to3": {
+      "label": "ATR 2–3%",
+      "topMethods": [
+        {
+          "key": "ema21_buf0.5",
+          "label": "EMA(21) +0.5%buf",
+          "signals": 132328,
+          "winRate": 41.238,
+          "ev": 0.0181
+        },
+        {
+          "key": "ema21_buf0.2",
+          "label": "EMA(21) +0.2%buf",
+          "signals": 123045,
+          "winRate": 40.629,
+          "ev": 0.0141
+        },
+        {
+          "key": "ema10_buf0.5",
+          "label": "EMA(10) +0.5%buf",
+          "signals": 136900,
+          "winRate": 33.961,
+          "ev": -0.0318
+        },
+        {
+          "key": "ema10_buf0.2",
+          "label": "EMA(10) +0.2%buf",
+          "signals": 122324,
+          "winRate": 33.098,
+          "ev": -0.039
+        },
+        {
+          "key": "pct_2",
+          "label": "Fixed 2%",
+          "signals": 248814,
+          "winRate": 32.23,
+          "ev": -0.0548
+        }
+      ]
+    },
+    "gt3": {
+      "label": "ATR>3%",
+      "topMethods": [
+        {
+          "key": "pct_1.5",
+          "label": "Fixed 1.5%",
+          "signals": 1098155,
+          "winRate": 16.861,
+          "ev": -0.0941
+        },
+        {
+          "key": "pct_2",
+          "label": "Fixed 2%",
+          "signals": 1098155,
+          "winRate": 21.224,
+          "ev": -0.1288
+        },
+        {
+          "key": "pct_2.5",
+          "label": "Fixed 2.5%",
+          "signals": 1098155,
+          "winRate": 25.234,
+          "ev": -0.1493
+        },
+        {
+          "key": "pct_3",
+          "label": "Fixed 3%",
+          "signals": 1098155,
+          "winRate": 28.958,
+          "ev": -0.1576
+        },
+        {
+          "key": "pct_3.5",
+          "label": "Fixed 3.5%",
+          "signals": 1098155,
+          "winRate": 32.239,
+          "ev": -0.1713
+        }
+      ]
+    }
+  }
+}

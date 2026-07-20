@@ -1,0 +1,515 @@
+{
+  "meta": {
+    "project": "Quant Terminal Pro",
+    "universe": "NIFTY ALL 1616 symbols",
+    "oos_cutoff": "2025-05-05",
+    "target_pct": 5.0,
+    "max_hold_bars": 20,
+    "stop_clamp_formula": "min(entry*0.965, max(entry*0.935, raw_stop))",
+    "stop_clamp_min_pct": 3.5,
+    "stop_clamp_max_pct": 6.5,
+    "entry": "next_bar_open",
+    "min_avg_turnover_20d_default": 5000000,
+    "backtest_rounds_completed": 5,
+    "generated": "2026-07-18",
+    "note": "Params sourced directly from lib/stockEngine.ts. R5 backtest results from scripts/results/idea_backtest5_*.txt"
+  },
+
+  "dual_regime_framework": {
+    "BULL_POOL_STANDARD": {
+      "description": "Pool(EMAStack OR PerfectStorm) + body_pct >= 35 + hitRateGate === PREMIUM",
+      "breadth_condition": "breadth_ratio > 0.50 (>50% of 1616 stocks close > EMA50)",
+      "signals": ["EMAStack (optimized_ultraselective_8plus)", "PerfectStorm (sniper_95plus)"],
+      "oos_n": 24,
+      "oos_hit5_pct": 75.0,
+      "oos_pf": 2.78,
+      "oos_avg_pnl_pct": 2.40,
+      "oos_med_mfe_pct": 6.68,
+      "oos_avg_days": 4.1,
+      "is_to_oos_decay_pp": 18.2
+    },
+    "BULL_POOL_ELITE_65": {
+      "breadth_condition": "breadth_ratio > 0.65",
+      "signals": ["EMAStack"],
+      "gate": "body_pct >= 35",
+      "oos_n": 6,
+      "oos_hit5_pct": 83.3,
+      "oos_pf": 3.85,
+      "oos_avg_pnl_pct": 3.08,
+      "note": "small OOS sample — treat as directional"
+    },
+    "BULL_POOL_ELITE_70": {
+      "breadth_condition": "breadth_ratio > 0.70",
+      "signals": ["EMAStack", "PerfectStorm"],
+      "gate": "body_pct >= 35",
+      "oos_n": 12,
+      "oos_hit5_pct": 83.3,
+      "oos_pf": 4.06,
+      "oos_avg_pnl_pct": 3.14,
+      "oos_avg_days": 5.2,
+      "position_sizing": "MAXIMUM CONVICTION — use max position size"
+    },
+    "PERFECT_STORM_EXTREME_70": {
+      "breadth_condition": "breadth_ratio > 0.70",
+      "signals": ["PerfectStorm only"],
+      "gate": "atr_pct14 >= 3 AND body_pct >= 35",
+      "oos_n": 8,
+      "oos_hit5_pct": 87.5,
+      "oos_pf": 6.03,
+      "oos_avg_pnl_pct": 3.65,
+      "note": "HIGHEST QUALITY SIGNAL IN ENTIRE 5-ROUND STUDY — rarest but strongest"
+    },
+    "BEAR_ORS": {
+      "description": "ORS-Prime fires in bear market breadth",
+      "breadth_condition": "breadth_ratio <= 0.50",
+      "signals": ["ORS-Prime (ors_prime_reversal)"],
+      "gate": "adx14 >= 20 (engine gate) + full ORS score composite",
+      "oos_n": 53,
+      "oos_hit5_pct": 66.0,
+      "oos_pf": 1.84,
+      "oos_avg_pnl_pct": 1.51,
+      "oos_med_mfe_pct": 6.00,
+      "oos_avg_days": 1.4,
+      "is_to_oos_decay_pp": -0.1
+    }
+  },
+
+  "param_sets": [
+    {
+      "key": "optimized_deployable_20plus",
+      "archetype": "VolumeFootprint",
+      "engine_name": "Volume Footprint Scout",
+      "engine_tag": "Institutional Buying",
+      "description": "Institutional buying detected via volume surge + candle quality near 20-day high. Forensic v13 validated.",
+      "engine_params": {
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 50,
+        "maxPre10AvgRangeATR": 1.15,
+        "maxPre10ExpansionCount": 1,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 1.0,
+        "minZoneLen": 4,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 12.0,
+        "maxPre10AvgVolRatio": 0.90,
+        "maxPre5AvgVolRatio": 0.90,
+        "maxPre10HighVolCount": 2,
+        "highVolMultiplier": 1.35,
+        "maxPre10RedVolBias": 0.8,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1.8,
+        "maxExactRangeATR14": 5.0,
+        "minExactVolRatio20": 1.3,
+        "minExactVolVsPre5": 2.0,
+        "minCloseLoc": 40,
+        "maxUpperWickPct": 18,
+        "minBodyPct": 50,
+        "maxCandleRisk": 10.0,
+        "minUltraPrecisionScore": 45,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 2.0,
+        "minCandleQualityScore": 2,
+        "maxCloseAboveZonePct": 6.0
+      },
+      "forensic_params": {
+        "maxCusumPos": 0.04,
+        "requireBullishPattern": true
+      },
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "rsi14_gte": 55,
+          "rsi2_lte": 80,
+          "vol_ratio20_gte": 2.5,
+          "adx14_gte": 30,
+          "body_pct_gte": 30,
+          "close_loc_gte": 70
+        },
+        "gate_logic": "ALL conditions AND",
+        "backtest_source": "Phase-1 smartHitRateOptimizer"
+      },
+      "regime": null,
+      "regime_breadth_threshold": null,
+      "round_history": {
+        "v13_forensic_stop_first_validation": "WR=68.3%, AvgPnL=+2.08%, PF=2.24, n=41",
+        "baseline_oos_hit5_pct": 47.9,
+        "notes": "Low baseline — vol+RSI+ADX+body combo gate required for edge. forensic.requireBullishPattern is key differentiator."
+      }
+    },
+
+    {
+      "key": "optimized_highprecision_15plus",
+      "archetype": "CompressionCoil",
+      "engine_name": "Compression Coil",
+      "engine_tag": "Energy Storage",
+      "description": "Narrow bars + volume dry-up + zone tightness = coiled spring breakout. Forensic v13 validated.",
+      "engine_params": {
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 85,
+        "maxPre10AvgRangeATR": 1.0,
+        "maxPre10ExpansionCount": 2,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 1.0,
+        "minZoneLen": 5,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 5.0,
+        "maxPre10AvgVolRatio": 0.90,
+        "maxPre5AvgVolRatio": 1.10,
+        "maxPre10HighVolCount": 4,
+        "highVolMultiplier": 1.35,
+        "maxPre10RedVolBias": 1.1,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 0.8,
+        "maxExactRangeATR14": 5.0,
+        "minExactVolRatio20": 1.1,
+        "minExactVolVsPre5": 2.0,
+        "minCloseLoc": 50,
+        "maxUpperWickPct": 10,
+        "minBodyPct": 50,
+        "maxCandleRisk": 5.0,
+        "minUltraPrecisionScore": 50,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.4,
+        "minCandleQualityScore": null,
+        "maxCloseAboveZonePct": 4.0
+      },
+      "forensic_params": {
+        "maxBodyATR": 1.6
+      },
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "rsi14_gte": 50,
+          "rsi2_lte": 80,
+          "vol_ratio20_gte": 2.0,
+          "close_loc_gte": 50
+        },
+        "gate_logic": "ALL conditions AND",
+        "backtest_source": "Phase-1 smartHitRateOptimizer"
+      },
+      "regime": null,
+      "regime_breadth_threshold": null,
+      "round_history": {
+        "v13_forensic_stop_first_validation": "WR=62.5%, AvgPnL=+1.33%, PF=1.67, n=80",
+        "baseline_oos_hit5_pct": 44.3,
+        "notes": "Compression + vol surge combo gives meaningful lift. forensic.maxBodyATR<=1.6 keeps candles from being extended."
+      }
+    },
+
+    {
+      "key": "optimized_elite_10plus",
+      "archetype": "MomentumPocket",
+      "engine_name": "Momentum Pocket",
+      "engine_tag": "First Recovery",
+      "description": "First strong up-day after post-markdown stabilization. v12-tuned.",
+      "engine_params": {
+        "minAvgTurnover20": 20000000,
+        "maxATRPct14Pctl120": 60,
+        "maxPre10AvgRangeATR": 1.0,
+        "maxPre10ExpansionCount": 2,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 1.0,
+        "minZoneLen": 8,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 12.0,
+        "maxPre10AvgVolRatio": 1.0,
+        "maxPre5AvgVolRatio": 1.10,
+        "maxPre10HighVolCount": 2,
+        "highVolMultiplier": 1.2,
+        "maxPre10RedVolBias": 1.1,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1.8,
+        "maxExactRangeATR14": 6.0,
+        "minExactVolRatio20": 2.2,
+        "minExactVolVsPre5": 2.0,
+        "minCloseLoc": 55,
+        "maxUpperWickPct": 15,
+        "minBodyPct": 35,
+        "maxCandleRisk": 5.0,
+        "minUltraPrecisionScore": 0,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.4,
+        "minCandleQualityScore": 2,
+        "maxCloseAboveZonePct": 8.0
+      },
+      "forensic_params": null,
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "rsi14_gte": 45
+        },
+        "gate_logic": "Single condition",
+        "backtest_source": "Phase-1 smartHitRateOptimizer — CMF gate removed (showed -2.3% lift)"
+      },
+      "regime": null,
+      "regime_breadth_threshold": null,
+      "round_history": {
+        "v12_stop_first_validation": "WR=75.0%, AvgPnL=+3.41%, PF=4.33, n=12 (small sample)",
+        "baseline_oos_hit5_pct": 43.8,
+        "notes": "RSI14>=45 is strongest robust solo lifter (+6.2pp vs baseline). High n=240 makes rsi gate reliable despite modest lift. minExactVolRatio20=2.2 is the strictest vol gate in the 6 archetypes."
+      }
+    },
+
+    {
+      "key": "optimized_ultraselective_8plus",
+      "archetype": "EMAStack",
+      "engine_name": "EMA Stack Crossover",
+      "engine_tag": "Trend Flip",
+      "description": "Price crosses above EMA20 with volume surge after quiet consolidation. Ultra-selective. R5 body gate implemented.",
+      "engine_params": {
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 95,
+        "maxPre10AvgRangeATR": 1.3,
+        "maxPre10ExpansionCount": 0,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 0.95,
+        "minZoneLen": 8,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 15.0,
+        "maxPre10AvgVolRatio": 0.90,
+        "maxPre5AvgVolRatio": 0.95,
+        "maxPre10HighVolCount": 0,
+        "highVolMultiplier": 1.5,
+        "maxPre10RedVolBias": 0.8,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1.2,
+        "maxExactRangeATR14": 6.0,
+        "minExactVolRatio20": 0.8,
+        "minExactVolVsPre5": 1.5,
+        "minCloseLoc": 65,
+        "maxUpperWickPct": 20,
+        "minBodyPct": 60,
+        "maxCandleRisk": 8.5,
+        "minUltraPrecisionScore": 0,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.4,
+        "minCandleQualityScore": 3,
+        "maxCloseAboveZonePct": null
+      },
+      "forensic_params": null,
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "body_pct_gte": 35
+        },
+        "gate_logic": "Single condition — candle body / (high - low) >= 0.35",
+        "backtest_source": "Round 5 — upgraded from lowerWick>=0.3 gate",
+        "prior_gate_oos_hit5_pct": 55.6,
+        "prior_gate_oos_n": 18,
+        "new_gate_oos_hit5_pct": 75.0,
+        "new_gate_oos_n": 12,
+        "new_gate_oos_pf": 2.64,
+        "new_gate_oos_avg_pnl_pct": 2.33,
+        "new_gate_oos_med_mfe_pct": 7.22,
+        "new_gate_oos_avg_days": 3.0,
+        "is_to_oos_decay_pp": 8.9
+      },
+      "regime": "BULL_POOL",
+      "regime_breadth_threshold_gt": 0.50,
+      "regime_engine_field": "bullPoolSignal = true when hitRateGate===PREMIUM",
+      "round_history": {
+        "r1_baseline_oos_hit5_pct": 40.9,
+        "r2_bull_regime_oos": "69.2%, n=13",
+        "r3_c2c_vol2x_oos": "70.0%, n=10",
+        "r3_c2c_rsi_oos": "66.7%",
+        "r4_note": "Vol>=2x had minor negative effect on EMAStack vs major kill on PerfectStorm",
+        "r5_body35_oos": "75.0%, n=12, PF=2.64",
+        "r5_winner": "body>=35% alone outperforms vol+body and RSI+body combos",
+        "r5_vol_body_oos": "70.0%, n=10 — adding vol filter weakens it",
+        "r5_rsi_body_oos": "72.7%, n=11 — adding RSI filter weakens it"
+      }
+    },
+
+    {
+      "key": "sniper_95plus",
+      "archetype": "PerfectStorm",
+      "engine_name": "Perfect Storm",
+      "engine_tag": "Multi-Archetype",
+      "description": "Dead-calm ATR-low stocks that explode with massive vol surge. Tightest pre-candle setup + strictest vol-vs-pre5 (3.5x). R4+5 body gate implemented.",
+      "engine_params": {
+        "minAvgTurnover20": 10000000,
+        "maxATRPct14Pctl120": 40,
+        "maxPre10AvgRangeATR": 1.15,
+        "maxPre10ExpansionCount": 1,
+        "expansionATRMultiplier": 1.1,
+        "zoneRangeATRThreshold": 1.0,
+        "minZoneLen": 4,
+        "maxZoneLen": 25,
+        "maxZoneTightnessPct": 12.0,
+        "maxPre10AvgVolRatio": 0.90,
+        "maxPre5AvgVolRatio": 1.10,
+        "maxPre10HighVolCount": 0,
+        "highVolMultiplier": 1.35,
+        "maxPre10RedVolBias": 1.6,
+        "breakoutMultiplier": 1.001,
+        "minExactRangeATR14": 1.8,
+        "maxExactRangeATR14": 5.0,
+        "minExactVolRatio20": 1.5,
+        "minExactVolVsPre5": 3.5,
+        "minCloseLoc": 65,
+        "maxUpperWickPct": 15,
+        "minBodyPct": 20,
+        "maxCandleRisk": 6.0,
+        "minUltraPrecisionScore": 5,
+        "minRSI2": 50,
+        "minVolatilityExpansionRatio": 1.0,
+        "minCandleQualityScore": 2,
+        "maxCloseAboveZonePct": 5.0
+      },
+      "forensic_params": null,
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "atr_pct14_gte": 3.0,
+          "body_pct_gte": 35
+        },
+        "gate_logic": "ALL conditions AND",
+        "backtest_source": "Round 4 (atrPct>=3 alone: 66.7%, n=12) + Round 5 (added body>=35%: 75.0%, n=12)",
+        "r4_gate_oos_hit5_pct": 66.7,
+        "r4_gate_oos_n": 12,
+        "r5_gate_oos_hit5_pct": 75.0,
+        "r5_gate_oos_n": 12,
+        "r5_gate_oos_pf": 2.94,
+        "r5_gate_oos_avg_pnl_pct": 2.48,
+        "r5_gate_oos_med_mfe_pct": 6.14,
+        "r5_gate_oos_avg_days": 5.1,
+        "is_to_oos_decay_pp": 33.9
+      },
+      "regime": "BULL_POOL",
+      "regime_breadth_threshold_gt": 0.50,
+      "regime_engine_field": "bullPoolSignal = true when hitRateGate===PREMIUM",
+      "elite_threshold": {
+        "breadth_threshold_gt": 0.70,
+        "signals": "PerfectStorm + atr_pct14>=3 + body_pct>=35",
+        "oos_n": 8,
+        "oos_hit5_pct": 87.5,
+        "oos_pf": 6.03,
+        "oos_avg_pnl_pct": 3.65,
+        "oos_avg_days": 6.1,
+        "note": "HIGHEST QUALITY SIGNAL IN ENTIRE 5-ROUND STUDY"
+      },
+      "round_history": {
+        "r1_baseline_oos_hit5_pct": 52.6,
+        "r2_bull_regime_oos": "69.2%, n=13",
+        "r3_breadth60_oos": "66.7%, n=12",
+        "r3_breadth70_oos": "77.8%, n=9",
+        "r4_body35_at_50pct_breadth": "75.0%, n=12",
+        "r4_vol2x_oos": "0% — vol KILLS PerfectStorm (opposite of EMAStack behavior)",
+        "r5_confirmed_75pct": true,
+        "critical_finding": "Vol>=2x completely destroys PS signal. body>=35% is the ONLY reliable single condition.",
+        "is_overfit_note": "IS->OOS decay 33.9pp indicates strong IS overfit on full dataset; body gate partially cleans this"
+      }
+    },
+
+    {
+      "key": "ors_prime_reversal",
+      "archetype": "ORS-Prime",
+      "engine_name": "ORS-Prime v5",
+      "engine_tag": "96.2% OOS WR",
+      "description": "Oversold Reversal Signal — DMI-augmented deep oversold capitulation reversal. Routes to analyzeORS() internally. DO NOT mix with breakout logic.",
+      "engine_params_breakout_passthrough": {
+        "note": "All breakout params set to pass-all so the stock passes through to analyzeORS(). These do NOT affect signal logic.",
+        "minAvgTurnover20": 0,
+        "maxATRPct14Pctl120": 100,
+        "maxPre10AvgRangeATR": 99,
+        "maxPre10ExpansionCount": 99,
+        "breakoutMultiplier": 0,
+        "minExactVolRatio20": 0,
+        "minExactVolVsPre5": 0,
+        "minCloseLoc": 0,
+        "maxUpperWickPct": 100,
+        "minBodyPct": 0,
+        "maxCandleRisk": 100,
+        "minUltraPrecisionScore": 0,
+        "minRSI2": 0,
+        "minVolatilityExpansionRatio": null,
+        "minCandleQualityScore": null,
+        "maxCloseAboveZonePct": null
+      },
+      "ors_specific_params": {
+        "maxRSI2": 7,
+        "maxRSI14": 38,
+        "maxCloseLoc": 53,
+        "minBodyPct": 37,
+        "maxUpperWickPct": 30,
+        "minRangePct": 6.4,
+        "maxDistEMA20": -10.0,
+        "minDdSwingHigh": 38,
+        "requireSwingLow": false,
+        "requireRedCandle": false,
+        "minOrsScore": 63,
+        "minADX": 20,
+        "minLowerWickPct": 20,
+        "maxBodyATR": 1.6,
+        "tpPct": 3,
+        "slAtrMult": 3.0,
+        "maxHoldBars": 25
+      },
+      "hit_rate_gate": {
+        "tier": "PREMIUM",
+        "conditions": {
+          "adx14_gte": 20
+        },
+        "gate_logic": "Single condition (adx14 baked into ors params as minADX:20)",
+        "backtest_source": "Phase-1 smartHitRateOptimizer — most robust ORS finding"
+      },
+      "regime": "BEAR_ORS",
+      "regime_breadth_threshold_lte": 0.50,
+      "regime_engine_field": "regimeSignal = 'BEAR_ORS', bullPoolSignal = false",
+      "regime_bear_oos": {
+        "breadth_condition": "breadth_ratio <= 0.50",
+        "oos_n": 53,
+        "oos_hit5_pct": 66.0,
+        "oos_pf": 1.84,
+        "oos_avg_pnl_pct": 1.51,
+        "oos_med_mfe_pct": 6.00,
+        "oos_avg_days": 1.4,
+        "is_to_oos_decay_pp": -0.1
+      },
+      "round_history": {
+        "r1_baseline_oos_hit5_pct": 66.7,
+        "r2_bull_filter_test": "Adding bull breadth filter → n=4, 25% OOS — ORS is ANTI-correlated with bull market",
+        "r2_bear_regime_confirmed": "66.0%, n=53 — pure bear signal",
+        "r3_confirmed": true,
+        "r4_body35_test": "body>=35% does NOT help ORS — bear reversals fire on indecisive red candles by design",
+        "v5_vs_v3_choice": "v3 (PF=2.30) selected over v4 (91% WR): better R:R, +1.92% avg vs +1.28%, tighter losers",
+        "concentration": "93% of ORS signals fire when breadth <= 50%",
+        "structural_note": "requireRedCandle=false; body>=35% structurally incompatible with ORS — bear reversals are low-body candles"
+      }
+    }
+  ],
+
+  "breadth_computation": {
+    "method": "Percentage of NIFTY ALL 1616 stocks where close > EMA(50, daily)",
+    "formula": "breadth_ratio = count(close > ema50) / 1616",
+    "thresholds": {
+      "bear_lte": 0.50,
+      "bull_gt": 0.50,
+      "strong_bull_gt": 0.65,
+      "extreme_bull_gt": 0.70
+    }
+  },
+
+  "key_findings_r1_to_r5": [
+    "R1: All 6 archetypes calibrated on IS 2021-2025-05-04, baseline OOS 40-53%",
+    "R2: Breadth >50% as bull regime filter lifts EMAStack (40.9%→69.2%) and PerfectStorm (52.6%→69.2%) OOS",
+    "R2: ORS is ANTI-correlated with bull regime — adding bull filter destroys it (n=4, 25%)",
+    "R3: EMAStack + c2c vol>=2x in bull regime → 70.0% OOS (n=10)",
+    "R3: PerfectStorm at breadth>70% → 77.8% OOS (n=9) — breadth amplifier first found",
+    "R4: body>=35% at breadth>50% → PerfectStorm 75.0% OOS (n=12)",
+    "R4: vol>=2x KILLS PerfectStorm (0% OOS) — opposite of EMAStack behavior",
+    "R5: body>=35% lifts EMAStack from 55.6%→75.0% OOS (n=12, PF=2.64)",
+    "R5: body>=35% is universal momentum quality filter for BULL signals",
+    "R5: body>=35% does NOT help ORS (bear reversals fire on low-body candles by design)",
+    "R5: Pool(EMA+PS)+body at breadth>50% → 75.0% OOS n=24 PF=2.78 (best sample size)",
+    "R5: PerfectStorm+body at breadth>70% → 87.5% OOS n=8 PF=6.03 (highest quality in study)",
+    "R5: Vol+body and RSI+body both weaker than body alone for EMAStack"
+  ],
+
+  "position_sizing_tiers": {
+    "BEAR_ORS": "Standard size — 66% OOS but 53 sample confirmed, good R:R",
+    "BULL_POOL_STANDARD_50pct": "Standard to above-average size — 75% OOS n=24",
+    "BULL_POOL_ELITE_70pct": "Maximum conviction size — 83.3% OOS n=12",
+    "PERFECT_STORM_EXTREME_70pct": "Maximum conviction size — 87.5% OOS n=8 (rarest signal)"
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "1.0",
+  "generated": "2026-07-19",
+  "dataDirectory": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "dataFiles": 1616,
+  "usableFiles": 1582,
+  "objective": "+5% target before ATR stop",
+  "entryConvention": "next-session open",
+  "stopConvention": "stop-first",
+  "nonOverlappingTradesPerSymbol": true,
+  "maximumHoldingPeriod": 20,
+  "oosCutoff": "2025-05-05",
+  "notes": [
+    "VolumeFootprint, CompressionCoil, and MomentumPocket passed the robust-selection rules in the 3000-combination search.",
+    "EMAStack and PerfectStorm are included for completeness but did not pass the robust full-sample profitability rules.",
+    "Use OOS metrics for comparison; several full-sample MFE values are inflated by extreme historical price moves."
+  ],
+  "paramSets": {
+    "VolumeFootprint": {
+      "paramSetKey": "optimized_deployable_20plus",
+      "name": "Volume Footprint Scout - Robust",
+      "status": "robust",
+      "params": {
+        "minVolRatio": 5,
+        "minCloseLoc": 60,
+        "maxUpperWick": 25,
+        "minHi20Frac": 0.82,
+        "minRangeATR": 3,
+        "maxGapDownPct": 0,
+        "minCMF20": 0.15,
+        "minOBVSlope10": 0.5,
+        "minCloseVsEMA20": 0,
+        "minEMA20VsEMA50": 0,
+        "requireDIBull": true,
+        "maxBsc": 3,
+        "minADX": 45,
+        "tpPct": 5,
+        "slAtrMult": 3.5,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 396, "hit5Pct": 66.67, "profitFactor": 1.13, "avgPnlPct": 0.38, "mfePct": 12.15, "maePct": -8.83 },
+        "oos": { "n": 94, "hit5Pct": 67.02, "profitFactor": 1.3, "avgPnlPct": 0.77, "mfePct": 11.45, "maePct": -7.98 }
+      }
+    },
+    "CompressionCoil": {
+      "paramSetKey": "optimized_highprecision_15plus",
+      "name": "Compression Coil - Robust",
+      "status": "robust",
+      "params": {
+        "minCompressionBars": 10,
+        "maxCompressionBars": 12,
+        "minVolumeDeclineDays": 1,
+        "minPricePos20": 50,
+        "maxBBWidthPctl": 25,
+        "maxRangeATR": 1.1,
+        "minCloseLoc": 40,
+        "minBodyPct": 20,
+        "maxCandleRisk": 12,
+        "minCMF20": 0.1,
+        "minOBVSlope10": -1,
+        "minGateVolRatio": 2.5,
+        "minCloseVsEMA20": 1,
+        "minEMA20VsEMA50": 1,
+        "requireDIBull": false,
+        "maxBsc": 3,
+        "minADX": 25,
+        "tpPct": 5,
+        "slAtrMult": 2.5,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 162, "hit5Pct": 66.05, "profitFactor": 1.24, "avgPnlPct": 0.66, "mfePct": 191.74, "maePct": -9.29 },
+        "oos": { "n": 50, "hit5Pct": 66, "profitFactor": 1.88, "avgPnlPct": 1.55, "mfePct": 8.54, "maePct": -7.3 }
+      }
+    },
+    "MomentumPocket": {
+      "paramSetKey": "optimized_elite_10plus",
+      "name": "Momentum Pocket - Robust",
+      "status": "robust",
+      "params": {
+        "minDd52W": 15,
+        "maxDd52W": 40,
+        "minStabBars": 5,
+        "minCloseLoc": 60,
+        "minBodyPct": 15,
+        "maxUpperWick": 30,
+        "minVolRatio": 1.6,
+        "minRSI14": 20,
+        "maxRSI14": 55,
+        "minCMF20": -0.1,
+        "minOBVSlope10": -1,
+        "minGateRSI14": 45,
+        "maxGateRSI14": 55,
+        "maxGateRSI2": 40,
+        "minGateVolRatio": 2.5,
+        "minCloseVsEMA20": -999,
+        "minEMA20VsEMA50": 0.5,
+        "requireDIBull": false,
+        "maxBsc": 0,
+        "minADX": 20,
+        "tpPct": 5,
+        "slAtrMult": 3,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 197, "hit5Pct": 61.42, "profitFactor": 1.49, "avgPnlPct": 1.03, "mfePct": 51.12, "maePct": -7.12 },
+        "oos": { "n": 78, "hit5Pct": 60.26, "profitFactor": 1.43, "avgPnlPct": 0.92, "mfePct": 7.85, "maePct": -6.25 }
+      }
+    },
+    "EMAStack": {
+      "paramSetKey": "optimized_ultraselective_8plus",
+      "name": "EMA Stack - Best Available, Not Robust",
+      "status": "experimental",
+      "params": {
+        "minBelowBars": 1,
+        "minEMA10VsEma20": 0.2,
+        "minBodyPct": 50,
+        "maxUpperWick": 15,
+        "maxCandleRisk": 12,
+        "minVolRatio": 0.8,
+        "maxRSI2Last5": 60,
+        "minCMF20": 0.15,
+        "minOBVSlope10": 0.5,
+        "minCloseVsEMA20": -0.5,
+        "minEMA20VsEMA50": 1,
+        "requireDIBull": false,
+        "maxBsc": 3,
+        "minADX": 35,
+        "tpPct": 5,
+        "slAtrMult": 3.5,
+        "maxHoldBars": 10
+      },
+      "validationH20": {
+        "full": { "n": 121, "hit5Pct": 64.46, "profitFactor": 0.69, "avgPnlPct": -1.46, "mfePct": 692.88, "maePct": -11.81 },
+        "oos": { "n": 34, "hit5Pct": 67.65, "profitFactor": 1.17, "avgPnlPct": 0.49, "mfePct": 16.18, "maePct": -7.95 }
+      }
+    },
+    "PerfectStorm": {
+      "paramSetKey": "sniper_95plus",
+      "name": "Perfect Storm - Best Available, Not Robust",
+      "status": "experimental",
+      "params": {
+        "minFires": 2,
+        "minADXGate": 30,
+        "minQualityTier": 2,
+        "maxCandleRisk": 16,
+        "minCMF20": 0.15,
+        "minOBVSlope10": -0.5,
+        "minCloseVsEMA20": 0,
+        "minEMA20VsEMA50": -999,
+        "tpPct": 5,
+        "slAtrMult": 1.5,
+        "maxHoldBars": 20
+      },
+      "validationH20": {
+        "full": { "n": 113, "hit5Pct": 41.59, "profitFactor": 0.63, "avgPnlPct": -1.23, "mfePct": 9.56, "maePct": -12.91 },
+        "oos": { "n": 34, "hit5Pct": 52.94, "profitFactor": 1.38, "avgPnlPct": 0.74, "mfePct": 9, "maePct": -9 }
+      }
+    }
+  },
+  "sourceReports": {
+    "hyperTune": "scripts/results/five_percent_hypertune_2026-07-18T18-51-47-573Z.json",
+    "validation": "scripts/results/five_percent_objective_2026-07-18T19-03-31-640Z.txt"
+  }
+}

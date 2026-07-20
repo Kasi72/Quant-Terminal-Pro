@@ -1,0 +1,61 @@
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Round 3 Idea Backtest   2026-07-19T02:22:31.423Z
+Universe: 1616 NIFTY ALL | OOS cutoff: 2025-05-05 | Target: +5% | MaxHold: 20 | MinTurn: 5M
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Round 2 reference (OOS):
+  EMAStack + bull regime:       n=13  Hit5=69.2%  PF=2.10
+  PerfectStorm + bull regime:   n=13  Hit5=69.2%  PF=2.39
+  ORS-Prime (no filter):        n=57  Hit5=66.7%  PF=1.62
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C1: EMAStack + PerfectStorm POOLED in bull regime (>50% stocks above EMA50)
+  Full: n=209  Hit5=55.5%  PF=1.15  AvgP&L=+0.37%  MedMFE=5.26%  AvgMAE=-1.09%  AvgDays=3.1
+  OOS:  n=26   Hit5=69.2%  PF=2.24  AvgP&L=+1.91%  MedMFE=6.59%  AvgMAE=-1.54%  AvgDays=4.1
+  IS→OOS: 13.7pp
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C2: EMAStack tightening variants in bull regime
+
+  EMAStack + lowerWick≥0.40
+    Full: n=28  Hit5=53.6%  PF=1.04  AvgP&L=+0.11%  MedMFE=6.82%  AvgDays=2.4
+    OOS:  n=2   Hit5=50.0%  PF=1.15  AvgP&L=+0.33%  MedMFE=13.64%  AvgDays=1.0
+    IS→OOS: -3.6pp
+
+  EMAStack + RSI14∈[50,75]
+    Full: n=131  Hit5=62.6%  PF=1.64  AvgP&L=+1.22%  MedMFE=6.30%  AvgDays=2.7
+    OOS:  n=12   Hit5=66.7%  PF=1.87  AvgP&L=+1.55%  MedMFE=7.07%  AvgDays=3.3
+    IS→OOS: 4.1pp
+
+  EMAStack + vol≥2×avg
+    Full: n=93  Hit5=64.5%  PF=1.87  AvgP&L=+1.50%  MedMFE=6.82%  AvgDays=2.5
+    OOS:  n=10   Hit5=70.0%  PF=2.05  AvgP&L=+1.79%  MedMFE=7.22%  AvgDays=1.9
+    IS→OOS: 5.5pp
+
+  EMAStack + lowerWick≥0.40 + RSI14∈[50,75]
+    Full: n=27  Hit5=51.9%  PF=0.97  AvgP&L=-0.07%  MedMFE=5.77%  AvgDays=2.4
+    OOS:  n=2   Hit5=50.0%  PF=1.15  AvgP&L=+0.33%  MedMFE=13.64%  AvgDays=1.0
+    IS→OOS: -1.9pp
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C3: ORS-Prime in BEAR regime (≤50% stocks above EMA50)
+  Full: n=316  Hit5=66.1%  PF=1.96  AvgP&L=+1.62%  MedMFE=6.36%  AvgMAE=-0.80%  AvgDays=1.4
+  OOS:  n=53   Hit5=66.0%  PF=1.84  AvgP&L=+1.51%  MedMFE=6.00%  AvgMAE=-1.02%  AvgDays=1.4
+  IS→OOS: -0.1pp  [ORS baseline no-filter OOS: 66.7%]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C4: Regime threshold sweep — EMAStack and PerfectStorm
+    Threshold  |   EMAStack                              |   PerfectStorm
+    (breadth%) |  Full n  Full H5%  OOS n  OOS H5%  PF  |  Full n  Full H5%  OOS n  OOS H5%  PF
+    ────────────────────────────────────────────────────────────────────────────────────────────────────
+    > 35%       |      175     57.7%      25     48.0%   0.92  |       98     39.8%      24     58.3%   1.56
+    > 40%       |      159     60.4%      21     52.4%   1.06  |       87     41.4%      17     70.6%   3.19
+    > 45%       |      144     61.1%      15     66.7%   1.95  |       81     39.5%      15     66.7%   2.66
+    > 50%       |      133     62.4%      13     69.2%   2.10  |       74     39.2%      13     69.2%   2.39
+    > 55%       |      121     62.8%      12     66.7%   1.87  |       67     41.8%      13     69.2%   2.39
+    > 60%       |      105     64.8%       8     62.5%   1.52  |       56     42.9%      12     66.7%   2.13
+    > 65%       |       86     68.6%       7     71.4%   2.31  |       48     41.7%      12     66.7%   2.13
+    > 70%       |       58     70.7%       5     60.0%   1.38  |       32     46.9%       9     77.8%   3.76
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════

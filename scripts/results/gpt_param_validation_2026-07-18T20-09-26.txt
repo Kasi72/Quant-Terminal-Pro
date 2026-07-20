@@ -1,0 +1,12 @@
+GPT LUNA PARAMS — Validation Results
+Generated: 2026-07-18T20:09:26.529Z
+
+Archetype            Full-N   Hit5/20    MedMFE    PF_5%  |    IS N   IS H5/20  |   OOS N   OOS H5/20   OOS MedMFE   OOS PF
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+GPT Published (for comparison):
+  VolumeFootprint OOS: 67.0% n=94
+  CompressionCoil OOS: 66.0% n=50
+  MomentumPocket  OOS: 60.3% n=78
+  EMAStack        OOS: 67.7% n=34 (10-bar hold)
+  PerfectStorm    OOS: 52.9% n=34

@@ -1,0 +1,398 @@
+{
+  "generated": "2026-07-18T18:46:10.870Z",
+  "dataDir": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "window": 300,
+  "oosCut": "2025-05-05",
+  "combos": 3000,
+  "minOOS": 30,
+  "meta": {
+    "files": 1616,
+    "usable": 1584,
+    "short": 32
+  },
+  "bestBySet": {
+    "VolumeFootprint": {
+      "best": {
+        "p": {
+          "minVolRatio": 6.6,
+          "minCloseLoc": 74,
+          "maxUpperWick": 7,
+          "minHi20Frac": 0.804,
+          "minRangeATR": 2.4,
+          "maxGapDownPct": -0.1,
+          "requireDIBull": true,
+          "maxBsc": 1,
+          "minADX": 45,
+          "tpPct": 3,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 106,
+          "wr": 75.47169811320755,
+          "pf": 1.000424808836024,
+          "avg": 0.0009433962264148899,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 76,
+          "wr": 77.63157894736842,
+          "pf": 0.9732441471571908,
+          "avg": -0.06315789473684204,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 30,
+          "wr": 70,
+          "pf": 1.0875,
+          "avg": 0.16333333333333358,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.7152125036654858
+      },
+      "bestQualified": {
+        "p": {
+          "minVolRatio": 6.6,
+          "minCloseLoc": 74,
+          "maxUpperWick": 7,
+          "minHi20Frac": 0.804,
+          "minRangeATR": 2.4,
+          "maxGapDownPct": -0.1,
+          "requireDIBull": true,
+          "maxBsc": 1,
+          "minADX": 45,
+          "tpPct": 3,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 106,
+          "wr": 75.47169811320755,
+          "pf": 1.000424808836024,
+          "avg": 0.0009433962264148899,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 76,
+          "wr": 77.63157894736842,
+          "pf": 0.9732441471571908,
+          "avg": -0.06315789473684204,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 30,
+          "wr": 70,
+          "pf": 1.0875,
+          "avg": 0.16333333333333358,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.7152125036654858
+      }
+    },
+    "CompressionCoil": {
+      "best": {
+        "p": {
+          "minCompressionBars": 13,
+          "maxCompressionBars": 18,
+          "minVolumeDeclineDays": 1,
+          "minPricePos20": 76,
+          "maxBBWidthPctl": 54,
+          "maxRangeATR": 1,
+          "minCloseLoc": 42,
+          "minBodyPct": 34,
+          "maxCandleRisk": 12,
+          "requireDIBull": false,
+          "maxBsc": 1,
+          "minADX": 45,
+          "tpPct": 2,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 265,
+          "wr": 84.52830188679246,
+          "pf": 1.065792610250298,
+          "avg": 0.10415094339622634,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 202,
+          "wr": 82.17821782178217,
+          "pf": 0.850845720143516,
+          "avg": -0.28811881188118804,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 63,
+          "wr": 92.06349206349206,
+          "pf": 3.9283276450511937,
+          "avg": 1.361904761904762,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 1.013357856172092
+      },
+      "bestQualified": {
+        "p": {
+          "minCompressionBars": 13,
+          "maxCompressionBars": 18,
+          "minVolumeDeclineDays": 1,
+          "minPricePos20": 76,
+          "maxBBWidthPctl": 54,
+          "maxRangeATR": 1,
+          "minCloseLoc": 42,
+          "minBodyPct": 34,
+          "maxCandleRisk": 12,
+          "requireDIBull": false,
+          "maxBsc": 1,
+          "minADX": 45,
+          "tpPct": 2,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 265,
+          "wr": 84.52830188679246,
+          "pf": 1.065792610250298,
+          "avg": 0.10415094339622634,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 202,
+          "wr": 82.17821782178217,
+          "pf": 0.850845720143516,
+          "avg": -0.28811881188118804,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 63,
+          "wr": 92.06349206349206,
+          "pf": 3.9283276450511937,
+          "avg": 1.361904761904762,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 1.013357856172092
+      }
+    },
+    "MomentumPocket": {
+      "best": {
+        "p": {
+          "minDd52W": 25,
+          "maxDd52W": 78,
+          "minStabBars": 10,
+          "minCloseLoc": 26,
+          "minBodyPct": 20,
+          "maxUpperWick": 50,
+          "minVolRatio": 1.8,
+          "minRSI14": 46,
+          "maxRSI14": 53,
+          "requireDIBull": false,
+          "maxBsc": 3,
+          "minADX": 45,
+          "tpPct": 2,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 77,
+          "wr": 88.31168831168831,
+          "pf": 2.0208023774145616,
+          "avg": 0.8922077922077924,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 47,
+          "wr": 89.36170212765957,
+          "pf": 2.142857142857143,
+          "avg": 0.9531914893617022,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 30,
+          "wr": 86.66666666666667,
+          "pf": 1.8505338078291813,
+          "avg": 0.7966666666666666,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.9313044710861544
+      },
+      "bestQualified": {
+        "p": {
+          "minDd52W": 25,
+          "maxDd52W": 78,
+          "minStabBars": 10,
+          "minCloseLoc": 26,
+          "minBodyPct": 20,
+          "maxUpperWick": 50,
+          "minVolRatio": 1.8,
+          "minRSI14": 46,
+          "maxRSI14": 53,
+          "requireDIBull": false,
+          "maxBsc": 3,
+          "minADX": 45,
+          "tpPct": 2,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 77,
+          "wr": 88.31168831168831,
+          "pf": 2.0208023774145616,
+          "avg": 0.8922077922077924,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 47,
+          "wr": 89.36170212765957,
+          "pf": 2.142857142857143,
+          "avg": 0.9531914893617022,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 30,
+          "wr": 86.66666666666667,
+          "pf": 1.8505338078291813,
+          "avg": 0.7966666666666666,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.9313044710861544
+      }
+    },
+    "EMAStack": {
+      "best": {
+        "p": {
+          "minBelowBars": 12,
+          "minEMA10VsEma20": 0.3,
+          "minBodyPct": 69,
+          "maxUpperWick": 46,
+          "maxCandleRisk": 6,
+          "minVolRatio": 3.6,
+          "maxRSI2Last5": 15,
+          "requireDIBull": true,
+          "maxBsc": 99,
+          "minADX": 15,
+          "tpPct": 2,
+          "slAtrMult": 1.5,
+          "maxHoldBars": 10
+        },
+        "full": {
+          "n": 142,
+          "wr": 75.35211267605634,
+          "pf": 1.0122989593188265,
+          "avg": 0.018309859154929664,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 75,
+          "wr": 77.33333333333333,
+          "pf": 1.157684630738523,
+          "avg": 0.21066666666666664,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 67,
+          "wr": 73.13432835820896,
+          "pf": 0.881294964028777,
+          "avg": -0.1970149253731343,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.5505157919737623
+      },
+      "bestQualified": null
+    },
+    "PerfectStorm": {
+      "best": {
+        "p": {
+          "minFires": 2,
+          "minADXGate": 28,
+          "minQualityTier": 2,
+          "maxCandleRisk": 12,
+          "tpPct": 3,
+          "slAtrMult": 1,
+          "maxHoldBars": 15
+        },
+        "full": {
+          "n": 130,
+          "wr": 47.69230769230769,
+          "pf": 0.6642857142857144,
+          "avg": -0.7230769230769234,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 89,
+          "wr": 37.07865168539326,
+          "pf": 0.4077429983525536,
+          "avg": -1.6157303370786518,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 41,
+          "wr": 70.73170731707317,
+          "pf": 2.338709677419355,
+          "avg": 1.2146341463414634,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": 0.5808800811122212
+      },
+      "bestQualified": {
+        "p": {
+          "minFires": 2,
+          "minADXGate": 52,
+          "minQualityTier": 3,
+          "maxCandleRisk": 16,
+          "tpPct": 5,
+          "slAtrMult": 2.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 15,
+          "wr": 73.33333333333333,
+          "pf": 1.013257575757576,
+          "avg": 0.04666666666666662,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 10,
+          "wr": 70,
+          "pf": 0.813953488372093,
+          "avg": -0.8,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 5,
+          "wr": 80,
+          "pf": 1.887755102040816,
+          "avg": 1.7399999999999998,
+          "avgMFE20": 0,
+          "avgMAE20": 0
+        },
+        "fitness": -1000000000
+      }
+    }
+  }
+}

@@ -1,0 +1,316 @@
+{
+  "generated": "2026-07-18T19:23:41.009Z",
+  "dataDir": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "window": 300,
+  "oosCut": "2025-05-05",
+  "combos": 3000,
+  "minOOS": 10,
+  "target5Mode": true,
+  "ultraHit75Mode": true,
+  "targetHit5": 75,
+  "objective": "+5% hit-before-stop plus PF/Avg/MFE/MAE",
+  "meta": {
+    "files": 1616,
+    "usable": 1584,
+    "short": 32
+  },
+  "bestBySet": {
+    "VolumeFootprint": {
+      "best": {
+        "p": {
+          "minVolRatio": 4.5,
+          "minCloseLoc": 70,
+          "maxUpperWick": 5,
+          "minHi20Frac": 0.88,
+          "minRangeATR": 2.5,
+          "maxGapDownPct": -1,
+          "minCMF20": 0.2,
+          "minOBVSlope10": 1,
+          "minCloseVsEMA20": 0,
+          "minEMA20VsEMA50": 0,
+          "requireDIBull": true,
+          "maxBsc": 0,
+          "minADX": 30,
+          "tpPct": 5,
+          "slAtrMult": 1.5,
+          "maxHoldBars": 10
+        },
+        "full": {
+          "n": 1,
+          "wr": 100,
+          "hit5": 100,
+          "pf": null,
+          "avg": 5,
+          "avgMFE10": 59.91071428571429,
+          "avgMFE20": 59.91071428571429,
+          "avgMAE10": -1.7857142857142856,
+          "avgMAE20": -1.7857142857142856
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "hit5": 100,
+          "pf": null,
+          "avg": 5,
+          "avgMFE10": 59.91071428571429,
+          "avgMFE20": 59.91071428571429,
+          "avgMAE10": -1.7857142857142856,
+          "avgMAE20": -1.7857142857142856
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "fitness": -1000000000
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "CompressionCoil": {
+      "best": {
+        "p": {
+          "minCompressionBars": 9,
+          "maxCompressionBars": 10,
+          "minVolumeDeclineDays": 2,
+          "minPricePos20": 65,
+          "maxBBWidthPctl": 10,
+          "maxRangeATR": 0.5,
+          "minCloseLoc": 55,
+          "minBodyPct": 35,
+          "maxCandleRisk": 6,
+          "minCMF20": 0.15,
+          "minOBVSlope10": 0,
+          "minGateVolRatio": 2.5,
+          "minCloseVsEMA20": 0,
+          "minEMA20VsEMA50": 0,
+          "requireDIBull": true,
+          "maxBsc": 0,
+          "minADX": 30,
+          "tpPct": 5,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 10
+        },
+        "full": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "fitness": -1000000000
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "MomentumPocket": {
+      "best": {
+        "p": {
+          "minDd52W": 20,
+          "maxDd52W": 55,
+          "minStabBars": 5,
+          "minCloseLoc": 85,
+          "minBodyPct": 65,
+          "maxUpperWick": 20,
+          "minVolRatio": 2.5,
+          "minRSI14": 15,
+          "maxRSI14": 45,
+          "minCMF20": 0,
+          "minOBVSlope10": 0,
+          "minGateRSI14": 35,
+          "maxGateRSI14": 45,
+          "maxGateRSI2": 25,
+          "minGateVolRatio": 2.5,
+          "minCloseVsEMA20": -999,
+          "minEMA20VsEMA50": 0,
+          "requireDIBull": true,
+          "maxBsc": 0,
+          "minADX": 25,
+          "tpPct": 5,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 41,
+          "wr": 65.85365853658537,
+          "hit5": 58.536585365853654,
+          "pf": 1.292558613659531,
+          "avg": 0.7000000000000001,
+          "avgMFE10": 5.417123598419167,
+          "avgMFE20": 8.9083033299587,
+          "avgMAE10": -6.318637466805178,
+          "avgMAE20": -7.099112810736198
+        },
+        "is": {
+          "n": 22,
+          "wr": 81.81818181818183,
+          "hit5": 68.18181818181817,
+          "pf": 2.449101796407186,
+          "avg": 2.2,
+          "avgMFE10": 6.779402167423313,
+          "avgMFE20": 9.913695832700926,
+          "avgMAE10": -5.985189366503149,
+          "avgMAE20": -6.57142085940388
+        },
+        "oos": {
+          "n": 19,
+          "wr": 47.368421052631575,
+          "hit5": 47.368421052631575,
+          "pf": 0.6955177743431222,
+          "avg": -1.0368421052631576,
+          "avgMFE10": 3.839748413256466,
+          "avgMFE20": 7.744164642572966,
+          "avgMAE10": -6.704735267154898,
+          "avgMAE20": -7.710124543857832
+        },
+        "fitness": 0.43819775002063066
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "EMAStack": {
+      "best": {
+        "p": {
+          "minBelowBars": 3,
+          "minEMA10VsEma20": 0.5,
+          "minBodyPct": 45,
+          "maxUpperWick": 5,
+          "maxCandleRisk": 6,
+          "minVolRatio": 1.5,
+          "maxRSI2Last5": 25,
+          "minCMF20": 0.15,
+          "minOBVSlope10": 1,
+          "minCloseVsEMA20": 0,
+          "minEMA20VsEMA50": 0,
+          "requireDIBull": true,
+          "maxBsc": 0,
+          "minADX": 25,
+          "tpPct": 5,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 1,
+          "wr": 100,
+          "hit5": 100,
+          "pf": null,
+          "avg": 5,
+          "avgMFE10": 59.91071428571429,
+          "avgMFE20": 59.91071428571429,
+          "avgMAE10": -1.7857142857142856,
+          "avgMAE20": -1.7857142857142856
+        },
+        "is": {
+          "n": 1,
+          "wr": 100,
+          "hit5": 100,
+          "pf": null,
+          "avg": 5,
+          "avgMFE10": 59.91071428571429,
+          "avgMFE20": 59.91071428571429,
+          "avgMAE10": -1.7857142857142856,
+          "avgMAE20": -1.7857142857142856
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "fitness": -1000000000
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "PerfectStorm": {
+      "best": {
+        "p": {
+          "minFires": 3,
+          "minADXGate": 35,
+          "minQualityTier": 3,
+          "maxCandleRisk": 8,
+          "minCMF20": 0.1,
+          "minOBVSlope10": 0,
+          "minCloseVsEMA20": 0,
+          "minEMA20VsEMA50": 0,
+          "tpPct": 5,
+          "slAtrMult": 3,
+          "maxHoldBars": 10
+        },
+        "full": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "is": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "oos": {
+          "n": 0,
+          "wr": 0,
+          "hit5": 0,
+          "pf": 0,
+          "avg": 0,
+          "avgMFE10": 0,
+          "avgMFE20": 0,
+          "avgMAE10": 0,
+          "avgMAE20": 0
+        },
+        "fitness": -1000000000
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    }
+  }
+}

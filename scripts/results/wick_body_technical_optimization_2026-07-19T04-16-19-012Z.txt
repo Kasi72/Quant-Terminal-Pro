@@ -1,0 +1,15 @@
+WICK/BODY + TECHNICAL POST-FILTER OPTIMIZATION
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783 | OOS: 2025-05-05 | fixed breadth denominator: 1616
+Selection: three chronological IS folds; OOS untouched; next-open +5% target, stop-first, 3.5%-6.5% clamp, 20 bars, non-overlap
+
+Selected IS-robust candidate vs baseline
+Route             Base IS H5/PF/n   Best IS H5/PF/n   OOS H5/PF/n   AvgPnl   MedMFE   AvgMAE   Filter
+------------------------------------------------------------------------------------------------------------------------------------------------------
+VolumeFootprint   72.7%/2.07/11      72.7%/2.07/11      50.0%/0.83/2   -0.51%   6.13%   2.60%   {}
+CompressionCoil   75.0%/3.27/8      75.0%/3.27/8      50.0%/1.00/4   0.00%   6.06%   1.22%   {}
+MomentumPocket    49.3%/0.89/278      72.7%/2.35/33      31.3%/0.49/16   -1.61%   3.63%   2.32%   {"minEmaTrend":1,"minGap":0}
+EMAStack          67.1%/1.86/70      78.6%/4.23/14      66.7%/1.54/6   1.17%   7.07%   0.00%   {"maxUpper":0.1,"minVol":1.5}
+PerfectStorm      31.4%/0.35/35      50.0%/0.77/10      100.0%/Inf/2   5.00%   10.24%   1.44%   {"minADX":40,"minGap":1}
+ORS-Prime         70.5%/1.88/271      82.8%/3.75/128      66.7%/1.93/15   1.61%   5.99%   2.28%   {"minLower":0.25,"minGap":0}
+
+Top five IS-robust candidates per route are stored in JSON, including their untouched OOS results.

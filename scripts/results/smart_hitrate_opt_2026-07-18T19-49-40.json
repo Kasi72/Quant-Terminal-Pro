@@ -1,0 +1,207 @@
+{
+  "generated": "2026-07-18T19:49:40.094Z",
+  "allOutRows": [
+    {
+      "ps": "optimized_elite_10plus",
+      "label": "MomentumPocket",
+      "baseIS": 49.282296650717704,
+      "baseOOS": 43.83259911894273,
+      "soloResults": [
+        {
+          "name": "pve50",
+          "bestThresh": 2,
+          "oosHR": 55.55555555555556,
+          "n": 9,
+          "lift": 11.722956436612826
+        },
+        {
+          "name": "rsi14",
+          "bestThresh": 45,
+          "oosHR": 50,
+          "n": 240,
+          "lift": 6.167400881057269
+        },
+        {
+          "name": "bbPos",
+          "bestThresh": 0.5,
+          "oosHR": 49.01960784313725,
+          "n": 51,
+          "lift": 5.18700872419452
+        },
+        {
+          "name": "rsiSlope5",
+          "bestThresh": 0,
+          "oosHR": 47.20496894409938,
+          "n": 161,
+          "lift": 3.372369825156646
+        },
+        {
+          "name": "stochK",
+          "bestThresh": 50,
+          "oosHR": 45.86466165413533,
+          "n": 133,
+          "lift": 2.032062535192601
+        },
+        {
+          "name": "atrPct",
+          "bestThresh": 3,
+          "oosHR": 45.76802507836991,
+          "n": 319,
+          "lift": 1.935425959427178
+        },
+        {
+          "name": "obv10",
+          "bestThresh": 0,
+          "oosHR": 45.19774011299435,
+          "n": 177,
+          "lift": 1.3651409940516217
+        },
+        {
+          "name": "rsi2≤",
+          "bestThresh": 50,
+          "oosHR": 44.50402144772118,
+          "n": 373,
+          "lift": 0.6714223287784478
+        },
+        {
+          "name": "volRatio",
+          "bestThresh": 1.5,
+          "oosHR": 43.83259911894273,
+          "n": 454,
+          "lift": 0
+        },
+        {
+          "name": "lowerWick",
+          "bestThresh": 0.3,
+          "oosHR": 43.58974358974359,
+          "n": 273,
+          "lift": -0.2428555291991401
+        },
+        {
+          "name": "macdHist>0",
+          "bestThresh": 0,
+          "oosHR": 43.529411764705884,
+          "n": 170,
+          "lift": -0.3031873542368473
+        },
+        {
+          "name": "ema20slope↑",
+          "bestThresh": 0,
+          "oosHR": 42.51968503937008,
+          "n": 127,
+          "lift": -1.31291407957265
+        },
+        {
+          "name": "adx14",
+          "bestThresh": 20,
+          "oosHR": 42.038216560509554,
+          "n": 157,
+          "lift": -1.7943825584331776
+        },
+        {
+          "name": "roc10",
+          "bestThresh": 5,
+          "oosHR": 41.66666666666667,
+          "n": 12,
+          "lift": -2.16593245227606
+        },
+        {
+          "name": "cmf20",
+          "bestThresh": -0.05,
+          "oosHR": 41.53846153846154,
+          "n": 325,
+          "lift": -2.294137580481191
+        },
+        {
+          "name": "bodyPct",
+          "bestThresh": 0.3,
+          "oosHR": 41.517857142857146,
+          "n": 224,
+          "lift": -2.3147419760855854
+        },
+        {
+          "name": "closeLoc",
+          "bestThresh": 0.5,
+          "oosHR": 41.27659574468085,
+          "n": 235,
+          "lift": -2.556003374261884
+        },
+        {
+          "name": "cci20",
+          "bestThresh": 0,
+          "oosHR": 40,
+          "n": 65,
+          "lift": -3.8325991189427313
+        },
+        {
+          "name": "obvEmaRatio",
+          "bestThresh": 1,
+          "oosHR": 35.82089552238806,
+          "n": 67,
+          "lift": -8.011703596554675
+        }
+      ],
+      "top": [
+        {
+          "selected": [
+            {
+              "t": 0,
+              "name": "pve50"
+            },
+            {
+              "t": 40,
+              "name": "rsi14"
+            },
+            {
+              "t": 0.3,
+              "name": "bbPos"
+            },
+            {
+              "t": 0,
+              "name": "rsiSlope5"
+            },
+            {
+              "t": 40,
+              "name": "stochK"
+            }
+          ],
+          "isHR": 60,
+          "isN": 10,
+          "oosHR": 57.14285714285714,
+          "oosN": 7,
+          "pf": 1.191841592865342
+        },
+        {
+          "selected": [
+            {
+              "t": 0,
+              "name": "pve50"
+            },
+            {
+              "t": 45,
+              "name": "rsi14"
+            },
+            {
+              "t": 0.3,
+              "name": "bbPos"
+            },
+            {
+              "t": 0,
+              "name": "rsiSlope5"
+            },
+            {
+              "t": 40,
+              "name": "stochK"
+            }
+          ],
+          "isHR": 60,
+          "isN": 10,
+          "oosHR": 57.14285714285714,
+          "oosN": 7,
+          "pf": 1.191841592865342
+        }
+      ],
+      "robust": []
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+PASTED R5 PARAMETER + DUAL-REGIME VALIDATION
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Files: 1616; breadth denominator: 1616; OOS cutoff: 2025-05-05
+Entry/exit: next-bar open; +5% target; stop-first; stop clamp [3.5%, 6.5%]; 20-bar horizon; per-symbol non-overlap
+Premium semantics: pasted gate rules; body_pct converted to ratio (35 -> 0.35); ORS ADX gate enforced at >=20
+
+Individual PREMIUM routes
+Route                 Full n  Full H5%  Full PF  Full Avg | OOS n  OOS H5%  OOS PF  OOS Avg  MedMFE  AvgMAE
+----------------------------------------------------------------------------------------------------------------
+VolumeFootprint           13      69.2     1.78      1.51 |     2     50.0    0.83    -0.51     6.13     2.60
+CompressionCoil           12      66.7     2.09      1.74 |     4     50.0    1.00     0.00     6.06     1.22
+MomentumPocket           419      48.0     0.88     -0.33 |   141     45.4    0.86    -0.38     3.90     1.52
+EMAStack                 265      53.6     1.07      0.18 |    79     39.2    0.58    -1.45     3.50     2.39
+PerfectStorm              90      45.6     0.65     -1.23 |    23     69.6    1.80     1.55     5.70     1.73
+ORS-Prime                337      70.0     1.87      1.63 |    58     67.2    1.75     1.44     6.00     1.17
+
+Dual-regime framework
+Framework                       Full n  Full H5%  Full PF  Full Avg | OOS n  OOS H5%  OOS PF  OOS Avg  MedMFE  AvgDays | pasted OOS
+------------------------------------------------------------------------------------------------------------------------------------
+BULL_POOL_STANDARD                  118      58.5     1.17      0.42 |    18     77.8    2.69     2.45     6.68      4.0 | n=24, H5=75%, PF=2.78
+BULL_POOL_ELITE_65                   23      82.6     4.87      3.28 |     5     80.0    3.08     2.70     7.07      2.5 | n=6, H5=83.3%, PF=3.85
+BULL_POOL_ELITE_70                   15      73.3     2.12      1.93 |     9     77.8    2.69     2.44     5.95      5.1 | n=12, H5=83.3%, PF=4.06
+PERFECT_STORM_EXTREME_70              8      62.5     1.28      0.69 |     6     83.3    3.85     3.08     6.07      5.6 | n=8, H5=87.5%, PF=6.03
+BEAR_ORS                            323      70.6     1.93      1.70 |    55     69.1    1.93     1.66     6.00      1.4 | n=53, H5=66%, PF=1.84
+
+Notes
+- Individual routes are diagnostic; only the five dual-regime rows represent the stated live routing.
+- A mismatch in OOS n means the pasted numbers used a different signal eligibility, date denominator, or overlap rule.
+- Premium-only statistics are conditional statistics, not the performance of every engine signal.

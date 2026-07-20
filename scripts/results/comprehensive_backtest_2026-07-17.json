@@ -1,0 +1,80 @@
+{
+  "rows": [
+    {
+      "ps": "optimized_deployable_20plus",
+      "name": "Deployable v10-N500 20+",
+      "tag": "★ 85% WR",
+      "trades": 0,
+      "signals": 0,
+      "winRate": 0,
+      "hitRate": 0,
+      "profitPct": 0,
+      "avgPnl": 0,
+      "median": 0,
+      "avgMae": 0,
+      "avgMfe": 0,
+      "pf": null
+    },
+    {
+      "ps": "optimized_highprecision_15plus",
+      "name": "HighPrecision v10-N500 15+",
+      "tag": "88% WR",
+      "trades": 0,
+      "signals": 0,
+      "winRate": 0,
+      "hitRate": 0,
+      "profitPct": 0,
+      "avgPnl": 0,
+      "median": 0,
+      "avgMae": 0,
+      "avgMfe": 0,
+      "pf": null
+    },
+    {
+      "ps": "optimized_elite_10plus",
+      "name": "Elite v10-N500 10+",
+      "tag": "79% WR",
+      "trades": 0,
+      "signals": 0,
+      "winRate": 0,
+      "hitRate": 0,
+      "profitPct": 0,
+      "avgPnl": 0,
+      "median": 0,
+      "avgMae": 0,
+      "avgMfe": 0,
+      "pf": null
+    },
+    {
+      "ps": "optimized_ultraselective_8plus",
+      "name": "Ultra-Selective v10-N500 8+",
+      "tag": "82% WR",
+      "trades": 0,
+      "signals": 0,
+      "winRate": 0,
+      "hitRate": 0,
+      "profitPct": 0,
+      "avgPnl": 0,
+      "median": 0,
+      "avgMae": 0,
+      "avgMfe": 0,
+      "pf": null
+    },
+    {
+      "ps": "sniper_95plus",
+      "name": "Sniper v10-N500 95+",
+      "tag": "🎯 100% WR",
+      "trades": 0,
+      "signals": 0,
+      "winRate": 0,
+      "hitRate": 0,
+      "profitPct": 0,
+      "avgPnl": 0,
+      "median": 0,
+      "avgMae": 0,
+      "avgMfe": 0,
+      "pf": null
+    }
+  ],
+  "generated": "2026-07-17T16:37:39.995Z"
+}

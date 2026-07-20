@@ -1,0 +1,10 @@
+Exact candidate validation 2026-07-17T19:01:35.816Z
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Files=1616 usable=1584 skippedShort=32
+OOS cutoff: 2025-05-05
+
+VolumeFootprint: full n=13736 WR=63.72% PF=0.90 Avg=-0.27% | IS n=9248 WR=65.66% PF=0.96 Avg=-0.11% | OOS n=4488 WR=59.71% PF=0.80 Avg=-0.60% | MFE20=9.55% MAE20=-7.96%
+CompressionCoil: full n=6084 WR=58.65% PF=0.97 Avg=-0.08% | IS n=4212 WR=60.09% PF=0.98 Avg=-0.05% | OOS n=1872 WR=55.40% PF=0.95 Avg=-0.15% | MFE20=13.77% MAE20=-8.34%
+MomentumPocket: full n=24612 WR=64.15% PF=0.96 Avg=-0.10% | IS n=15117 WR=65.99% PF=0.98 Avg=-0.05% | OOS n=9495 WR=61.22% PF=0.92 Avg=-0.20% | MFE20=11.40% MAE20=-8.40%
+EMAStack: full n=19139 WR=53.37% PF=0.96 Avg=-0.15% | IS n=12879 WR=54.35% PF=0.95 Avg=-0.19% | OOS n=6260 WR=51.34% PF=0.98 Avg=-0.07% | MFE20=17.10% MAE20=-8.55%
+PerfectStorm: full n=3 WR=33.33% PF=0.28 Avg=-4.38% | IS n=3 WR=33.33% PF=0.28 Avg=-4.38% | OOS n=0 WR=0.00% PF=0.00 Avg=0.00% | MFE20=16.24% MAE20=-11.71%

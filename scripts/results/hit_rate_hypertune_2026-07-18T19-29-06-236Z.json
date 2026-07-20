@@ -1,0 +1,374 @@
+{
+  "generated": "2026-07-18T19:27:38.473Z",
+  "dataDir": "C:/Users/drkkr/Downloads/NIFTY ALL1783",
+  "window": 300,
+  "oosCut": "2025-05-05",
+  "combos": 5000,
+  "minOOS": 20,
+  "target5Mode": true,
+  "ultraHit75Mode": false,
+  "hitRateObjective": true,
+  "targetHit5": 75,
+  "objective": "+5% hit-before-stop plus PF/Avg/MFE/MAE",
+  "meta": {
+    "files": 1616,
+    "usable": 1584,
+    "short": 32
+  },
+  "bestBySet": {
+    "VolumeFootprint": {
+      "best": {
+        "p": {
+          "minVolRatio": 6,
+          "minCloseLoc": 75,
+          "maxUpperWick": 20,
+          "minHi20Frac": 0.97,
+          "minRangeATR": 1.5,
+          "maxGapDownPct": -5,
+          "minCMF20": 0.15,
+          "minOBVSlope10": 1,
+          "minCloseVsEMA20": 0.5,
+          "minEMA20VsEMA50": 0.5,
+          "requireDIBull": true,
+          "maxBsc": 0,
+          "minADX": 30,
+          "tpPct": 5,
+          "slAtrMult": 3,
+          "maxHoldBars": 10
+        },
+        "full": {
+          "n": 76,
+          "wr": 69.73684210526315,
+          "hit5": 63.1578947368421,
+          "pf": 1.3852140077821011,
+          "avg": 0.9118421052631585,
+          "avgMFE10": 9.645138670070983,
+          "avgMFE20": 13.37132898223648,
+          "avgMAE10": -6.257294654272396,
+          "avgMAE20": -8.346611516614695
+        },
+        "is": {
+          "n": 53,
+          "wr": 67.9245283018868,
+          "hit5": 58.490566037735846,
+          "pf": 1.287843137254902,
+          "avg": 0.692452830188679,
+          "avgMFE10": 10.358472256364795,
+          "avgMFE20": 14.968454966298488,
+          "avgMAE10": -6.2558321512139115,
+          "avgMAE20": -8.024391915250046
+        },
+        "oos": {
+          "n": 23,
+          "wr": 73.91304347826086,
+          "hit5": 73.91304347826086,
+          "pf": 1.6221374045801527,
+          "avg": 1.4173913043478261,
+          "avgMFE10": 8.001369971220027,
+          "avgMFE20": 9.69099519287618,
+          "avgMAE10": -6.260664770015856,
+          "avgMAE20": -9.08911755454194
+        },
+        "fitness": 0.6354120890806215
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "CompressionCoil": {
+      "best": {
+        "p": {
+          "minCompressionBars": 12,
+          "maxCompressionBars": 14,
+          "minVolumeDeclineDays": 1,
+          "minPricePos20": 60,
+          "maxBBWidthPctl": 55,
+          "maxRangeATR": 1.1,
+          "minCloseLoc": 40,
+          "minBodyPct": 35,
+          "maxCandleRisk": 12,
+          "minCMF20": 0.2,
+          "minOBVSlope10": 0.5,
+          "minGateVolRatio": 2.5,
+          "minCloseVsEMA20": -999,
+          "minEMA20VsEMA50": -999,
+          "requireDIBull": false,
+          "maxBsc": 99,
+          "minADX": 45,
+          "tpPct": 5,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 103,
+          "wr": 69.90291262135922,
+          "hit5": 65.0485436893204,
+          "pf": 1.3479462875197472,
+          "avg": 0.8553398058252428,
+          "avgMFE10": 295.5124041797642,
+          "avgMFE20": 299.36885316561177,
+          "avgMAE10": -8.383672455019006,
+          "avgMAE20": -10.516085633391802
+        },
+        "is": {
+          "n": 80,
+          "wr": 66.25,
+          "hit5": 61.25000000000001,
+          "pf": 1.0854030501089325,
+          "avg": 0.2450000000000002,
+          "avgMFE10": 377.01408944615787,
+          "avgMFE20": 381.0686892474717,
+          "avgMAE10": -9.4327038873214,
+          "avgMAE20": -11.559930735063183
+        },
+        "oos": {
+          "n": 23,
+          "wr": 82.6086956521739,
+          "hit5": 78.26086956521739,
+          "pf": 3.8902953586497886,
+          "avg": 2.978260869565218,
+          "avgMFE10": 12.028281514046826,
+          "avgMFE20": 15.195510272186025,
+          "avgMAE10": -4.734867473097636,
+          "avgMAE20": -6.885320062360916
+        },
+        "fitness": 0.7598873765991888
+      },
+      "bestQualified": {
+        "p": {
+          "minCompressionBars": 12,
+          "maxCompressionBars": 14,
+          "minVolumeDeclineDays": 1,
+          "minPricePos20": 60,
+          "maxBBWidthPctl": 55,
+          "maxRangeATR": 1.1,
+          "minCloseLoc": 40,
+          "minBodyPct": 35,
+          "maxCandleRisk": 12,
+          "minCMF20": 0.2,
+          "minOBVSlope10": 0.5,
+          "minGateVolRatio": 2.5,
+          "minCloseVsEMA20": -999,
+          "minEMA20VsEMA50": -999,
+          "requireDIBull": false,
+          "maxBsc": 99,
+          "minADX": 45,
+          "tpPct": 5,
+          "slAtrMult": 3.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 103,
+          "wr": 69.90291262135922,
+          "hit5": 65.0485436893204,
+          "pf": 1.3479462875197472,
+          "avg": 0.8553398058252428,
+          "avgMFE10": 295.5124041797642,
+          "avgMFE20": 299.36885316561177,
+          "avgMAE10": -8.383672455019006,
+          "avgMAE20": -10.516085633391802
+        },
+        "is": {
+          "n": 80,
+          "wr": 66.25,
+          "hit5": 61.25000000000001,
+          "pf": 1.0854030501089325,
+          "avg": 0.2450000000000002,
+          "avgMFE10": 377.01408944615787,
+          "avgMFE20": 381.0686892474717,
+          "avgMAE10": -9.4327038873214,
+          "avgMAE20": -11.559930735063183
+        },
+        "oos": {
+          "n": 23,
+          "wr": 82.6086956521739,
+          "hit5": 78.26086956521739,
+          "pf": 3.8902953586497886,
+          "avg": 2.978260869565218,
+          "avgMFE10": 12.028281514046826,
+          "avgMFE20": 15.195510272186025,
+          "avgMAE10": -4.734867473097636,
+          "avgMAE20": -6.885320062360916
+        },
+        "fitness": 0.7598873765991888
+      },
+      "bestISRobust": null
+    },
+    "MomentumPocket": {
+      "best": {
+        "p": {
+          "minDd52W": 55,
+          "maxDd52W": 80,
+          "minStabBars": 8,
+          "minCloseLoc": 75,
+          "minBodyPct": 75,
+          "maxUpperWick": 50,
+          "minVolRatio": 2,
+          "minRSI14": 30,
+          "maxRSI14": 75,
+          "minCMF20": -0.1,
+          "minOBVSlope10": -1,
+          "minGateRSI14": 40,
+          "maxGateRSI14": 50,
+          "maxGateRSI2": 60,
+          "minGateVolRatio": 3.5,
+          "minCloseVsEMA20": -999,
+          "minEMA20VsEMA50": 1,
+          "requireDIBull": false,
+          "maxBsc": 1,
+          "minADX": 0,
+          "tpPct": 5,
+          "slAtrMult": 2.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 67,
+          "wr": 74.6268656716418,
+          "hit5": 67.16417910447761,
+          "pf": 2.4704641350210967,
+          "avg": 2.0805970149253734,
+          "avgMFE10": 272.66772417324916,
+          "avgMFE20": 281.4435830324181,
+          "avgMAE10": -5.515241790486049,
+          "avgMAE20": -7.746942373451846
+        },
+        "is": {
+          "n": 47,
+          "wr": 74.46808510638297,
+          "hit5": 72.3404255319149,
+          "pf": 2.1779769526248396,
+          "avg": 1.9574468085106382,
+          "avgMFE10": 386.1246937834793,
+          "avgMFE20": 397.5370315130608,
+          "avgMAE10": -6.192334055424746,
+          "avgMAE20": -8.92496593577878
+        },
+        "oos": {
+          "n": 20,
+          "wr": 75,
+          "hit5": 55.00000000000001,
+          "pf": 3.838323353293413,
+          "avg": 2.3699999999999997,
+          "avgMFE10": 6.043845589207878,
+          "avgMFE20": 8.623979102907452,
+          "avgMAE10": -3.924074967880113,
+          "avgMAE20": -4.978587001983557
+        },
+        "fitness": 0.6986748005126072
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "EMAStack": {
+      "best": {
+        "p": {
+          "minBelowBars": 3,
+          "minEMA10VsEma20": 0.2,
+          "minBodyPct": 80,
+          "maxUpperWick": 20,
+          "maxCandleRisk": 10,
+          "minVolRatio": 2,
+          "maxRSI2Last5": 60,
+          "minCMF20": 0.1,
+          "minOBVSlope10": 0.5,
+          "minCloseVsEMA20": -0.5,
+          "minEMA20VsEMA50": -0.5,
+          "requireDIBull": false,
+          "maxBsc": 99,
+          "minADX": 20,
+          "tpPct": 5,
+          "slAtrMult": 3,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 86,
+          "wr": 68.6046511627907,
+          "hit5": 67.44186046511628,
+          "pf": 0.8143812709030102,
+          "avg": -0.7744186046511627,
+          "avgMFE10": 7.756250739058151,
+          "avgMFE20": 11.291174484084799,
+          "avgMAE10": -8.738753888800852,
+          "avgMAE20": -10.843832200695573
+        },
+        "is": {
+          "n": 61,
+          "wr": 65.57377049180327,
+          "hit5": 63.934426229508205,
+          "pf": 0.6540630182421227,
+          "avg": -1.7098360655737705,
+          "avgMFE10": 8.131991998390362,
+          "avgMFE20": 11.115912861820933,
+          "avgMAE10": -9.596688845337312,
+          "avgMAE20": -11.765974802521502
+        },
+        "oos": {
+          "n": 25,
+          "wr": 76,
+          "hit5": 76,
+          "pf": 1.6579406631762654,
+          "avg": 1.508,
+          "avgMFE10": 6.839442066287559,
+          "avgMFE20": 11.718812842408617,
+          "avgMAE10": -6.645392594851888,
+          "avgMAE20": -8.593804252240313
+        },
+        "fitness": 0.6355144039469316
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    },
+    "PerfectStorm": {
+      "best": {
+        "p": {
+          "minFires": 2,
+          "minADXGate": 25,
+          "minQualityTier": 1,
+          "maxCandleRisk": 16,
+          "minCMF20": 0.2,
+          "minOBVSlope10": 0.5,
+          "minCloseVsEMA20": 0.5,
+          "minEMA20VsEMA50": 0.5,
+          "tpPct": 5,
+          "slAtrMult": 1.5,
+          "maxHoldBars": 20
+        },
+        "full": {
+          "n": 69,
+          "wr": 44.927536231884055,
+          "hit5": 43.47826086956522,
+          "pf": 0.6589519650655021,
+          "avg": -1.1318840579710145,
+          "avgMFE10": 7.432005250150962,
+          "avgMFE20": 10.771627021659368,
+          "avgMAE10": -10.602220373546462,
+          "avgMAE20": -13.596984051448908
+        },
+        "is": {
+          "n": 49,
+          "wr": 36.734693877551024,
+          "hit5": 36.734693877551024,
+          "pf": 0.44977511244377805,
+          "avg": -2.246938775510204,
+          "avgMFE10": 7.34882000363115,
+          "avgMFE20": 10.792196014121743,
+          "avgMAE10": -12.560701968928923,
+          "avgMAE20": -15.894403202407164
+        },
+        "oos": {
+          "n": 20,
+          "wr": 65,
+          "hit5": 60,
+          "pf": 2.107266435986159,
+          "avg": 1.6,
+          "avgMFE10": 7.635809104124489,
+          "avgMFE20": 10.721232990126559,
+          "avgMAE10": -5.803940464859432,
+          "avgMAE20": -7.968307131601172
+        },
+        "fitness": 0.5408678442422679
+      },
+      "bestQualified": null,
+      "bestISRobust": null
+    }
+  }
+}

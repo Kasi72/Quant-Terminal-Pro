@@ -1,0 +1,675 @@
+{
+  "generated": "2026-07-18T03:41:37.300Z",
+  "CompressionCoil": {
+    "top10": [
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": 20,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": true,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": true,
+        "rsiMin": 20,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 3,
+        "stageFilter": "SB+",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 4,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 4,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": 20,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 4,
+        "stageFilter": "SB+",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 50,
+        "condsMin": 4,
+        "stageFilter": "SB+",
+        "regimeOnly": true,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 27.77777777777778,
+          "n": 18,
+          "avg": 1.6632679625484403
+        },
+        "oosM": {
+          "wr": 36.36363636363637,
+          "n": 11,
+          "avg": 0.5085834694695396
+        }
+      }
+    ],
+    "robust": [
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 75,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 23.655913978494624,
+          "n": 93,
+          "avg": -11.640285274700892
+        },
+        "oosM": {
+          "wr": 20.833333333333336,
+          "n": 48,
+          "avg": -5.518292632888726
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 75,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 23.655913978494624,
+          "n": 93,
+          "avg": -11.640285274700892
+        },
+        "oosM": {
+          "wr": 20.833333333333336,
+          "n": 48,
+          "avg": -5.518292632888726
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 75,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 23.655913978494624,
+          "n": 93,
+          "avg": -11.640285274700892
+        },
+        "oosM": {
+          "wr": 20.833333333333336,
+          "n": 48,
+          "avg": -5.518292632888726
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": -0.5,
+        "scoreMin": 75,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 23.655913978494624,
+          "n": 93,
+          "avg": -11.640285274700892
+        },
+        "oosM": {
+          "wr": 20.833333333333336,
+          "n": 48,
+          "avg": -5.518292632888726
+        }
+      },
+      {
+        "cmfMin": 0.05,
+        "obvMin": 0,
+        "scoreMin": 75,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": null,
+        "rsiMax": 65,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 23.655913978494624,
+          "n": 93,
+          "avg": -11.640285274700892
+        },
+        "oosM": {
+          "wr": 20.833333333333336,
+          "n": 48,
+          "avg": -5.518292632888726
+        }
+      }
+    ]
+  },
+  "MomentumPocket": {
+    "top10": [
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -0.5,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -0.5,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -0.5,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -0.5,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": 0,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": 0,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      }
+    ],
+    "robust": [
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -1,
+        "scoreMin": 60,
+        "condsMin": 4,
+        "stageFilter": "ANY",
+        "regimeOnly": true,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      },
+      {
+        "cmfMin": -0.05,
+        "obvMin": -0.5,
+        "scoreMin": 60,
+        "condsMin": 3,
+        "stageFilter": "ANY",
+        "regimeOnly": false,
+        "rsiMin": 30,
+        "rsiMax": 50,
+        "volMin": null,
+        "adxMin": null,
+        "isM": {
+          "wr": 34.15772281847877,
+          "n": 2143,
+          "avg": 1.6977681381494496
+        },
+        "oosM": {
+          "wr": 22.790697674418606,
+          "n": 2365,
+          "avg": 0.7469253023659069
+        }
+      }
+    ]
+  }
+}

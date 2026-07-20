@@ -1,0 +1,245 @@
+{
+  "ranked": [
+    {
+      "key": "CL40_BS60_sameDay_Conservative",
+      "wr": "87.5",
+      "trades": 3257,
+      "avgPnl": "11.37",
+      "config": {
+        "cl": 40,
+        "bs": 60,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL44_BS60_sameDay_Conservative",
+      "wr": "87.5",
+      "trades": 3257,
+      "avgPnl": "11.37",
+      "config": {
+        "cl": 44,
+        "bs": 60,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL50_BS60_sameDay_Conservative",
+      "wr": "87.5",
+      "trades": 3257,
+      "avgPnl": "11.37",
+      "config": {
+        "cl": 50,
+        "bs": 60,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL55_BS60_sameDay_Conservative",
+      "wr": "87.5",
+      "trades": 3257,
+      "avgPnl": "11.37",
+      "config": {
+        "cl": 55,
+        "bs": 60,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL60_BS60_sameDay_Conservative",
+      "wr": "87.5",
+      "trades": 3257,
+      "avgPnl": "11.37",
+      "config": {
+        "cl": 60,
+        "bs": 60,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL60_BS50_sameDay_Conservative",
+      "wr": "86.8",
+      "trades": 4231,
+      "avgPnl": "11.03",
+      "config": {
+        "cl": 60,
+        "bs": 50,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL55_BS50_sameDay_Conservative",
+      "wr": "86.7",
+      "trades": 4457,
+      "avgPnl": "11.03",
+      "config": {
+        "cl": 55,
+        "bs": 50,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL50_BS50_sameDay_Conservative",
+      "wr": "86.6",
+      "trades": 4643,
+      "avgPnl": "11.04",
+      "config": {
+        "cl": 50,
+        "bs": 50,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL60_BS40_sameDay_Conservative",
+      "wr": "86.6",
+      "trades": 5124,
+      "avgPnl": "10.86",
+      "config": {
+        "cl": 60,
+        "bs": 40,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL40_BS50_sameDay_Conservative",
+      "wr": "86.5",
+      "trades": 5174,
+      "avgPnl": "11.07",
+      "config": {
+        "cl": 40,
+        "bs": 50,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL44_BS50_sameDay_Conservative",
+      "wr": "86.5",
+      "trades": 4923,
+      "avgPnl": "11.07",
+      "config": {
+        "cl": 44,
+        "bs": 50,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL60_BS43_sameDay_Conservative",
+      "wr": "86.5",
+      "trades": 4879,
+      "avgPnl": "10.84",
+      "config": {
+        "cl": 60,
+        "bs": 43,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL55_BS40_sameDay_Conservative",
+      "wr": "86.4",
+      "trades": 5651,
+      "avgPnl": "10.88",
+      "config": {
+        "cl": 55,
+        "bs": 40,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL55_BS43_sameDay_Conservative",
+      "wr": "86.3",
+      "trades": 5258,
+      "avgPnl": "10.80",
+      "config": {
+        "cl": 55,
+        "bs": 43,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    },
+    {
+      "key": "CL50_BS40_sameDay_Conservative",
+      "wr": "86.1",
+      "trades": 6175,
+      "avgPnl": "10.89",
+      "config": {
+        "cl": 50,
+        "bs": 40,
+        "em": "sameDay",
+        "targets": {
+          "name": "Conservative",
+          "t1": 0.5,
+          "t2": 1
+        }
+      }
+    }
+  ],
+  "timestamp": "2026-07-20T11:06:19.524Z"
+}

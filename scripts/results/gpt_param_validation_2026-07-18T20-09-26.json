@@ -1,0 +1,28 @@
+{
+  "generated": "2026-07-18T20:09:26.525Z",
+  "methodology": "5pct hit-rate: entry=next-open, stop=ATR-mult clamped[3.5-6.5%], target=+5%, OOS=2025-05-05",
+  "gptPublished": {
+    "VolumeFootprint": {
+      "oos_hit5": 67,
+      "oos_n": 94
+    },
+    "CompressionCoil": {
+      "oos_hit5": 66,
+      "oos_n": 50
+    },
+    "MomentumPocket": {
+      "oos_hit5": 60.3,
+      "oos_n": 78
+    },
+    "EMAStack": {
+      "oos_hit5": 67.7,
+      "oos_n": 34,
+      "note": "10-bar hold"
+    },
+    "PerfectStorm": {
+      "oos_hit5": 52.9,
+      "oos_n": 34
+    }
+  },
+  "rows": []
+}

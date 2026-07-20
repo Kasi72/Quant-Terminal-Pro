@@ -1,0 +1,16 @@
+5% objective backtest 2026-07-18T18:22:47.533Z
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Target: +5% before ATR stop
+OOS cutoff: 2025-05-05
+Files=1616 usable=1582 short=34
+
+VolumeFootprint H10: Full n=818 WR=61.86% Hit5=54.28% PF=0.89 Avg=-0.36% MFE=9.02% MAE=-7.97% | OOS n=178 WR=63.48% Hit5=52.81% PF=1.02 Avg=0.05% MFE=8.13% MAE=-7.27%
+VolumeFootprint H20: Full n=818 WR=67.11% Hit5=64.55% PF=0.94 Avg=-0.19% MFE=12.97% MAE=-10.39% | OOS n=178 WR=65.73% Hit5=62.92% PF=1.02 Avg=0.07% MFE=11.63% MAE=-9.80%
+CompressionCoil H10: Full n=172 WR=61.63% Hit5=48.84% PF=1.00 Avg=-0.01% MFE=6.64% MAE=-7.12% | OOS n=50 WR=64.00% Hit5=56.00% PF=1.30 Avg=0.69% MFE=6.83% MAE=-6.22%
+CompressionCoil H20: Full n=172 WR=70.93% Hit5=65.70% PF=1.28 Avg=0.74% MFE=10.56% MAE=-9.55% | OOS n=50 WR=74.00% Hit5=68.00% PF=1.85 Avg=1.60% MFE=10.18% MAE=-8.00%
+MomentumPocket H10: Full n=266 WR=55.64% Hit5=45.86% PF=0.83 Avg=-0.49% MFE=104.37% MAE=-7.79% | OOS n=75 WR=60.00% Hit5=44.00% PF=1.15 Avg=0.33% MFE=6.52% MAE=-4.28%
+MomentumPocket H20: Full n=266 WR=62.41% Hit5=57.14% PF=1.01 Avg=0.04% MFE=110.18% MAE=-9.65% | OOS n=75 WR=58.67% Hit5=50.67% PF=1.00 Avg=-0.00% MFE=9.17% MAE=-6.08%
+EMAStack H10: Full n=381 WR=57.48% Hit5=48.03% PF=0.49 Avg=-2.59% MFE=215.61% MAE=-9.99% | OOS n=161 WR=58.39% Hit5=48.45% PF=0.89 Avg=-0.33% MFE=7.27% MAE=-6.61%
+EMAStack H20: Full n=381 WR=62.99% Hit5=59.58% PF=0.59 Avg=-2.11% MFE=222.63% MAE=-12.59% | OOS n=161 WR=64.60% Hit5=62.11% PF=0.89 Avg=-0.40% MFE=10.60% MAE=-9.50%
+PerfectStorm H10: Full n=39 WR=33.33% Hit5=28.21% PF=0.59 Avg=-1.03% MFE=5.10% MAE=-7.17% | OOS n=15 WR=40.00% Hit5=40.00% PF=1.15 Avg=0.27% MFE=5.36% MAE=-7.25%
+PerfectStorm H20: Full n=39 WR=30.77% Hit5=28.21% PF=0.54 Avg=-1.23% MFE=5.97% MAE=-10.97% | OOS n=15 WR=40.00% Hit5=40.00% PF=1.15 Avg=0.27% MFE=5.92% MAE=-12.22%

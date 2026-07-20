@@ -1233,13 +1233,19 @@ function computeInflectionScore(
 // (score < 80) presents as STRONG rather than ULTRA. Demotion only tightens
 // selectivity per tier, so realized per-tier win rate can only improve
 // relative to the backtest baseline — never degrade below it.
-function archetypeStage(conditionsMet: number, score: number): StageRating {
-  // Thresholds calibrated via logistic regression on 2,137 signals (50 NIFTY stocks).
-  // P(Win|score,conditions) = sigmoid(β₀ + β₁×score + β₂×conditions)
-  // ULTRA=86 → P(Win)≥65% empirical WR 83.3%
-  // STRONG=62, BUY=43 retained (score is weak discriminator below 60; wait for Phase-2 weight opt)
+// Phase-3: per-archetype ULTRA thresholds via expectancy maximization + bootstrap CI (22K signals, 60 stocks).
+// E = WR×5% − SLrate×7.5%. Bootstrap 95% CI: CC=[62.2–72.1%], VF=[56.0–72.8%], MP=[57.9–67.1%], EMA=[62.7–81.9%]
+const ARCH_ULTRA: Record<string, number> = {
+  CompressionCoil: 84,  // WR 67.4% @ n=315 — lowered from 86 to include more confirmed setups at same rate
+  VolumeFootprint: 98,  // WR 64.8% @ n=125 — high bar; VF score distribution peaks at very high values
+  MomentumPocket:  99,  // WR 62.4% @ n=404 — tight bar eliminates many marginal MP signals
+  EMAStack:        99,  // WR 72.3% @ n=83  — biggest gain (+11.6pp); EMA99 only fires on cleanest breakouts
+};
+
+function archetypeStage(conditionsMet: number, score: number, arch?: string): StageRating {
+  const ultraT = (arch !== undefined && ARCH_ULTRA[arch] !== undefined) ? ARCH_ULTRA[arch] : 86;
   const capRank = conditionsMet >= 6 ? 3 : conditionsMet === 5 ? 2 : conditionsMet === 4 ? 1 : 0;
-  const scoreRank = score >= 86 ? 3 : score >= 62 ? 2 : score >= 43 ? 1 : 0;
+  const scoreRank = score >= ultraT ? 3 : score >= 62 ? 2 : score >= 43 ? 1 : 0;
   const rank = Math.min(capRank, scoreRank);
   return rank === 3 ? 'ULTRA_STRONG_BUY'
     : rank === 2 ? 'STRONG_BUY'
@@ -2610,7 +2616,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
-  const stage = archetypeStage(conditionsMet, score);
+  const stage = archetypeStage(conditionsMet, score, 'VolumeFootprint');
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
@@ -2769,7 +2775,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
-  const stage = archetypeStage(conditionsMet, score);
+  const stage = archetypeStage(conditionsMet, score, 'CompressionCoil');
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -2910,7 +2916,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
-  const stage = archetypeStage(conditionsMet, score);
+  const stage = archetypeStage(conditionsMet, score, 'MomentumPocket');
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
@@ -3050,7 +3056,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const stage = archetypeStage(conditionsMet, score);
+  const stage = archetypeStage(conditionsMet, score, 'EMAStack');
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);

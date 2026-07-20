@@ -1,0 +1,32 @@
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Files: 1616 | workers: 10 | window: 300 | step: 1 | OOS cutoff: 2025-05-05
+Convention: exact analyzeStock dispatcher, next-day open entry, non-overlapping per symbol/set, stop-first, full-position target/time exit
+Breakout routes: 5% target, 2×ATR-equivalent engine risk, 20-bar max hold; ORS: declared 4% target, declared 2×ATR risk, 15-bar max hold.
+
+  processed 100/1616  processed 200/1616  processed 300/1616  processed 400/1616  processed 500/1616  processed 600/1616  processed 700/1616  processed 800/1616  processed 900/1616  processed 1000/1616  processed 1100/1616  processed 1200/1616  processed 1300/1616  processed 1400/1616  processed 1500/1616SIX-ARCHETYPE EXACT LIVE-PIPELINE BACKTEST
+Data: C:/Users/drkkr/Downloads/NIFTY ALL1783
+Files: 1616; usable: 1584; skipped short: 32
+Window=300; every bar; OOS cutoff=2025-05-05
+Entry/exit: next-day open; stop-first; non-overlapping per symbol and route.
+
+Route              N       WR   Wilson   AvgPnL   PF   MFE20   MAE20  Hit3/10 Hit5/20 Hit10/20 | OOS N  OOS WR OOS Avg OOS PF
+---------------------------------------------------------------------------------------------------------------------------------------
+VolumeFootprint    12150   56.5     55.6    -0.34  0.89   13.44   -8.75     65.6     62.8      37.5 |  3524    52.7    -0.59   0.81
+CompressionCoil     6092   58.4     57.1    -0.14  0.95   13.76   -8.35     66.7     64.3      38.3 |  1877    55.2    -0.22   0.92
+MomentumPocket     19449   59.4     58.7    -0.23  0.93   14.81   -8.80     68.3     65.2      40.9 |  7935    56.5    -0.20   0.93
+EMAStack           20344   56.6     56.0    -0.37  0.88   19.40   -8.67     65.1     61.0      36.7 |  6781    54.5    -0.29   0.90
+PerfectStorm        1545   53.3     50.8    -0.83  0.76    9.15   -9.34     64.1     58.4      32.4 |   484    51.4    -0.74   0.77
+ORS-Prime            353   88.1     84.3     1.90  2.19   18.83   -9.47     89.8     86.7      68.0 |    58    84.5     1.62   1.92
+
+WR = net P&L > 0%; Wilson = 95% lower confidence bound. MFE/MAE are average maximum excursions over 20 bars.
+Hit rates are independent reach rates, not necessarily closed profitable trades.
+
+VolumeFootprint: signals=12150; executed=12150; stages={"BUY":11437,"STRONG_BUY":662,"ULTRA_STRONG_BUY":51}
+CompressionCoil: signals=6092; executed=6092; stages={"BUY":5926,"STRONG_BUY":166}
+MomentumPocket: signals=19449; executed=19449; stages={"BUY":18255,"STRONG_BUY":1169,"ULTRA_STRONG_BUY":25}
+EMAStack: signals=20344; executed=20344; stages={"STRONG_BUY":6664,"BUY":13501,"ULTRA_STRONG_BUY":179}
+PerfectStorm: signals=1545; executed=1545; stages={"BUY":1397,"STRONG_BUY":141,"ULTRA_STRONG_BUY":7}
+ORS-Prime: signals=353; executed=353; stages={"STRONG_BUY":347,"BUY":2,"ULTRA_STRONG_BUY":4}
+
+JSON: D:\Claude code\stock-screener\scripts\results\six_archetype_exact_backtest_2026-07-17T18-38-12-004Z.json
+TXT: D:\Claude code\stock-screener\scripts\results\six_archetype_exact_backtest_2026-07-17T18-38-12-004Z.txt
