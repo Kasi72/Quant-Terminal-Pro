@@ -1,0 +1,124 @@
+{
+  "timestamp": "2026-07-20T18:42:36.480Z",
+  "totalSignals": 12975,
+  "ultraSignals": 609,
+  "strategiesEvaluated": 150,
+  "perArchetype": {
+    "CompressionCoil": {
+      "strategy": "ST_k4",
+      "label": "Supertrend k=4×ATR",
+      "params": {
+        "k": 4
+      },
+      "group": "ST",
+      "baseE": 2.447512589939496,
+      "winnerE": 2.531877590434716,
+      "eGain": 0.08436500049521989,
+      "winnerWR": 69.33797909407666,
+      "winnerSLR": 16.02787456445993,
+      "winnerCI": {
+        "mean": 2.5351601472219922,
+        "lo": 2.028765124947811,
+        "hi": 3.0605654704604683
+      },
+      "baseCI": {
+        "mean": 2.428718037436261,
+        "lo": 1.9254036426143026,
+        "hi": 2.936097924504505
+      },
+      "n": 287
+    },
+    "VolumeFootprint": {
+      "strategy": "STATIC_4ATR",
+      "label": "Static 4×ATR (baseline)",
+      "params": {},
+      "group": "STATIC",
+      "baseE": 1.4616117442349534,
+      "winnerE": 1.4616117442349534,
+      "eGain": 0,
+      "winnerWR": 65.76576576576578,
+      "winnerSLR": 17.117117117117118,
+      "winnerCI": {
+        "mean": 1.399100323534983,
+        "lo": 0.30838818937293677,
+        "hi": 2.4815008721324885
+      },
+      "baseCI": {
+        "mean": 1.4540025690486513,
+        "lo": 0.26859476436235985,
+        "hi": 2.400039040378244
+      },
+      "n": 111
+    },
+    "MomentumPocket": {
+      "strategy": "STATIC_4ATR",
+      "label": "Static 4×ATR (baseline)",
+      "params": {},
+      "group": "STATIC",
+      "baseE": 1.0011805722429934,
+      "winnerE": 1.0011805722429934,
+      "eGain": 0,
+      "winnerWR": 59.310344827586206,
+      "winnerSLR": 17.93103448275862,
+      "winnerCI": {
+        "mean": 0.9963683970984251,
+        "lo": 0.046399015360083506,
+        "hi": 1.9129418583507127
+      },
+      "baseCI": {
+        "mean": 1.0398327429112777,
+        "lo": 0.02142648093242716,
+        "hi": 2.0042099156064186
+      },
+      "n": 145
+    },
+    "EMAStack": {
+      "strategy": "ST_k4",
+      "label": "Supertrend k=4×ATR",
+      "params": {
+        "k": 4
+      },
+      "group": "ST",
+      "baseE": 2.7607147752774,
+      "winnerE": 2.8359639160491836,
+      "eGain": 0.07524914077178346,
+      "winnerWR": 75.75757575757575,
+      "winnerSLR": 9.090909090909092,
+      "winnerCI": {
+        "mean": 2.8656399729256714,
+        "lo": 1.7855995368927675,
+        "hi": 3.9431806864529126
+      },
+      "baseCI": {
+        "mean": 2.733936183521072,
+        "lo": 1.2066686547511307,
+        "hi": 3.7612986863890945
+      },
+      "n": 66
+    }
+  },
+  "universalWinner": {
+    "name": "STATIC_4ATR",
+    "label": "Static 4×ATR (baseline)",
+    "params": {},
+    "group": "STATIC",
+    "perArchE": {
+      "CompressionCoil": {
+        "base": 2.447512589939496,
+        "winner": 2.447512589939496
+      },
+      "VolumeFootprint": {
+        "base": 1.4616117442349534,
+        "winner": 1.4616117442349534
+      },
+      "MomentumPocket": {
+        "base": 1.0011805722429934,
+        "winner": 1.0011805722429934
+      },
+      "EMAStack": {
+        "base": 2.7607147752774,
+        "winner": 2.7607147752774
+      }
+    }
+  }
+}

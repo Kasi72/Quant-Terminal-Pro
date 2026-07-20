@@ -3335,12 +3335,16 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.priceEngine.efficiencyRatio = path8 > 0 ? Math.min(1, netChange8 / path8) : 0.5;
 
         // Chandelier exits: max high over lookback window − multiplier × ATR
+        // Phase 5 (dynamic_trailing_sl.js, 2026-07-21): optimal trail multiplier = 4×ATR.
+        // Static 4×ATR dominates over 150 trailing strategies on ULTRA signals.
+        // T3 uses 4×ATR (updated from 3×) to match deployed initial stop width.
+        // Conditional P(Win|pnl,bars): pnl<-6% → 15-25% P(Win); pnl<0% after day 10 → 45%.
         const hh3  = endIdx >= 2  ? Math.max(...candles.slice(endIdx - 2,  endIdx + 1).map(c => c.h)) : sig8.h;
         const hh5  = endIdx >= 4  ? Math.max(...candles.slice(endIdx - 4,  endIdx + 1).map(c => c.h)) : sig8.h;
         const hh10 = endIdx >= 9  ? Math.max(...candles.slice(endIdx - 9,  endIdx + 1).map(c => c.h)) : sig8.h;
         result.priceEngine.chandelierT1 = Math.max(0, hh3  - 2.0 * atr8);
-        result.priceEngine.chandelierT2 = Math.max(0, hh5  - 2.0 * atr8);
-        result.priceEngine.chandelierT3 = Math.max(0, hh10 - 3.0 * atr8);
+        result.priceEngine.chandelierT2 = Math.max(0, hh5  - 2.5 * atr8);
+        result.priceEngine.chandelierT3 = Math.max(0, hh10 - 4.0 * atr8);
 
         // Gap ATR
         if (endIdx > 0) {
