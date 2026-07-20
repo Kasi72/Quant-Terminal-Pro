@@ -174,10 +174,11 @@ export function validateTrade(
   let closedPrice = 0, closedDate = '';
 
   const plannedT1  = (trade.target1 && trade.target1 > entry) ? trade.target1 : Infinity;
-  // Phase-3: T1 = 1.5×ATR above entry (stored in trade.target1). The old 5% cap was
-  // calibrated for the 2×ATR-stop era; with the new tighter stop, T1 is always in range.
-  // Use plannedT1 directly so ATR-absolute targets are respected without truncation.
-  const effectiveT1 = plannedT1;
+  // Phase-5 rule: if T1 price level is set above the 5% target (e.g. T1=+12% for a
+  // low-ATR signal), the 5% gain level acts as the effective T1 trigger — the screener's
+  // core exit point. Math.min picks the EARLIER of the two levels.
+  // For stocks where T1 < 5% (normal high-ATR case), plannedT1 wins unchanged.
+  const effectiveT1 = Math.min(plannedT1, entry * 1.05);
 
   let t1Hit = false, t2Hit = false;
   let highestCloseSinceT1 = entry;

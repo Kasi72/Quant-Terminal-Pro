@@ -276,6 +276,15 @@ export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): Tra
     const weightedT1 = trade.target1 * 0.5 + currentPrice * 0.5;
     updated.pnlPct = ((weightedT1 - trade.entryPrice) / trade.entryPrice) * 100;
     updated.pnlR = riskPerShare > 0 ? (weightedT1 - trade.entryPrice) / riskPerShare : 0;
+  } else if (((currentPrice - trade.entryPrice) / trade.entryPrice) * 100 >= 5.0) {
+    // CMP has delivered the screener's core 5% profit target even though the
+    // T1 price level hasn't been reached (happens when T1 is set far above 5%).
+    // Count as T1 hit — the entire system is calibrated around the 5% exit.
+    updated.status = 'hit_t1';
+    updated.closedPrice = currentPrice;
+    updated.closedDate = updated.lastCheckDate;
+    updated.pnlPct = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
+    updated.pnlR = riskPerShare > 0 ? (currentPrice - trade.entryPrice) / riskPerShare : 0;
   } else if (daysHeld >= 20) {
     updated.status = 'expired';
     updated.closedPrice = currentPrice;
