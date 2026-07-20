@@ -2602,9 +2602,11 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const tuning = { ...tech, volRatio20, closeLoc, upperWickPct: ca.upperWickPct, hi20Frac: hi20 > 0 ? sig.c / hi20 : 0, rangeATR: exactRangeATR14, gapDownPct: prevClose > 0 ? (sig.o / prevClose - 1) * 100 : 0, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc, adx: adxVal, conditions: passed.map(Boolean) };
   if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
-  // Score: weighted (c6 DMI worth 15pts — equal to c5, replaces a missing condition)
+  // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
+  // c1 (volume ≥3.7×) top predictor (+7.7% WR delta) → 43 pts; c4 (range expansion) strong (+6.4%) → 21 pts
+  // c3 (within 17% of 20d high) and c5 (no gap-down) have 97-99% pass rates → near-zero discrimination → 3 pts floor
   const score = Math.min(100, Math.round(
-    (c1 ? 20 : 0) + (c2 ? 20 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 10 : 0) + (c6 ? 15 : 0) +
+    (c1 ? 43 : 0) + (c2 ? 3 : 0) + (c3 ? 3 : 0) + (c4 ? 21 : 0) + (c5 ? 3 : 0) + (c6 ? 18 : 0) +
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
@@ -2758,8 +2760,12 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
 
   if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
+  // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
+  // c3 (price in upper 41% of 20d range) is top predictor (+4.0% WR delta) → 49 pts
+  // c1 (deep coil ≥8 bars) strong (+3.4%) → 20 pts kept
+  // c5 (coil-bar quality) showed -1.4% delta → floor 3 pts; c2 / c6 near-zero → floor 3 pts
   const score = Math.min(100, Math.round(
-    (c1 ? 20 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 20 : 0) + (c5 ? 15 : 0) + (c6 ? 15 : 0) +
+    (c1 ? 20 : 0) + (c2 ? 3 : 0) + (c3 ? 49 : 0) + (c4 ? 18 : 0) + (c5 ? 3 : 0) + (c6 ? 3 : 0) +
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
@@ -2896,8 +2902,11 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
 
   if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
+  // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
+  // c5 (volume ≥1.5×) top predictor (+3.1% WR delta) → 39 pts; c6 (DI+>DI-) strong (+2.4%) → 25 pts
+  // c1 (≥15% below 52W high) showed -1.5% delta → floor 3 pts; c4 (closeLoc) near-zero → 3 pts
   const score = Math.min(100, Math.round(
-    (c1 ? 18 : 0) + (c2 ? 12 : 0) + (c3 ? 20 : 0) + (c4 ? 17 : 0) + (c5 ? 13 : 0) + (c6 ? 20 : 0) +
+    (c1 ? 3 : 0) + (c2 ? 10 : 0) + (c3 ? 16 : 0) + (c4 ? 3 : 0) + (c5 ? 39 : 0) + (c6 ? 25 : 0) +
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
@@ -3032,8 +3041,12 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   if (!c1 || conditionsMet < 2) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
+  // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
+  // c3 (EMA20 > EMA50, uptrend intact) top predictor (+4.4% WR delta) → 39 pts
+  // c1 (today crossed EMA20) strong (+2.2%) → 23 pts; c4 (green body) moderate (+1.2%) → 17 pts
+  // c2 (was below EMA20 ≥3 days) showed -2.4% delta → floor 3 pts; c5 (closeLoc) near-zero → 3 pts
   const score = Math.min(100, Math.round(
-    (c1 ? 25 : 0) + (c2 ? 15 : 0) + (c3 ? 15 : 0) + (c4 ? 15 : 0) + (c5 ? 10 : 0) + (c6 ? 20 : 0) +
+    (c1 ? 23 : 0) + (c2 ? 3 : 0) + (c3 ? 39 : 0) + (c4 ? 17 : 0) + (c5 ? 3 : 0) + (c6 ? 11 : 0) +
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
