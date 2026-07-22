@@ -16,7 +16,7 @@ export interface Candle { ts: number; o: number; h: number; l: number; c: number
 
 export type StageRating = 'NO_SIGNAL' | 'COMPRESSION_WATCH' | 'EARLY_INFLECTION' | 'PRE_BREAKOUT' | 'BUY' | 'STRONG_BUY' | 'ULTRA_STRONG_BUY';
 
-export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus' | 'sniper_95plus' | 'ors_prime_reversal';
+export type ParamSetKey = 'optimized_deployable_20plus' | 'optimized_highprecision_15plus' | 'optimized_elite_10plus' | 'optimized_ultraselective_8plus' | 'sniper_95plus' | 'ors_prime_reversal' | 'circuit_breaker_v2';
 
 export interface ParamSet {
   name: string; tag: string;
@@ -163,7 +163,7 @@ export interface AnalysisResult {
   zScore252?: number;
   orsConfirmed?: boolean;   // true = green-confirmation candle fired (entry tomorrow open)
   // Phase 2 — Momentum Archetype system
-  archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout';
+  archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout' | 'CircuitBreaker';
   confluenceScore?: number;   // 0–6: how many of the 6 archetypes fire on this stock
   confluenceFlags?: {
     volumeFootprint: boolean;
@@ -538,6 +538,25 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
   },
+  // Discriminant-analysis design: case-control study 6,339 circuit events vs 31,695 controls.
+  // Backtest (cb_backtest.js): recall 15%, precision 0.36% OOS, lift 1.3× vs 0.27% base rate.
+  // Designed as a momentum screener (universe reduction), not a binary next-day predictor.
+  circuit_breaker_v2: {
+    name: 'Circuit Breaker', tag: '⚡ Upper Circuit Candidate',
+    // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
+    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 100,
+    maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
+    zoneRangeATRThreshold: 99, minZoneLen: 0, maxZoneLen: 100, maxZoneTightnessPct: 100,
+    maxPre10AvgVolRatio: 99, maxPre5AvgVolRatio: 99,
+    maxPre10HighVolCount: 99, highVolMultiplier: 1.35, maxPre10RedVolBias: 99,
+    breakoutMultiplier: 0,
+    minExactRangeATR14: 0, maxExactRangeATR14: 99,
+    minExactVolRatio20: 0, minExactVolVsPre5: 0,
+    minCloseLoc: 0, maxUpperWickPct: 100, minBodyPct: 0, maxCandleRisk: 100,
+    minUltraPrecisionScore: 0, minRSI2: 0,
+    minVolatilityExpansionRatio: null, minCandleQualityScore: null,
+    maxCloseAboveZonePct: null,
+  },
 };
 
 export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: string }> = [
@@ -547,6 +566,7 @@ export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: str
   { key: 'optimized_ultraselective_8plus', name: PARAM_SETS.optimized_ultraselective_8plus.name, tag: PARAM_SETS.optimized_ultraselective_8plus.tag },
   { key: 'sniper_95plus', name: PARAM_SETS.sniper_95plus.name, tag: PARAM_SETS.sniper_95plus.tag },
   { key: 'ors_prime_reversal', name: PARAM_SETS.ors_prime_reversal.name, tag: PARAM_SETS.ors_prime_reversal.tag },
+  { key: 'circuit_breaker_v2', name: PARAM_SETS.circuit_breaker_v2.name, tag: PARAM_SETS.circuit_breaker_v2.tag },
 ];
 
 // ─── CORE HELPERS ─────────────────────────────────────────────────────────────
@@ -1236,10 +1256,11 @@ function computeInflectionScore(
 // Phase-3: per-archetype ULTRA thresholds via expectancy maximization + bootstrap CI (22K signals, 60 stocks).
 // E = WR×5% − SLrate×7.5%. Bootstrap 95% CI: CC=[62.2–72.1%], VF=[56.0–72.8%], MP=[57.9–67.1%], EMA=[62.7–81.9%]
 const ARCH_ULTRA: Record<string, number> = {
-  CompressionCoil: 84,  // WR 67.4% @ n=315 — lowered from 86 to include more confirmed setups at same rate
-  VolumeFootprint: 98,  // WR 64.8% @ n=125 — high bar; VF score distribution peaks at very high values
-  MomentumPocket:  99,  // WR 62.4% @ n=404 — tight bar eliminates many marginal MP signals
-  EMAStack:        99,  // WR 72.3% @ n=83  — biggest gain (+11.6pp); EMA99 only fires on cleanest breakouts
+  CompressionCoil:  84,  // WR 67.4% @ n=315 — lowered from 86 to include more confirmed setups at same rate
+  VolumeFootprint:  98,  // WR 64.8% @ n=125 — high bar; VF score distribution peaks at very high values
+  MomentumPocket:   99,  // WR 62.4% @ n=404 — tight bar eliminates many marginal MP signals
+  EMAStack:         99,  // WR 72.3% @ n=83  — biggest gain (+11.6pp); EMA99 only fires on cleanest breakouts
+  CircuitBreaker:   72,  // Discovery archetype — lower bar, prediction task not historical P&L archetype
 };
 
 function archetypeStage(conditionsMet: number, score: number, arch?: string): StageRating {
@@ -3194,6 +3215,171 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   }, tuning);
 }
 
+// ─── CIRCUIT BREAKER ─────────────────────────────────────────────────────────
+// Momentum screener derived from case-control discriminant study (6,339 upper-circuit events).
+// Paradigm: upper circuit candidates show ELEVATED momentum at D-1, NOT dry/flat volume.
+// 8 scored conditions; c1 (isBull) AND c2 (diBull) are mandatory gates.
+// Recall 15%, precision 0.36% OOS (1.3× lift vs 0.27% base rate): use as universe reducer.
+
+function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
+  const key: ParamSetKey = 'circuit_breaker_v2';
+  const base = archetypeBase(candles, key);
+  const n = candles.length;
+  if (n < 80) return base;
+
+  const endIdx = n - 1;
+  const sig = candles[endIdx];
+  if (sig.c <= 0) return base;
+
+  const atr14Arr = computeATR14(candles);
+  const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
+
+  // Turnover gate
+  const tStart = Math.max(0, endIdx - 20);
+  let tSum = 0, vSum = 0;
+  for (let i = tStart; i < endIdx; i++) { tSum += candles[i].c * candles[i].v; vSum += candles[i].v; }
+  const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
+  if (turnover20 < tuned(key, 'minAvgTurnover20', 10_000_000)) return base;
+  const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
+  const volRatioD1 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+
+  // ATR% gate
+  const atrPct = sig.c > 0 ? atr14 / sig.c * 100 : 0;
+  if (atrPct < tuned(key, 'minAtrPct', 3.0) || atrPct > tuned(key, 'maxAtrPct', 20.0)) return base;
+
+  // Anti-pattern hard gates (OR 0.476, 0.508): flat/tight price or pure vol decline disqualifies
+  if (n >= 5) {
+    const last5 = candles.slice(endIdx - 4, endIdx + 1);
+    const closes5 = last5.map(b => b.c);
+    const maxC5 = Math.max(...closes5), minC5 = Math.min(...closes5);
+    const span5 = minC5 > 0 ? (maxC5 / minC5 - 1) * 100 : 99;
+    if (span5 < tuned(key, 'maxFlat5Pct', 2.5)) return base;
+    const max3 = Math.max(closes5[2], closes5[3], closes5[4]);
+    const min3 = Math.min(closes5[2], closes5[3], closes5[4]);
+    const span3 = min3 > 0 ? (max3 / min3 - 1) * 100 : 99;
+    if (span3 < tuned(key, 'maxTight3Pct', 1.5)) return base;
+    const vols5 = last5.map(b => b.v);
+    if (vols5[4] < vols5[3] && vols5[3] < vols5[2] && vols5[2] < vols5[1] && vols5[1] < vols5[0]) return base;
+  }
+
+  // DMI (isBull direction and momentum)
+  const { diPlus: dpArr, diMinus: dmArr, adx: adxArr } = computeDMI(candles);
+  const diPlus  = dpArr[endIdx]  ?? 20;
+  const diMinus = dmArr[endIdx]  ?? 20;
+  const adx     = adxArr[endIdx] ?? 20;
+
+  // ATR5 / ATR14 compression ratio — d=0.46, strongest continuous discriminant
+  const trSlice5: number[] = [];
+  for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
+    const prev = candles[i - 1];
+    trSlice5.push(Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - prev.c), Math.abs(candles[i].l - prev.c)));
+  }
+  const atr5 = trSlice5.length ? trSlice5.reduce((a, x) => a + x, 0) / trSlice5.length : atr14;
+  const atrComp = atr14 > 0 ? atr5 / atr14 : 1;
+
+  // Stochastic %K14 — d=0.40
+  const stSlice = candles.slice(Math.max(0, endIdx - 13), endIdx + 1);
+  const stLo = Math.min(...stSlice.map(b => b.l));
+  const stHi = Math.max(...stSlice.map(b => b.h));
+  const stochK = stHi > stLo ? (sig.c - stLo) / (stHi - stLo) * 100 : 50;
+
+  // MFI5 (Money Flow Index over 5 bars)
+  const mfiSlice = candles.slice(Math.max(0, endIdx - 4), endIdx + 1);
+  let posFlow = 0, negFlow = 0;
+  for (let i = 1; i < mfiSlice.length; i++) {
+    const tpI = (mfiSlice[i].h + mfiSlice[i].l + mfiSlice[i].c) / 3;
+    const tpP = (mfiSlice[i-1].h + mfiSlice[i-1].l + mfiSlice[i-1].c) / 3;
+    const mf = tpI * mfiSlice[i].v;
+    if (tpI > tpP) posFlow += mf; else negFlow += mf;
+  }
+  const mfi5 = negFlow === 0 ? 100 : 100 - 100 / (1 + posFlow / negFlow);
+
+  // Volume bull dominance over last 5 bars
+  const vol5Slice = candles.slice(Math.max(0, endIdx - 4), endIdx + 1);
+  const bullVol   = vol5Slice.filter(b => b.c > b.o).reduce((a, b) => a + b.v, 0);
+  const totalVol5 = vol5Slice.reduce((a, b) => a + b.v, 0);
+  const volBullDom = totalVol5 > 0 ? bullVol / totalVol5 : 0.5;
+
+  // Candle geometry
+  const sigRange   = sig.h - sig.l;
+  const closeLoc   = sigRange > 1e-9 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const upperWickPct = sigRange > 1e-9 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
+  const isBull = sig.c > sig.o;
+
+  const tech  = archetypeTech(candles, endIdx);
+  const rsi14 = tech.rsi14;
+  const cmf20 = tech.cmf20;
+
+  // 8 scored conditions (weights from case-control Odds Ratios and Cohen's d)
+  const c1 = isBull;                                                                         // OR 1.694 · mandatory
+  const c2 = diPlus > diMinus;                                                               // OR 1.603 · mandatory
+  const c3 = volRatioD1 >= tuned(key, 'minVolRatioD1', 1.2);                               // d=0.344 · 12 pts
+  const c4 = stochK >= tuned(key, 'minStoch', 35) && stochK <= tuned(key, 'maxStoch', 82); // d=0.40  · 10 pts
+  const c5 = rsi14 >= tuned(key, 'minRSI14', 42) && rsi14 <= tuned(key, 'maxRSI14', 68);  // d=0.359 · 9 pts
+  const c6 = closeLoc >= tuned(key, 'minCloseLoc', 40);                                     // d=0.353 · 9 pts
+  const c7 = atrComp >= tuned(key, 'minAtrComp', 1.0);                                     // d=0.46  · 12 pts
+  const c8 = upperWickPct <= tuned(key, 'maxUpperWick', 30);                               // d=0.204 · 5 pts
+
+  const conditions = [c1, c2, c3, c4, c5, c6, c7, c8];
+  const conditionsMet = conditions.filter(Boolean).length;
+
+  // Mandatory gates: c1 AND c2 must both pass (best pair OR=2.2)
+  if (!c1 || !c2) {
+    const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
+    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
+  }
+
+  // Require at least 5 of 8 conditions
+  if (conditionsMet < 5) {
+    const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
+    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
+  }
+
+  // Score: base weights + magnitude bonuses (max 100)
+  const score = Math.min(100, Math.round(
+    (c1 ? 18 : 0) + (c2 ? 16 : 0) + (c3 ? 12 : 0) + (c4 ? 10 : 0) +
+    (c5 ?  9 : 0) + (c6 ?  9 : 0) + (c7 ? 12 : 0) + (c8 ?  5 : 0) +
+    (volRatioD1 >= 1.8 ? 5 : volRatioD1 >= 1.4 ? 2 : 0) +
+    (diPlus >= 25 ? 4 : 0) +
+    (mfi5   >= 50 ? 4 : 0) +
+    (cmf20  >= -0.1 ? 4 : 0) +
+    (volBullDom >= 0.5 ? 3 : 0) +
+    (atrComp >= 1.15 ? 3 : 0)
+  ));
+
+  const stage = archetypeStage(conditionsMet, score, 'CircuitBreaker');
+
+  // Price engine
+  const entry = sig.o > 0 ? sig.o : sig.c;
+  const priceEngine = archetypePriceEngine(entry, atr14);
+
+  const checklist: ChecklistItem[] = [
+    { label: 'Bullish candle (isBull)', pass: c1, value: isBull ? 'Yes' : 'No' },
+    { label: 'DI+ > DI- (diBull)', pass: c2, value: `DI+ ${diPlus.toFixed(1)} / DI- ${diMinus.toFixed(1)}` },
+    { label: 'D-1 vol surge ≥1.2× avg', pass: c3, value: `${volRatioD1.toFixed(2)}×` },
+    { label: 'Stoch %K 35–82', pass: c4, value: stochK.toFixed(1) },
+    { label: 'RSI14 42–68', pass: c5, value: rsi14.toFixed(1) },
+    { label: 'Close loc ≥40%', pass: c6, value: `${closeLoc.toFixed(1)}%` },
+    { label: 'ATRc ≥1.0 (expanding)', pass: c7, value: atrComp.toFixed(3) },
+    { label: 'Upper wick ≤30%', pass: c8, value: `${upperWickPct.toFixed(1)}%` },
+  ];
+
+  const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
+
+  return attachTuningDebug({
+    ...base,
+    stage, inflectionScore: score, confidence: score,
+    conditionsMet, totalConditions: 8,
+    closeLoc, upperWickPct,
+    priceEngine,
+    checklist,
+    archetypeType: 'CircuitBreaker',
+    archetypeConditions: conditionsMet,
+    archetypeTotal: 8,
+    dayChangePct: n > 1 ? (sig.c - candles[n - 2].c) / candles[n - 2].c * 100 : 0,
+  }, tuningDebug);
+}
+
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
 export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich = true): AnalysisResult {
@@ -3244,6 +3430,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
   else if (paramSetKey === 'optimized_elite_10plus') result = analyzeMomentumPocket(candles);
   else if (paramSetKey === 'optimized_ultraselective_8plus') result = analyzeEMAStack(candles);
   else if (paramSetKey === 'sniper_95plus') result = analyzePerfectStorm(candles);
+  else if (paramSetKey === 'circuit_breaker_v2') result = analyzeCircuitBreaker(candles);
   else return noSignalBase();
 
   // ── Post-processing enrichment ─────────────────────────────────────────────
