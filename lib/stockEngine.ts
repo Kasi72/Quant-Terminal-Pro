@@ -410,9 +410,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.90,
     maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 0.8,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.3, minExactVolVsPre5: 2.0,
-    minCloseLoc: 40, maxUpperWickPct: 18, minBodyPct: 50, maxCandleRisk: 10.0,
+    minExactRangeATR14: 3.5, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 5.5, minExactVolVsPre5: 2.0,
+    minCloseLoc: 68, maxUpperWickPct: 25, minBodyPct: 50, maxCandleRisk: 10.0,
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 6.0,
@@ -430,9 +430,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 0.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.1, minExactVolVsPre5: 2.0,
-    minCloseLoc: 50, maxUpperWickPct: 10, minBodyPct: 50, maxCandleRisk: 5.0,
+    minExactRangeATR14: 0.2, maxExactRangeATR14: 1.1,
+    minExactVolRatio20: 3.0, minExactVolVsPre5: 2.0,
+    minCloseLoc: 55, maxUpperWickPct: 40, minBodyPct: 20, maxCandleRisk: 12.0,
     minUltraPrecisionScore: 50, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: null,
     maxCloseAboveZonePct: 4.0,
@@ -450,8 +450,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 2.2, minExactVolVsPre5: 2.0,
-    minCloseLoc: 55, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 5.0,
+    minExactVolRatio20: 1.2, minExactVolVsPre5: 2.0,
+    minCloseLoc: 45, maxUpperWickPct: 30, minBodyPct: 5, maxCandleRisk: 5.0,
     minUltraPrecisionScore: 0, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
@@ -472,8 +472,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 0.8,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 0.8, minExactVolVsPre5: 1.5,
-    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 35, maxCandleRisk: 8.5,
+    minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5,
+    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 60, maxCandleRisk: 5.0,
     minUltraPrecisionScore: 0, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
@@ -533,7 +533,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
     minExactVolRatio20: 1.5, minExactVolVsPre5: 3.5,
-    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 6.0,
+    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 16.0,
     minUltraPrecisionScore: 5, minRSI2: 50,
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
@@ -2571,8 +2571,8 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 68.2% → 84.6% (n=13 OOS, n=31 IS)
   // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
   if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
-      tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
-      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+      tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) ||
+      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
     return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
 
   // Pre-10 avg range ATR
@@ -2593,14 +2593,14 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 
   // 6 signal conditions — DMI + candle-arch augmented (OOS WR 80.7%, n=2086, Wilson 79.3%)
   const bsc = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
-  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 3.7);         // institutional volume spike
-  const c2 = closeLoc >= tuned(key, 'minCloseLoc', 68) && ca.upperWickPct <= tuned(key, 'maxUpperWick', 12);
-  const c3 = hi20 > 0 && sig.c >= hi20 * tuned(key, 'minHi20Frac', 0.83);
-  const c4 = exactRangeATR14 >= tuned(key, 'minRangeATR', 2.4);
-  const c5 = sig.o >= prevClose * (1 + tuned(key, 'maxGapDownPct', -2.6) / 100);
+  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 5.5);         // institutional volume spike
+  const c2 = closeLoc >= tuned(key, 'minCloseLoc', 68) && ca.upperWickPct <= tuned(key, 'maxUpperWick', 25);
+  const c3 = hi20 > 0 && sig.c >= hi20 * tuned(key, 'minHi20Frac', 0.92);
+  const c4 = exactRangeATR14 >= tuned(key, 'minRangeATR', 3.5);
+  const c5 = sig.o >= prevClose * (1 + tuned(key, 'maxGapDownPct', 0) / 100);
   const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
-             (tuned(key, 'maxBsc', 99) >= 99 || bsc <= tuned(key, 'maxBsc', 99)) &&
-             adxVal >= tuned(key, 'minADX', 25);
+             (tuned(key, 'maxBsc', 3) >= 99 || bsc <= tuned(key, 'maxBsc', 3)) &&
+             adxVal >= tuned(key, 'minADX', 45);
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
@@ -2625,12 +2625,12 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Volume ≥ 3.7× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'Close top 32% of range AND upper wick ≤ 12%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
-    { label: 'Price within 17% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
-    { label: 'Range expansion ≥ 2.4× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
-    { label: 'Open gap-down ≤ -2.6%', pass: c5, value: noGapDown ? 'YES' : 'NO' },
-    { label: 'DI+ > DI− and ADX ≥ 15 (trend aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
+    { label: 'Volume ≥ 5.5× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Close top 32% of range AND upper wick ≤ 25%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
+    { label: 'Price within 8% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
+    { label: 'Range expansion ≥ 3.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'Open gap-down ≤ 0%', pass: c5, value: sig.o >= prevClose ? 'YES' : 'NO' },
+    { label: 'DI+ > DI− and ADX ≥ 45 (trend aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -2684,9 +2684,10 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
   // Skipped when called from PerfectStorm (which applies its own composite gate).
   if (!skipPrecisionGate) {
-    if (tech.cmf20 < tuned(key, 'minCMF20', 0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.0) ||
-        volRatio20 < tuned(key, 'minGateVolRatio', 1.5) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) ||
-        tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+    if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1) ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
+        volRatio20 < tuned(key, 'minGateVolRatio', 3) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1) ||
+        tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
       return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 };
   }
 
@@ -2699,12 +2700,12 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   // Condition 1: Deep compression — tunable consecutive narrow bars.
   // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40, Wilson 79.5%)
   let compressionBars = 0;
-  for (let i = endIdx - 1; i >= Math.max(0, endIdx - 15); i--) {
+  for (let i = endIdx - 1; i >= Math.max(0, endIdx - 20); i--) { // expanded lookback since maxCompressionBars can be 16
     const a = atr14Arr[i] || atr14;
     if ((candles[i].h - candles[i].l) < tuned(key, 'compressionATR', 0.70) * a) compressionBars++;
     else break;
   }
-  const c1 = compressionBars >= tuned(key, 'minCompressionBars', 8) && compressionBars <= tuned(key, 'maxCompressionBars', 12);
+  const c1 = compressionBars >= tuned(key, 'minCompressionBars', 9) && compressionBars <= tuned(key, 'maxCompressionBars', 16);
 
   // Condition 2: Volume declining 2+ days (supply drying up)
   let volDeclineDays = 0;
@@ -2712,7 +2713,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     if (candles[i].v < candles[i - 1].v) volDeclineDays++;
     else break;
   }
-  const c2 = volDeclineDays >= tuned(key, 'minVolumeDeclineDays', 2);
+  const c2 = volDeclineDays >= tuned(key, 'minVolumeDeclineDays', 1);
 
   // Condition 3: Price in upper 41% of 20-day range (coiling at top, not bottom)
   let lo20 = Infinity, hi20 = 0;
@@ -2721,7 +2722,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     if (candles[i].h > hi20) hi20 = candles[i].h;
   }
   const pricePos20 = (hi20 > lo20) ? (sig.c - lo20) / (hi20 - lo20) * 100 : 50;
-  const c3 = pricePos20 >= tuned(key, 'minPricePos20', 59);
+  const c3 = pricePos20 >= tuned(key, 'minPricePos20', 60);
 
   // Condition 4: Bollinger Band width in lower 47th pctl of 60d history
   const bbWidthPctl = (() => {
@@ -2742,22 +2743,22 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     const below = window60.filter(w => w <= cur).length;
     return below / window60.length * 100;
   })();
-  const c4 = bbWidthPctl <= tuned(key, 'maxBBWidthPctl', 30);
+  const c4 = bbWidthPctl <= tuned(key, 'maxBBWidthPctl', 40);
 
   // Condition 5: Coil bar — tight range AND candle architecture quality
   // Green + closeLoc ≥ 55 + bodyPct ≥ 30 ensures even compressed bars are bullishly structured
   const sigRange = sig.h - sig.l;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
   const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
-  const c5 = exactRangeATR14 <= tuned(key, 'maxRangeATR', 0.8) && ca.isGreen &&
-    ca.closeLoc >= tuned(key, 'minCloseLoc', 45) && ca.bodyPct >= tuned(key, 'minBodyPct', 40) &&
-    ca.candleRisk <= tuned(key, 'maxCandleRisk', 8);
+  const c5 = exactRangeATR14 <= tuned(key, 'maxRangeATR', 1.1) && ca.isGreen &&
+    ca.closeLoc >= tuned(key, 'minCloseLoc', 55) && ca.bodyPct >= tuned(key, 'minBodyPct', 20) &&
+    ca.candleRisk <= tuned(key, 'maxCandleRisk', 12);
 
   // Condition 6 (DMI): DI+ > DI− and ADX ≥ 28 (trend aligned for imminent breakout)
   const bscCC = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
   const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 99) >= 99 || bscCC <= tuned(key, 'maxBsc', 99)) &&
-    adxVal >= tuned(key, 'minADX', 28);
+    (tuned(key, 'maxBsc', 3) >= 99 || bscCC <= tuned(key, 'maxBsc', 3)) &&
+    adxVal >= tuned(key, 'minADX', 45);
 
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
@@ -2788,12 +2789,12 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Deep coil: 8-12 narrow bars (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
-    { label: 'Volume declining ≥ 2 days (supply drying)', pass: c2, value: `${volDeclineDays} days` },
-    { label: 'Price in upper 41% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
-    { label: 'BB width ≤ 30th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
-    { label: 'Coil bar: range ≤ 0.8×ATR, green, close >55%, body >30%', pass: c5, value: `rng=${exactRangeATR14.toFixed(2)}× CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` },
-    { label: 'DI+ > DI− and ADX ≥ 20 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
+    { label: 'Deep coil: 9-16 narrow bars (< 0.7×ATR)', pass: c1, value: `${compressionBars} bars` },
+    { label: 'Volume declining ≥ 1 days (supply drying)', pass: c2, value: `${volDeclineDays} days` },
+    { label: 'Price in upper 40% of 20d range', pass: c3, value: `${pricePos20.toFixed(0)}%` },
+    { label: 'BB width ≤ 40th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
+    { label: 'Coil bar: range ≤ 1.1×ATR, green, close ≥55%, body ≥20%', pass: c5, value: `rng=${exactRangeATR14.toFixed(2)}× CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` },
+    { label: 'DI+ > DI− and ADX ≥ 45 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -2852,11 +2853,12 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
   // Skipped when called from PerfectStorm (which applies its own composite gate).
   if (!skipPrecisionGate) {
-    if (tech.cmf20 < tuned(key, 'minCMF20', -0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.0) ||
-        tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 999) ||
-        tech.rsi14 < tuned(key, 'minGateRSI14', 35) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
-        tech.rsi2 > tuned(key, 'maxGateRSI2', 50) || volRatio20 < tuned(key, 'minGateVolRatio', 2.0) ||
-        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+    if (tech.cmf20 < tuned(key, 'minCMF20', -0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.5) ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 5) ||
+        tech.rsi14 < tuned(key, 'minGateRSI14', 45) || tech.rsi14 > tuned(key, 'maxGateRSI14', 55) ||
+        tech.rsi2 > tuned(key, 'maxGateRSI2', 45) || volRatio20 < tuned(key, 'minGateVolRatio', 2.5) ||
+        (tuned(key, 'minCloseVsEMA20', -999) > -999 && tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999)) ||
+        (tuned(key, 'minEMA20VsEMA50', 0.5) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.5)))
       return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
   }
 
@@ -2865,7 +2867,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   for (let i = Math.max(0, endIdx - 252); i < endIdx; i++) if (candles[i].h > hh252) hh252 = candles[i].h;
   // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40)
   const dd52W = hh252 > 0 ? (hh252 - sig.c) / hh252 * 100 : 0;
-  const c1 = dd52W >= tuned(key, 'minDd52W', 34) && dd52W <= tuned(key, 'maxDd52W', 65);
+  const c1 = dd52W >= tuned(key, 'minDd52W', 10) && dd52W <= tuned(key, 'maxDd52W', 50);
 
   // Stabilization: bars not making new lows
   let stabilizationBars = 0;
@@ -2875,7 +2877,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
     if (candles[i].l > refLow * 0.985) { stabilizationBars++; refLow = Math.min(refLow, candles[i].l); }
     else break;
   }
-  const c2 = stabilizationBars >= tuned(key, 'minStabBars', 2);
+  const c2 = stabilizationBars >= tuned(key, 'minStabBars', 6);
 
   // Recovery candle: close in top 57%, body ≥ 59%, must be green (OR hammer pattern detected)
   const sigRange = sig.h - sig.l;
@@ -2885,21 +2887,21 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
   const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
   // Standard green recovery body OR hammer (long lower wick = demand absorption at pocket low)
-  const c3 = (closeLoc >= tuned(key, 'minCloseLoc', 43) && bodyPct >= tuned(key, 'minBodyPct', 59) && sig.c >= sig.o && ca.upperWickPct <= tuned(key, 'maxUpperWick', 30))
+  const c3 = (closeLoc >= tuned(key, 'minCloseLoc', 45) && bodyPct >= tuned(key, 'minBodyPct', 5) && sig.c >= sig.o && ca.upperWickPct <= tuned(key, 'maxUpperWick', 30))
             || (ca.isHammer && closeLoc >= 60);  // Hammer path: high close + lower tail > 2×body
 
   // Volume on recovery day — tightened from 1.6 to 1.8
-  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.8);
+  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.2);
 
   // RSI14 in recovery zone (27-74): much wider upper band with DMI trend gate
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
-  const c5 = rsi14 >= tuned(key, 'minRSI14', 18) && rsi14 <= tuned(key, 'maxRSI14', 55);
+  const c5 = rsi14 >= tuned(key, 'minRSI14', 30) && rsi14 <= tuned(key, 'maxRSI14', 60);
 
   // Condition 6 (DMI): DI+ crossed above DI- within 5 bars, ADX ≥ 25 (fresh trend launch)
   const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 5) >= 99 || bscMP <= tuned(key, 'maxBsc', 5)) &&
-    adxVal >= tuned(key, 'minADX', 25);
+    (tuned(key, 'maxBsc', 3) >= 99 || bscMP <= tuned(key, 'maxBsc', 3)) &&
+    adxVal >= tuned(key, 'minADX', 30);
 
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
@@ -2923,12 +2925,12 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: '34-65% below 52W high (extended washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
-    { label: 'Not making new lows (base forming)', pass: c2, value: `${stabilizationBars} bars stable` },
-    { label: 'Bull candle: (CL>43% Bd>59% UW≤30%) OR hammer (LW>2×body CL≥60%)', pass: c3, value: ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
-    { label: 'Volume ≥ 1.8× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI14 in recovery zone (18-55)', pass: c5, value: rsi14.toFixed(1) },
-    { label: 'DI+ crossed DI− ≤5 bars ago, ADX ≥ 25 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
+    { label: '10-50% below 52W high (extended washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
+    { label: 'Not making new lows (base forming, ≥6 bars)', pass: c2, value: `${stabilizationBars} bars stable` },
+    { label: 'Bull candle: (CL≥45% Bd≥5% UW≤30%) OR hammer (LW>2×body CL≥60%)', pass: c3, value: ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 1.2× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI14 in recovery zone (30-60)', pass: c5, value: rsi14.toFixed(1) },
+    { label: 'DI+ > DI−, crossed ≤3 bars ago, ADX ≥ 30 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -2978,8 +2980,9 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   // CMF+OBV precision gate — hyper-tuned walk-forward: IS WR 85.7% → OOS WR 80.0% (n=10 OOS)
   // CMF ≥ 0.10 (clear accumulation) + OBV slope ≥ 0.5 (volume trend confirmation)
-  if (tech.cmf20 < tuned(key, 'minCMF20', 0.10) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
-      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+  if (tech.cmf20 < tuned(key, 'minCMF20', 0.05) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
+      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0) ||
+      (tuned(key, 'minEMA20VsEMA50', -999) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999)))
     return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
 
   const ema10Arr = computeEMA(candles, 10);
@@ -3009,31 +3012,31 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     if (candles[i].c < (ema20Arr[i] ?? 0)) belowCount++;
     else break;
   }
-  const c2 = belowCount >= tuned(key, 'minBelowBars', 3);
+  const c2 = belowCount >= tuned(key, 'minBelowBars', 2);
 
   // C3: EMA10 ≥ +0.7% above EMA20 AND crossover bar is a quality green bull candle
   const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
   const caES = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
   const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.3) && caES.isGreen &&
-    caES.bodyPct >= tuned(key, 'minBodyPct', 40) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 25) &&
-    caES.candleRisk <= tuned(key, 'maxCandleRisk', 10);
+    caES.bodyPct >= tuned(key, 'minBodyPct', 20) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 10) &&
+    caES.candleRisk <= tuned(key, 'maxCandleRisk', 5);
 
   // C4: Volume on crossover day ≥ 1.3× avg
-  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.3);
+  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 0.8);
 
   // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
   let recentlyOversold = false;
   for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
     const slice = candles.slice(0, i + 1);
     const r2 = computeRSI(slice, 2);
-    if (r2 <= tuned(key, 'maxRSI2Last5', 50)) { recentlyOversold = true; break; }
+    if (r2 <= tuned(key, 'maxRSI2Last5', 30)) { recentlyOversold = true; break; }
   }
   const c5 = recentlyOversold;
 
   // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 6 bars && ADX ≥ 15
-  const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 6) >= 99 || bscES <= tuned(key, 'maxBsc', 6)) &&
-    adxVal >= tuned(key, 'minADX', 15);
+  const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
+    (tuned(key, 'maxBsc', 99) >= 99 || bscES <= tuned(key, 'maxBsc', 99)) &&
+    adxVal >= tuned(key, 'minADX', 20);
 
   // Legacy: allow yesterday cross for crossedYesterday tracking only
   const crossedYesterday = endIdx > 1
@@ -3070,11 +3073,11 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   const checklist: ChecklistItem[] = [
     { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
-    { label: 'Was below EMA20 for ≥ 3 bars prior', pass: c2, value: `${belowCount} bars below` },
-    { label: 'EMA10 ≥ +0.3% above EMA20 AND green bull bar (body>40% UW≤25%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
-    { label: 'Volume ≥ 1.3× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI2 ≤ 50 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
-    { label: 'DI+ > DI−, crossed ≤6 bars ago, ADX ≥ 15', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
+    { label: 'Was below EMA20 for ≥ 2 bars prior', pass: c2, value: `${belowCount} bars below` },
+    { label: 'EMA10 ≥ +0.3% above EMA20 AND green bull bar (body≥20% UW≤10%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 0.8× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI2 ≤ 30 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+    { label: 'ADX ≥ 20 (crossover aligned)', pass: c6, value: `ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -3108,14 +3111,14 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   // ADX gate — Perfect Storm only fires in a confirmed trending regime.
   const { adx: adxArrPS } = computeDMI(candles);
   const adxValPS = adxArrPS[n - 1];
-  if (adxValPS < tuned(key, 'minADXGate', 30)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
+  if (adxValPS < tuned(key, 'minADXGate', 25)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
 
   // Candle quality gate — signal bar must be at least tier 2 (green, body ≥40%, or closeLoc ≥55%, or upper wick ≤20%)
   // Also enforce candleRisk ≤ 12% (range/close) to avoid entering on over-extended bars
   const atr14PS = computeATR14(candles)[n - 1] || candles[n - 1].c * 0.02;
   const sigPS = candles[n - 1];
   const caPS = computeCandleArch(sigPS.o, sigPS.h, sigPS.l, sigPS.c, atr14PS);
-  if (caPS.qualityTier < tuned(key, 'minQualityTier', 2) || caPS.candleRisk > tuned(key, 'maxCandleRisk', 12)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
+  if (caPS.qualityTier < tuned(key, 'minQualityTier', 2) || caPS.candleRisk > tuned(key, 'maxCandleRisk', 16)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
 
   // Composite CMF+OBV gate — applied at PS level so all 4 sub-archetypes share the same
   // money-flow filter regardless of their individual precision gates.
@@ -3128,9 +3131,9 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
     // CMF≥0.05 (net inflow required) + OBV≥-1.5 (not in active distribution) gives the
     // best consistent OOS WR: 66% BREAKEVEN model / 58.5% six_archetype model (n=41).
     // volRatio20 deliberately excluded — sub-archetypes already gate on volume independently.
-    if (_cmf < tuned(key, 'minCMF20', 0.05) || _obv < tuned(key, 'minOBVSlope10', -1.5) ||
-        techPS.atrPct14 < tuned(key, 'minAtrPct14', 0) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 999) ||
-        techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999))
+    if (_cmf < tuned(key, 'minCMF20', 0.1) || _obv < tuned(key, 'minOBVSlope10', -1.5) ||
+        techPS.atrPct14 < tuned(key, 'minAtrPct14', 3) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 6) ||
+        techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.5))
       return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] }); }
 
   const vf  = analyzeVolumeFootprint(candles);

@@ -1,649 +1,749 @@
 {
-  "generatedAt": "2026-07-02T03:30:47.318Z",
-  "globalAvgPnl": 2.98,
-  "total": 719,
+  "generatedAt": "2026-07-22T02:52:32.043Z",
+  "globalAvgPnl": -0.47,
+  "total": 4532,
   "byStageParamSet": {
-    "ULTRA_STRONG_BUY::optimized_highprecision_15plus": {
-      "n": 563,
-      "wr": 72,
-      "avgPnl": 2.8,
-      "medPnl": 5.07,
-      "pct25": -0.63,
-      "pct75": 6.04
-    },
-    "STRONG_BUY::optimized_highprecision_15plus": {
-      "n": 91,
-      "wr": 74,
-      "avgPnl": 4.1,
-      "medPnl": 6.27,
-      "pct25": 0,
-      "pct75": 7.86
-    },
-    "ULTRA_STRONG_BUY::optimized_deployable_20plus": {
-      "n": 26,
-      "wr": 77,
-      "avgPnl": 3.28,
-      "medPnl": 4.42,
-      "pct25": 0.39,
-      "pct75": 5.47
-    },
-    "ULTRA_STRONG_BUY::optimized_elite_10plus": {
-      "n": 23,
-      "wr": 83,
-      "avgPnl": 3.04,
-      "medPnl": 3.94,
-      "pct25": 3.21,
-      "pct75": 4.24
-    },
-    "STRONG_BUY::optimized_deployable_20plus": {
-      "n": 1,
-      "wr": 100,
-      "avgPnl": 4.2,
-      "medPnl": 4.2,
-      "pct25": 4.2,
-      "pct75": 4.2
-    },
-    "ULTRA_STRONG_BUY::optimized_ultraselective_8plus": {
-      "n": 7,
-      "wr": 100,
-      "avgPnl": 4.49,
-      "medPnl": 5.19,
-      "pct25": 3.4,
-      "pct75": 5.58
-    },
-    "STRONG_BUY::optimized_elite_10plus": {
-      "n": 1,
-      "wr": 0,
-      "avgPnl": -3.29,
-      "medPnl": -3.29,
-      "pct25": -3.29,
-      "pct75": -3.29
+    "BUY::optimized_elite_10plus": {
+      "n": 236,
+      "wr": 61,
+      "avgPnl": 1.25,
+      "medPnl": 2.5,
+      "pct25": -1.32,
+      "pct75": 4.07
     },
     "STRONG_BUY::optimized_ultraselective_8plus": {
-      "n": 1,
-      "wr": 100,
-      "avgPnl": 0.58,
-      "medPnl": 0.58,
-      "pct25": 0.58,
-      "pct75": 0.58
+      "n": 1243,
+      "wr": 56,
+      "avgPnl": -0.52,
+      "medPnl": 2.29,
+      "pct25": -5.57,
+      "pct75": 4.56
     },
-    "STRONG_BUY::sniper_95plus": {
+    "BUY::optimized_ultraselective_8plus": {
+      "n": 2874,
+      "wr": 58,
+      "avgPnl": -0.42,
+      "medPnl": 2.25,
+      "pct25": -4.83,
+      "pct75": 5.19
+    },
+    "BUY::sniper_95plus": {
+      "n": 7,
+      "wr": 57,
+      "avgPnl": -0.64,
+      "medPnl": 2.43,
+      "pct25": -4.48,
+      "pct75": 2.5
+    },
+    "BUY::optimized_deployable_20plus": {
+      "n": 102,
+      "wr": 52,
+      "avgPnl": -4.66,
+      "medPnl": 2.06,
+      "pct25": -8.68,
+      "pct75": 4.51
+    },
+    "STRONG_BUY::optimized_elite_10plus": {
+      "n": 43,
+      "wr": 67,
+      "avgPnl": 0.98,
+      "medPnl": 2.5,
+      "pct25": -0.82,
+      "pct75": 5.45
+    },
+    "BUY::optimized_highprecision_15plus": {
+      "n": 12,
+      "wr": 58,
+      "avgPnl": -8.6,
+      "medPnl": 1.99,
+      "pct25": -18.58,
+      "pct75": 5.23
+    },
+    "ULTRA_STRONG_BUY::optimized_ultraselective_8plus": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": 0.7,
+      "medPnl": 1.6,
+      "pct25": -2.37,
+      "pct75": 4.17
+    },
+    "STRONG_BUY::optimized_highprecision_15plus": {
       "n": 1,
       "wr": 0,
-      "avgPnl": -6.01,
-      "medPnl": -6.01,
-      "pct25": -6.01,
-      "pct75": -6.01
-    },
-    "ULTRA_STRONG_BUY::sniper_95plus": {
-      "n": 5,
-      "wr": 80,
-      "avgPnl": 2.24,
-      "medPnl": 4.85,
-      "pct25": 0.21,
-      "pct75": 5.25
+      "avgPnl": -17.28,
+      "medPnl": -17.28,
+      "pct25": -17.28,
+      "pct75": -17.28
     }
   },
   "byStage": {
-    "ULTRA_STRONG_BUY": {
-      "n": 624,
-      "wr": 73,
-      "avgPnl": 2.85,
-      "medPnl": 4.98,
-      "pct25": 0,
-      "pct75": 5.93
+    "BUY": {
+      "n": 3231,
+      "wr": 58,
+      "avgPnl": -0.46,
+      "medPnl": 2.24,
+      "pct25": -4.64,
+      "pct75": 5.13
     },
     "STRONG_BUY": {
-      "n": 95,
-      "wr": 73,
-      "avgPnl": 3.88,
-      "medPnl": 6.25,
-      "pct25": 0,
-      "pct75": 7.8
+      "n": 1287,
+      "wr": 57,
+      "avgPnl": -0.49,
+      "medPnl": 2.32,
+      "pct25": -5.42,
+      "pct75": 4.62
+    },
+    "ULTRA_STRONG_BUY": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": 0.7,
+      "medPnl": 1.6,
+      "pct25": -2.37,
+      "pct75": 4.17
     }
   },
   "byParamSet": {
-    "optimized_highprecision_15plus": {
-      "n": 654,
-      "wr": 72,
-      "avgPnl": 2.98,
-      "medPnl": 5.22,
-      "pct25": -0.08,
-      "pct75": 6.22
-    },
-    "optimized_deployable_20plus": {
-      "n": 27,
-      "wr": 78,
-      "avgPnl": 3.32,
-      "medPnl": 4.35,
-      "pct25": 0.39,
-      "pct75": 5.47
-    },
     "optimized_elite_10plus": {
-      "n": 24,
-      "wr": 79,
-      "avgPnl": 2.77,
-      "medPnl": 3.94,
-      "pct25": 3.21,
-      "pct75": 4.24
+      "n": 279,
+      "wr": 62,
+      "avgPnl": 1.2,
+      "medPnl": 2.5,
+      "pct25": -1.24,
+      "pct75": 4.71
     },
     "optimized_ultraselective_8plus": {
-      "n": 8,
-      "wr": 100,
-      "avgPnl": 4.01,
-      "medPnl": 5.19,
-      "pct25": 3.4,
-      "pct75": 5.58
+      "n": 4131,
+      "wr": 58,
+      "avgPnl": -0.45,
+      "medPnl": 2.26,
+      "pct25": -5,
+      "pct75": 5.02
     },
     "sniper_95plus": {
-      "n": 6,
-      "wr": 67,
-      "avgPnl": 0.86,
-      "medPnl": 4.85,
-      "pct25": -5.3,
-      "pct75": 5.25
+      "n": 7,
+      "wr": 57,
+      "avgPnl": -0.64,
+      "medPnl": 2.43,
+      "pct25": -4.48,
+      "pct75": 2.5
+    },
+    "optimized_deployable_20plus": {
+      "n": 102,
+      "wr": 52,
+      "avgPnl": -4.66,
+      "medPnl": 2.06,
+      "pct25": -8.68,
+      "pct75": 4.51
+    },
+    "optimized_highprecision_15plus": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -9.27,
+      "medPnl": 1.37,
+      "pct25": -18.58,
+      "pct75": 4.46
     }
   },
   "bySymbol": {
-    "APARINDS": {
-      "n": 6,
-      "wr": 100,
-      "avgPnl": 7.78
-    },
-    "ENGINERSIN": {
-      "n": 5,
-      "wr": 60,
-      "avgPnl": 0.86
-    },
-    "GRAPHITE": {
-      "n": 5,
-      "wr": 60,
-      "avgPnl": 1.51
-    },
-    "MOTILALOFS": {
-      "n": 5,
-      "wr": 20,
-      "avgPnl": -0.53
-    },
-    "CANBK": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 4.38
-    },
-    "CEMPRO": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 8.31
-    },
-    "CENTRALBK": {
-      "n": 4,
-      "wr": 25,
-      "avgPnl": -2.19
-    },
-    "COCHINSHIP": {
-      "n": 4,
-      "wr": 75,
-      "avgPnl": 6.35
-    },
-    "FSL": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": 0.32
-    },
-    "HDFCAMC": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 5.08
-    },
-    "IOC": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": -1.22
-    },
-    "KPITTECH": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 6.45
-    },
-    "LAURUSLABS": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 5.66
-    },
-    "LICHSGFIN": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": 1.07
-    },
-    "MAHABANK": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 5.92
-    },
-    "MANAPPURAM": {
-      "n": 4,
-      "wr": 75,
-      "avgPnl": 0.05
-    },
-    "MUTHOOTFIN": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 5.56
-    },
-    "NMDC": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": 0.21
-    },
-    "PNB": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": 2.66
-    },
-    "RITES": {
-      "n": 4,
-      "wr": 25,
-      "avgPnl": 0.62
-    },
-    "SJVN": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 6.44
-    },
-    "SOBHA": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": 0.14
-    },
-    "SOLARINDS": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 6.67
-    },
-    "TATAPOWER": {
-      "n": 4,
-      "wr": 100,
-      "avgPnl": 4.2
-    },
-    "YESBANK": {
-      "n": 4,
-      "wr": 50,
-      "avgPnl": -1.04
-    },
-    "AAVAS": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 7.56
-    },
-    "ADANIENT": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.65
-    },
-    "AMBER": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.85
-    },
-    "APOLLOHOSP": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 0.29
-    },
-    "APOLLOTYRE": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.09
-    },
-    "ASHOKLEY": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.11
-    },
-    "AWL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 0.33
-    },
-    "BALRAMCHIN": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.57
-    },
-    "BEML": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.17
-    },
-    "BLS": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.48
-    },
-    "CAMS": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.04
-    },
-    "CAPLIPOINT": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.71
-    },
-    "CASTROLIND": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -0.57
-    },
-    "CCL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.02
-    },
-    "CESC": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.93
-    },
-    "CHAMBLFERT": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.54
-    },
-    "CHENNPETRO": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 6.97
+    "SHRIRAMFIN": {
+      "n": 53,
+      "wr": 8,
+      "avgPnl": -27.42
     },
     "CHOLAFIN": {
-      "n": 3,
-      "wr": 67,
+      "n": 42,
+      "wr": 14,
+      "avgPnl": -9.79
+    },
+    "CREDITACC": {
+      "n": 38,
+      "wr": 16,
+      "avgPnl": -17.18
+    },
+    "CIPLA": {
+      "n": 21,
+      "wr": 71,
       "avgPnl": 0.93
     },
-    "CONCOR": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.42
+    "FLUOROCHEM": {
+      "n": 21,
+      "wr": 71,
+      "avgPnl": 2.61
     },
-    "DEEPAKFERT": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 4.63
+    "WELCORP": {
+      "n": 21,
+      "wr": 76,
+      "avgPnl": 3.14
     },
-    "DEEPAKNTR": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.4
+    "ASAHIINDIA": {
+      "n": 20,
+      "wr": 50,
+      "avgPnl": -1.61
     },
-    "ECLERX": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 6.99
+    "ANANTRAJ": {
+      "n": 19,
+      "wr": 79,
+      "avgPnl": 2.07
     },
-    "GAIL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.23
+    "BLS": {
+      "n": 19,
+      "wr": 58,
+      "avgPnl": -0.82
     },
-    "GESHIP": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.29
-    },
-    "GMDCLTD": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": 1.75
-    },
-    "GMRAIRPORT": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.58
-    },
-    "GSPL": {
-      "n": 3,
-      "wr": 0,
-      "avgPnl": -3.55
-    },
-    "HAL": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.53
-    },
-    "HEG": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 7.12
-    },
-    "HINDPETRO": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -2.4
-    },
-    "IGL": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 3.98
+    "GRANULES": {
+      "n": 19,
+      "wr": 68,
+      "avgPnl": 0.9
     },
     "INDIANB": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.25
+      "n": 19,
+      "wr": 63,
+      "avgPnl": 1.29
     },
-    "IPCALAB": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.66
+    "POLYCAB": {
+      "n": 19,
+      "wr": 58,
+      "avgPnl": 0.87
     },
-    "IRCON": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.48
-    },
-    "JBCHEPHARM": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -0.35
-    },
-    "JINDALSTEL": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.92
-    },
-    "JSWENERGY": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 6.57
-    },
-    "JUBLFOOD": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 0.8
-    },
-    "JUBLINGREA": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.6
-    },
-    "KARURVYSYA": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 6.7
-    },
-    "KFINTECH": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 7.11
-    },
-    "KPIL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.37
-    },
-    "LINDEINDIA": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.53
+    "CGPOWER": {
+      "n": 18,
+      "wr": 72,
+      "avgPnl": 3.81
     },
     "LODHA": {
-      "n": 3,
-      "wr": 0,
-      "avgPnl": -19.3
-    },
-    "LTFOODS": {
-      "n": 3,
+      "n": 18,
       "wr": 67,
-      "avgPnl": 1.35
+      "avgPnl": -0.26
     },
-    "MANKIND": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -0.08
+    "PATANJALI": {
+      "n": 18,
+      "wr": 67,
+      "avgPnl": 1.38
     },
-    "MARICO": {
-      "n": 3,
+    "POLICYBZR": {
+      "n": 18,
+      "wr": 56,
+      "avgPnl": 0.23
+    },
+    "POLYMED": {
+      "n": 18,
+      "wr": 56,
+      "avgPnl": -1.45
+    },
+    "UNOMINDA": {
+      "n": 18,
+      "wr": 72,
+      "avgPnl": 0.12
+    },
+    "VOLTAS": {
+      "n": 18,
+      "wr": 56,
+      "avgPnl": -0.31
+    },
+    "ABCAPITAL": {
+      "n": 17,
+      "wr": 76,
+      "avgPnl": 1.97
+    },
+    "AEGISLOG": {
+      "n": 17,
+      "wr": 59,
+      "avgPnl": -1.27
+    },
+    "COHANCE": {
+      "n": 17,
+      "wr": 47,
+      "avgPnl": -0.47
+    },
+    "DIXON": {
+      "n": 17,
+      "wr": 82,
+      "avgPnl": 2.14
+    },
+    "ESCORTS": {
+      "n": 17,
+      "wr": 47,
+      "avgPnl": -1.49
+    },
+    "GLENMARK": {
+      "n": 17,
+      "wr": 47,
+      "avgPnl": -1.58
+    },
+    "VIJAYA": {
+      "n": 17,
+      "wr": 47,
+      "avgPnl": -1.61
+    },
+    "AJANTPHARM": {
+      "n": 16,
+      "wr": 50,
+      "avgPnl": -0.56
+    },
+    "APARINDS": {
+      "n": 16,
+      "wr": 63,
+      "avgPnl": -0.47
+    },
+    "BLUESTARCO": {
+      "n": 16,
+      "wr": 69,
+      "avgPnl": 1.01
+    },
+    "COROMANDEL": {
+      "n": 16,
+      "wr": 75,
+      "avgPnl": 2.17
+    },
+    "DIVISLAB": {
+      "n": 16,
+      "wr": 63,
+      "avgPnl": 0.39
+    },
+    "HINDCOPPER": {
+      "n": 16,
+      "wr": 75,
+      "avgPnl": 3.15
+    },
+    "INDUSINDBK": {
+      "n": 16,
+      "wr": 63,
+      "avgPnl": 1.84
+    },
+    "JBCHEPHARM": {
+      "n": 16,
+      "wr": 56,
+      "avgPnl": 0.11
+    },
+    "MINDACORP": {
+      "n": 16,
+      "wr": 69,
+      "avgPnl": 1.73
+    },
+    "PVRINOX": {
+      "n": 16,
+      "wr": 56,
+      "avgPnl": -0.07
+    },
+    "SUPREMEIND": {
+      "n": 16,
+      "wr": 69,
+      "avgPnl": 1.63
+    },
+    "TATACONSUM": {
+      "n": 16,
+      "wr": 56,
+      "avgPnl": -0.05
+    },
+    "TATASTEEL": {
+      "n": 16,
+      "wr": 94,
+      "avgPnl": 3.65
+    },
+    "TECHM": {
+      "n": 16,
+      "wr": 56,
+      "avgPnl": -0.44
+    },
+    "APOLLOTYRE": {
+      "n": 15,
+      "wr": 73,
+      "avgPnl": 2.54
+    },
+    "AUROPHARMA": {
+      "n": 15,
       "wr": 67,
       "avgPnl": 1.26
     },
-    "MINDACORP": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.74
-    },
-    "MOTHERSON": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 4.62
-    },
-    "MRPL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 4.74
-    },
-    "NAUKRI": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 3.53
-    },
-    "NCC": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 6.25
-    },
-    "NLCINDIA": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.84
-    },
-    "PAGEIND": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.39
-    },
-    "PARADEEP": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.5
-    },
-    "PIIND": {
-      "n": 3,
+    "BANDHANBNK": {
+      "n": 15,
       "wr": 33,
-      "avgPnl": -1.56
+      "avgPnl": -4
     },
-    "PNBHOUSING": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 7.2
+    "CONCOR": {
+      "n": 15,
+      "wr": 60,
+      "avgPnl": -1.89
     },
-    "POONAWALLA": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -0.6
+    "DALBHARAT": {
+      "n": 15,
+      "wr": 73,
+      "avgPnl": 1.25
     },
-    "POWERINDIA": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.66
+    "ELGIEQUIP": {
+      "n": 15,
+      "wr": 47,
+      "avgPnl": -1.68
     },
-    "PVRINOX": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 3.07
+    "HAVELLS": {
+      "n": 15,
+      "wr": 60,
+      "avgPnl": 0.99
+    },
+    "IPCALAB": {
+      "n": 15,
+      "wr": 53,
+      "avgPnl": -0.52
+    },
+    "JINDALSTEL": {
+      "n": 15,
+      "wr": 80,
+      "avgPnl": 3.05
+    },
+    "KPRMILL": {
+      "n": 15,
+      "wr": 73,
+      "avgPnl": 1.46
+    },
+    "MAXHEALTH": {
+      "n": 15,
+      "wr": 73,
+      "avgPnl": 2.08
+    },
+    "MPHASIS": {
+      "n": 15,
+      "wr": 53,
+      "avgPnl": -0.26
+    },
+    "NAVINFLUOR": {
+      "n": 15,
+      "wr": 60,
+      "avgPnl": 0.18
+    },
+    "NEULANDLAB": {
+      "n": 15,
+      "wr": 53,
+      "avgPnl": -2.21
     },
     "RADICO": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.72
-    },
-    "RVNL": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 8.42
-    },
-    "SCHAEFFLER": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.38
+      "n": 15,
+      "wr": 87,
+      "avgPnl": 4.03
     },
     "SONATSOFTW": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -1.82
+      "n": 15,
+      "wr": 60,
+      "avgPnl": -0.54
     },
-    "SUMICHEM": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.5
-    },
-    "SUNTV": {
-      "n": 3,
+    "SUNDARMFIN": {
+      "n": 15,
       "wr": 67,
-      "avgPnl": 1.65
+      "avgPnl": -0.07
     },
-    "SWANCORP": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 5.23
+    "TIMKEN": {
+      "n": 15,
+      "wr": 40,
+      "avgPnl": -1.21
+    },
+    "UNITDSPR": {
+      "n": 15,
+      "wr": 53,
+      "avgPnl": 0.23
+    },
+    "WELSPUNLIV": {
+      "n": 15,
+      "wr": 47,
+      "avgPnl": -1.7
+    },
+    "AARTIIND": {
+      "n": 14,
+      "wr": 71,
+      "avgPnl": 0.78
+    },
+    "ACE": {
+      "n": 14,
+      "wr": 64,
+      "avgPnl": 0.48
+    },
+    "ADANIPORTS": {
+      "n": 14,
+      "wr": 57,
+      "avgPnl": 0.86
+    },
+    "APLAPOLLO": {
+      "n": 14,
+      "wr": 64,
+      "avgPnl": 1.25
+    },
+    "CEATLTD": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": -0.64
+    },
+    "CGCL": {
+      "n": 14,
+      "wr": 7,
+      "avgPnl": -7.22
+    },
+    "CHOLAHLDNG": {
+      "n": 14,
+      "wr": 57,
+      "avgPnl": 0.89
+    },
+    "COALINDIA": {
+      "n": 14,
+      "wr": 64,
+      "avgPnl": 1.48
+    },
+    "GLAND": {
+      "n": 14,
+      "wr": 36,
+      "avgPnl": -3.22
+    },
+    "GODREJCP": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": 0.61
+    },
+    "HDFCAMC": {
+      "n": 14,
+      "wr": 57,
+      "avgPnl": 0.33
+    },
+    "HDFCLIFE": {
+      "n": 14,
+      "wr": 43,
+      "avgPnl": -0.3
+    },
+    "INFY": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": -0.64
+    },
+    "JSWENERGY": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": -1.7
+    },
+    "JSWSTEEL": {
+      "n": 14,
+      "wr": 64,
+      "avgPnl": 0.98
+    },
+    "JUBLPHARMA": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": -1.34
+    },
+    "KOTAKBANK": {
+      "n": 14,
+      "wr": 43,
+      "avgPnl": -1.09
+    },
+    "LAURUSLABS": {
+      "n": 14,
+      "wr": 71,
+      "avgPnl": 1.85
+    },
+    "LTTS": {
+      "n": 14,
+      "wr": 71,
+      "avgPnl": 1.21
+    },
+    "MFSL": {
+      "n": 14,
+      "wr": 64,
+      "avgPnl": 1.31
+    },
+    "MUTHOOTFIN": {
+      "n": 14,
+      "wr": 71,
+      "avgPnl": 2.1
+    },
+    "NLCINDIA": {
+      "n": 14,
+      "wr": 50,
+      "avgPnl": 0.71
+    },
+    "PETRONET": {
+      "n": 14,
+      "wr": 43,
+      "avgPnl": -1.22
+    },
+    "POWERGRID": {
+      "n": 14,
+      "wr": 57,
+      "avgPnl": 0.2
+    },
+    "SBILIFE": {
+      "n": 14,
+      "wr": 86,
+      "avgPnl": 2.2
+    },
+    "TATAPOWER": {
+      "n": 14,
+      "wr": 57,
+      "avgPnl": 1.04
+    },
+    "TORNTPHARM": {
+      "n": 14,
+      "wr": 71,
+      "avgPnl": 1.71
+    },
+    "AIAENG": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 1.19
+    },
+    "APOLLOHOSP": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -0.27
+    },
+    "ASTERDM": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -0.33
+    },
+    "BHARATFORG": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": 0.84
+    },
+    "BIOCON": {
+      "n": 13,
+      "wr": 77,
+      "avgPnl": 1.82
+    },
+    "BPCL": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": -0.55
+    },
+    "CANBK": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": 1.92
+    },
+    "CANFINHOME": {
+      "n": 13,
+      "wr": 46,
+      "avgPnl": -0.81
+    },
+    "COLPAL": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 0.9
+    },
+    "DATAPATTNS": {
+      "n": 13,
+      "wr": 38,
+      "avgPnl": -3.92
+    },
+    "DELHIVERY": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": 0.86
+    },
+    "GICRE": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": 0.94
+    },
+    "HINDALCO": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 2.82
+    },
+    "HINDPETRO": {
+      "n": 13,
+      "wr": 46,
+      "avgPnl": -2.57
+    },
+    "ICICIBANK": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": 1.18
+    },
+    "IEX": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": 0.25
+    },
+    "IGL": {
+      "n": 13,
+      "wr": 62,
+      "avgPnl": 1.93
+    },
+    "JUBLINGREA": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": -1.73
+    },
+    "MANAPPURAM": {
+      "n": 13,
+      "wr": 46,
+      "avgPnl": 0.6
+    },
+    "MARICO": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 0.94
+    },
+    "MOTHERSON": {
+      "n": 13,
+      "wr": 77,
+      "avgPnl": 3.46
+    },
+    "NMDC": {
+      "n": 13,
+      "wr": 46,
+      "avgPnl": -1.76
+    },
+    "SHREECEM": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 0.99
+    },
+    "SYNGENE": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -0.7
     },
     "TATACOMM": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.85
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 1.28
     },
-    "TATAINVEST": {
-      "n": 3,
-      "wr": 33,
-      "avgPnl": -0.41
-    },
-    "THERMAX": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 5.55
-    },
-    "TMPV": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 1.06
+    "TIINDIA": {
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 1.71
     },
     "TORNTPOWER": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.62
+      "n": 13,
+      "wr": 69,
+      "avgPnl": 0.14
     },
-    "VIJAYA": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.37
+    "TRITURBINE": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -1.14
     },
-    "WHIRLPOOL": {
-      "n": 3,
-      "wr": 67,
-      "avgPnl": 2.36
+    "UPL": {
+      "n": 13,
+      "wr": 46,
+      "avgPnl": -0.42
     },
-    "ZYDUSLIFE": {
-      "n": 3,
-      "wr": 100,
-      "avgPnl": 4.57
+    "CIGNITITEC": {
+      "n": 13,
+      "wr": 54,
+      "avgPnl": -0.12
+    },
+    "ACC": {
+      "n": 12,
+      "wr": 50,
+      "avgPnl": 0.15
+    },
+    "ADANIENT": {
+      "n": 12,
+      "wr": 42,
+      "avgPnl": -2.4
+    },
+    "AKZOINDIA": {
+      "n": 12,
+      "wr": 42,
+      "avgPnl": -0.06
     }
   },
   "paramLabels": {

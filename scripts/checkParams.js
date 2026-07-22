@@ -36,13 +36,17 @@ for (const [key, goldenSet] of Object.entries(golden)) {
   }
   for (const [param, goldenVal] of Object.entries(goldenSet)) {
     const liveVal = live[param];
-    if (liveVal !== goldenVal) {
+    const isObj = (x) => typeof x === 'object' && x !== null;
+    const match = isObj(goldenVal) || isObj(liveVal)
+      ? JSON.stringify(goldenVal) === JSON.stringify(liveVal)
+      : goldenVal === liveVal;
+    if (!match) {
       if (!driftFound) {
         console.error('\n╔══════════════════════════════════════════════════════════════╗');
         console.error('║  ❌  PARAM DRIFT DETECTED — params differ from golden lock   ║');
         console.error('╚══════════════════════════════════════════════════════════════╝\n');
       }
-      console.error(`  ${key}.${param}:  golden=${goldenVal}  live=${liveVal}`);
+      console.error(`  ${key}.${param}:  golden=${JSON.stringify(goldenVal)}  live=${JSON.stringify(liveVal)}`);
       driftFound = true;
     }
   }
