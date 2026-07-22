@@ -2781,7 +2781,8 @@ function HomePageInner() {
             marketRegime.regime === 'neutral' ? 'bg-yellow-900/40 border-yellow-600 text-yellow-300' :
             marketRegime.regime === 'bear' ? 'bg-red-900/40 border-red-600 text-red-300' :
             'bg-red-900/60 border-red-500 text-red-300 animate-pulse'}`}
-            data-tip-html={`<div class="rt-hdr">8-Factor Regime · Score ${marketRegime.score >= 0 ? '+' : ''}${marketRegime.score}</div>`
+            data-tip-html={`<div class="rt-hdr">9-Factor Regime · Score ${marketRegime.score >= 0 ? '+' : ''}${marketRegime.score}</div>`
+              + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.dayChangePct >= 0 ? 'bg-emerald' : 'bg-orange'}">Today</span></div><div><div class="rt-desc">1d return: ${marketRegime.dayChangePct >= 0 ? '+' : ''}${marketRegime.dayChangePct.toFixed(2)}%</div></div></div>`
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.momentum >= 0 ? 'bg-emerald' : 'bg-orange'}">Momentum</span></div><div><div class="rt-desc">20d return: ${marketRegime.factors.momentum >= 0 ? '+' : ''}${marketRegime.factors.momentum.toFixed(2)}%</div></div></div>`
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.breadth > 50 ? 'bg-emerald' : 'bg-orange'}">Breadth</span></div><div><div class="rt-desc">${marketRegime.factors.breadth.toFixed(0)}% green days</div></div></div>`
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.volatility < 1.5 ? 'bg-teal' : 'bg-orange'}">Volatility</span></div><div><div class="rt-desc">${marketRegime.factors.volatility.toFixed(2)}% realized vol</div></div></div>`
@@ -2792,7 +2793,7 @@ function HomePageInner() {
               + `<div class="rt-row"><div><span class="rt-badge ${marketRegime.factors.vixVsSma < 0 ? 'bg-teal' : 'bg-orange'}">VIX/SMA</span></div><div><div class="rt-desc">${marketRegime.factors.vixVsSma >= 0 ? '+' : ''}${marketRegime.factors.vixVsSma.toFixed(1)}% vs 20d avg</div></div></div>` : '')
               + `<div class="rt-row"><div><span class="rt-badge bg-neon">Sizing</span></div><div><div class="rt-desc">Position: ×${marketRegime.sizingMultiplier}</div></div></div>`
               + (() => { const ts = niftyCandles?.[niftyCandles.length-1]?.ts; const d = ts ? new Date(ts*1000+19800000).toISOString().slice(0,10) : ''; const today = new Date(Date.now()+19800000).toISOString().slice(0,10); const fresh = d===today; return `<div class="rt-row"><div><span class="rt-badge ${fresh?'bg-teal':'bg-orange'}">Data</span></div><div><div class="rt-desc">As of: ${d||'unavailable'}</div><div class="rt-hit ${fresh?'hit-green':'hit-amber'}">${fresh?'Today\'s live data':'Prior session — click \'Check Market\' to refresh'}</div></div></div>`; })()}>
-            {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)}{marketRegime.vix > 0 ? ` · VIX ${marketRegime.vix.toFixed(1)}` : ''} · ×{marketRegime.sizingMultiplier}
+            {marketRegime.emoji} {marketRegime.label} · Nifty ₹{marketRegime.niftyClose.toFixed(0)} {marketRegime.dayChangePct >= 0 ? `▲ +${marketRegime.dayChangePct.toFixed(2)}%` : `▼ ${marketRegime.dayChangePct.toFixed(2)}%`}{marketRegime.vix > 0 ? ` · VIX ${marketRegime.vix.toFixed(1)}` : ''} · ×{marketRegime.sizingMultiplier}
           </div>
           {/* Signal Regime — trading decision derived from existing regime state */}
           {(() => {

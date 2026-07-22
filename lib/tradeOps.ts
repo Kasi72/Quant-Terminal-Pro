@@ -372,6 +372,7 @@ export interface RegimeInfo {
   emoji: string;
   sizingMultiplier: number;
   score: number;
+  dayChangePct: number;
   factors: RegimeFactors;
   vix: number;
   cusumAlert: 'bearish_shift' | 'bullish_shift' | null;
@@ -380,7 +381,7 @@ export interface RegimeInfo {
 }
 
 export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]): RegimeInfo {
-  const fallback: RegimeInfo = { regime: 'neutral', niftyClose: 0, ema200: 0, ema50: 0, aboveEma200: true, ema50Above200: true, label: 'Unknown', emoji: '🟡', sizingMultiplier: 0.75, score: 0, factors: { momentum: 0, breadth: 0, volatility: 0, acceleration: 0, distEma200: 0, vixLevel: 0, vixROC: 0, vixVsSma: 0 }, vix: 0, cusumAlert: null, blackSwanLevel: 'normal', blackSwanAction: '' };
+  const fallback: RegimeInfo = { regime: 'neutral', niftyClose: 0, ema200: 0, ema50: 0, aboveEma200: true, ema50Above200: true, label: 'Unknown', emoji: '🟡', sizingMultiplier: 0.75, score: 0, dayChangePct: 0, factors: { momentum: 0, breadth: 0, volatility: 0, acceleration: 0, distEma200: 0, vixLevel: 0, vixROC: 0, vixVsSma: 0 }, vix: 0, cusumAlert: null, blackSwanLevel: 'normal', blackSwanAction: '' };
   if (niftyCandles.length < 200) return fallback;
   const n = niftyCandles.length;
   const close = niftyCandles[n - 1].c;
@@ -403,6 +404,8 @@ export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]
   const ret10a = n >= 11 ? (close - niftyCandles[n - 11].c) / niftyCandles[n - 11].c * 100 : 0;
   const ret10b = n >= 21 ? (niftyCandles[n - 11].c - niftyCandles[n - 21].c) / niftyCandles[n - 21].c * 100 : 0;
   const accel = ret10a - ret10b;
+  // Factor 9: TODAY'S RETURN — 1-day change anchors regime to current session
+  const ret1 = n >= 2 ? (close - niftyCandles[n - 2].c) / niftyCandles[n - 2].c * 100 : 0;
   // Factor 5: DISTANCE FROM EMA200
   const distEma200 = ema200 > 0 ? ((close - ema200) / ema200) * 100 : 0;
 
@@ -413,6 +416,7 @@ export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]
   score += vol < 0.8 ? 12 : vol < 1.2 ? 6 : vol < 1.8 ? 0 : vol < 2.5 ? -6 : -12;
   score += accel > 2 ? 12 : accel > 0.5 ? 6 : accel > -0.5 ? 0 : accel > -2 ? -6 : -12;
   score += distEma200 > 5 ? 12 : distEma200 > 0 ? 6 : distEma200 > -3 ? -4 : distEma200 > -8 ? -8 : -12;
+  score += ret1 > 2 ? 8 : ret1 > 0.5 ? 4 : ret1 > -0.5 ? 0 : ret1 > -2 ? -8 : -12;
 
   // VIX factors (6-8: 28 pts max) — only if VIX data provided
   let vixVal = 0, vixROC = 0, vixVsSma = 0;
@@ -473,7 +477,7 @@ export function detectMarketRegime(niftyCandles: Candle[], vixCandles?: Candle[]
   return {
     regime, niftyClose: close, ema200, ema50,
     aboveEma200: close > ema200, ema50Above200: ema50 > ema200,
-    label, emoji, sizingMultiplier: mult, score,
+    label, emoji, sizingMultiplier: mult, score, dayChangePct: ret1,
     factors: { momentum: ret20, breadth, volatility: vol, acceleration: accel, distEma200, vixLevel: vixVal, vixROC, vixVsSma },
     vix: vixVal, cusumAlert, blackSwanLevel, blackSwanAction,
   };
