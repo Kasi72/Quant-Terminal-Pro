@@ -2429,12 +2429,13 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
     // Skipped when called from PerfectStorm (which applies its own composite gate).
     if (!skipPrecisionGate) {
-        if (tech.cmf20 < tuned(key, 'minCMF20', -0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1.5) ||
-            tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 5) ||
-            tech.rsi14 < tuned(key, 'minGateRSI14', 45) || tech.rsi14 > tuned(key, 'maxGateRSI14', 55) ||
-            tech.rsi2 > tuned(key, 'maxGateRSI2', 45) || volRatio20 < tuned(key, 'minGateVolRatio', 2.5) ||
+        // hypertune_mp_ema.js 2026-07-22: 280k-combo 2-phase search → OOS Hit5=71% PF=2.26 n=62 ROBUST
+        if (tech.cmf20 < tuned(key, 'minCMF20', -0.1) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
+            tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 7) ||
+            tech.rsi14 < tuned(key, 'minGateRSI14', 42) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
+            tech.rsi2 > tuned(key, 'maxGateRSI2', 30) || volRatio20 < tuned(key, 'minGateVolRatio', 1.5) ||
             (tuned(key, 'minCloseVsEMA20', -999) > -999 && tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999)) ||
-            (tuned(key, 'minEMA20VsEMA50', 0.5) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.5)))
+            (tuned(key, 'minEMA20VsEMA50', 0) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0)))
             return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: 0, archetypeTotal: 6 };
     }
     // 52W high drawdown
@@ -2444,7 +2445,7 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
             hh252 = candles[i].h;
     // DMI-augmented IS/OOS backtest (OOS WR 90.0%, n=40)
     const dd52W = hh252 > 0 ? (hh252 - sig.c) / hh252 * 100 : 0;
-    const c1 = dd52W >= tuned(key, 'minDd52W', 10) && dd52W <= tuned(key, 'maxDd52W', 50);
+    const c1 = dd52W >= tuned(key, 'minDd52W', 10) && dd52W <= tuned(key, 'maxDd52W', 80);
     // Stabilization: bars not making new lows
     let stabilizationBars = 0;
     const lookback8Start = Math.max(0, endIdx - 8);
@@ -2457,7 +2458,7 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
         else
             break;
     }
-    const c2 = stabilizationBars >= tuned(key, 'minStabBars', 6);
+    const c2 = stabilizationBars >= tuned(key, 'minStabBars', 7);
     // Recovery candle: close in top 57%, body ≥ 59%, must be green (OR hammer pattern detected)
     const sigRange = sig.h - sig.l;
     const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
@@ -2466,14 +2467,14 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     const exactRangeATR14 = sigRange / (atr14 || 0.0001);
     const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
     // Standard green recovery body OR hammer (long lower wick = demand absorption at pocket low)
-    const c3 = (closeLoc >= tuned(key, 'minCloseLoc', 45) && bodyPct >= tuned(key, 'minBodyPct', 5) && sig.c >= sig.o && ca.upperWickPct <= tuned(key, 'maxUpperWick', 30))
+    const c3 = (closeLoc >= tuned(key, 'minCloseLoc', 43) && bodyPct >= tuned(key, 'minBodyPct', 35) && sig.c >= sig.o && ca.upperWickPct <= tuned(key, 'maxUpperWick', 30))
         || (ca.isHammer && closeLoc >= 60); // Hammer path: high close + lower tail > 2×body
     // Volume on recovery day — tightened from 1.6 to 1.8
-    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.2);
+    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 2.0);
     // RSI14 in recovery zone (27-74): much wider upper band with DMI trend gate
     const rsi2 = computeRSI(candles, 2);
     const rsi14 = computeRSI(candles, 14);
-    const c5 = rsi14 >= tuned(key, 'minRSI14', 30) && rsi14 <= tuned(key, 'maxRSI14', 60);
+    const c5 = rsi14 >= tuned(key, 'minRSI14', 40) && rsi14 <= tuned(key, 'maxRSI14', 60);
     // Condition 6 (DMI): DI+ crossed above DI- within 5 bars, ADX ≥ 25 (fresh trend launch)
     const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
         (tuned(key, 'maxBsc', 3) >= 99 || bscMP <= tuned(key, 'maxBsc', 3)) &&
@@ -2495,11 +2496,11 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     const pe = archetypePriceEngine(sig.c, atr14, sw5Low);
     const candleDNA = detectCandleDNA(candles, endIdx, atr14);
     const checklist = [
-        { label: '10-50% below 52W high (extended washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
-        { label: 'Not making new lows (base forming, ≥6 bars)', pass: c2, value: `${stabilizationBars} bars stable` },
-        { label: 'Bull candle: (CL≥45% Bd≥5% UW≤30%) OR hammer (LW>2×body CL≥60%)', pass: c3, value: ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
-        { label: 'Volume ≥ 1.2× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-        { label: 'RSI14 in recovery zone (30-60)', pass: c5, value: rsi14.toFixed(1) },
+        { label: '10-80% below 52W high (washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
+        { label: 'Not making new lows (base forming, ≥7 bars)', pass: c2, value: `${stabilizationBars} bars stable` },
+        { label: 'Bull candle: (CL≥43% Bd≥35% UW≤30%) OR hammer (LW>2×body CL≥60%)', pass: c3, value: ca.isHammer ? `HAMMER LW=${ca.lowerWickPct.toFixed(0)}%` : `CL=${closeLoc.toFixed(0)}% Bd=${bodyPct.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
+        { label: 'Volume ≥ 2.0× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+        { label: 'RSI14 in recovery zone (40-60)', pass: c5, value: rsi14.toFixed(1) },
         { label: 'DI+ > DI−, crossed ≤3 bars ago, ADX ≥ 30 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
     ];
     return attachTuningDebug({
@@ -2548,11 +2549,11 @@ function analyzeEMAStack(candles) {
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
     const tech = archetypeTech(candles, endIdx);
-    // CMF+OBV precision gate — hyper-tuned walk-forward: IS WR 85.7% → OOS WR 80.0% (n=10 OOS)
-    // CMF ≥ 0.10 (clear accumulation) + OBV slope ≥ 0.5 (volume trend confirmation)
-    if (tech.cmf20 < tuned(key, 'minCMF20', 0.05) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
-        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0) ||
-        (tuned(key, 'minEMA20VsEMA50', -999) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999)))
+    // CMF+OBV precision gate — hypertune_mp_ema.js 2026-07-22: OOS Hit5=82.5% PF=2.98 n=40 ROBUST
+    // CI [70%,92.5%]: minCloseVsEMA20=1.0 (price 1%+ above EMA20), EMA20>EMA50 by 0.8%, OBV≥0
+    if (tech.cmf20 < tuned(key, 'minCMF20', 0.08) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0) ||
+        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1.0) ||
+        (tuned(key, 'minEMA20VsEMA50', 0.8) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.8)))
         return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
     const ema10Arr = computeEMA(candles, 10);
     const ema20Arr = computeEMA(candles, 20);
@@ -2580,21 +2581,21 @@ function analyzeEMAStack(candles) {
         else
             break;
     }
-    const c2 = belowCount >= tuned(key, 'minBelowBars', 2);
+    const c2 = belowCount >= tuned(key, 'minBelowBars', 8);
     // C3: EMA10 ≥ +0.7% above EMA20 AND crossover bar is a quality green bull candle
     const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
     const caES = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
-    const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.3) && caES.isGreen &&
-        caES.bodyPct >= tuned(key, 'minBodyPct', 20) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 10) &&
-        caES.candleRisk <= tuned(key, 'maxCandleRisk', 5);
+    const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.1) && caES.isGreen &&
+        caES.bodyPct >= tuned(key, 'minBodyPct', 30) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 8) &&
+        caES.candleRisk <= tuned(key, 'maxCandleRisk', 10);
     // C4: Volume on crossover day ≥ 1.3× avg
-    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 0.8);
+    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.5);
     // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
     let recentlyOversold = false;
     for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
         const slice = candles.slice(0, i + 1);
         const r2 = computeRSI(slice, 2);
-        if (r2 <= tuned(key, 'maxRSI2Last5', 30)) {
+        if (r2 <= tuned(key, 'maxRSI2Last5', 60)) {
             recentlyOversold = true;
             break;
         }
@@ -2602,8 +2603,8 @@ function analyzeEMAStack(candles) {
     const c5 = recentlyOversold;
     // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 6 bars && ADX ≥ 15
     const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
-        (tuned(key, 'maxBsc', 99) >= 99 || bscES <= tuned(key, 'maxBsc', 99)) &&
-        adxVal >= tuned(key, 'minADX', 20);
+        (tuned(key, 'maxBsc', 1) >= 99 || bscES <= tuned(key, 'maxBsc', 1)) &&
+        adxVal >= tuned(key, 'minADX', 35);
     // Legacy: allow yesterday cross for crossedYesterday tracking only
     const crossedYesterday = endIdx > 1
         ? (candles[endIdx - 1].c > (ema20Arr[endIdx - 1] ?? 0) && candles[endIdx - 2].c < (ema20Arr[endIdx - 2] ?? 0))
@@ -2632,11 +2633,11 @@ function analyzeEMAStack(candles) {
     const candleDNA = detectCandleDNA(candles, endIdx, atr14);
     const checklist = [
         { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
-        { label: 'Was below EMA20 for ≥ 2 bars prior', pass: c2, value: `${belowCount} bars below` },
-        { label: 'EMA10 ≥ +0.3% above EMA20 AND green bull bar (body≥20% UW≤10%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
-        { label: 'Volume ≥ 0.8× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-        { label: 'RSI2 ≤ 30 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
-        { label: 'ADX ≥ 20 (crossover aligned)', pass: c6, value: `ADX${adxVal.toFixed(0)}` },
+        { label: 'Was below EMA20 for ≥ 8 bars prior (deep pullback)', pass: c2, value: `${belowCount} bars below` },
+        { label: 'EMA10 ≥ +0.1% above EMA20 AND green bull bar (body≥30% UW≤8%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
+        { label: 'Volume ≥ 1.5× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+        { label: 'RSI2 ≤ 60 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+        { label: 'DI+ crossed ≤1 bar ago, ADX ≥ 35 (strong fresh trend)', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
     ];
     return attachTuningDebug({
         ...base, stage, inflectionScore: score, confidence: score,
