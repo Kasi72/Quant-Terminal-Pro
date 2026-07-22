@@ -713,10 +713,10 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">3.5-5.5%</span></div><div><div class="rt-desc">Sweet spot — ATR 2-4% stocks land here with the new 1.5×ATR structure stop. Avg across all signals: 5.23%.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">2.5-3.5% or 5.5-6.5%</span></div><div><div class="rt-desc">Acceptable — tight coil (2.5-3.5%) or wide ATR stock (5.5-6.5%). Both tradeable.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;2.5% or &gt;6.5%</span></div><div><div class="rt-desc">Outside clamped range — engine floors at 2.5% (prevents micro-stops) and caps at 6.5% (prevents over-wide stops on high-ATR stocks).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">max(1.5×ATR, 5-bar swing low ×0.997), clamped [2.5%, 6.5%]. Phase-3 backtest: EV_R -0.029R vs -0.044R old (1.07L signal bars).</div><div class="rt-hit hit-green">R:R@T2 improved 1.50→2.00 · Avg stop 7.18%→5.23%</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Formula</span></div><div><div class="rt-desc">ATR-bucket tiers (OOS-validated, 629 signals): TIGHT/NORMAL → 3×ATR, cap 6%; VOLATILE → 3×ATR, cap 8%; HIGH → 2×ATR, cap 8%. Floor 2% universal.</div><div class="rt-hit hit-green">EV +0.18–1.43% vs flat 4×10% · Avg stop 10%→5-8%</div></div></div>',
     fmt: r => r.priceEngine.tacticalRiskPct > 0 ? r.priceEngine.tacticalRiskPct.toFixed(2) + '%' : '—',
     numVal: r => r.priceEngine.tacticalRiskPct,
-    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 3.5 && rk <= 5.5 ? 'text-green-300 font-bold' : (rk >= 2.5 && rk < 3.5) || (rk > 5.5 && rk <= 6.5) ? 'text-yellow-300' : 'text-orange-400'; } },
+    cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 4.0 && rk <= 8.5 ? 'text-green-300 font-bold' : rk >= 2.5 && rk < 4.0 ? 'text-yellow-300' : 'text-orange-400'; } },
   { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
     headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio v3 — Phase-3 Optimised</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥2.0</span></div><div><div class="rt-desc">BEST tier — stop = 1.5×ATR exactly (structure tight). T2 gain = 3×ATR → R:R = 2.0. EV_R +0.101R in ATR 1-2% band (POSITIVE expected value).</div></div></div>'

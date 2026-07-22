@@ -2080,23 +2080,22 @@ function archetypeBase(candles, key) {
 }
 function archetypePriceEngine(entry, atr14, sw5Low = 0) {
     const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
-    // ── ATR band classification ─────────────────────────────────────────────
-    // TIGHT<1.5% | NORMAL 1.5-2.5% | VOLAT 2.5-3.5% | HIGH>3.5%
-    const isTight = atrPct < 1.5;
-    // ── Stop: 4×ATR wide positional stop, clamped [floor%, 10%] ────────────
-    // SL sweep on 22K signals (sl_sweet_spot.js, 2026-07-20): per-trade expectancy
-    // maximised at 4.25-5×ATR across all archetypes. The 3×ATR stop prematurely
-    // cuts ~25% of winning trades (MAE 75th pctile = 7.6–10.1%); widening to
-    // 4×ATR (≈10% for 2.5% ATR stocks) retains those trades and lifts ULTRA E
-    // from 0.6-1.8% → 1.3-3.1% per trade. R:R is now measured at T3 (primary
-    // 5% target) to match the actual exit strategy.
-    const atrStop = entry - 4.0 * atr14;
+    // ── Stop: ATR-bucket-tiered stops — OOS-validated (sl_bucket_backtest, 2026-07-22) ──
+    // 629 OOS signals (post-2025-05-05): tighter bucket-specific caps IMPROVE EV vs flat 4×10%.
+    //   TIGHT (<1.5% ATR)   : 3×ATR, cap 6%  → avg SL 3-6%
+    //   NORMAL (1.5-2.5%)   : 3×ATR, cap 6%  → avg SL 5-6%,  EV +0.18% vs 4×10%
+    //   VOLATILE (2.5-3.5%) : 3×ATR, cap 8%  → avg SL 7.5-8%, EV +0.29-0.61%
+    //   HIGH (>3.5%)        : 2×ATR, cap 8%  → avg SL 7-8%,  EV +0.38-1.43%
+    // Wide stops (4×10%) trigger unnecessarily on BUY/STRONG signals, dragging EV.
+    const isHigh = atrPct >= 3.5;
+    const atrMult = isHigh ? 2.0 : 3.0;
+    const capPct = atrPct < 2.5 ? 6.0 : 8.0;
+    const floorPct = 2.0;
+    const atrStop = entry - atrMult * atr14;
     const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
-    // Use the WIDER (lower) of ATR-based and structure-based to hold through dips.
     const rawStop = tick(Math.max(0, Math.min(atrStop, structStop)));
-    const floorPct = isTight ? 2.5 : 3.5;
     const floorStop = tick(entry * (1 - floorPct / 100));
-    const capStop = tick(entry * (1 - 10.0 / 100)); // wide positional cap: 10%
+    const capStop = tick(entry * (1 - capPct / 100));
     const stop = Math.min(floorStop, Math.max(capStop, rawStop));
     const riskAbs = Math.max(entry * 0.01, entry - stop);
     const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
@@ -2108,10 +2107,8 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0) {
     const t5 = tick(entry * (1 + t1Mult * atrPct / 100));
     const t7 = tick(entry * (1 + t2Mult * atrPct / 100));
     const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
-    // R:R measured at T3 (primary exit) since stop is now wide positional stop.
     const rewardRisk = riskAbs > 0 ? (t10 - entry) / riskAbs : 0;
-    // disasterStop slightly below the 10% cap; used by checkTradeStatus() fallback.
-    const disasterStop = tick(entry * (1 - 10.5 / 100));
+    const disasterStop = tick(entry * (1 - (capPct + 1.0) / 100));
     return {
         ...buildNullPriceEngine(),
         plannedEntry: tick(entry),
@@ -2119,7 +2116,7 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0) {
         tacticalRiskPct: riskPct,
         riskPerShare: riskAbs,
         disasterStop,
-        disasterRiskPct: 10.5,
+        disasterRiskPct: capPct + 1.0,
         target5: t5, target7: t7, target10: t10,
         target3R: tick(entry + 3 * riskAbs),
         rewardRisk,
