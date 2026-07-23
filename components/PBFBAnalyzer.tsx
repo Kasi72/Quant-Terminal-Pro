@@ -65,8 +65,9 @@ interface ForensicResult {
   stages:       Partial<Record<ParamSetKey, StageRating>>;
   bestStage:    StageRating;
   bestParamSet: ParamSetKey | null;
-  bestResult:   AnalysisResult | null;  // full snapshot N days before breakout
-  anyZone:      boolean;
+  bestResult:     AnalysisResult | null;  // full snapshot N days before breakout
+  bestZoneResult: AnalysisResult | null;  // first param-set result that had a zone (may differ from bestResult)
+  anyZone:        boolean;
   classification: 'actionable' | 'on_radar' | 'zone_only' | 'missed';
   shapeVec:     number[] | null;        // 20-dim candle-shape fingerprint (10 closes + 10 vol ratios, normalized)
 }
@@ -142,9 +143,12 @@ function verdictLabel(r: ForensicResult): string {
   }
 
   if (classification === 'zone_only') {
-    const tier = bestResult?.nearBreakoutTier;
-    const z    = bestResult?.zone;
-    const arch = bestResult?.archetypeType;
+    // bestResult may not carry zone data (it's chosen by stage rank, not zone presence).
+    // Fall back to bestZoneResult — the first param-set result that actually had a zone.
+    const zr   = bestResult?.zone ? bestResult : (r.bestZoneResult ?? bestResult);
+    const tier = zr?.nearBreakoutTier;
+    const z    = zr?.zone;
+    const arch = zr?.archetypeType ?? bestResult?.archetypeType;
 
     // Breakout proximity is the strongest signal — show it first
     if (tier === 'IMMINENT' || tier === 'NEAR') return '◎ Near Breakout';
@@ -922,13 +926,17 @@ export default function PBFBAnalyzer() {
         let bestStage: StageRating = 'NO_SIGNAL';
         let bestParamSet: ParamSetKey | null = null;
         let bestResult: AnalysisResult | null = null;
+        let bestZoneResult: AnalysisResult | null = null;
         let anyZone = false;
 
         for (const key of PARAM_SET_KEYS) {
           try {
             const r = analyzeStock(truncated, key);
             stages[key] = r.stage;
-            if (r.zone) anyZone = true;
+            if (r.zone) {
+              anyZone = true;
+              if (!bestZoneResult) bestZoneResult = r;
+            }
             // Same tiebreak logic as analyzeStockMulti: stage rank first, inflection score second
             if (STAGE_RANK[r.stage] > STAGE_RANK[bestStage] ||
                (STAGE_RANK[r.stage] === STAGE_RANK[bestStage] && r.inflectionScore > (bestResult?.inflectionScore ?? 0))) {
@@ -954,7 +962,7 @@ export default function PBFBAnalyzer() {
         allResults.push({
           symbol: ev.symbol, date: ev.date, dateISO: ev.dateISO, movePct: ev.movePct, volMult: ev.volMult,
           isUCLock: ev.isUCLock, nBefore: nb,
-          stages, bestStage, bestParamSet, bestResult, anyZone, classification,
+          stages, bestStage, bestParamSet, bestResult, bestZoneResult, anyZone, classification,
           shapeVec: computeShapeVec(truncated),
         });
       }
