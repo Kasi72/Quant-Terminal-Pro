@@ -2516,11 +2516,16 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
 
-  // ── T1/T2/T3: optimized for 5% PROFIT TARGET ──
-  // T1=1.5×ATR, T2=2.5×ATR, T3=5.0×ATR (primary 5% target)
-  const t1Mult = 1.5;
-  const t2Mult = 2.5;
-  const t3Mult = 5.0;
+  // ── T1/T2/T3: per-archetype, MFE walk-forward study (2026-07-23) ──
+  // Bootstrap-validated across 3 OOS windows (2024H1/H2, 2025+):
+  //   VF  : T1=1.0×ATR — volume breakouts peak fast; take 70% at T1
+  //   MP  : T1=3.0×ATR — momentum has long follow-through; take only 20% at T1
+  //   ORS/default: T1=1.5×ATR — bootstrap confirms current params optimal
+  const isVF = archetypeHint === 'VF';
+  const isMP = archetypeHint === 'MP';
+  const t1Mult = isVF ? 1.0 : isMP ? 3.0 : 1.5;
+  const t2Mult = t1Mult * (5 / 3);   // preserves T1:T2 = 1.5:2.5 ratio
+  const t3Mult = t1Mult * (10 / 3);  // preserves T1:T3 = 1.5:5.0 ratio
   const t5  = tick(entry * (1 + t1Mult * atrPct / 100));
   const t7  = tick(entry * (1 + t2Mult * atrPct / 100));
   const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
@@ -2945,7 +2950,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low);
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'MP');
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
