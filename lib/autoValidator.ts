@@ -122,7 +122,7 @@ function fiveBarSwingLow(candles: Candle[], idx: number): number {
 // Sweep rate with new stop: 10.3% (up from 3.6% with old 2×ATR stop).
 // Gates must shield ~3× more stop touches — recalibrated + 2 new gates added.
 // T1 = 1.5×ATR, T2 = 3×ATR, T3 = 5×ATR above entry. R:R@T2 = 2.0 (baseline).
-// effectiveT1: old 5% hard cap removed — ATR-absolute targets used directly.
+// effectiveT1: uses ATR-absolute targets directly — no 5% hard cap.
 //
 // Infrastructure:
 //  Trail-A: Time-based trail (day 8+): raise stop to 5-bar swing low.
@@ -174,11 +174,7 @@ export function validateTrade(
   let closedPrice = 0, closedDate = '';
 
   const plannedT1  = (trade.target1 && trade.target1 > entry) ? trade.target1 : Infinity;
-  // Phase-5 rule: if T1 price level is set above the 5% target (e.g. T1=+12% for a
-  // low-ATR signal), the 5% gain level acts as the effective T1 trigger — the screener's
-  // core exit point. Math.min picks the EARLIER of the two levels.
-  // For stocks where T1 < 5% (normal high-ATR case), plannedT1 wins unchanged.
-  const effectiveT1 = Math.min(plannedT1, entry * 1.05);
+  const effectiveT1 = plannedT1;
 
   let t1Hit = false, t2Hit = false;
   let highestCloseSinceT1 = entry;
@@ -372,11 +368,17 @@ export function validateTrade(
             const isFirstDayBelow = !prev || prev.c > dynamicStop;
             if (isFirstDayBelow) {
               const highVolDistribution = volRatio > 1.8;
-              if (highVolDistribution) {
+              // Deep-bearish override: if the close is in the bottom 25% of the bar
+              // AND the intraday low is >1×ATR below stop, this is genuine distribution
+              // not a sweep — don't grant the day-1 grace shield.
+              const deepBearish = atr14 > 0 && (dynamicStop - lo) > atr14 && closeLoc < 25;
+              if (highVolDistribution || deepBearish) {
                 logEntry.gatesTested.push({
                   gate: 'G2 2-Day Confirm',
                   passed: true,
-                  reason: `First day below stop BUT volume ${volRatio.toFixed(1)}× avg > 1.8× — institutional distribution, pass through`,
+                  reason: highVolDistribution
+                    ? `First day below stop BUT volume ${volRatio.toFixed(1)}× avg > 1.8× — institutional distribution, pass through`
+                    : `First day: deep dip ${(dynamicStop - lo).toFixed(2)} > 1×ATR(${atr14.toFixed(2)}) + bearish close loc ${closeLoc.toFixed(0)}% — genuine selling, no grace`,
                 });
               } else {
                 logEntry.gatesTested.push({
@@ -387,7 +389,9 @@ export function validateTrade(
                 blocked = true; logEntry.result = 'SHIELDED';
               }
             } else {
-              const stabilizing = close >= (prev?.c ?? 0);
+              // Stabilizing requires price RECOVERING toward stop, not just not getting worse.
+              // A stock at 3% below stop "stabilizing" (flat) is still broken.
+              const stabilizing = close >= (prev?.c ?? 0) && close > dynamicStop * 0.97;
               const lowVolNoise  = vol > 0 && avgV > 0 && vol < avgV * 0.8;
               if (stabilizing) {
                 logEntry.gatesTested.push({ gate: 'G2 2-Day Confirm', passed: false, reason: 'Stabilizing — today ≥ yesterday close, not accelerating down' });
@@ -473,13 +477,18 @@ export function validateTrade(
         // not a sustained breakdown. Single red candles on structure stops
         // are normal noise on any uptrending stock.
         if (!blocked) {
-          const prevWasGreen = prev ? (prev.o ?? prev.c) <= prev.c : true;
+          // G7: previous green candle must ALSO have closed ABOVE the current stop.
+          // A minor bounce (green) while trading below stop for multiple days is not
+          // "isolated single red" — it's a dead-cat bounce within a downtrend.
+          const prevWasGreen = prev ? ((prev.o ?? prev.c) <= prev.c && prev.c > dynamicStop) : true;
           logEntry.gatesTested.push({
             gate: 'G7 Consec Red',
             passed: !prevWasGreen,
             reason: prevWasGreen
-              ? 'Previous candle was green — isolated red dip, not a breakdown'
-              : '≥2 consecutive red candles — sustained selling pressure confirmed',
+              ? `Previous candle was green and closed ₹${(prev?.c ?? 0).toFixed(2)} above stop — isolated red dip`
+              : prev && (prev.o ?? prev.c) <= prev.c
+                ? `Previous candle was green but closed ₹${prev.c.toFixed(2)} below stop — sub-stop bounce, not isolation`
+                : '≥2 consecutive red candles — sustained selling pressure confirmed',
           });
           if (prevWasGreen) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
@@ -517,19 +526,26 @@ export function validateTrade(
         // If the 5-bar swing low itself is breached on a close, that is a
         // genuine breakdown and no shield applies.
         if (!blocked) {
-          // Use the entry-time 5-bar swing low (stored at trackTrade() time).
-          // This is the same structural level that SET the stop — comparing against
-          // the current 5-bar low would be apples-to-oranges after several hold days.
-          const refLow = (trade as any).sw5LowAtEntry > 0
-            ? (trade as any).sw5LowAtEntry
-            : fiveBarSwingLow(candlesSinceEntry, i); // legacy fallback for pre-fix trades
+          // G9: After Trail-A activates (day 8+, pre-T1), the stop has been raised to the
+          // CURRENT 5-bar swing low. Checking against the entry-time swing low would be
+          // stale — close could be below the trailed stop but above the old entry-time low,
+          // causing a false shield. Solution: use max(sw5LowAtEntry, current5barSwingLow)
+          // after day 8, so G9 respects the tightened structural reference.
+          const sw5AtEntry = (trade as any).sw5LowAtEntry as number;
+          let refLow: number;
+          if (!t1Hit && i >= 8) {
+            const currentSw5 = fiveBarSwingLow(candlesSinceEntry, i);
+            refLow = sw5AtEntry > 0 ? Math.max(sw5AtEntry, currentSw5) : currentSw5;
+          } else {
+            refLow = sw5AtEntry > 0 ? sw5AtEntry : fiveBarSwingLow(candlesSinceEntry, i);
+          }
           const structureIntact = refLow > 0 && close >= refLow * 0.997;
           logEntry.gatesTested.push({
             gate: 'G9 Structure OK',
             passed: structureIntact,
             reason: structureIntact
-              ? `Close ₹${close.toFixed(2)} ≥ entry swing low ₹${refLow.toFixed(2)}×0.997 — original structure intact`
-              : `Close ₹${close.toFixed(2)} < entry swing low ₹${refLow.toFixed(2)} — structural level broken, genuine exit`,
+              ? `Close ₹${close.toFixed(2)} ≥ ${!t1Hit && i >= 8 ? 'current' : 'entry'} swing low ₹${refLow.toFixed(2)}×0.997 — structure intact`
+              : `Close ₹${close.toFixed(2)} < ${!t1Hit && i >= 8 ? 'current' : 'entry'} swing low ₹${refLow.toFixed(2)} — structural level broken`,
           });
           if (structureIntact) { blocked = true; logEntry.result = 'SHIELDED'; }
         }

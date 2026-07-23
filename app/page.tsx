@@ -695,16 +695,20 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.plannedEntry,
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Cascading Gates v4 — 10-Gate Precision</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">max(1.5×ATR, 5-bar swing low ×0.997) clamped [2.5%, 6.5%]. Phase-3 science: +34% EV_R vs old 2×ATR. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 10 + spring zone (close within 0.25×ATR of stop) + buyer evidence (wick &gt;20% or close loc &gt;35%) — verified capitulation, not downtrend exhaustion</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Gate 4</span></div><div><div class="rt-desc">Green recovery: green candle closing upper half = buyers stepping in</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Gate 5</span></div><div><div class="rt-desc">Close in lower 35%: must show genuine weakness, not just a wick touch</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Gate 6</span></div><div><div class="rt-desc">OBV declining: volume must confirm distribution, not accumulation</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 7</span></div><div><div class="rt-desc">≥2 consecutive red candles: single red = noise, sustained red = trend</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Result</span></div><div><div class="rt-desc">0 false stops on 516 winners, 49 stocks. 93.7% WR, +0.672R. Smart 2-day exits 1 day faster than 3-day.</div><div class="rt-hit hit-green">0% false stop rate · Walk-forward OOS validated</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Gate Cascade v6 — 10-Gate Precision Stop System</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">max(entry−1.5×ATR, 5-bar swing low×0.997) clamped [2.5%, 6.5%]. T1/T2/T3 = 1.5×/3×/5×ATR above entry. Trail-A day 8+: 5-bar swing trail. Trail-B post-T2: Chandelier = highClose−1.5×ATR.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">G-GAP</span></div><div><div class="rt-desc">Gap-down open below stop → immediate SL-M at open. Bypasses all gates (uncontrollable).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G0</span></div><div><div class="rt-desc">Wyckoff Spring: dip &lt; 0.5×ATR (ATR-relative) AND close above stop — smart-money sweep that recovers.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G1</span></div><div><div class="rt-desc">Verified Capitulation: RSI-2 &lt; 10 + close within 0.25×ATR of stop (spring zone) + buyer evidence (wick &gt;20% or close loc &gt;35%). All three required — stops APLLTD/GOODLUCK false-shield pattern.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">G2</span></div><div><div class="rt-desc">2-Day Confirm: day-1 grace unless high-vol (&gt;1.8×) OR deep bearish dip (&gt;1×ATR deep + close loc &lt;25%). Day 2+: shield if stabilizing toward stop (close≥prev AND close&gt;stop×0.97) or low-vol noise.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">G3</span></div><div><div class="rt-desc">Hammer: lower wick ≥40% of range + close loc ≥55% — strong intraday buyer rejection.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">G4</span></div><div><div class="rt-desc">OBV 5-day slope positive — rising smart-money accumulation while price dips = not distribution.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">G5</span></div><div><div class="rt-desc">Narrow-Range Sweep: range &lt; 0.75×ATR AND close above stop — surgical stop-hunt, not a breakdown.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">G6</span></div><div><div class="rt-desc">Low-Vol Sweep: volume &lt; 0.65× avg AND close above stop — thin-session sweep, not institutional selling.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">G7</span></div><div><div class="rt-desc">Isolated Red: previous candle was green AND closed above the stop level — single red dip into stop is noise.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-blue">G8</span></div><div><div class="rt-desc">Close Recovery: close recovered &gt;60% from intraday low back to stop level — buyers defended intraday.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">G9</span></div><div><div class="rt-desc">Structure Intact: close ≥ 5-bar swing low×0.997 (entry-time basis; current 5-bar low used after Trail-A day 8+).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Exits</span></div><div><div class="rt-desc">50%@T1 + 30%@T2 + 20%@T3. T1 moves stop to breakeven; T2 starts Chandelier trail.</div></div></div>',
     fmt: r => r.priceEngine.tacticalStop > 0 ? '₹' + r.priceEngine.tacticalStop.toFixed(2) : '—',
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
