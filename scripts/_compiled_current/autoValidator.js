@@ -296,14 +296,29 @@ function validateTrade(trade, candlesSinceEntry) {
                     blocked = true;
                     logEntry.result = 'SHIELDED';
                 }
-                // ── GATE 1: RSI-2 Capitulation Flush ──────────────────────────────
-                // Deep oversold RSI-2 means panic selling — buyers likely to step in.
+                // ── G1 v2: Verified Capitulation Shield ────────────────────────────────
+                // Three conditions: RSI-2 < 10 + close within 0.25×ATR of stop + buyer evidence.
+                // Fixes APLLTD (close 0.29×ATR below stop) and GOODLUCK (close 0.68×ATR below stop).
                 if (!blocked) {
-                    const isCapitulation = rsi2 < 20;
+                    const extremeRSI = rsi2 < 10;
+                    const atDist = atr14 > 0 ? (dynamicStop - close) / atr14 : (closedAboveStop ? -1 : 1);
+                    const inSpringZone = atDist <= 0.25;
+                    const buyerDefense = lwPct > 20 || closeLoc > 35;
+                    const isCapitulation = extremeRSI && inSpringZone && buyerDefense;
+                    let capReason;
+                    if (!extremeRSI) {
+                        capReason = `RSI-2 = ${rsi2.toFixed(0)} — need <10 for verified capitulation`;
+                    } else if (!inSpringZone) {
+                        capReason = `RSI-2 = ${rsi2.toFixed(0)} extreme but close ₹${close.toFixed(2)} is ${atDist.toFixed(2)}×ATR below stop — sellers in control`;
+                    } else if (!buyerDefense) {
+                        capReason = `RSI-2 = ${rsi2.toFixed(0)} + spring zone but no buyer evidence (wick ${lwPct.toFixed(0)}%, loc ${closeLoc.toFixed(0)}%)`;
+                    } else {
+                        capReason = `RSI-2 = ${rsi2.toFixed(0)} + spring zone (${atDist.toFixed(2)}×ATR) + buyer evidence (wick ${lwPct.toFixed(0)}%, loc ${closeLoc.toFixed(0)}%) — verified capitulation`;
+                    }
                     logEntry.gatesTested.push({
-                        gate: 'G1 RSI-2 Capitulation',
+                        gate: 'G1 RSI-2 Verified Capitulation',
                         passed: isCapitulation,
-                        reason: `RSI-2 = ${rsi2.toFixed(0)}${isCapitulation ? ' — extreme capitulation flush, shield' : ' — momentum not washed out'}`,
+                        reason: capReason,
                     });
                     if (isCapitulation) {
                         blocked = true;

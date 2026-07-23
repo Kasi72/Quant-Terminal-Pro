@@ -697,7 +697,7 @@ const COLUMNS: ColDef[] = [
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Cascading Gates v4 — 10-Gate Precision</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">max(1.5×ATR, 5-bar swing low ×0.997) clamped [2.5%, 6.5%]. Phase-3 science: +34% EV_R vs old 2×ATR. Wicks ignored — only candle CLOSE below stop triggers.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 8: deep capitulation shield — only blocks on extreme oversold (99.7% WR, 23 fewer losers held vs RSI&lt;15)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Gate 1</span></div><div><div class="rt-desc">RSI-2 &lt; 10 + spring zone (close within 0.25×ATR of stop) + buyer evidence (wick &gt;20% or close loc &gt;35%) — verified capitulation, not downtrend exhaustion</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-blue">Gate 2</span></div><div><div class="rt-desc">Smart 2-Day: (a) prev day also below stop (b) today WORSE than yesterday (c) volume ≥ 0.8× avg</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Gate 3</span></div><div><div class="rt-desc">Hammer shield: lower wick ≥40% + close upper half = rejection, don\'t stop</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Gate 4</span></div><div><div class="rt-desc">Green recovery: green candle closing upper half = buyers stepping in</div></div></div>'
