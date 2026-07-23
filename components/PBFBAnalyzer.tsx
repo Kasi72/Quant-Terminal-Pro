@@ -123,6 +123,51 @@ function classColor(c: 'actionable' | 'on_radar' | 'zone_only' | 'missed'): stri
   return '#f87171';
 }
 
+function verdictLabel(r: ForensicResult): string {
+  const { classification, bestStage, bestResult } = r;
+
+  if (classification === 'actionable') {
+    if (bestStage === 'ULTRA_STRONG_BUY') return '✓ Ultra Strong Buy';
+    if (bestStage === 'STRONG_BUY')       return '✓ Strong Buy';
+    return '✓ Buy Signal';
+  }
+
+  if (classification === 'on_radar') {
+    if (bestStage === 'PRE_BREAKOUT')      return '~ Pre-Breakout';
+    if (bestStage === 'EARLY_INFLECTION')  return '~ Early Inflection';
+    if (bestStage === 'COMPRESSION_WATCH') return '~ Compressing';
+    return '~ On Radar';
+  }
+
+  if (classification === 'zone_only') {
+    const tier = bestResult?.nearBreakoutTier;
+    const z    = bestResult?.zone;
+    const arch = bestResult?.archetypeType;
+
+    // Breakout proximity is the strongest signal — show it first
+    if (tier === 'IMMINENT' || tier === 'NEAR') return '◎ Near Breakout';
+    if (tier === 'WATCH')                        return '◎ Watch Zone';
+    if (tier === 'EARLY')                        return '◎ Early Zone';
+
+    // Zone structure: shape + tightness
+    if (z) {
+      const tight = z.zoneTightnessPct;
+      if (z.zoneShape === 'ASCENDING') return tight <= 5 ? '◎ Tight Rising Base' : '◎ Rising Base';
+      if (tight <= 3)                  return '◎ Tight Compression';
+      if (tight <= 6)                  return '◎ Compact Base';
+      return '◎ Flat Base Zone';
+    }
+
+    // Archetype hint when bestResult has no zone (another param set had the zone)
+    if (arch === 'CompressionCoil') return '◎ Coiling Zone';
+    if (arch === 'MomentumPocket')  return '◎ Momentum Zone';
+
+    return '◎ Zone Only';
+  }
+
+  return '✗ Missed';
+}
+
 function pct(n: number, d: number) { return d > 0 ? ((n / d) * 100).toFixed(1) : '0.0'; }
 function f2(n: number)  { return n.toFixed(2); }
 function f1(n: number)  { return n.toFixed(1); }
@@ -1783,9 +1828,7 @@ export default function PBFBAnalyzer() {
                           })}
                           <td className="px-2 py-1.5">
                             <span className="text-[10px] font-semibold" style={{ color: classColor(r.classification) }}>
-                              {r.classification === 'actionable' ? '✓ Caught' :
-                               r.classification === 'on_radar'   ? '~ On Radar' :
-                               r.classification === 'zone_only'  ? '◎ Zone Only' : '✗ Missed'}
+                              {verdictLabel(r)}
                             </span>
                           </td>
                         </tr>
@@ -1808,9 +1851,9 @@ export default function PBFBAnalyzer() {
             </div>
 
             <div className="px-3 py-2 border-t border-slate-700/30 flex items-center gap-4 text-[9px] text-slate-600">
-              <span>● Actionable (BUY+)</span>
-              <span>◐ On Radar (pre/early/compression)</span>
-              <span>◎ Zone seen</span>
+              <span>● Buy Signal · Strong Buy · Ultra Strong Buy</span>
+              <span>◐ Pre-Breakout · Early Inflection · Compressing</span>
+              <span>◎ Tight / Compact / Rising / Near Breakout Zone</span>
               <span>○ Missed</span>
               <span className="ml-auto text-slate-700">Click row for pre-event detail · Sort: {sortKey} {sortDir}</span>
             </div>
