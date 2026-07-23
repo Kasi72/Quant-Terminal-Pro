@@ -81,10 +81,22 @@ interface BrainData {
   eventCount: number; actionableCount: number; runCount: number;
   lastRunDate: string; overallDetectionRate: number;
   centroid: FeatureCentroid;
+  featureStdDev?: FeatureCentroid;
   stageHitCounts: Partial<Record<StageRating, number>>;
   featureLifts: { label: string; lift: number }[];
   archetypeCounts?:    Record<string, number>;
   breakoutTierCounts?: Record<string, number>;
+  // Sprint 3
+  labeledCount?:    number;
+  labeledHitRate?:  number | null;
+  avgRMultiple?:    number | null;
+  kellyFraction?:   number;
+  featureBuckets?:  Record<string, { range: string; hitRate: number | null; count: number; labeledCount: number }[]> | null;
+  miRanking?:       { label: string; mi: number; featureKey: string }[] | null;
+  clusterProfiles?: { id: number; size: number; hitRate: number | null; dominant: string; labeledCount: number }[];
+  clusterCentroids?: FeatureCentroid[];
+  regimeStats?:     Record<string, { count: number; labeledCount: number; hitRate: number | null }>;
+  ksDrift?:         { feature: string; stat: number; significant: boolean }[] | null;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -1604,6 +1616,19 @@ export default function PBFBAnalyzer() {
                 </div>
               )}
 
+              {/* KS Drift Alert — shows when recent market behavior has shifted */}
+              {brainData.ksDrift && brainData.ksDrift.some(d => d.significant) && (
+                <div className="mb-3 px-2 py-1.5 bg-amber-950/30 border border-amber-700/40 rounded text-[10px] flex items-start gap-2">
+                  <span className="text-amber-400 font-bold mt-0.5">⚠</span>
+                  <div>
+                    <span className="text-amber-300 font-semibold">Feature Drift Detected — </span>
+                    <span className="text-amber-200/70">
+                      {brainData.ksDrift.filter(d => d.significant).map(d => d.feature).join(', ')} distribution shifted vs prior 60d. Historical stats may be less reliable.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-4">
                 {/* Detection rate vs current */}
                 <div>
@@ -1629,6 +1654,28 @@ export default function PBFBAnalyzer() {
                       </div>
                     );
                   })()}
+                  {/* Labeled hit rate */}
+                  {brainData.labeledHitRate != null && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[9px] text-slate-500">Labeled hit rate</span>
+                      <span className="font-mono text-[9px] font-bold text-emerald-400">
+                        {(brainData.labeledHitRate * 100).toFixed(1)}%
+                      </span>
+                      {brainData.labeledCount != null && (
+                        <span className="text-[9px] text-slate-700">({brainData.labeledCount})</span>
+                      )}
+                    </div>
+                  )}
+                  {/* Kelly fraction */}
+                  {brainData.kellyFraction != null && brainData.kellyFraction > 0 && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="text-[9px] text-slate-500">Kelly sizing</span>
+                      <span className="font-mono text-[9px] font-bold text-cyan-400">
+                        {(brainData.kellyFraction * 100).toFixed(1)}%
+                      </span>
+                      <span className="text-[9px] text-slate-700">of capital</span>
+                    </div>
+                  )}
                   <div className="mt-3 text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">Top Feature Lifts</div>
                   {brainData.featureLifts.map((fl, i) => (
                     <div key={i} className="flex items-center gap-2 mb-1">
@@ -1641,6 +1688,22 @@ export default function PBFBAnalyzer() {
                       </span>
                     </div>
                   ))}
+                  {/* MI Ranking */}
+                  {brainData.miRanking && brainData.miRanking.length > 0 && (
+                    <>
+                      <div className="mt-3 text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">MI Predictive Rank</div>
+                      {brainData.miRanking.slice(0, 4).map((m, i) => (
+                        <div key={m.featureKey} className="flex items-center gap-2 mb-1">
+                          <span className="text-[9px] text-slate-700 w-3">{i + 1}</span>
+                          <span className="text-[9px] text-slate-500 flex-1">{m.label}</span>
+                          <div className="w-10 bg-slate-700/40 rounded-full h-1">
+                            <div className="h-1 rounded-full bg-cyan-600" style={{ width: `${Math.min(100, m.mi * 500)}%` }} />
+                          </div>
+                          <span className="text-[9px] font-mono text-cyan-400 w-8 text-right">{m.mi.toFixed(3)}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
 
                 {/* Stage distribution in historical data */}
@@ -1668,24 +1731,29 @@ export default function PBFBAnalyzer() {
                   <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-2">
                     Avg Actionable Profile ({brainData.actionableCount} events)
                   </div>
-                  {[
-                    { label: 'Close location', val: `${f1(brainData.centroid.closeLoc)}%` },
-                    { label: 'Body %',         val: `${f1(brainData.centroid.bodyPct)}%` },
-                    { label: 'Upper wick',     val: `${f1(brainData.centroid.upperWickPct)}%` },
-                    { label: 'Vol / 20d avg',  val: `${f2(brainData.centroid.volRatio20)}×` },
-                    { label: 'Vol / Pre-5',    val: `${f2(brainData.centroid.volPre5)}×` },
-                    { label: 'Range / ATR',    val: f2(brainData.centroid.rangeATR) },
-                    { label: 'RSI-2',          val: f1(brainData.centroid.rsi2) },
-                    { label: 'Zone length',    val: `${f0(brainData.centroid.zoneLen)} candles` },
-                    { label: 'Zone tightness', val: `${f1(brainData.centroid.zoneTightness)}%` },
-                  ].map(({ label, val }) => (
+                  {([
+                    { label: 'Close location', val: `${f1(brainData.centroid.closeLoc)}%`,              sd: brainData.featureStdDev?.closeLoc,     sfx: '%' },
+                    { label: 'Body %',         val: `${f1(brainData.centroid.bodyPct)}%`,               sd: brainData.featureStdDev?.bodyPct,      sfx: '%' },
+                    { label: 'Upper wick',     val: `${f1(brainData.centroid.upperWickPct)}%`,          sd: brainData.featureStdDev?.upperWickPct, sfx: '%' },
+                    { label: 'Vol / 20d avg',  val: `${f2(brainData.centroid.volRatio20)}×`,            sd: brainData.featureStdDev?.volRatio20,   sfx: '×' },
+                    { label: 'Vol / Pre-5',    val: `${f2(brainData.centroid.volPre5)}×`,               sd: brainData.featureStdDev?.volPre5,      sfx: '×' },
+                    { label: 'Range / ATR',    val: f2(brainData.centroid.rangeATR),                    sd: brainData.featureStdDev?.rangeATR,     sfx: '' },
+                    { label: 'RSI-2',          val: f1(brainData.centroid.rsi2),                        sd: brainData.featureStdDev?.rsi2,         sfx: '' },
+                    { label: 'Zone length',    val: `${f0(brainData.centroid.zoneLen)} candles`,        sd: brainData.featureStdDev?.zoneLen,      sfx: '' },
+                    { label: 'Zone tightness', val: `${f1(brainData.centroid.zoneTightness)}%`,         sd: brainData.featureStdDev?.zoneTightness, sfx: '%' },
+                  ] as { label: string; val: string; sd?: number; sfx: string }[]).map(({ label, val, sd, sfx }) => (
                     <div key={label} className="flex justify-between items-center border-b border-slate-700/20 py-0.5">
                       <span className="text-[9px] text-slate-600">{label}</span>
-                      <span className="font-mono text-[9px] font-semibold text-purple-300">{val}</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="font-mono text-[9px] font-semibold text-purple-300">{val}</span>
+                        {sd != null && sd > 0 && (
+                          <span className="font-mono text-[8px] text-slate-700">±{f1(sd)}{sfx}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <div className="mt-2 text-[8px] text-slate-700 leading-relaxed">
-                    Compare your current events' 🧠 FAS score to see how close they match this profile.
+                    ± shows 1σ population spread. Compare your current events' 🧠 FAS score to see how close they match.
                   </div>
                 </div>
               </div>
@@ -1730,6 +1798,90 @@ export default function PBFBAnalyzer() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Feature-bucketed hit rates */}
+              {brainData.featureBuckets && Object.keys(brainData.featureBuckets).length > 0 && (
+                <div className="mt-3 pt-2 border-t border-purple-900/30">
+                  <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-2">Hit Rate by Feature Bucket (labeled events)</div>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+                    {Object.entries(brainData.featureBuckets).map(([fk, bkts]) => {
+                      const maxHR = Math.max(...bkts.map(b => b.hitRate ?? 0), 0.01);
+                      const lbl = fk === 'vol_vs_pre5' ? 'Vol/Pre5' : fk === 'zone_tightness' ? 'Zone Tight' : fk === 'close_loc' ? 'Close Loc' : fk === 'body_pct' ? 'Body%' : 'Range/ATR';
+                      return (
+                        <div key={fk}>
+                          <div className="text-[9px] text-slate-600 mb-1 font-medium">{lbl}</div>
+                          {bkts.map(b => (
+                            <div key={b.range} className="flex items-center gap-1 mb-0.5">
+                              <span className="text-[8px] text-slate-700 w-16 truncate font-mono">{b.range}</span>
+                              <div className="flex-1 bg-slate-700/40 rounded-full h-1">
+                                {b.hitRate != null && (
+                                  <div className="h-1 rounded-full transition-all"
+                                    style={{ width: `${(b.hitRate / maxHR) * 100}%`, backgroundColor: b.hitRate >= 0.5 ? '#4ade80' : b.hitRate >= 0.3 ? '#fbbf24' : '#f87171' }} />
+                                )}
+                              </div>
+                              <span className="text-[8px] font-mono w-8 text-right" style={{ color: b.hitRate == null ? '#475569' : b.hitRate >= 0.5 ? '#4ade80' : b.hitRate >= 0.3 ? '#fbbf24' : '#f87171' }}>
+                                {b.hitRate != null ? `${(b.hitRate * 100).toFixed(0)}%` : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Cluster profiles + Regime stats */}
+              {((brainData.clusterProfiles && brainData.clusterProfiles.length > 0) || brainData.regimeStats) && (
+                <div className="mt-3 pt-2 border-t border-purple-900/30 grid grid-cols-2 gap-4">
+                  {/* K-Means cluster profiles */}
+                  {brainData.clusterProfiles && brainData.clusterProfiles.length > 0 && (
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">K-Means Clusters (k=5)</div>
+                      {brainData.clusterProfiles.sort((a, b) => b.size - a.size).map(c => (
+                        <div key={c.id} className="flex items-center gap-1.5 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-purple-500/60" />
+                          <span className="text-[8px] text-slate-600 w-20 truncate">{c.dominant}</span>
+                          <span className="text-[8px] font-mono text-slate-600 w-6 text-right">{c.size}</span>
+                          {c.hitRate != null ? (
+                            <span className="text-[8px] font-mono w-8 text-right" style={{ color: c.hitRate >= 0.5 ? '#4ade80' : c.hitRate >= 0.3 ? '#fbbf24' : '#f87171' }}>
+                              {(c.hitRate * 100).toFixed(0)}%
+                            </span>
+                          ) : (
+                            <span className="text-[8px] text-slate-700 w-8 text-right">—</span>
+                          )}
+                        </div>
+                      ))}
+                      <div className="text-[8px] text-slate-700 mt-1">size · hit rate (≥5 labeled)</div>
+                    </div>
+                  )}
+                  {/* Regime conditioning */}
+                  {brainData.regimeStats && (
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">Regime Conditioning</div>
+                      {(['bull', 'flat', 'bear'] as const).map(regime => {
+                        const r = brainData.regimeStats![regime];
+                        if (!r) return null;
+                        const col = regime === 'bull' ? '#4ade80' : regime === 'bear' ? '#f87171' : '#94a3b8';
+                        return (
+                          <div key={regime} className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[8px] capitalize w-6" style={{ color: col }}>{regime}</span>
+                            <span className="text-[8px] font-mono text-slate-600 w-8">{r.count} ev</span>
+                            {r.hitRate != null ? (
+                              <span className="text-[8px] font-mono font-bold" style={{ color: r.hitRate >= 0.5 ? '#4ade80' : r.hitRate >= 0.3 ? '#fbbf24' : '#f87171' }}>
+                                {(r.hitRate * 100).toFixed(0)}% hit
+                              </span>
+                            ) : (
+                              <span className="text-[8px] text-slate-700">unlabeled</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="text-[8px] text-slate-700 mt-1">Nifty50 regime at event time. Populated as outcomes are labeled.</div>
                     </div>
                   )}
                 </div>

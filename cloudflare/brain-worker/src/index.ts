@@ -138,6 +138,85 @@ async function supabaseGet(env: Env, path: string): Promise<unknown> {
   return res.json();
 }
 
+async function supabasePatch(env: Env, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'content-type': 'application/json',
+      prefer: 'return=minimal',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Supabase PATCH ${res.status}: ${await res.text()}`);
+}
+
+// ── Outcome labeling ─────────────────────────────────────────────────────────
+const HIT_T1_MULT  = 1.08;
+const HIT_T2_MULT  = 1.15;
+const STOP_MULT    = 0.95;
+const LABEL_BATCH  = 30;
+const LABEL_DAYS   = 20;
+
+interface UnlabeledRow {
+  id: string;
+  event_date: string;
+  symbol: string;
+  close_price: number | null;
+}
+
+async function fetchYahooOHLCV(symbol: string, fromDate: string, toDate: string): Promise<{ date: string; close: number }[]> {
+  const nseSymbol = `${symbol}.NS`;
+  const p1 = Math.floor(new Date(fromDate).getTime() / 1000);
+  const p2 = Math.floor(new Date(toDate).getTime() / 1000);
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?period1=${p1}&period2=${p2}&interval=1d`;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) return [];
+    const j = await res.json() as { chart?: { result?: Array<{ timestamp?: number[]; indicators?: { adjclose?: Array<{ adjclose?: number[] }> } }> } };
+    const result = j.chart?.result?.[0];
+    if (!result?.timestamp) return [];
+    const closes = result.indicators?.adjclose?.[0]?.adjclose ?? [];
+    return result.timestamp
+      .map((ts, i) => ({ date: new Date(ts * 1000).toISOString().slice(0, 10), close: closes[i] ?? 0 }))
+      .filter(r => r.close > 0);
+  } catch { return []; }
+}
+
+async function labelOutcomes(env: Env): Promise<{ labeled: number }> {
+  const cutoff = new Date(Date.now() - LABEL_DAYS * 1.5 * 86400000).toISOString().slice(0, 10);
+  const rows = await supabaseGet(
+    env,
+    `pbfb_uc_events?select=id,event_date,symbol,close_price&n_before=eq.1&hit_t1=is.null&event_date=lte.${cutoff}&order=event_date.desc&limit=${LABEL_BATCH}`,
+  ) as UnlabeledRow[];
+
+  let labeled = 0;
+  for (const row of rows) {
+    if (!row.close_price || !row.event_date) continue;
+    const toDate = new Date(new Date(row.event_date).getTime() + 35 * 86400000).toISOString().slice(0, 10);
+    const prices = await fetchYahooOHLCV(row.symbol, row.event_date, toDate);
+    const fwd    = prices.filter(p => p.date > row.event_date).slice(0, LABEL_DAYS);
+    if (fwd.length < 10) continue;
+
+    const base = row.close_price;
+    let hit_t1 = false, hit_t2 = false, stopped_out = false;
+    for (const p of fwd) {
+      if (p.close >= base * HIT_T1_MULT) hit_t1 = true;
+      if (p.close >= base * HIT_T2_MULT) hit_t2 = true;
+      if (!hit_t1 && p.close <= base * STOP_MULT) stopped_out = true;
+    }
+    const outcome_pct_20d = +((fwd[fwd.length - 1].close - base) / base * 100).toFixed(2);
+
+    await supabasePatch(env, `pbfb_uc_events?id=eq.${row.id}`, {
+      hit_t1, hit_t2, stopped_out, outcome_pct_20d,
+      outcome_labeled_at: new Date().toISOString().slice(0, 10),
+    });
+    labeled++;
+  }
+  return { labeled };
+}
+
 // ── Ingest: Supabase events → Vectorize fingerprints ────────────────────────
 async function ingest(env: Env): Promise<{ ingested: number }> {
   // Bug 22 fix: date filter keeps nightly ingestion well within the 1000-row Supabase limit
@@ -239,6 +318,9 @@ export default {
       if (req.method === 'GET' && pathname === '/narrate') {
         return json(await narrate(env));
       }
+      if (req.method === 'POST' && pathname === '/label-outcomes') {
+        return json(await labelOutcomes(env));
+      }
       return json({ error: 'not found' }, 404);
     } catch (e) {
       return json({ error: e instanceof Error ? e.message : 'internal error' }, 500);
@@ -247,5 +329,6 @@ export default {
 
   async scheduled(_event: unknown, env: Env): Promise<void> {
     await ingest(env);
+    await labelOutcomes(env);
   },
 };
