@@ -59,6 +59,9 @@ interface EventRow {
   zone_len: number | null;
   zone_tightness: number | null;
   shape_vec: number[] | null;
+  near_breakout_tier: string | null;
+  archetype_type: string | null;
+  zone_shape: string | null;
 }
 
 // Per-feature scales so cosine distance weights all 9 dimensions comparably.
@@ -141,7 +144,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
+    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
   ) as EventRow[];
 
   let ingested = 0;
@@ -154,6 +157,9 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
         symbol: r.symbol, run_date: r.run_date, event_date: r.event_date ?? '',
         best_stage: r.best_stage, best_param_set: r.best_param_set ?? '',
         classification: r.classification, move_pct: r.move_pct,
+        near_breakout_tier: r.near_breakout_tier ?? null,
+        archetype_type:     r.archetype_type     ?? null,
+        zone_shape:         r.zone_shape         ?? null,
       },
     })));
     ingested += chunk.length;

@@ -82,6 +82,8 @@ interface BrainData {
   centroid: FeatureCentroid;
   stageHitCounts: Partial<Record<StageRating, number>>;
   featureLifts: { label: string; lift: number }[];
+  archetypeCounts?:    Record<string, number>;
+  breakoutTierCounts?: Record<string, number>;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -733,8 +735,11 @@ export default function PBFBAnalyzer() {
         pre10AvgVolRatio: r.bestResult?.pre10AvgVolRatio ?? null,
         zoneTightness:   r.bestResult?.zone?.zoneTightnessPct ?? null,
         zoneLen:         r.bestResult?.zone?.windowLength     ?? null,
-        closePrice:      r.bestResult?.lastClose ?? null,
-        shapeVec:        r.shapeVec,
+        closePrice:       r.bestResult?.lastClose          ?? null,
+        shapeVec:         r.shapeVec,
+        nearBreakoutTier: r.bestResult?.nearBreakoutTier   ?? null,
+        archetypeType:    r.bestResult?.archetypeType      ?? null,
+        zoneShape:        r.bestResult?.zone?.zoneShape    ?? null,
       })),
     };
     try {
@@ -1676,6 +1681,51 @@ export default function PBFBAnalyzer() {
                   </div>
                 </div>
               </div>
+
+              {/* Archetype & breakout-tier breakdowns — populated once events have these fields */}
+              {(Object.keys(brainData.archetypeCounts ?? {}).length > 0 || Object.keys(brainData.breakoutTierCounts ?? {}).length > 0) && (
+                <div className="mt-3 pt-2 border-t border-purple-900/30 grid grid-cols-2 gap-4">
+                  {Object.keys(brainData.archetypeCounts ?? {}).length > 0 && (
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">Zone Archetypes</div>
+                      {Object.entries(brainData.archetypeCounts!)
+                        .sort((a, b) => b[1] - a[1]).slice(0, 5)
+                        .map(([arch, cnt]) => {
+                          const pct = brainData.eventCount > 0 ? cnt / brainData.eventCount * 100 : 0;
+                          return (
+                            <div key={arch} className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[9px] text-slate-500 w-28 truncate">{arch}</span>
+                              <div className="flex-1 bg-slate-700/40 rounded-full h-1">
+                                <div className="h-1 rounded-full bg-purple-400" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-[9px] font-mono text-slate-500 w-8 text-right">{cnt}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                  {Object.keys(brainData.breakoutTierCounts ?? {}).length > 0 && (
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider mb-1.5">Zone Proximity (zone-only)</div>
+                      {(['IMMINENT', 'NEAR', 'WATCH', 'EARLY'] as const).filter(t => (brainData.breakoutTierCounts?.[t] ?? 0) > 0).map(tier => {
+                        const cnt = brainData.breakoutTierCounts![tier] ?? 0;
+                        const total = Object.values(brainData.breakoutTierCounts!).reduce((a: number, b) => a + (b ?? 0), 0);
+                        const pct = total > 0 ? cnt / total * 100 : 0;
+                        const col = tier === 'IMMINENT' ? '#4ade80' : tier === 'NEAR' ? '#34d399' : tier === 'WATCH' ? '#fbbf24' : '#94a3b8';
+                        return (
+                          <div key={tier} className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[9px] w-14" style={{ color: col }}>{tier}</span>
+                            <div className="flex-1 bg-slate-700/40 rounded-full h-1">
+                              <div className="h-1 rounded-full" style={{ width: `${pct}%`, backgroundColor: col }} />
+                            </div>
+                            <span className="text-[9px] font-mono text-slate-500 w-8 text-right">{cnt}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

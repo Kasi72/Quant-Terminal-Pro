@@ -28,6 +28,9 @@ interface EventPayload {
   zoneLen:         number | null;
   closePrice:      number | null;
   shapeVec:        number[] | null;
+  nearBreakoutTier?: string | null;
+  archetypeType?:    string | null;
+  zoneShape?:        string | null;
 }
 
 interface SavePayload {
@@ -114,8 +117,11 @@ export async function POST(req: NextRequest) {
     zone_len:        e.zoneLen,
     move_pct:        e.movePct,
     vol_mult:        e.volMult,
-    close_price:     e.closePrice,
-    shape_vec:       e.shapeVec,
+    close_price:        e.closePrice,
+    shape_vec:          e.shapeVec,
+    near_breakout_tier: e.nearBreakoutTier ?? null,
+    archetype_type:     e.archetypeType    ?? null,
+    zone_shape:         e.zoneShape        ?? null,
   }));
 
   // Batch upsert in chunks of 200, keyed on the event itself — the same

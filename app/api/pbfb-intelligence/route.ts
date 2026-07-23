@@ -23,7 +23,7 @@ export async function GET() {
 
   const [eventsResult, runsResult] = await Promise.all([
     sb.from('pbfb_uc_events')
-      .select('best_stage, best_param_set, classification, close_loc, body_pct, upper_wick_pct, vol_ratio_20, vol_vs_pre5, range_atr, rsi2, zone_len, zone_tightness')
+      .select('best_stage, best_param_set, classification, close_loc, body_pct, upper_wick_pct, vol_ratio_20, vol_vs_pre5, range_atr, rsi2, zone_len, zone_tightness, near_breakout_tier, archetype_type, zone_shape')
       .eq('n_before', 1)
       .gte('event_date', cutoff)
       .limit(2000)
@@ -80,6 +80,21 @@ export async function GET() {
     zoneTightness: avg(actionable.map((e: Row) => e.zone_tightness)),
   };
 
+  // Archetype distribution across all events
+  const archetypeCounts: Record<string, number> = {};
+  for (const e of events) {
+    const arch = (e.archetype_type as string | null);
+    if (arch) archetypeCounts[arch] = (archetypeCounts[arch] ?? 0) + 1;
+  }
+
+  // Breakout proximity for zone-only events
+  const zoneOnly = events.filter((e: Row) => e.classification === 'zone_only');
+  const breakoutTierCounts: Record<string, number> = {};
+  for (const e of zoneOnly) {
+    const tier = (e.near_breakout_tier as string | null);
+    if (tier) breakoutTierCounts[tier] = (breakoutTierCounts[tier] ?? 0) + 1;
+  }
+
   // Top-3 features most different between actionable vs missed
   const missed = events.filter((e: Row) => e.classification === 'missed');
   const featureLifts = [
@@ -101,6 +116,8 @@ export async function GET() {
     stageHitCounts,
     paramSetStats,
     featureLifts,
+    archetypeCounts,
+    breakoutTierCounts,
   }, {
     headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
   });
