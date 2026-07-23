@@ -18,10 +18,14 @@ function generateTradeSheet(r, accountSize, riskPct = 1) {
         return null;
     const safeT1 = Number.isFinite(r.priceEngine.target5) ? r.priceEngine.target5 : entry + riskPerShare * 2;
     const safeT2 = Number.isFinite(r.priceEngine.target7) ? r.priceEngine.target7 : entry + riskPerShare * 3;
+    const safeT3 = Number.isFinite(r.priceEngine.target10) ? r.priceEngine.target10 : entry + riskPerShare * 5;
     const maxRisk = accountSize * (riskPct / 100);
     const qty = Math.floor(maxRisk / riskPerShare);
     if (qty <= 0)
         return null;
+    // Breakeven trigger: whichever comes first — T1 or +2%. For low-ATR stocks T1<2%,
+    // so hardcoding +2% would fire AFTER T1 which is backwards (trail fires too late).
+    const beTrigger = Math.min(safeT1, Math.round(entry * 1.02 * 100) / 100);
     return {
         symbol: r.symbol,
         action: 'BUY',
@@ -30,9 +34,10 @@ function generateTradeSheet(r, accountSize, riskPct = 1) {
         stopLoss: Math.round(sl * 100) / 100,
         target1: Math.round(safeT1 * 100) / 100,
         target2: Math.round(safeT2 * 100) / 100,
-        breakEvenTrigger: Math.round(entry * 1.02 * 100) / 100,
+        target3: Math.round(safeT3 * 100) / 100,
+        breakEvenTrigger: Math.round(beTrigger * 100) / 100,
         breakEvenStop: Math.round(entry * 1.005 * 100) / 100,
-        trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when price touches ₹${(entry * 1.02).toFixed(2)} (+2%). Trail to entry after T1.`,
+        trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when T1 ₹${safeT1.toFixed(2)} hit. Sell 50% at T1, 30% at T2, 20% at T3.`,
         totalCost: Math.round(qty * entry),
         maxRisk: Math.round(qty * riskPerShare),
         riskPct,
@@ -46,8 +51,9 @@ function tradeSheetToClipboard(ts) {
         `ENTRY: ₹${ts.entry.toFixed(2)} (Limit)`,
         `QTY: ${ts.qty} shares`,
         `STOP LOSS: ₹${ts.stopLoss.toFixed(2)} (SL-M)`,
-        `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%)`,
-        `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%)`,
+        `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%) — R:R ≈ 1.0R`,
+        `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%) — R:R ≈ 2.0R`,
+        `TARGET 3: ₹${ts.target3.toFixed(2)} (Sell 20%) — R:R ≈ 3.3R`,
         `TRAIL: ${ts.trailRule}`,
         `CAPITAL: ₹${(ts.totalCost / 100000).toFixed(2)}L`,
         `MAX RISK: ₹${ts.maxRisk.toLocaleString('en-IN')}`,
@@ -161,25 +167,41 @@ function checkTradeStatus(trade, currentPrice) {
         updated.pnlR = (trade.stopLoss - trade.entryPrice) / riskPerShare;
     }
     else if (currentPrice >= trade.target3) {
+        // Weighted exit: 50%@T1 + 30%@T2 + 20%@T3 (matches validateTrade() model)
         updated.status = 'hit_t3';
         updated.closedPrice = trade.target3;
         updated.closedDate = updated.lastCheckDate;
-        updated.pnlPct = ((trade.target3 - trade.entryPrice) / trade.entryPrice) * 100;
-        updated.pnlR = riskPerShare > 0 ? (trade.target3 - trade.entryPrice) / riskPerShare : 0;
+        const weightedT3 = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
+        updated.pnlPct = ((weightedT3 - trade.entryPrice) / trade.entryPrice) * 100;
+        updated.pnlR = riskPerShare > 0 ? (weightedT3 - trade.entryPrice) / riskPerShare : 0;
     }
     else if (currentPrice >= trade.target2) {
+        // Weighted exit: 50%@T1 + 30%@T2 + 20%@currentPrice
         updated.status = 'hit_t2';
         updated.closedPrice = trade.target2;
         updated.closedDate = updated.lastCheckDate;
-        updated.pnlPct = ((trade.target2 - trade.entryPrice) / trade.entryPrice) * 100;
-        updated.pnlR = riskPerShare > 0 ? (trade.target2 - trade.entryPrice) / riskPerShare : 0;
+        const weightedT2 = trade.target1 * 0.5 + trade.target2 * 0.3 + currentPrice * 0.2;
+        updated.pnlPct = ((weightedT2 - trade.entryPrice) / trade.entryPrice) * 100;
+        updated.pnlR = riskPerShare > 0 ? (weightedT2 - trade.entryPrice) / riskPerShare : 0;
     }
     else if (currentPrice >= trade.target1) {
+        // Weighted exit: 50%@T1 + 50%@currentPrice (held for T2, rest at current)
         updated.status = 'hit_t1';
         updated.closedPrice = trade.target1;
         updated.closedDate = updated.lastCheckDate;
-        updated.pnlPct = ((trade.target1 - trade.entryPrice) / trade.entryPrice) * 100;
-        updated.pnlR = riskPerShare > 0 ? (trade.target1 - trade.entryPrice) / riskPerShare : 0;
+        const weightedT1 = trade.target1 * 0.5 + currentPrice * 0.5;
+        updated.pnlPct = ((weightedT1 - trade.entryPrice) / trade.entryPrice) * 100;
+        updated.pnlR = riskPerShare > 0 ? (weightedT1 - trade.entryPrice) / riskPerShare : 0;
+    }
+    else if (((currentPrice - trade.entryPrice) / trade.entryPrice) * 100 >= 5.0) {
+        // CMP has delivered the screener's core 5% profit target even though the
+        // T1 price level hasn't been reached (happens when T1 is set far above 5%).
+        // Count as T1 hit — the entire system is calibrated around the 5% exit.
+        updated.status = 'hit_t1';
+        updated.closedPrice = currentPrice;
+        updated.closedDate = updated.lastCheckDate;
+        updated.pnlPct = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
+        updated.pnlR = riskPerShare > 0 ? (currentPrice - trade.entryPrice) / riskPerShare : 0;
     }
     else if (daysHeld >= 20) {
         updated.status = 'expired';
@@ -227,7 +249,7 @@ function computePortfolioRisk(trades, accountSize, sectorMap) {
     };
 }
 function detectMarketRegime(niftyCandles, vixCandles) {
-    const fallback = { regime: 'neutral', niftyClose: 0, ema200: 0, ema50: 0, aboveEma200: true, ema50Above200: true, label: 'Unknown', emoji: '🟡', sizingMultiplier: 0.75, score: 0, factors: { momentum: 0, breadth: 0, volatility: 0, acceleration: 0, distEma200: 0, vixLevel: 0, vixROC: 0, vixVsSma: 0 }, vix: 0, cusumAlert: null, blackSwanLevel: 'normal', blackSwanAction: '' };
+    const fallback = { regime: 'neutral', niftyClose: 0, ema200: 0, ema50: 0, aboveEma200: true, ema50Above200: true, label: 'Unknown', emoji: '🟡', sizingMultiplier: 0.75, score: 0, dayChangePct: 0, factors: { momentum: 0, breadth: 0, volatility: 0, acceleration: 0, distEma200: 0, vixLevel: 0, vixROC: 0, vixVsSma: 0 }, vix: 0, cusumAlert: null, blackSwanLevel: 'normal', blackSwanAction: '' };
     if (niftyCandles.length < 200)
         return fallback;
     const n = niftyCandles.length;
@@ -258,6 +280,8 @@ function detectMarketRegime(niftyCandles, vixCandles) {
     const ret10a = n >= 11 ? (close - niftyCandles[n - 11].c) / niftyCandles[n - 11].c * 100 : 0;
     const ret10b = n >= 21 ? (niftyCandles[n - 11].c - niftyCandles[n - 21].c) / niftyCandles[n - 21].c * 100 : 0;
     const accel = ret10a - ret10b;
+    // Factor 9: TODAY'S RETURN — 1-day change anchors regime to current session
+    const ret1 = n >= 2 ? (close - niftyCandles[n - 2].c) / niftyCandles[n - 2].c * 100 : 0;
     // Factor 5: DISTANCE FROM EMA200
     const distEma200 = ema200 > 0 ? ((close - ema200) / ema200) * 100 : 0;
     // Composite score (factors 1-5: 82 pts max)
@@ -267,6 +291,7 @@ function detectMarketRegime(niftyCandles, vixCandles) {
     score += vol < 0.8 ? 12 : vol < 1.2 ? 6 : vol < 1.8 ? 0 : vol < 2.5 ? -6 : -12;
     score += accel > 2 ? 12 : accel > 0.5 ? 6 : accel > -0.5 ? 0 : accel > -2 ? -6 : -12;
     score += distEma200 > 5 ? 12 : distEma200 > 0 ? 6 : distEma200 > -3 ? -4 : distEma200 > -8 ? -8 : -12;
+    score += ret1 > 2 ? 8 : ret1 > 0.5 ? 4 : ret1 > -0.5 ? 0 : ret1 > -2 ? -8 : -12;
     // VIX factors (6-8: 28 pts max) — only if VIX data provided
     let vixVal = 0, vixROC = 0, vixVsSma = 0;
     if (vixCandles && vixCandles.length >= 21) {
@@ -364,7 +389,7 @@ function detectMarketRegime(niftyCandles, vixCandles) {
     return {
         regime, niftyClose: close, ema200, ema50,
         aboveEma200: close > ema200, ema50Above200: ema50 > ema200,
-        label, emoji, sizingMultiplier: mult, score,
+        label, emoji, sizingMultiplier: mult, score, dayChangePct: ret1,
         factors: { momentum: ret20, breadth, volatility: vol, acceleration: accel, distEma200, vixLevel: vixVal, vixROC, vixVsSma },
         vix: vixVal, cusumAlert, blackSwanLevel, blackSwanAction,
     };

@@ -167,6 +167,19 @@ export function validateTrade(
 
   let dynamicStop = validStop ? trade.stopLoss : 0;
 
+  // Fix A: minimum stop distance guard — prevents micro-stop G-GAP catastrophes.
+  // Any stop tighter than max(2%, 0.9×ATR) is smaller than normal daily noise; an
+  // overnight gap of that size fires G-GAP and realizes multi-R loss from a position
+  // where intended risk was near zero (e.g. KALYANKJIL: 0.37% stop → −2.98R G-GAP).
+  if (validStop && candlesSinceEntry.length > 0) {
+    const atr14Entry = computeATR14(candlesSinceEntry, 0);
+    const minStopPct = Math.max(2.0, (atr14Entry / entry) * 100 * 0.9);
+    const minStopLevel = entry * (1 - minStopPct / 100);
+    if (dynamicStop > minStopLevel) {
+      dynamicStop = minStopLevel;
+    }
+  }
+
   const gateLog: GateLogEntry[] = [];
   const trailLog: Array<{ day: number; newStop: number; reason: string }> = [];
   let mfePrice = entry, maePrice = entry;
@@ -200,10 +213,15 @@ export function validateTrade(
     // higher than current stop. 5-bar window aligned with structure-stop window.
     if (!t1Hit && i >= 8) {
       const swingLow = fiveBarSwingLow(candlesSinceEntry, i - 1);
-      if (swingLow > dynamicStop && swingLow < entry) {
+      // Fix B: trail with 0.35×ATR buffer below swing low so micro-gaps (smaller
+      // than the buffer) don't fire G-GAP. AMBUJACEM gapped only 0.31% below its
+      // trail level and was stopped — a buffer of 0.35×ATR would have absorbed it.
+      const trailAtr = computeATR14(candlesSinceEntry, i - 1);
+      const bufferedTrail = swingLow - 0.35 * trailAtr;
+      if (bufferedTrail > dynamicStop && bufferedTrail < entry) {
         const prev = dynamicStop;
-        dynamicStop = swingLow;
-        trailLog.push({ day: i, newStop: dynamicStop, reason: `Day-${i} 5-bar swing trail: ₹${prev.toFixed(2)} → ₹${dynamicStop.toFixed(2)}` });
+        dynamicStop = bufferedTrail;
+        trailLog.push({ day: i, newStop: dynamicStop, reason: `Day-${i} Trail-A (buffered): ₹${prev.toFixed(2)} → ₹${dynamicStop.toFixed(2)} (swing ₹${swingLow.toFixed(2)} − 0.35×ATR ₹${(0.35 * trailAtr).toFixed(2)})` });
       }
     }
 
