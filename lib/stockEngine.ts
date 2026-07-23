@@ -2109,7 +2109,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   // T3=5×ATR (validated across 14.3L signals — same formula as breakout archetypes).
   const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c);
   const sw5LowORS = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(entryPrice, a14, sw5LowORS);
+  const pe = archetypePriceEngine(entryPrice, a14, sw5LowORS, 'ORS');
   const target4pct = pe.target5;  // T1 ≈ 4–6% for typical stock
   const rrRatio = pe.rewardRisk;
 
@@ -2487,19 +2487,25 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
   };
 }
 
-function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0): PriceEngine {
+function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetypeHint = ''): PriceEngine {
   const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
 
-  // ── Stop: ATR-bucket-tiered stops — OOS-validated (sl_bucket_backtest, 2026-07-22) ──
-  // 629 OOS signals (post-2025-05-05): tighter bucket-specific caps IMPROVE EV vs flat 4×10%.
-  //   TIGHT (<1.5% ATR)   : 3×ATR, cap 6%  → avg SL 3-6%
-  //   NORMAL (1.5-2.5%)   : 3×ATR, cap 6%  → avg SL 5-6%,  EV +0.18% vs 4×10%
-  //   VOLATILE (2.5-3.5%) : 3×ATR, cap 8%  → avg SL 7.5-8%, EV +0.29-0.61%
-  //   HIGH (>3.5%)        : 2×ATR, cap 8%  → avg SL 7-8%,  EV +0.38-1.43%
-  // Wide stops (4×10%) trigger unnecessarily on BUY/STRONG signals, dragging EV.
-  const isHigh     = atrPct >= 3.5;
-  const atrMult    = isHigh ? 2.0 : 3.0;
-  const capPct     = atrPct < 2.5 ? 6.0 : 8.0;
+  // ── Stop: walk-forward hyper-optimised caps (hyper_mae_study, 2026-07-23) ──
+  // 3 non-overlapping OOS windows (2024H1/H2, 2025+) + 500-resample bootstrap CI.
+  // Archetype-aware HIGH cap: ORS/VF reversal signals work well tight; MP needs room.
+  //   TIGHT (<1.5%)          : 3×ATR, cap  6.0%  — no sufficient data, conservative
+  //   NORMAL (1.5-2.5%)      : 3×ATR, cap  4.0%  — was 6%; MP NORMAL p90-safe=2.9%
+  //   VOLATILE (2.5-3.5%)    : 3×ATR, cap  5.5%  — was 8%; 3/3-window CI-robust at 5.5%
+  //   HIGH (>3.5%), ORS/VF   : 2×ATR, cap  4.0%  — reversal/institutional: tight works (3/3 windows)
+  //   HIGH (>3.5%), default   : 2×ATR, cap 12.5%  — MP HIGH p90-safe=9.7%; 8% kills winners
+  const isHigh    = atrPct >= 3.5;
+  const atrMult   = isHigh ? 2.0 : 3.0;
+  const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
+  const capPct    = atrPct < 1.5 ? 6.0
+                  : atrPct < 2.5 ? 4.0
+                  : atrPct < 3.5 ? 5.5
+                  : isOrsOrVf   ? 4.0
+                  : 12.5;
   const floorPct   = 2.0;
   const atrStop    = entry - atrMult * atr14;
   const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
@@ -2638,7 +2644,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low);
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'VF');
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
@@ -3076,7 +3082,10 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const stage = archetypeStage(conditionsMet, score, 'EMAStack');
+  const rawStageEMA = archetypeStage(conditionsMet, score, 'EMAStack');
+  // Walk-forward study (hyper_mae_study, 2026-07-23): EMAStack/HIGH has no viable stop.
+  // W2 2024H2 EV is −4 to −5% at every stop level — regime collapse. Suppress to NEUTRAL.
+  const stage = (atr14 / sig.c * 100 >= 3.5) ? 'NEUTRAL' as typeof rawStageEMA : rawStageEMA;
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
