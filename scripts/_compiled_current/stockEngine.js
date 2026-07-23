@@ -999,6 +999,7 @@ function buildNullPriceEngine() {
         rewardRisk: 0,
         chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
         failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
+        maxHoldBars: 20,
         tradeValid: false,
         hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
         sw5LowAtEntry: 0, atr14AtEntry: 0,
@@ -2120,6 +2121,10 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
     const rewardRisk = riskAbs > 0 ? (t10 - entry) / riskAbs : 0;
     const disasterStop = tick(entry * (1 - (capPct + 1.0) / 100));
+    // ── maxHoldBars: per-archetype × ATR-bucket (horizon study, 2026-07-23) ──
+    const maxHoldBars = isMP
+        ? (atrPct < 1.5 ? 20 : atrPct < 2.5 ? 15 : 25)
+        : (archetypeHint === 'ORS' && isHigh ? 12 : 20);
     return {
         ...buildNullPriceEngine(),
         plannedEntry: tick(entry),
@@ -2131,6 +2136,7 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
         target5: t5, target7: t7, target10: t10,
         target3R: tick(entry + 3 * riskAbs),
         rewardRisk,
+        maxHoldBars,
         tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.0,
         sw5LowAtEntry: sw5Low,
         atr14AtEntry: atr14,
@@ -3502,6 +3508,7 @@ function generateDemoData(paramSetKey, count = 25) {
                 chandelierT1: plannedEntry, chandelierT2: plannedEntry + 1.5 * riskPerShare, chandelierT3: plannedEntry + 3 * riskPerShare,
                 failedBreakoutLevel: zoneHigh,
                 timeStop3d: plannedEntry, timeStop5d: plannedEntry + riskPerShare, timeStop10d: plannedEntry + 2 * riskPerShare,
+                maxHoldBars: 20,
                 tradeValid: true,
                 hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
                 sw5LowAtEntry: 0, atr14AtEntry: 0,
@@ -3519,6 +3526,7 @@ function generateDemoData(paramSetKey, count = 25) {
                 t1R: 0, t2R: 0, t3R_mult: 0, rewardRisk: 0,
                 chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
                 failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
+                maxHoldBars: 20,
                 tradeValid: false,
                 hh252: 0, pctFrom52W: 0, breakoutTier: 'B',
                 sw5LowAtEntry: 0, atr14AtEntry: 0,

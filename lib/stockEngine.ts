@@ -108,6 +108,7 @@ export interface PriceEngine {
   rewardRisk: number;
   chandelierT1: number; chandelierT2: number; chandelierT3: number;
   failedBreakoutLevel: number; timeStop3d: number; timeStop5d: number; timeStop10d: number;
+  maxHoldBars: number;         // time-stop in bars: exit if no target hit (horizon study, 2026-07-23)
   tradeValid: boolean;
   hh252: number;           // 52-week highest high before signal bar
   pctFrom52W: number;      // % close is below the 52W high (0 = at the high)
@@ -1289,6 +1290,7 @@ function buildNullPriceEngine(): PriceEngine {
     rewardRisk: 0,
     chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
     failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
+    maxHoldBars: 20,
     tradeValid: false,
     hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
     sw5LowAtEntry: 0, atr14AtEntry: 0,
@@ -1652,6 +1654,7 @@ function buildTradeEngine(
     timeStop5d: safe(timeStop5d),
     timeStop10d: safe(timeStop10d),
     tradeValid,
+    maxHoldBars: 20,
     hh252: safe(hh252),
     pctFrom52W: safe(pctFrom52W),
     breakoutTier,
@@ -2532,6 +2535,14 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
 
   const rewardRisk = riskAbs > 0 ? (t10 - entry) / riskAbs : 0;
   const disasterStop = tick(entry * (1 - (capPct + 1.0) / 100));
+
+  // ── maxHoldBars: per-archetype × ATR-bucket (horizon study, 2026-07-23) ──
+  // MP T1=3×ATR needs more bars to develop in volatile stocks; time-stop cuts losers.
+  // ORS/HIGH signals are fast-reversal plays — fade quickly if T1 not reached by bar 12.
+  const maxHoldBars = isMP
+    ? (atrPct < 1.5 ? 20 : atrPct < 2.5 ? 15 : 25)   // TIGHT:20, NORMAL:15, VOLATILE/HIGH:25
+    : (archetypeHint === 'ORS' && isHigh ? 12 : 20);   // ORS HIGH:12, else default 20
+
   return {
     ...buildNullPriceEngine(),
     plannedEntry: tick(entry),
@@ -2543,6 +2554,7 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
     target5: t5, target7: t7, target10: t10,
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,
+    maxHoldBars,
     tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.0,
     sw5LowAtEntry: sw5Low,
     atr14AtEntry: atr14,
@@ -3940,6 +3952,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         chandelierT1: plannedEntry, chandelierT2: plannedEntry + 1.5 * riskPerShare, chandelierT3: plannedEntry + 3 * riskPerShare,
         failedBreakoutLevel: zoneHigh,
         timeStop3d: plannedEntry, timeStop5d: plannedEntry + riskPerShare, timeStop10d: plannedEntry + 2 * riskPerShare,
+        maxHoldBars: 20,
         tradeValid: true,
         hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
         sw5LowAtEntry: 0, atr14AtEntry: 0,
@@ -3956,6 +3969,7 @@ export function generateDemoData(paramSetKey: ParamSetKey, count = 25): Analysis
         t1R: 0, t2R: 0, t3R_mult: 0, rewardRisk: 0,
         chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
         failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
+        maxHoldBars: 20,
         tradeValid: false,
         hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
         sw5LowAtEntry: 0, atr14AtEntry: 0,
