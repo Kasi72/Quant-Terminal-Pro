@@ -2526,13 +2526,14 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   const riskAbs = Math.max(entry * 0.01, entry - stop);
   const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
 
-  // ── T1/T2/T3: per-archetype, MFE walk-forward study (2026-07-23) ──
+  // ── T1/T2/T3: per-archetype, MFE walk-forward study (2026-07-23, optimized 2026-07-24) ──
   // Bootstrap-validated across 3 OOS windows (2024H1/H2, 2025+):
-  //   VF  : T1=1.0×ATR — volume breakouts peak fast; take 70% at T1
-  //   MP  : T1=3.0×ATR — momentum has long follow-through; take only 20% at T1
+  //   VF       : T1=1.0×ATR — volume breakouts peak fast; take 70% at T1
+  //   MP HIGH  : T1=1.1×ATR — Phase5 optimizer: +17pp WR, escT1 32%→63% (n=407 OOS trades)
+  //   MP !HIGH : T1=1.6×ATR — VOLATILE/NORMAL; both bands converge to ~5% absolute T1
   //   ORS/default: T1=1.5×ATR — bootstrap confirms current params optimal
   const isVF = archetypeHint === 'VF';
-  const t1Mult = isVF ? 1.0 : isMP ? 3.0 : 1.5;
+  const t1Mult = isVF ? 1.0 : isMP ? (isHigh ? 1.10 : 1.60) : 1.5;
   const t2Mult = t1Mult * (5 / 3);   // preserves T1:T2 = 1.5:2.5 ratio
   const t3Mult = t1Mult * (10 / 3);  // preserves T1:T3 = 1.5:5.0 ratio
   const t5  = tick(entry * (1 + t1Mult * atrPct / 100));
