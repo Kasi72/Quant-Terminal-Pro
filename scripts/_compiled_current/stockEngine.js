@@ -2118,16 +2118,17 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     const stop = Math.min(floorStop, Math.max(capStop, rawStop));
     const riskAbs = Math.max(entry * 0.01, entry - stop);
     const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
-    // ── T1/T2/T3: per-archetype, MFE walk-forward study (2026-07-23, optimized 2026-07-24) ──
-    // Bootstrap-validated across 3 OOS windows (2024H1/H2, 2025+):
-    //   VF       : T1=1.0×ATR — volume breakouts peak fast; take 70% at T1
-    //   MP HIGH  : T1=1.1×ATR — Phase5 optimizer: +17pp WR, escT1 32%→63% (n=407 OOS trades)
-    //   MP !HIGH : T1=1.6×ATR — VOLATILE/NORMAL; both bands converge to ~5% absolute T1
-    //   ORS/default: T1=1.5×ATR — bootstrap confirms current params optimal
+    // ── T1/T2/T3: per-archetype, OOS hyper-optimizer (2026-07-24, n=1617 symbols) ──
+    //   VF  : t1M=0.50, T3/T1=2.00 — scalp fast; targets compressed 1.9-3.8% (escT1 65%→79%, Score +0.10)
+    //   MP HIGH  : t1M=1.10 — Phase5 optimizer: +17pp WR, escT1 32%→63%
+    //   MP !HIGH : t1M=1.60 — VOLATILE/NORMAL both converge to ~5% absolute T1
+    //   ORS : t1M=0.75, T3/T1=5.00 — tighter T1 7.6%; tail stays long (escT1 48%→67%, Score +0.74)
+    //   default  : t1M=1.5 — CC/EMA/CB standard cascade
     const isVF = archetypeHint === 'VF';
-    const t1Mult = isVF ? 1.0 : isMP ? (isHigh ? 1.10 : 1.60) : 1.5;
-    const t2Mult = t1Mult * (5 / 3); // preserves T1:T2 = 1.5:2.5 ratio
-    const t3Mult = t1Mult * (10 / 3); // preserves T1:T3 = 1.5:5.0 ratio
+    const isORS = archetypeHint === 'ORS';
+    const t1Mult = isVF ? 0.50 : isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : 1.5;
+    const t2Mult = t1Mult * (5 / 3);
+    const t3Mult = isVF ? t1Mult * 2.00 : isORS ? t1Mult * 5.00 : t1Mult * (10 / 3);
     const t5 = tick(entry * (1 + t1Mult * atrPct / 100));
     const t7 = tick(entry * (1 + t2Mult * atrPct / 100));
     const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
