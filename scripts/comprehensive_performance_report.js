@@ -19,7 +19,7 @@ const BARS_PER_YEAR = 252;
 // Production weights per archetype (post Phase-2 + Phase-5 optimization)
 const ARCH_WEIGHTS = {
   'ORS':             { W1:0.50, W2:0.05, W3:0.45 },
-  'VolumeFootprint': { W1:0.60, W2:0.20, W3:0.20 },
+  'VolumeFootprint': { W1:0.70, W2:0.10, W3:0.20 },
   'CompressionCoil': { W1:0.65, W2:0.10, W3:0.25 },
   'MomentumPocket':  { W1:0.70, W2:0.10, W3:0.20 },
   'EMAStack':        { W1:0.55, W2:0.10, W3:0.35 },

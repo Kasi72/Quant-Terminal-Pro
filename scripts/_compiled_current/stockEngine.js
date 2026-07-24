@@ -2119,16 +2119,16 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     const riskAbs = Math.max(entry * 0.01, entry - stop);
     const riskPct = entry > 0 ? riskAbs / entry * 100 : 2;
     // ── T1/T2/T3: per-archetype, OOS hyper-optimizer (2026-07-24, n=1617 symbols) ──
-    //   VF  : t1M=0.50, T3/T1=2.00 — scalp fast; targets compressed 1.9-3.8% (escT1 65%→79%, Score +0.10)
+    //   VF  : t1M=0.75 (VOLATILE-only gate, ATR 2.5–4%): T1=1.875–3.0%; HIGH-band excluded (WR=38.3%)
     //   MP HIGH  : t1M=1.10 — Phase5 optimizer: +17pp WR, escT1 32%→63%
     //   MP !HIGH : t1M=1.60 — VOLATILE/NORMAL both converge to ~5% absolute T1
     //   ORS : t1M=0.75, T3/T1=5.00 — tighter T1 7.6%; tail stays long (escT1 48%→67%, Score +0.74)
-    //   default  : t1M=1.5 — CC/EMA/CB standard cascade
-    const isVF = archetypeHint === 'VF';
+    //   default  : t1M=1.5 — CC/EMA/CB/VF standard cascade
     const isORS = archetypeHint === 'ORS';
-    const t1Mult = isVF ? 0.50 : isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : 1.5;
+    const isVF = archetypeHint === 'VF';
+    const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isVF ? 0.75 : 1.5;
     const t2Mult = t1Mult * (5 / 3);
-    const t3Mult = isVF ? t1Mult * 2.00 : isORS ? t1Mult * 5.00 : t1Mult * (10 / 3);
+    const t3Mult = isORS ? t1Mult * 5.00 : t1Mult * (10 / 3);
     const t5 = tick(entry * (1 + t1Mult * atrPct / 100));
     const t7 = tick(entry * (1 + t2Mult * atrPct / 100));
     const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
@@ -2210,11 +2210,12 @@ function analyzeVolumeFootprint(candles) {
     if (!ca.isGreen || ca.candleRisk > tuned(key, 'maxCandleRisk', 8))
         return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
     const tech = archetypeTech(candles, endIdx);
-    // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 68.2% → 84.6% (n=13 OOS, n=31 IS)
+    // CMF+OBV precision gate — VOLATILE-band only (ATR 2.5–4.0%): HIGH-band WR=38.3% SR=60.7% excluded.
     // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
-    // VF HIGH band (ATR≥3.5%) WR=52.3% n=107 is not actionable — restrict to VOLATILE [2.5,3.5)
+    // ATR ceiling 4.0: 3.5 was too tight (eliminated all signals via gap-up day ATR); 4.0 keeps
+    // VOLATILE-only. Signal-day ATR used; entry-day gap-up doesn't retroactively raise signal ATR.
     if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
-        tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) || tech.atrPct14 >= 3.5 ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 4.0) ||
         tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
         return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
     // Pre-10 avg range ATR
@@ -2481,7 +2482,8 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     // Skipped when called from PerfectStorm (which applies its own composite gate).
     if (!skipPrecisionGate) {
         // hypertune_mp_ema.js 2026-07-22: 280k-combo 2-phase search → OOS Hit5=71% PF=2.26 n=62 ROBUST
-        if (tech.cmf20 < tuned(key, 'minCMF20', -0.1) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
+        // minCMF20 raised -0.1→0.0: require neutral accumulation (not distribution) during pullback
+        if (tech.cmf20 < tuned(key, 'minCMF20', 0.0) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
             tech.atrPct14 < tuned(key, 'minAtrPct14', 3.5) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 7) || // MP HIGH-only: NORMAL/VOLATILE WR<60%, STRONG VOLATILE WR=37.5%
             tech.rsi14 < tuned(key, 'minGateRSI14', 42) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
             tech.rsi2 > tuned(key, 'maxGateRSI2', 30) || volRatio20 < tuned(key, 'minGateVolRatio', 1.5) ||
@@ -2602,7 +2604,9 @@ function analyzeEMAStack(candles) {
     const tech = archetypeTech(candles, endIdx);
     // CMF+OBV precision gate — hypertune_mp_ema.js 2026-07-22: OOS Hit5=82.5% PF=2.98 n=40 ROBUST
     // CI [70%,92.5%]: minCloseVsEMA20=1.0 (price 1%+ above EMA20), EMA20>EMA50 by 0.8%, OBV≥0
+    // minAtrPct14≥2.5: EMA NORMAL band (ATR<2.5%) WR=55.6% n=9 → require VOLATILE+ only
     if (tech.cmf20 < tuned(key, 'minCMF20', 0.08) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0) ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) ||
         tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1.0) ||
         (tuned(key, 'minEMA20VsEMA50', 0.8) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.8)))
         return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };

@@ -40,7 +40,7 @@ const OUT_DIR   = path.join(__dirname, 'results');
 const OOS_CUT   = new Date('2024-01-01T00:00:00Z').getTime() / 1000;
 const WINDOW    = 300;
 const MIN_BARS  = WINDOW + 30;
-const N_WORKERS = Math.min(os.cpus().length, 8);
+const N_WORKERS = Math.min(os.cpus().length, 6);
 
 const ARCH_KEYS = [
   ['ORS',             'ors_prime_reversal'],
