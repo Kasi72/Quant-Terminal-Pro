@@ -2686,7 +2686,9 @@ function HomePageInner() {
   }, [results, previousResults]);
 
   // Feature #11: Near-breakout count
-  const nearBreakoutCount = useMemo(() => results.filter(r => r.nearBreakout).length, [results]);
+  // Count IMMINENT+NEAR+WATCH (≤5%) — matches what the BRK button filter shows.
+  // Old: used r.nearBreakout which is only ≤2.5%, undercounting vs the button.
+  const nearBreakoutCount = useMemo(() => results.filter(r => r.nearBreakoutTier === 'IMMINENT' || r.nearBreakoutTier === 'NEAR' || r.nearBreakoutTier === 'WATCH').length, [results]);
 
   // Feature #2: Sector heatmap data
   const sectorHeatData = useMemo(() => {
@@ -3197,8 +3199,8 @@ function HomePageInner() {
             ));
           })()}
           {nearBreakoutCount > 0 && (
-            <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '>0' }))}
-              data-tip="Stocks within 5% of breaking out of compression zone" data-tip-color="yellow"
+            <button onClick={() => setColFilters(prev => ({ ...prev, nearBrk: prev.nearBrk ? '' : '<5' }))}
+              data-tip="IMMINENT (0-1%), NEAR (1-2.5%), WATCH (2.5-5%) proximity tiers — excludes EARLY (5-10%, only 8% 5-day rate). Click to filter." data-tip-color="yellow"
               className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
               ⚡ {nearBreakoutCount} BRK</button>
           )}

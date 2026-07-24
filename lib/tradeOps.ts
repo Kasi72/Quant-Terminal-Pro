@@ -532,20 +532,54 @@ export const QUICK_FILTERS: QuickFilter[] = [
     filter: () => true,
   },
   {
-    key: 'ready', label: 'Ready to Trade', emoji: '🎯', description: 'BUY+ with valid trade, good R:R, EMA aligned',
-    filter: r => r.priceEngine.tradeValid && r.momentum.emaAligned && r.momentum.gapAdjustedRR >= 2,
+    // FIX: Removed gapAdjustedRR>=2 — T1 is always 0.75×risk so gapAdjustedRR
+    // is always ~0.75; the >=2 gate was impossible and returned zero matches.
+    // Comment at stockEngine.ts:895 also flags gapRR>=2 as a NEGATIVE predictor
+    // (r=−0.005). Replaced with volDryUpScore>=2 (r=+0.014, dominant predictor).
+    key: 'ready', label: 'Ready to Trade', emoji: '🎯',
+    description: 'BUY+ · valid trade sheet · EMA aligned · Vol dry-up ≥2 (compression backing). Use for same-day entries.',
+    filter: r =>
+      r.priceEngine.tradeValid &&
+      r.momentum.emaAligned &&
+      r.momentum.volDryUpScore >= 2,
   },
   {
-    key: 'tomorrow', label: "Tomorrow's Breakouts", emoji: '⚡', description: 'Near breakout with clean pre-conditions',
-    filter: r => r.nearBreakout && r.momentum.higherLowConfirmed,
+    // FIX: Removed higherLowConfirmed — it is false in 6/7 param sets (only
+    // analyzeMomentumPocket sets it). The old filter returned zero results on
+    // all other param set selections. Replaced with tier-based proximity
+    // (IMMINENT ≤1% or NEAR ≤2.5%) backed by at least minimal dry-up.
+    key: 'tomorrow', label: "Tomorrow's Breakouts", emoji: '⚡',
+    description: 'IMMINENT (0–1%) or NEAR (1–2.5%) proximity tier · Vol dry-up ≥1 · Breaks out within 5 days ~43–74% of the time.',
+    filter: r =>
+      (r.nearBreakoutTier === 'IMMINENT' || r.nearBreakoutTier === 'NEAR') &&
+      r.momentum.volDryUpScore >= 1,
   },
   {
-    key: 'strongest', label: 'Strongest Momentum', emoji: '🔥', description: 'MomScore≥70, RS/Nifty≥1.05, VolExp≥2',
-    filter: r => r.momentum.momentumScore >= 70 && r.momentum.rsNifty20 >= 1.05 && r.volatilityExpansionRatio >= 2,
+    // FIX: Removed rsNifty20>=1.05 — rsNifty20 is hardcoded to 1.0 in every
+    // param set (Nifty data unavailable per-stock at scan time) so that
+    // condition was ALWAYS false, returning zero results.
+    // momentumScore>=70 implies volDryUpScore>=3 AND obvSlope10>=0.5 (the
+    // two highest-correlation positive predictors per the 3,806-signal backtest).
+    key: 'strongest', label: 'Strongest Momentum', emoji: '🔥',
+    description: 'MomScore≥70 (implies Vol dry-up ≥3 + OBV slope ≥0.5) · Not NO_SIGNAL unless MOM badge present.',
+    filter: r =>
+      r.momentum.momentumScore >= 70 &&
+      (r.stage !== 'NO_SIGNAL' || !!r.monster?.badges?.some(b => b.type === 'MOM')),
   },
   {
-    key: 'safe', label: 'Safe Entries', emoji: '🛡', description: 'Risk≤5%, R:R≥0.9',
-    filter: r => r.priceEngine.tradeValid && r.priceEngine.tacticalRiskPct > 0 && r.priceEngine.tacticalRiskPct <= 5 && r.priceEngine.rewardRisk >= 0.9,
+    // FIX: Removed rewardRisk>=0.9 — tradeValid already requires rewardRisk>=1.5
+    // so the 0.9 check was always redundant and dead.
+    // Added rewardRisk>=2.0 (genuine quality gate), emaAligned (trend clarity),
+    // and volDryUpScore>=2 (compression entry = controlled risk = safer).
+    key: 'safe', label: 'Safe Entries', emoji: '🛡',
+    description: 'Risk≤5% · R:R≥2.0 · EMA aligned · Vol dry-up ≥2. Tightest risk-adjusted setups only.',
+    filter: r =>
+      r.priceEngine.tradeValid &&
+      r.priceEngine.tacticalRiskPct > 0 &&
+      r.priceEngine.tacticalRiskPct <= 5 &&
+      r.priceEngine.rewardRisk >= 2.0 &&
+      r.momentum.emaAligned &&
+      r.momentum.volDryUpScore >= 2,
   },
   {
     // Independent of stage by design — PBFB forensic backtest found the zone
@@ -553,15 +587,29 @@ export const QUICK_FILTERS: QuickFilter[] = [
     // continuation breakouts on already-elevated-volatility stocks, not
     // quiet compression. This surfaces those even when stage is NO_SIGNAL
     // or COMPRESSION_WATCH. See lib/stockEngine.ts detectMonster() MOM badge.
-    key: 'momAlert', label: 'MOM Alert', emoji: '🚀', description: 'Momentum-continuation signal, independent of stage — 53.6% OOS hit rate vs 35% baseline',
-    filter: r => !!r.monster?.badges?.some(b => b.type === 'MOM'),
+    // FIX: Added topProbability>0.5 floor — badges below 50% probability
+    // are low-conviction signals and generate noise.
+    key: 'momAlert', label: 'MOM Alert', emoji: '🚀',
+    description: 'MOM badge (momentum-continuation) with P>50% — 53.6% OOS hit rate vs 35% baseline. Independent of stage.',
+    filter: r =>
+      !!r.monster?.badges?.some(b => b.type === 'MOM') &&
+      (r.monster?.topProbability ?? 0) > 0.5,
   },
   {
-    // Backtest-validated elite tier: STRONG_BUY + HiPrec15+ only.
+    // FIX: Expanded from single param set to the full high-conviction tier:
+    // ULTRA_STRONG_BUY from any param set (strictly highest grade),
+    // STRONG_BUY from the three precision/sniper sets (HiPrec15+, Elite10+, Sniper95+).
+    // Original filter only matched HiPrec15+/STRONG_BUY and excluded ULTRA_STRONG_BUY.
     // 940-trade backtest (470 stocks × 5 param sets, 2022-2024):
     // avg P&L +4.10%, median +6.27%, 69% of trades >5%, WR 76%, PF 4.41.
-    // Exit breakdown: 71.5% hit T2/T3 (avg +7.0%), 18.7% time_stop (avg -3.9%).
-    key: 'eliteSignal', label: 'Elite Signal', emoji: '⭐', description: 'STRONG BUY + HiPrec15+ — backtest avg +4.10%, median +6.27%, 69% of trades >5%',
-    filter: r => r.stage === 'STRONG_BUY' && r.paramSetKey === 'optimized_highprecision_15plus',
+    key: 'eliteSignal', label: 'Elite Signal', emoji: '⭐',
+    description: 'ULTRA STRONG BUY (any set) · or STRONG BUY from HiPrec15+, Elite10+, Sniper95+. Backtest avg +4.10%, WR 76%.',
+    filter: r =>
+      r.stage === 'ULTRA_STRONG_BUY' ||
+      (r.stage === 'STRONG_BUY' && (
+        r.paramSetKey === 'optimized_highprecision_15plus' ||
+        r.paramSetKey === 'optimized_elite_10plus' ||
+        r.paramSetKey === 'sniper_95plus'
+      )),
   },
 ];
