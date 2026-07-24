@@ -2088,21 +2088,28 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
     // ── Stop: walk-forward hyper-optimised caps (hyper_mae_study, 2026-07-23) ──
     // 3 non-overlapping OOS windows (2024H1/H2, 2025+) + 500-resample bootstrap CI.
-    // Archetype-aware HIGH cap: ORS/VF reversal signals work well tight; MP needs room.
-    //   TIGHT (<1.5%)          : 3×ATR, cap  6.0%  — no sufficient data, conservative
-    //   NORMAL (1.5-2.5%)      : 3×ATR, cap  4.0%  — was 6%; MP NORMAL p90-safe=2.9%
-    //   VOLATILE (2.5-3.5%)    : 3×ATR, cap  5.5%  — was 8%; 3/3-window CI-robust at 5.5%
+    // Archetype-aware stop caps (ultra_stop_optimizer 2026-07-24 grid-search, 85,972 OOS CB signals):
+    //   TIGHT (<1.5%)          : 3×ATR, cap  6.0%  — conservative (no sufficient data)
+    //   NORMAL (1.5-2.5%)      : 3×ATR, cap  4.0%  — MP NORMAL p90-safe=2.9%
+    //   VOLATILE (2.5-3.5%), CB: 3×ATR, cap  8.0%  — was 5.5%; optimizer: SR 32.7%→17.6% STRONG
+    //   VOLATILE (2.5-3.5%), other: 3×ATR, cap 5.5% — unchanged (no OOS data for non-CB)
     //   HIGH (>3.5%), ORS/VF   : 2×ATR, cap  4.0%  — reversal/institutional: tight works (3/3 windows)
-    //   HIGH (>3.5%), default   : 2×ATR, cap 12.5%  — MP HIGH p90-safe=9.7%; 8% kills winners
+    //   HIGH (>3.5%), CB       : 2.5×ATR, cap 12.5% — was 2×; optimizer: SR 25.6%→22% STRONG
+    //   HIGH (>3.5%), default  : 2×ATR, cap 12.5%  — MP HIGH p90-safe=9.7%
     const isHigh = atrPct >= 3.5;
-    const atrMult = isHigh ? 2.0 : 3.0;
+    const isCB = archetypeHint === 'CB';
+    // CB HIGH uses 2.5× (vs 2×) — wider stop anchors are structurally sounder for UC-event momentum.
+    const atrMult = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
     const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
     const capPct = atrPct < 1.5 ? 6.0
         : atrPct < 2.5 ? 4.0
-            : atrPct < 3.5 ? 5.5
+            : atrPct < 3.5 ? (isCB ? 8.0 : 5.5) // CB VOLATILE: 8% cap (optimizer)
                 : isOrsOrVf ? 4.0
                     : 12.5;
-    const floorPct = 2.0;
+    const isMP = archetypeHint === 'MP';
+    // hyper_mae 2026-07-23 bootstrap-CI: MP winners need room in NORMAL/VOLATILE bands.
+    // NORMAL (1.5-2.5%): optimal=3.0%; VOLATILE (2.5-3.5%): optimal=3.5%; HIGH already has 12.5% cap.
+    const floorPct = isMP ? (atrPct < 2.5 ? 3.0 : atrPct < 3.5 ? 3.5 : 2.0) : 2.0;
     const atrStop = entry - atrMult * atr14;
     const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
     const rawStop = tick(Math.max(0, Math.min(atrStop, structStop)));
@@ -2117,7 +2124,6 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     //   MP  : T1=3.0×ATR — momentum has long follow-through; take only 20% at T1
     //   ORS/default: T1=1.5×ATR — bootstrap confirms current params optimal
     const isVF = archetypeHint === 'VF';
-    const isMP = archetypeHint === 'MP';
     const t1Mult = isVF ? 1.0 : isMP ? 3.0 : 1.5;
     const t2Mult = t1Mult * (5 / 3); // preserves T1:T2 = 1.5:2.5 ratio
     const t3Mult = t1Mult * (10 / 3); // preserves T1:T3 = 1.5:5.0 ratio
@@ -2914,7 +2920,8 @@ function analyzeCircuitBreaker(candles) {
     const stage = archetypeStage(conditionsMet, score, 'CircuitBreaker');
     // Price engine
     const entry = sig.o > 0 ? sig.o : sig.c;
-    const priceEngine = archetypePriceEngine(entry, atr14);
+    const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+    const priceEngine = archetypePriceEngine(entry, atr14, sw5Low, 'CB');
     const checklist = [
         { label: 'Bullish candle (isBull)', pass: c1, value: isBull ? 'Yes' : 'No' },
         { label: 'DI+ > DI- (diBull)', pass: c2, value: `DI+ ${diPlus.toFixed(1)} / DI- ${diMinus.toFixed(1)}` },

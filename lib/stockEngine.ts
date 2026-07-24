@@ -2495,18 +2495,22 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
 
   // ── Stop: walk-forward hyper-optimised caps (hyper_mae_study, 2026-07-23) ──
   // 3 non-overlapping OOS windows (2024H1/H2, 2025+) + 500-resample bootstrap CI.
-  // Archetype-aware HIGH cap: ORS/VF reversal signals work well tight; MP needs room.
-  //   TIGHT (<1.5%)          : 3×ATR, cap  6.0%  — no sufficient data, conservative
-  //   NORMAL (1.5-2.5%)      : 3×ATR, cap  4.0%  — was 6%; MP NORMAL p90-safe=2.9%
-  //   VOLATILE (2.5-3.5%)    : 3×ATR, cap  5.5%  — was 8%; 3/3-window CI-robust at 5.5%
+  // Archetype-aware stop caps (ultra_stop_optimizer 2026-07-24 grid-search, 85,972 OOS CB signals):
+  //   TIGHT (<1.5%)          : 3×ATR, cap  6.0%  — conservative (no sufficient data)
+  //   NORMAL (1.5-2.5%)      : 3×ATR, cap  4.0%  — MP NORMAL p90-safe=2.9%
+  //   VOLATILE (2.5-3.5%), CB: 3×ATR, cap  8.0%  — was 5.5%; optimizer: SR 32.7%→17.6% STRONG
+  //   VOLATILE (2.5-3.5%), other: 3×ATR, cap 5.5% — unchanged (no OOS data for non-CB)
   //   HIGH (>3.5%), ORS/VF   : 2×ATR, cap  4.0%  — reversal/institutional: tight works (3/3 windows)
-  //   HIGH (>3.5%), default   : 2×ATR, cap 12.5%  — MP HIGH p90-safe=9.7%; 8% kills winners
+  //   HIGH (>3.5%), CB       : 2.5×ATR, cap 12.5% — was 2×; optimizer: SR 25.6%→22% STRONG
+  //   HIGH (>3.5%), default  : 2×ATR, cap 12.5%  — MP HIGH p90-safe=9.7%
   const isHigh    = atrPct >= 3.5;
-  const atrMult   = isHigh ? 2.0 : 3.0;
+  const isCB      = archetypeHint === 'CB';
+  // CB HIGH uses 2.5× (vs 2×) — wider stop anchors are structurally sounder for UC-event momentum.
+  const atrMult   = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
   const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
   const capPct    = atrPct < 1.5 ? 6.0
                   : atrPct < 2.5 ? 4.0
-                  : atrPct < 3.5 ? 5.5
+                  : atrPct < 3.5 ? (isCB ? 8.0 : 5.5)   // CB VOLATILE: 8% cap (optimizer)
                   : isOrsOrVf   ? 4.0
                   : 12.5;
   const isMP       = archetypeHint === 'MP';
