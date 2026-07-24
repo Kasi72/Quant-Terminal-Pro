@@ -1477,6 +1477,10 @@ function HomePageInner() {
   const [lastErr, setLastErr] = useState('');
   const [failedSymbols, setFailedSymbols] = useState<Array<{sym: string; err: string}>>([]);
   const [showFailedPanel, setShowFailedPanel] = useState(false);
+  const [deadSymbols, setDeadSymbols] = useState<Set<string>>(() => {
+    try { const s = localStorage.getItem('qtp_dead_symbols'); return s ? new Set(JSON.parse(s) as string[]) : new Set<string>(); } catch { return new Set<string>(); }
+  });
+  const [skippedDeadCount, setSkippedDeadCount] = useState(0);
   const [stageFilter, setStageFilter] = useState<StageRating | 'ALL'>('ALL');
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState('inflectionScore');
@@ -1727,6 +1731,9 @@ function HomePageInner() {
     // #10: Dedup guard
     const { unique: dedupedSymbols, removed } = deduplicateSymbols(symbols);
     if (removed > 0) console.log(`Removed ${removed} duplicate symbols`);
+    // Skip known-delisted symbols — they were auto-blacklisted on a previous scan
+    const scanSymbols = dedupedSymbols.filter(s => !deadSymbols.has(s));
+    const skipped = dedupedSymbols.length - scanSymbols.length;
 
     abortRef.current = false;
     const preScanSnapshot = resultsRef.current;
@@ -1736,11 +1743,11 @@ function HomePageInner() {
     setResults([]);
     setMultiResults([]);
     setSelectedRowIdx(-1);
-    const scanSymbols = dedupedSymbols;
     setProgress(0);
     setErrCount(0);
     setLastErr('');
     setFailedSymbols([]);
+    setSkippedDeadCount(skipped);
     setTotal(scanSymbols.length);
     setSelectedSymbol(null);
     setStageFilter('ALL');
@@ -1850,9 +1857,18 @@ function HomePageInner() {
         scheduleFlush();
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
-        newFailed.push({ sym, err: errMsg });
-        setErrCount(n => n + 1);
-        setLastErr(`${sym}: ${errMsg}`);
+        if (/no data|delisted|suspended|too few candles/i.test(errMsg)) {
+          // Permanently blacklist — skip silently on future scans
+          setDeadSymbols(prev => {
+            const next = new Set(prev); next.add(sym);
+            try { localStorage.setItem('qtp_dead_symbols', JSON.stringify([...next])); } catch {}
+            return next;
+          });
+        } else {
+          newFailed.push({ sym, err: errMsg });
+          setErrCount(n => n + 1);
+          setLastErr(`${sym}: ${errMsg}`);
+        }
       }
       setProgress(p => p + 1);
     }
@@ -3251,6 +3267,11 @@ function HomePageInner() {
           <button onClick={() => setShowFailedPanel(v => !v)}
             className="px-2.5 py-1 bg-red-900/40 border border-red-700 rounded text-xs font-medium text-red-400 hover:text-red-300 transition-colors">
             {failedSymbols.length} failed ({failedSymbols.slice(0, 3).map(f => f.sym.replace('.NS', '').replace('.BO', '')).join(', ')}{failedSymbols.length > 3 ? '...' : ''})</button>
+        )}
+        {skippedDeadCount > 0 && (
+          <span className="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-500"
+            title={`${skippedDeadCount} delisted symbols auto-skipped. Clear the blacklist via Settings to re-scan them.`}>
+            {skippedDeadCount} delisted skipped</span>
         )}
         {scanning && (
           <button onClick={() => { abortRef.current = true; setScanning(false); scanningRef.current = false; }}
@@ -7666,7 +7687,7 @@ function HomePageInner() {
 
       {/* ── Footer ── */}
       <footer className="flex-shrink-0 border-t border-slate-800 bg-[#0d1117] px-4 py-1.5 flex items-center gap-3 text-xs text-slate-600">
-        <span>{results.length} scanned{failedSymbols.length > 0 ? ` (${results.length} ok, ${failedSymbols.length} failed)` : ''}</span>
+        <span>{results.length} scanned{failedSymbols.length > 0 ? ` · ${failedSymbols.length} errors` : ''}{skippedDeadCount > 0 ? ` · ${skippedDeadCount} delisted skipped` : ''}</span>
         <span>·</span>
         <span className="text-emerald-700">
           {results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage)).length} actionable

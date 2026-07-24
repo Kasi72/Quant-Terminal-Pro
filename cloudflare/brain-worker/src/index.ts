@@ -188,7 +188,7 @@ async function labelOutcomes(env: Env): Promise<{ labeled: number }> {
   const cutoff = new Date(Date.now() - LABEL_DAYS * 1.5 * 86400000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    `pbfb_uc_events?select=id,event_date,symbol,close_price&n_before=eq.1&hit_t1=is.null&event_date=lte.${cutoff}&order=event_date.desc&limit=${LABEL_BATCH}`,
+    `pbfb_uc_events?select=id,event_date,symbol,close_price&n_before=eq.1&hit_t1=is.null&outcome_labeled_at=is.null&event_date=lte.${cutoff}&order=event_date.desc&limit=${LABEL_BATCH}`,
   ) as UnlabeledRow[];
 
   let labeled = 0;
@@ -196,7 +196,14 @@ async function labelOutcomes(env: Env): Promise<{ labeled: number }> {
     if (!row.close_price || !row.event_date) continue;
     const toDate = new Date(new Date(row.event_date).getTime() + 35 * 86400000).toISOString().slice(0, 10);
     const prices = await fetchYahooOHLCV(row.symbol, row.event_date, toDate);
-    const fwd    = prices.filter(p => p.date > row.event_date).slice(0, LABEL_DAYS);
+    if (prices.length === 0) {
+      // No Yahoo data — delisted or ticker gone. Mark to stop nightly retries.
+      await supabasePatch(env, `pbfb_uc_events?id=eq.${row.id}`, {
+        outcome_labeled_at: new Date().toISOString().slice(0, 10),
+      });
+      continue;
+    }
+    const fwd = prices.filter(p => p.date > row.event_date).slice(0, LABEL_DAYS);
     if (fwd.length < 10) continue;
 
     const base = row.close_price;
