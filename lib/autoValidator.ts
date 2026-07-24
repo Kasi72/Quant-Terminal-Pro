@@ -426,13 +426,13 @@ export function validateTrade(
 
         // ── G3: Hammer / Bullish Rejection ───────────────────────────────
         if (!blocked) {
-          const isHammer = lwPct >= 40 && closeLoc >= 55;
+          const isHammer = lwPct >= 40 && closeLoc >= 55 && closedAboveStop;
           logEntry.gatesTested.push({
             gate: 'G3 Hammer Shield',
             passed: isHammer,
             reason: isHammer
-              ? `Hammer: lower wick ${lwPct.toFixed(0)}% of range, close loc ${closeLoc.toFixed(0)}% — strong rejection`
-              : `No hammer: lwPct ${lwPct.toFixed(0)}%, closeLoc ${closeLoc.toFixed(0)}%`,
+              ? `Hammer: lower wick ${lwPct.toFixed(0)}% of range, close loc ${closeLoc.toFixed(0)}%, close above stop — strong rejection`
+              : `No hammer: lwPct ${lwPct.toFixed(0)}%, closeLoc ${closeLoc.toFixed(0)}%${!closedAboveStop ? ', close below stop' : ''}`,
           });
           if (isHammer) { blocked = true; logEntry.result = 'SHIELDED'; }
         }
@@ -522,14 +522,16 @@ export function validateTrade(
         if (!blocked) {
           const stopToLowRange = Math.max(0, dynamicStop - lo);
           const recoveryPct    = stopToLowRange > 0 ? (close - lo) / stopToLowRange * 100 : 0;
-          const strongRecovery = recoveryPct > 60 && close > lo;
+          // close > lo is trivially true when recovery > 0; require close within 2% of stop
+          // to prevent G8 shielding when price recovered strongly intraday but closed well below stop.
+          const strongRecovery = recoveryPct > 60 && close >= dynamicStop * 0.98;
           logEntry.gatesTested.push({
             gate: 'G8 Close Recovery',
             passed: strongRecovery,
             reason: strongRecovery
-              ? `Close recovered ${recoveryPct.toFixed(0)}% of stop-to-low range — buyers defended intraday`
+              ? `Close recovered ${recoveryPct.toFixed(0)}% of stop-to-low, close ₹${close.toFixed(2)} within 2% of stop ₹${dynamicStop.toFixed(2)} — buyers defended`
               : stopToLowRange > 0
-                ? `Weak recovery ${recoveryPct.toFixed(0)}% of stop-to-low — no buyer defence`
+                ? `Recovery ${recoveryPct.toFixed(0)}%${recoveryPct > 60 ? ` but close ₹${close.toFixed(2)} > 2% below stop ₹${dynamicStop.toFixed(2)}` : ' < 60% of stop-to-low'} — no shield`
                 : 'No stop-to-low range to measure recovery',
           });
           if (strongRecovery) { blocked = true; logEntry.result = 'SHIELDED'; }

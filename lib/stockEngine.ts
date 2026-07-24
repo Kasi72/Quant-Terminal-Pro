@@ -2509,7 +2509,10 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
                   : atrPct < 3.5 ? 5.5
                   : isOrsOrVf   ? 4.0
                   : 12.5;
-  const floorPct   = 2.0;
+  const isMP       = archetypeHint === 'MP';
+  // hyper_mae 2026-07-23 bootstrap-CI: MP winners need room in NORMAL/VOLATILE bands.
+  // NORMAL (1.5-2.5%): optimal=3.0%; VOLATILE (2.5-3.5%): optimal=3.5%; HIGH already has 12.5% cap.
+  const floorPct   = isMP ? (atrPct < 2.5 ? 3.0 : atrPct < 3.5 ? 3.5 : 2.0) : 2.0;
   const atrStop    = entry - atrMult * atr14;
   const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
   const rawStop    = tick(Math.max(0, Math.min(atrStop, structStop)));
@@ -2525,7 +2528,6 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   //   MP  : T1=3.0×ATR — momentum has long follow-through; take only 20% at T1
   //   ORS/default: T1=1.5×ATR — bootstrap confirms current params optimal
   const isVF = archetypeHint === 'VF';
-  const isMP = archetypeHint === 'MP';
   const t1Mult = isVF ? 1.0 : isMP ? 3.0 : 1.5;
   const t2Mult = t1Mult * (5 / 3);   // preserves T1:T2 = 1.5:2.5 ratio
   const t3Mult = t1Mult * (10 / 3);  // preserves T1:T3 = 1.5:5.0 ratio
@@ -3372,8 +3374,9 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   const stage = archetypeStage(conditionsMet, score, 'CircuitBreaker');
 
   // Price engine
-  const entry = sig.o > 0 ? sig.o : sig.c;
-  const priceEngine = archetypePriceEngine(entry, atr14);
+  const entry  = sig.o > 0 ? sig.o : sig.c;
+  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const priceEngine = archetypePriceEngine(entry, atr14, sw5Low, 'CB');
 
   const checklist: ChecklistItem[] = [
     { label: 'Bullish candle (isBull)', pass: c1, value: isBull ? 'Yes' : 'No' },
