@@ -96,7 +96,7 @@ import {
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
 import { buildTearSheetData, exportTearSheetPDF, exportTearSheetXLSX } from '@/lib/tearSheet';
-import { runBacktest, aggregateBacktest, type BacktestResult } from '@/lib/backtestEngine';
+import { aggregateBacktest, computeTradeCosts, type BacktestResult, type BacktestTrade } from '@/lib/backtestEngine';
 import { generateNarrative, type SignalNarrative } from '@/lib/narrativeEngine';
 import { optimizePortfolio, type PortfolioResult } from '@/lib/portfolioOptimizer';
 import {
@@ -1841,8 +1841,8 @@ function HomePageInner() {
           closes: flowTail.map(k => k.c),
           avgTurnover20: result.avgTurnover20 ?? 0,
         });
-        // Cache candles for sparkline + validation (batched — setCandleCache called once post-scan)
-        const sliced = candles.slice(-60);
+        // Cache candles for sparkline + production backtest (batched — setCandleCache called once post-scan)
+        const sliced = candles.slice(-400);
         freshCandleMap[result.symbol] = sliced;
         // Keep full history for post-scan cluster breakdown (not in React state — GC'd after scan)
         freshFullCandleMap[result.symbol] = candles;
@@ -4977,13 +4977,81 @@ function HomePageInner() {
             {/* Backtest Section */}
             <div className="bg-slate-800/40 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Historical Backtest</div>
+                <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal History · Production Engine</div>
                 <button disabled={scanning || Object.keys(candleCache).length === 0}
-                  onClick={() => {
-                    const allTrades: import('@/lib/backtestEngine').BacktestTrade[] = [];
-                    for (const [sym, candles] of Object.entries(candleCache)) {
-                      const trades = runBacktest(candles, sym, 200, 10, accountSize);
-                      allTrades.push(...trades);
+                  onClick={async () => {
+                    const WINDOW = 300;
+                    const W1 = 0.5, W2 = 0.3, W3 = 0.2;
+                    const ARCH_KEYS: ParamSetKey[] = [
+                      'ors_prime_reversal', 'optimized_deployable_20plus',
+                      'optimized_highprecision_15plus', 'optimized_elite_10plus',
+                      'optimized_ultraselective_8plus', 'circuit_breaker_v2',
+                    ];
+                    const allTrades: BacktestTrade[] = [];
+                    // Test all scanned symbols; yield to event loop every 10 to keep UI responsive
+                    const symbolList = Object.keys(candleCache);
+                    for (let si = 0; si < symbolList.length; si++) {
+                      if (si % 10 === 0) await new Promise(r => setTimeout(r, 0));
+                      const sym = symbolList[si];
+                      const bars = candleCache[sym];
+                      if (!bars || bars.length < WINDOW + 21) continue;
+                      let i = WINDOW - 1;
+                      while (i <= bars.length - 22) {
+                        const w = bars.slice(i - WINDOW + 1, i + 1);
+                        let advanced = false;
+                        for (const key of ARCH_KEYS) {
+                          const res = analyzeStock(w, key);
+                          if (!['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(res.stage)) continue;
+                          const pe = res.priceEngine;
+                          if (!pe?.tradeValid || pe.tacticalStop <= 0 || pe.target5 <= pe.plannedEntry) continue;
+                          const entry = pe.plannedEntry;
+                          const stop  = pe.tacticalStop;
+                          const t1 = pe.target5, t2 = pe.target7, t3 = pe.target10;
+                          const maxHold = Math.min(pe.maxHoldBars ?? 20, bars.length - i - 2);
+                          const riskPct = Math.max((entry - stop) / entry * 100, 0.1);
+                          let phase = 1, wLeft = 1.0, wPL = 0, t1Hit = false;
+                          let mfe = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
+                          const eBar = bars[i + 1];
+                          if (!eBar) { i++; advanced = true; break; }
+                          if (eBar.o < stop) {
+                            wPL = (eBar.o - entry) / entry * 100; exitI = i + 1; exitType = 'stopped';
+                          } else {
+                            for (let j = i + 1; j <= i + maxHold && j < bars.length; j++) {
+                              const b = bars[j]; exitI = j;
+                              const hiD = (b.h - entry) / entry * 100; if (hiD > mfe) mfe = hiD;
+                              if (phase === 1) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t1)   { wPL += W1 * (t1 - entry) / entry * 100; wLeft -= W1; t1Hit = true; phase = 2; }
+                              }
+                              if (phase === 2) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t2)   { wPL += W2 * (t2 - entry) / entry * 100; wLeft -= W2; phase = 3; }
+                              }
+                              if (phase === 3) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t3)   { wPL += W3 * (t3 - entry) / entry * 100; wLeft = 0; exitType = 'target'; break; }
+                              }
+                              if (j === i + maxHold && wLeft > 0) {
+                                wPL += wLeft * (b.c - entry) / entry * 100;
+                                exitType = t1Hit ? 'target' : wPL > 0 ? 'target' : 'stopped';
+                              }
+                            }
+                          }
+                          const exitPrice = entry * (1 + wPL / 100);
+                          const shares = Math.max(1, Math.floor(accountSize * 0.01 / (riskPct / 100 * entry)));
+                          const costs = computeTradeCosts(entry * shares, exitPrice * shares);
+                          allTrades.push({
+                            symbol: sym, entryDate: new Date((eBar.ts + 19800) * 1000).toISOString().slice(0, 10),
+                            entryPrice: entry, stopLoss: stop, target1: t1,
+                            exitPrice, exitDate: new Date((bars[exitI].ts + 19800) * 1000).toISOString().slice(0, 10),
+                            exitType, pnlPct: wPL, pnlR: wPL / riskPct,
+                            pnlGross: wPL * shares * entry / 100, pnlNet: wPL * shares * entry / 100 - costs.totalCost,
+                            costs, daysHeld: exitI - (i + 1), mfe, shares,
+                          });
+                          i = exitI + 1; advanced = true; break;
+                        }
+                        if (!advanced) i++;
+                      }
                     }
                     setBacktestResult(aggregateBacktest(allTrades, niftyCandles ?? undefined, accountSize));
                   }}
