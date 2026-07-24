@@ -4981,7 +4981,15 @@ function HomePageInner() {
                 <button disabled={scanning || Object.keys(candleCache).length === 0}
                   onClick={async () => {
                     const WINDOW = 300;
-                    const W1 = 0.5, W2 = 0.3, W3 = 0.2;
+                    // Phase 2 exit weights (deep_backtest 2026-07-24, n=87333 OOS, 65M simulations)
+                    const ARCH_EXIT: Record<string, {w1:number;w2:number;w3:number}> = {
+                      'ors_prime_reversal':             { w1:0.40, w2:0.10, w3:0.50 },
+                      'optimized_deployable_20plus':    { w1:0.70, w2:0.10, w3:0.20 },
+                      'optimized_highprecision_15plus': { w1:0.65, w2:0.10, w3:0.25 },
+                      'optimized_elite_10plus':         { w1:0.40, w2:0.10, w3:0.50 },
+                      'optimized_ultraselective_8plus': { w1:0.55, w2:0.10, w3:0.35 },
+                      'circuit_breaker_v2':             { w1:0.65, w2:0.10, w3:0.25 },
+                    };
                     const ARCH_KEYS: ParamSetKey[] = [
                       'ors_prime_reversal', 'optimized_deployable_20plus',
                       'optimized_highprecision_15plus', 'optimized_elite_10plus',
@@ -5009,6 +5017,7 @@ function HomePageInner() {
                           const t1 = pe.target5, t2 = pe.target7, t3 = pe.target10;
                           const maxHold = Math.min(pe.maxHoldBars ?? 20, bars.length - i - 2);
                           const riskPct = Math.max((entry - stop) / entry * 100, 0.1);
+                          const { w1: W1, w2: W2, w3: W3 } = ARCH_EXIT[key] ?? { w1:0.50, w2:0.30, w3:0.20 };
                           let phase = 1, wLeft = 1.0, wPL = 0, t1Hit = false;
                           let mfe = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
                           const eBar = bars[i + 1];

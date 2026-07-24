@@ -2546,8 +2546,12 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   // MP T1=3×ATR needs more bars to develop in volatile stocks; time-stop cuts losers.
   // ORS/HIGH signals are fast-reversal plays — fade quickly if T1 not reached by bar 12.
   const maxHoldBars = isMP
-    ? (atrPct < 1.5 ? 20 : atrPct < 2.5 ? 15 : 25)   // TIGHT:20, NORMAL:15, VOLATILE/HIGH:25
-    : (archetypeHint === 'ORS' && isHigh ? 12 : 20);   // ORS HIGH:12, else default 20
+    ? (atrPct < 1.5 ? 20 : 25)                          // TIGHT:20, NORMAL/VOLATILE/HIGH:25 (Phase2: NORMAL 15→25)
+    : isCB                        ? 10                   // Phase2: CB 20→10 (65.0M-sim grid, n=85972)
+    : archetypeHint === 'ORS'     ? 12                   // ORS: all bands (was: HIGH-only)
+    : archetypeHint === 'EMA'     ? 10                   // Phase2: EMA 20→10
+    : archetypeHint === 'CC'      ? 18                   // Phase2: CC 20→18
+    : 20;
 
   return {
     ...buildNullPriceEngine(),
@@ -2828,7 +2832,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low);
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'CC');
   const closeLoc   = ca.closeLoc;
   const bodyPct    = ca.bodyPct;
   const upperWickPct = ca.upperWickPct;
@@ -3118,7 +3122,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
   const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low);
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'EMA');
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
