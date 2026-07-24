@@ -4986,7 +4986,7 @@ function HomePageInner() {
                       'ors_prime_reversal':             { w1:0.50, w2:0.05, w3:0.45 },
                       'optimized_deployable_20plus':    { w1:0.60, w2:0.20, w3:0.20 },
                       'optimized_highprecision_15plus': { w1:0.65, w2:0.10, w3:0.25 },
-                      'optimized_elite_10plus':         { w1:0.60, w2:0.10, w3:0.30 },
+                      'optimized_elite_10plus':         { w1:0.70, w2:0.10, w3:0.20 },
                       'optimized_ultraselective_8plus': { w1:0.55, w2:0.10, w3:0.35 },
                       'circuit_breaker_v2':             { w1:0.65, w2:0.10, w3:0.25 },
                     };

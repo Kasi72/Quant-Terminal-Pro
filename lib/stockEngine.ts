@@ -2622,8 +2622,9 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 
   // CMF+OBV precision gate — hyper-tuned walk-forward: OOS WR 68.2% → 84.6% (n=13 OOS, n=31 IS)
   // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
+  // VF HIGH band (ATR≥3.5%) WR=52.3% n=107 is not actionable — restrict to VOLATILE [2.5,3.5)
   if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
-      tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) ||
+      tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) || tech.atrPct14 >= 3.5 ||
       tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
     return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
 
@@ -2907,7 +2908,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   if (!skipPrecisionGate) {
     // hypertune_mp_ema.js 2026-07-22: 280k-combo 2-phase search → OOS Hit5=71% PF=2.26 n=62 ROBUST
     if (tech.cmf20 < tuned(key, 'minCMF20', -0.1) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
-        tech.atrPct14 < tuned(key, 'minAtrPct14', 0) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 7) ||
+        tech.atrPct14 < tuned(key, 'minAtrPct14', 3.5) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 7) || // MP HIGH-only: NORMAL/VOLATILE WR<60%, STRONG VOLATILE WR=37.5%
         tech.rsi14 < tuned(key, 'minGateRSI14', 42) || tech.rsi14 > tuned(key, 'maxGateRSI14', 50) ||
         tech.rsi2 > tuned(key, 'maxGateRSI2', 30) || volRatio20 < tuned(key, 'minGateVolRatio', 1.5) ||
         (tuned(key, 'minCloseVsEMA20', -999) > -999 && tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999)) ||
