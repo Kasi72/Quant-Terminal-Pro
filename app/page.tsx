@@ -5548,23 +5548,16 @@ function HomePageInner() {
               return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>;
             return null;
           };
-          const targetGap = (close: number): { label: string; gap: number | null; cls: string } | null => {
-            if (!selectedTrade) return null;
-            const { target1, target2, target3 } = selectedTrade;
-            if (close < target1) {
-              const gap = (target1 - close) / close * 100;
-              return { label: 'T1', gap, cls: gap < 2 ? 'text-amber-300 font-bold' : gap < 5 ? 'text-amber-500' : 'text-slate-500' };
-            }
-            if (target2 != null && close < target2) {
-              const gap = (target2 - close) / close * 100;
-              return { label: 'T2', gap, cls: gap < 2 ? 'text-emerald-300 font-bold' : gap < 5 ? 'text-emerald-500' : 'text-slate-400' };
-            }
-            if (target3 != null && close < target3) {
-              const gap = (target3 - close) / close * 100;
-              return { label: 'T3', gap, cls: gap < 2 ? 'text-green-300 font-bold' : gap < 5 ? 'text-green-500' : 'text-slate-400' };
-            }
-            return { label: 'T3', gap: null, cls: 'text-emerald-400 font-bold' };
-          };
+          // One-pass: a target is cleared the day its HIGH crosses it (close may still be below)
+          let _rc1 = false, _rc2 = false, _rc3 = false;
+          const rowTargetStatus = selectedTrade
+            ? logRows.map(r => {
+                if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
+                if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
+                if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
+                return { t1: _rc1, t2: _rc2, t3: _rc3 };
+              })
+            : [] as { t1: boolean; t2: boolean; t3: boolean }[];
 
           const sortedTrades = [...trackedTrades].sort((a, b) => {
             const order = (s: string) => s === 'open' ? 0 : 1;
@@ -5596,13 +5589,18 @@ function HomePageInner() {
               lines.push('');
               lines.push('📋 *Daily Price Log*');
               lines.push('─────────────────────────────────────────');
+              let _sc1 = false, _sc2 = false, _sc3 = false;
               for (const row of rows) {
+                if (!_sc1 && row.high >= trade.target1) _sc1 = true;
+                if (trade.target2 != null && !_sc2 && row.high >= trade.target2) _sc2 = true;
+                if (trade.target3 != null && !_sc3 && row.high >= trade.target3) _sc3 = true;
                 const vsE = ((row.close - trade.entryPrice) / trade.entryPrice * 100);
                 const vsSign = vsE >= 0 ? '+' : '';
-                const tg = targetGap(row.close);
-                const tgText = tg
-                  ? (tg.gap === null ? '✅ T3 ✓ All Done' : `→${tg.label} ${fmt(tg.gap, 1)}% away`)
-                  : '';
+                const nextL = !_sc1 ? 'T1' : !_sc2 ? 'T2' : !_sc3 ? 'T3' : null;
+                const nextP = !_sc1 ? trade.target1 : !_sc2 ? (trade.target2 ?? null) : !_sc3 ? (trade.target3 ?? null) : null;
+                const tgText = nextL == null ? '✅ T3 ✓ All Done'
+                  : nextP != null ? `→${nextL} ${fmt((nextP - row.close) / row.close * 100, 1)}% away`
+                  : '✅ T3 ✓ All Done';
                 const dayLine = `D${String(row.day_num).padStart(2)} │ ${row.date} │ CMP ₹${fmt(row.close, 0)} │ ${vsSign}${fmt(vsE, 1)}% vs entry │ ${tgText} │ H:${fmt(row.high, 0)} L:${fmt(row.low, 0)} │ MFE ${row.mfe_pct >= 0 ? '+' : ''}${fmt(row.mfe_pct, 1)}% MAE –${fmt(row.mae_pct, 1)}%`;
                 if (row.event_type) {
                   const evEmoji = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', expired: '⏰' }[row.event_type] ?? '•';
@@ -5777,7 +5775,7 @@ function HomePageInner() {
                             </tr>
                           </thead>
                           <tbody>
-                            {logRows.map(row => {
+                            {logRows.map((row, rowIdx) => {
                               const vsEntry = selectedTrade
                                 ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
                                 : null;
@@ -5804,13 +5802,22 @@ function HomePageInner() {
                                     {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
                                   </td>
 
-                                  {/* % to next uncleared target */}
+                                  {/* % gap to next uncleared target — cleared when HIGH crosses it */}
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[11px]">
                                     {(() => {
-                                      const tg = targetGap(row.close);
-                                      if (!tg) return <span className="text-slate-600">—</span>;
-                                      if (tg.gap === null) return <span className="text-emerald-400 font-bold">T3 ✓</span>;
-                                      return <span className={tg.cls}>{tg.label} –{fmt(tg.gap, 1)}%</span>;
+                                      if (!selectedTrade || rowIdx >= rowTargetStatus.length) return <span className="text-slate-600">—</span>;
+                                      const { t1, t2, t3 } = rowTargetStatus[rowIdx];
+                                      if (t3) return <span className="text-emerald-400 font-bold">T3 ✓</span>;
+                                      const nP = !t1 ? selectedTrade.target1 : !t2 ? selectedTrade.target2 : selectedTrade.target3;
+                                      const nL = !t1 ? 'T1' : !t2 ? 'T2' : 'T3';
+                                      if (nP == null) return <span className="text-emerald-400 font-bold">All ✓</span>;
+                                      const gap = (nP - row.close) / row.close * 100;
+                                      const cls = !t1
+                                        ? (gap < 2 ? 'text-amber-300 font-bold' : gap < 5 ? 'text-amber-500' : 'text-slate-500')
+                                        : !t2
+                                          ? (gap < 2 ? 'text-emerald-300 font-bold' : gap < 5 ? 'text-emerald-500' : 'text-slate-400')
+                                          : (gap < 2 ? 'text-green-300 font-bold' : gap < 5 ? 'text-green-500' : 'text-slate-400');
+                                      return <span className={cls}>{nL} –{fmt(gap, 1)}%</span>;
                                     })()}
                                   </td>
 
