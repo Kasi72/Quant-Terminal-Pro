@@ -3921,7 +3921,7 @@ function HomePageInner() {
       {/* ── Tab Bar ── */}
       <div className="flex-shrink-0 bg-[#0a0d14] border-b border-slate-700/60">
         {/* Tab row */}
-        <div className="px-3 pt-2 pb-2 flex items-center gap-1.5 flex-wrap">
+        <div className="px-3 pt-2 pb-2 flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" style={{scrollbarWidth:'thin'}}>
           {([
             ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
             ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
