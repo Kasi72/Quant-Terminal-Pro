@@ -1587,6 +1587,9 @@ function computeOrsScore(params) {
         s += 5;
     return Math.min(s, 100);
 }
+// PBFB forensic bypass — bypasses turnover/ATR-band/precision gates, keeps core pattern conditions.
+// Set by analyzeStock(forensicMode=true). Single-threaded JS: no race condition.
+let _forensicMode = false;
 function analyzeORS(candles) {
     const n = candles.length;
     const noOrs = (stage = 'NO_SIGNAL', score = 0) => ({
@@ -1677,7 +1680,7 @@ function analyzeORS(candles) {
             tSum += candles[j].c * candles[j].v;
             tCnt++;
         }
-        if (tCnt === 0 || tSum / tCnt < 10000000)
+        if (!_forensicMode && (tCnt === 0 || tSum / tCnt < 10000000))
             return null;
         const tAvg = tSum / tCnt;
         const a14 = atr14Arr[i] || 0.0001;
@@ -2190,7 +2193,7 @@ function analyzeVolumeFootprint(candles) {
         return base;
     const vAvg20 = vSum / volCnt;
     const turnover20 = tSum / volCnt;
-    if (turnover20 < 5000000)
+    if (!_forensicMode && turnover20 < 5000000)
         return base;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
     // 20-day high (excluding today)
@@ -2214,9 +2217,10 @@ function analyzeVolumeFootprint(candles) {
     // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
     // ATR ceiling 4.0: 3.5 was too tight (eliminated all signals via gap-up day ATR); 4.0 keeps
     // VOLATILE-only. Signal-day ATR used; entry-day gap-up doesn't retroactively raise signal ATR.
-    if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+    // forensicMode: entire precision gate bypassed — PBFB detects pattern structure regardless of quality filters.
+    if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
         tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 4.0) ||
-        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
+        tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0)))
         return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
     // Pre-10 avg range ATR
     let rSum = 0;
@@ -2306,7 +2310,7 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
     for (let i = tStart; i < endIdx; i++)
         tSum += candles[i].c * candles[i].v;
     const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
-    if (turnover20 < 5000000)
+    if (!_forensicMode && turnover20 < 5000000)
         return base;
     // Volume avg
     let vSum = 0;
@@ -2316,8 +2320,8 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
     const tech = archetypeTech(candles, endIdx);
     // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
-    // Skipped when called from PerfectStorm (which applies its own composite gate).
-    if (!skipPrecisionGate) {
+    // Skipped when called from PerfectStorm or in forensicMode (PBFB: detect compression structure without quality filters).
+    if (!skipPrecisionGate && !_forensicMode) {
         if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1) ||
             tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
             volRatio20 < tuned(key, 'minGateVolRatio', 3) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1) ||
@@ -2472,15 +2476,15 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
         vSum += candles[i].v;
     }
     const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
-    if (turnover20 < 10000000)
+    if (!_forensicMode && turnover20 < 10000000)
         return base;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
     const tech = archetypeTech(candles, endIdx);
     // CMF+OBV+RSI+Vol precision gate — hyper-tuned walk-forward v2:
     // OOS WR 70.4% (n=592) → 82.8% (n=93 robust) with RSI14 35-50 + RSI2≤50 + vol≥2.0
-    // Skipped when called from PerfectStorm (which applies its own composite gate).
-    if (!skipPrecisionGate) {
+    // Skipped when called from PerfectStorm or in forensicMode (PBFB: detect pullback structure without quality filters).
+    if (!skipPrecisionGate && !_forensicMode) {
         // hypertune_mp_ema.js 2026-07-22: 280k-combo 2-phase search → OOS Hit5=71% PF=2.26 n=62 ROBUST
         // minCMF20 raised -0.1→0.0: require neutral accumulation (not distribution) during pullback
         if (tech.cmf20 < tuned(key, 'minCMF20', 0.0) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -0.5) ||
@@ -2597,7 +2601,7 @@ function analyzeEMAStack(candles) {
         vSum += candles[i].v;
     }
     const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
-    if (turnover20 < 10000000)
+    if (!_forensicMode && turnover20 < 10000000)
         return base;
     const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
     const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
@@ -2605,10 +2609,11 @@ function analyzeEMAStack(candles) {
     // CMF+OBV precision gate — hypertune_mp_ema.js 2026-07-22: OOS Hit5=82.5% PF=2.98 n=40 ROBUST
     // CI [70%,92.5%]: minCloseVsEMA20=1.0 (price 1%+ above EMA20), EMA20>EMA50 by 0.8%, OBV≥0
     // minAtrPct14≥2.5: EMA NORMAL band (ATR<2.5%) WR=55.6% n=9 → require VOLATILE+ only
-    if (tech.cmf20 < tuned(key, 'minCMF20', 0.08) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0) ||
+    // forensicMode: bypassed — PBFB detects EMA crossover structure regardless of quality filters.
+    if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.08) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0) ||
         tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) ||
         tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1.0) ||
-        (tuned(key, 'minEMA20VsEMA50', 0.8) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.8)))
+        (tuned(key, 'minEMA20VsEMA50', 0.8) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.8))))
         return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
     const ema10Arr = computeEMA(candles, 10);
     const ema20Arr = computeEMA(candles, 20);
@@ -2958,7 +2963,7 @@ function analyzeCircuitBreaker(candles) {
     }, tuningDebug);
 }
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
-function analyzeStock(candles, paramSetKey, enrich = true) {
+function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false) {
     const noSignalBase = (symbol = 'UNKNOWN') => ({
         symbol,
         stage: 'NO_SIGNAL',
@@ -2998,6 +3003,7 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
         candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
     });
     // Momentum Archetype dispatchers — each set has its own inflection detector
+    _forensicMode = forensicMode;
     let result;
     if (paramSetKey === 'ors_prime_reversal')
         result = analyzeORS(candles);
@@ -3013,8 +3019,11 @@ function analyzeStock(candles, paramSetKey, enrich = true) {
         result = analyzePerfectStorm(candles);
     else if (paramSetKey === 'circuit_breaker_v2')
         result = analyzeCircuitBreaker(candles);
-    else
+    else {
+        _forensicMode = false;
         return noSignalBase();
+    }
+    _forensicMode = false;
     // ── Post-processing enrichment ─────────────────────────────────────────────
     // Wires computeStatsFeatures, computeAdvancedFeatures, volDryUp, and zone
     // into every archetype result. Fixes: Statistics tab, Trade Plan EMA/Guppy,

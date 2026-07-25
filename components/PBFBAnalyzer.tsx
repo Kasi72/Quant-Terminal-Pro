@@ -943,7 +943,7 @@ export default function PBFBAnalyzer() {
 
         for (const key of PARAM_SET_KEYS) {
           try {
-            const r = analyzeStock(truncated, key);
+            const r = analyzeStock(truncated, key, true, true); // forensicMode: bypass quality gates, keep core pattern
             stages[key] = r.stage;
             if (r.zone) {
               anyZone = true;
