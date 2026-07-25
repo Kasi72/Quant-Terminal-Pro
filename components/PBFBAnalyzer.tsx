@@ -68,7 +68,7 @@ interface ForensicResult {
   bestResult:     AnalysisResult | null;  // full snapshot N days before breakout
   bestZoneResult: AnalysisResult | null;  // first param-set result that had a zone (may differ from bestResult)
   anyZone:        boolean;
-  classification: 'actionable' | 'on_radar' | 'zone_only' | 'missed';
+  classification: 'actionable' | 'on_radar' | 'zone_only' | 'missed' | 'thin_lock';
   shapeVec:     number[] | null;        // 20-dim candle-shape fingerprint (10 closes + 10 vol ratios, normalized)
 }
 
@@ -131,10 +131,11 @@ function stageLabel(s: StageRating): string {
   return 'NO SIGNAL';
 }
 
-function classColor(c: 'actionable' | 'on_radar' | 'zone_only' | 'missed'): string {
+function classColor(c: 'actionable' | 'on_radar' | 'zone_only' | 'missed' | 'thin_lock'): string {
   if (c === 'actionable') return '#4ade80';
   if (c === 'on_radar')   return '#818cf8';
   if (c === 'zone_only')  return '#fbbf24';
+  if (c === 'thin_lock')  return '#64748b';
   return '#f87171';
 }
 
@@ -207,7 +208,7 @@ interface AnalogMatch {
 }
 
 const CLASS_COLORS: Record<string, string> = {
-  actionable: '#4ade80', on_radar: '#fbbf24', zone_only: '#60a5fa', missed: '#f87171',
+  actionable: '#4ade80', on_radar: '#fbbf24', zone_only: '#60a5fa', missed: '#f87171', thin_lock: '#64748b',
 };
 
 function AnalogPanel({ r }: { r: ForensicResult }) {
@@ -569,7 +570,9 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
         {r.classification !== 'actionable' && (
           <div className="mt-2 border-t border-slate-700/40 pt-2 text-[9px] text-slate-600 leading-relaxed">
             <span className="text-slate-500 font-semibold">Hint: </span>
-            {r.classification === 'zone_only'
+            {r.classification === 'thin_lock'
+              ? `Thin-market circuit lock — UC day volume was ${r.volMult.toFixed(2)}× average (below 1×). No sellers means no trades; pattern detection has no predictive value here.`
+              : r.classification === 'zone_only'
               ? `Zone was visible but param set conditions not met. Try a looser param set or increase N (look further back).`
               : r.classification === 'on_radar'
               ? `Stock was on radar but not fully actionable. Looser entry criteria or earlier N might catch this.`
@@ -601,7 +604,7 @@ export default function PBFBAnalyzer() {
   const [activeN, setActiveN]         = useState(1);
   const [sortKey, setSortKey]         = useState<'movePct' | 'volMult' | 'bestStage' | 'symbol'>('movePct');
   const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
-  const [filterClass, setFilterClass] = useState<'all' | 'actionable' | 'on_radar' | 'zone_only' | 'missed'>('all');
+  const [filterClass, setFilterClass] = useState<'all' | 'actionable' | 'on_radar' | 'zone_only' | 'missed' | 'thin_lock'>('all');
   const [expanded, setExpanded]       = useState<string | null>(null);
   const [brainData,    setBrainData]    = useState<BrainData | null>(null);
   const [brainLoading, setBrainLoading] = useState(false);
@@ -934,6 +937,20 @@ export default function PBFBAnalyzer() {
         if (cutIdx < 80) { workDone += PARAM_SET_KEYS.length; continue; }
         const truncated = ev.candles.slice(0, cutIdx + 1);
 
+        // thin_lock: UC day had below-average volume — mechanical circuit lock, not genuine demand.
+        // Skip archetype analysis; pattern detection here has no predictive value.
+        if (ev.volMult < 1.0) {
+          allResults.push({
+            symbol: ev.symbol, date: ev.date, dateISO: ev.dateISO, movePct: ev.movePct, volMult: ev.volMult,
+            isUCLock: ev.isUCLock, nBefore: nb,
+            stages: {}, bestStage: 'NO_SIGNAL', bestParamSet: null, bestResult: null, bestZoneResult: null, anyZone: false,
+            classification: 'thin_lock',
+            shapeVec: null,
+          });
+          workDone += PARAM_SET_KEYS.length;
+          continue;
+        }
+
         const stages: Partial<Record<ParamSetKey, StageRating>> = {};
         let bestStage: StageRating = 'NO_SIGNAL';
         let bestParamSet: ParamSetKey | null = null;
@@ -985,8 +1002,8 @@ export default function PBFBAnalyzer() {
     // S1: auto-select the N with the highest actionable detection rate
     let bestN = 1, bestRate = -1;
     for (const nb of Ns) {
-      const rs = allResults.filter(r => r.nBefore === nb);
-      const rate = rs.length > 0 ? rs.filter(r => r.classification === 'actionable').length / rs.length : 0;
+      const genuine = allResults.filter(r => r.nBefore === nb && r.classification !== 'thin_lock');
+      const rate = genuine.length > 0 ? genuine.filter(r => r.classification === 'actionable').length / genuine.length : 0;
       if (rate > bestRate) { bestRate = rate; bestN = nb; }
     }
     setActiveN(bestN);
@@ -1928,11 +1945,11 @@ export default function PBFBAnalyzer() {
                 {activeN}d before · {displayed.length} event{displayed.length !== 1 ? 's' : ''}
               </div>
               <div className="flex gap-1 ml-auto flex-wrap items-center">
-                {(['all', 'actionable', 'on_radar', 'zone_only', 'missed'] as const).map(fc => (
+                {(['all', 'actionable', 'on_radar', 'zone_only', 'missed', 'thin_lock'] as const).map(fc => (
                   <button key={fc} onClick={() => setFilterClass(fc)}
                     className={`px-2 py-0.5 rounded text-[10px] border transition-colors ${filterClass === fc ? 'bg-slate-600 border-slate-500 text-slate-200' : 'bg-transparent border-slate-700 text-slate-500 hover:text-slate-300'}`}
                     style={filterClass === fc && fc !== 'all' ? { borderColor: classColor(fc), color: classColor(fc) } : {}}>
-                    {fc === 'all' ? 'All' : fc === 'actionable' ? '✓ Actionable' : fc === 'on_radar' ? '~ On Radar' : fc === 'zone_only' ? '◎ Zone Only' : '✗ Missed'}
+                    {fc === 'all' ? 'All' : fc === 'actionable' ? '✓ Actionable' : fc === 'on_radar' ? '~ On Radar' : fc === 'zone_only' ? '◎ Zone Only' : fc === 'thin_lock' ? '⊘ Thin Lock' : '✗ Missed'}
                   </button>
                 ))}
                 <div className="w-px h-4 bg-slate-700 mx-1" />

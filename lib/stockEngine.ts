@@ -2764,7 +2764,9 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     if ((candles[i].h - candles[i].l) < tuned(key, 'compressionATR', 0.70) * a) compressionBars++;
     else break;
   }
-  const c1 = compressionBars >= tuned(key, 'minCompressionBars', 9) && compressionBars <= tuned(key, 'maxCompressionBars', 16);
+  // forensicMode: accept shorter compressions (5 bars = 1 week); live screener needs 9-bar coil for WR confidence
+  const minCB = _forensicMode ? 5 : tuned(key, 'minCompressionBars', 9);
+  const c1 = compressionBars >= minCB && compressionBars <= tuned(key, 'maxCompressionBars', 16);
 
   // Condition 2: Volume declining 2+ days (supply drying up)
   let volDeclineDays = 0;
@@ -2815,9 +2817,12 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
 
   // Condition 6 (DMI): DI+ > DI− and ADX ≥ 28 (trend aligned for imminent breakout)
   const bscCC = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
-  const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 3) >= 99 || bscCC <= tuned(key, 'maxBsc', 3)) &&
-    adxVal >= tuned(key, 'minADX', 45);
+  // forensicMode: compression stocks have falling ADX by definition — test direction only (DI+ > DI-), not trend strength
+  const c6 = _forensicMode
+    ? diPlusV > diMinusV
+    : (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
+      (tuned(key, 'maxBsc', 3) >= 99 || bscCC <= tuned(key, 'maxBsc', 3)) &&
+      adxVal >= tuned(key, 'minADX', 45);
 
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
