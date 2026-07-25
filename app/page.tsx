@@ -5599,7 +5599,11 @@ function HomePageInner() {
               for (const row of rows) {
                 const vsE = ((row.close - trade.entryPrice) / trade.entryPrice * 100);
                 const vsSign = vsE >= 0 ? '+' : '';
-                const dayLine = `D${String(row.day_num).padStart(2)} │ ${row.date} │ H:${fmt(row.high, 0)}  L:${fmt(row.low, 0)}  C:${fmt(row.close, 0)} │ ${vsSign}${fmt(vsE, 1)}% │ MFE ${row.mfe_pct >= 0 ? '+' : ''}${fmt(row.mfe_pct, 1)}% MAE -${fmt(row.mae_pct, 1)}%`;
+                const tg = targetGap(row.close);
+                const tgText = tg
+                  ? (tg.gap === null ? '✅ T3 ✓ All Done' : `→${tg.label} ${fmt(tg.gap, 1)}% away`)
+                  : '';
+                const dayLine = `D${String(row.day_num).padStart(2)} │ ${row.date} │ CMP ₹${fmt(row.close, 0)} │ ${vsSign}${fmt(vsE, 1)}% vs entry │ ${tgText} │ H:${fmt(row.high, 0)} L:${fmt(row.low, 0)} │ MFE ${row.mfe_pct >= 0 ? '+' : ''}${fmt(row.mfe_pct, 1)}% MAE –${fmt(row.mae_pct, 1)}%`;
                 if (row.event_type) {
                   const evEmoji = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', expired: '⏰' }[row.event_type] ?? '•';
                   lines.push(`${dayLine}  ${evEmoji} ${row.event_detail ?? ''}`);
