@@ -35,6 +35,7 @@ export interface CompactResult {
   ds?: number;     // disaster stop
   rps?: number;    // risk per share
   gapP?: number;   // gap %
+  bt?: 'A+' | 'A' | 'B';  // breakout tier
 }
 
 export interface ScanSession {
@@ -71,6 +72,7 @@ function compress(r: AnalysisResult): CompactResult {
       t2: r.priceEngine?.target7 ?? 0, t3: r.priceEngine?.target10 ?? 0,
       dr: r.priceEngine?.disasterRiskPct ?? 0, ds: r.priceEngine?.disasterStop ?? 0,
       rps: r.priceEngine?.riskPerShare ?? 0, gapP: r.priceEngine?.gapPct ?? 0,
+      bt: r.priceEngine?.breakoutTier ?? 'B',
       cd: {
         d: r.clusterBreakdown?.deployable?.met ?? 0, dt: r.clusterBreakdown?.deployable?.total ?? 21,
         h: r.clusterBreakdown?.highPrecision?.met ?? 0, ht: r.clusterBreakdown?.highPrecision?.total ?? 19,

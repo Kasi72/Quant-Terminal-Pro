@@ -1305,7 +1305,7 @@ const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
-  statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','sharpe','insBar']),
+  statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','brkTier','sharpe','insBar']),
   advanced: new Set(['symbol','stage','adv_utbot','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
   all: new Set(/* all keys — handled below */),
 };
@@ -2705,6 +2705,7 @@ function HomePageInner() {
   // Count IMMINENT+NEAR+WATCH (≤5%) — matches what the BRK button filter shows.
   // Old: used r.nearBreakout which is only ≤2.5%, undercounting vs the button.
   const nearBreakoutCount = useMemo(() => results.filter(r => r.nearBreakoutTier === 'IMMINENT' || r.nearBreakoutTier === 'NEAR' || r.nearBreakoutTier === 'WATCH').length, [results]);
+  const aPlusCount = useMemo(() => results.filter(r => r.priceEngine?.breakoutTier === 'A+').length, [results]);
 
   // Feature #2: Sector heatmap data
   const sectorHeatData = useMemo(() => {
@@ -3220,6 +3221,12 @@ function HomePageInner() {
               className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${colFilters.nearBrk ? 'bg-yellow-900/50 border-yellow-600 text-yellow-300' : 'bg-slate-800 border-yellow-700 text-yellow-500 hover:text-yellow-300'}`}>
               ⚡ {nearBreakoutCount} BRK</button>
           )}
+          {aPlusCount > 0 && (
+            <button onClick={() => setColFilters(prev => ({ ...prev, brkTier: prev.brkTier === 'A+' ? '' : 'A+' }))}
+              data-tip="A+ tier: within 10% of 52W high + EMA20>EMA50 + RSI14>50 + CMF20>0 + volume contraction. Highest conviction VCP geometry. Click to filter." data-tip-color="green"
+              className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${colFilters.brkTier === 'A+' ? 'bg-emerald-900/50 border-emerald-500 text-emerald-300' : 'bg-slate-800 border-emerald-800 text-emerald-600 hover:text-emerald-400'}`}>
+              ★ {aPlusCount} A+</button>
+          )}
           {hasColFilters && (
             <button onClick={() => setColFilters({})}
               className="h-7 px-2 bg-amber-900/50 hover:bg-amber-900 border border-amber-700 rounded text-[11px] font-medium text-amber-300 transition-colors">× Clr</button>
@@ -3535,7 +3542,7 @@ function HomePageInner() {
                           rewardRisk: c.rr, chandelierT1: 0, chandelierT2: 0, chandelierT3: 0,
                           failedBreakoutLevel: 0, timeStop3d: 0, timeStop5d: 0, timeStop10d: 0,
                           maxHoldBars: 20, tradeValid: c.tv,
-                          hh252: 0, pctFrom52W: 0, breakoutTier: 'B' as const,
+                          hh252: 0, pctFrom52W: 0, breakoutTier: ((c as any).bt ?? 'B') as 'A+' | 'A' | 'B',
                           sw5LowAtEntry: 0, atr14AtEntry: 0,
                         },
                         conditionsMet: 0, totalConditions: 20, checklist: [],
