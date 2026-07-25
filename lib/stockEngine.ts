@@ -1407,11 +1407,11 @@ function buildTradeEngine(
   // ENTRY (Weinstein + Kaufman adaptive buffer)
   // ══════════════════════════════════════════════════════════════════════
 
-  // GA-optimal lookback: N=299 (Donchian fitness 3.27, NewHigh fitness 3.11 — both
-  // converged independently vs N=252 coarse grid). VCP tier thresholds kept from
-  // coarse grid (GA VCP overfit: 2 signals, 100% WR — not statistically valid).
-  // GA run: scripts/ga_results_2026-07-15T07-37-10.json (392 symbols, horizon=20d)
-  const N_HH = Math.min(299, endIdx);
+  // GA-optimal lookback: N=303 (Donchian fitness 3.06, NewHigh fitness 3.10 — full
+  // 1582-symbol universe; both converged to N≈303 vs N=252 coarse grid).
+  // VCP tier thresholds kept from coarse grid (GA VCP degenerate: n=1, 100% WR).
+  // GA run: scripts/ga_results_2026-07-25T07-14-25.json (1582 symbols, horizon=20d)
+  const N_HH = Math.min(303, endIdx);
   let hh252 = 0;
   for (let i = endIdx - N_HH; i < endIdx; i++) {
     if (candles[i].h > hh252) hh252 = candles[i].h;
