@@ -1514,6 +1514,7 @@ function HomePageInner() {
   type DailyLogRow = { date: string; open: number; high: number; low: number; close: number; day_num: number; mfe_pct: number; mae_pct: number; event_type: string | null; event_detail: string | null };
   const [logRows, setLogRows] = useState<DailyLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
+  const [logShareCopied, setLogShareCopied] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
   const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
@@ -5535,6 +5536,58 @@ function HomePageInner() {
             return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
           });
 
+          const statusEmoji = (s: string) => ({ open: '🟡', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', stopped: '🛑', expired: '⏰', manual_close: '✅', closed_early: '✅' }[s] ?? '•');
+          const statusLabel = (s: string) => ({ open: 'OPEN', hit_t1: 'T1 HIT', hit_t2: 'T2 HIT', hit_t3: 'T3 HIT', stopped: 'STOPPED', expired: 'EXPIRED', manual_close: 'CLOSED', closed_early: 'CLOSED' }[s] ?? s.toUpperCase());
+
+          const buildShareText = (trade: typeof selectedTrade, rows: typeof logRows): string => {
+            if (!trade) return '';
+            const lines: string[] = [];
+            const se = statusEmoji(trade.status);
+            const sl = statusLabel(trade.status);
+            lines.push(`📊 *${trade.symbol}* — Trade Log`);
+            lines.push('━━━━━━━━━━━━━━━━━━━━━━━━');
+            lines.push(`${se} Status: *${sl}*`);
+            lines.push(`📅 Entry ₹${fmt(trade.entryPrice)} on ${trade.entryDate?.slice(0, 10) ?? '—'}`);
+            lines.push(`🛑 SL ₹${fmt(trade.stopLoss)}  |  🎯 T1 ₹${fmt(trade.target1)}  |  T2 ₹${fmt(trade.target2)}  |  T3 ₹${fmt(trade.target3 ?? 0)}`);
+            if (trade.breakoutTier) lines.push(`⭐ Breakout Tier: ${trade.breakoutTier}`);
+            lines.push('');
+            lines.push('📈 *Performance Summary*');
+            if (trade.mfe != null)    lines.push(`🟢 Peak MFE  : +${fmt(trade.mfe, 1)}%`);
+            if (trade.mae != null)    lines.push(`🔴 Worst MAE : -${fmt(trade.mae, 1)}%`);
+            if (trade.daysHeld != null) lines.push(`⏱️ Days Held  : ${trade.daysHeld}`);
+            if (trade.pnlPct != null) lines.push(`💰 Final P&L  : ${trade.pnlPct >= 0 ? '+' : ''}${fmt(trade.pnlPct, 2)}%`);
+            if (rows.length > 0) {
+              lines.push('');
+              lines.push('📋 *Daily Price Log*');
+              lines.push('─────────────────────────────────────────');
+              for (const row of rows) {
+                const vsE = ((row.close - trade.entryPrice) / trade.entryPrice * 100);
+                const vsSign = vsE >= 0 ? '+' : '';
+                const dayLine = `D${String(row.day_num).padStart(2)} │ ${row.date} │ H:${fmt(row.high, 0)}  L:${fmt(row.low, 0)}  C:${fmt(row.close, 0)} │ ${vsSign}${fmt(vsE, 1)}% │ MFE ${row.mfe_pct >= 0 ? '+' : ''}${fmt(row.mfe_pct, 1)}% MAE -${fmt(row.mae_pct, 1)}%`;
+                if (row.event_type) {
+                  const evEmoji = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', expired: '⏰' }[row.event_type] ?? '•';
+                  lines.push(`${dayLine}  ${evEmoji} ${row.event_detail ?? ''}`);
+                } else {
+                  lines.push(dayLine);
+                }
+              }
+              lines.push('─────────────────────────────────────────');
+            }
+            lines.push('');
+            lines.push('🤖 _Dr KKR Quant Terminal Pro_ • #NSE #Momentum');
+            return lines.join('\n');
+          };
+
+          const handleShare = async () => {
+            if (!selectedTrade) return;
+            const text = buildShareText(selectedTrade, logRows);
+            try {
+              await navigator.clipboard.writeText(text);
+              setLogShareCopied(true);
+              setTimeout(() => setLogShareCopied(false), 2500);
+            } catch { /* silent */ }
+          };
+
           return (
             <div className="flex-1 flex overflow-hidden min-h-0">
               {/* ── Left: master trade list ── */}
@@ -5615,6 +5668,13 @@ function HomePageInner() {
                         {selectedTrade.daysHeld != null && (
                           <span className="text-xs text-slate-500">Days <span className="text-slate-300">{selectedTrade.daysHeld}</span></span>
                         )}
+                        <button onClick={handleShare}
+                          className={`ml-auto flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-bold border transition-all duration-200
+                            ${logShareCopied
+                              ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300'
+                              : 'bg-sky-900/30 border-sky-700 text-sky-300 hover:bg-sky-800/50 hover:border-sky-500'}`}>
+                          {logShareCopied ? '✅ Copied!' : '📤 Share'}
+                        </button>
                       </div>
                     )}
 
