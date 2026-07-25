@@ -261,6 +261,19 @@ function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
   return { ...baseUpdate(lastBar), status: 'open' };
 }
 
+// ── Daily log helpers ─────────────────────────────────────────────────────────
+
+function buildEventDetail(t: TrackedTrade): string {
+  switch (t.status) {
+    case 'stopped':  return `Stop hit ₹${t.closedPrice?.toFixed(2)} (${t.pnlPct?.toFixed(1)}%)`;
+    case 'hit_t1':   return `T1 ₹${t.target1.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
+    case 'hit_t2':   return `T2 ₹${t.target2.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
+    case 'hit_t3':   return `T3 ₹${t.target3.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
+    case 'expired':  return `Expired ₹${t.closedPrice?.toFixed(2)} → ${t.pnlPct?.toFixed(1)}%`;
+    default:         return '';
+  }
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -329,6 +342,43 @@ export async function GET(req: NextRequest) {
     if (updated.status !== trade.status) {
       const k = updated.status as keyof typeof summary;
       if (typeof summary[k] === 'number') (summary[k] as number)++;
+    }
+
+    // ── Daily log: upsert one row per candle from entry → today (or close date) ──
+    const entryDate = trade.entryDate.slice(0, 10);
+    const postEntry = bars.filter(b => b.date > entryDate);
+    const terminalDate = updated.closedDate ?? null;
+    let cumMfe = 0, cumMae = 0;
+    const logRows: Record<string, unknown>[] = [];
+
+    for (let d = 0; d < postEntry.length; d++) {
+      const bar = postEntry[d];
+      const barMfe = ((bar.high - trade.entryPrice) / trade.entryPrice) * 100;
+      const barMae = ((trade.entryPrice - bar.low) / trade.entryPrice) * 100;
+      if (barMfe > cumMfe) cumMfe = barMfe;
+      if (barMae > cumMae) cumMae = barMae;
+
+      const isEvent = terminalDate != null && bar.date === terminalDate;
+      logRows.push({
+        user_id: USER_ID,
+        symbol: trade.symbol,
+        date: bar.date,
+        open: Math.round(bar.open * 100) / 100,
+        high: Math.round(bar.high * 100) / 100,
+        low: Math.round(bar.low * 100) / 100,
+        close: Math.round(bar.close * 100) / 100,
+        day_num: d + 1,
+        mfe_pct: Math.round(cumMfe * 100) / 100,
+        mae_pct: Math.round(cumMae * 100) / 100,
+        event_type: isEvent ? updated.status : null,
+        event_detail: isEvent ? buildEventDetail(updated) : null,
+      });
+      if (isEvent) break;
+    }
+
+    if (logRows.length > 0) {
+      await db.from('trade_daily_log')
+        .upsert(logRows, { onConflict: 'user_id,symbol,date' });
     }
   };
 

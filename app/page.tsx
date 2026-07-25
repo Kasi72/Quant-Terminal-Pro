@@ -1510,6 +1510,11 @@ function HomePageInner() {
   trackedTradesRef.current = trackedTrades;
   const [showTracker, setShowTracker] = useState(false);
   const [autoTrackCount, setAutoTrackCount] = useState(0);
+  // Trade daily log
+  const [logSymbol, setLogSymbol] = useState<string | null>(null);
+  type DailyLogRow = { date: string; open: number; high: number; low: number; close: number; day_num: number; mfe_pct: number; mae_pct: number; event_type: string | null; event_detail: string | null };
+  const [logRows, setLogRows] = useState<DailyLogRow[]>([]);
+  const [logLoading, setLogLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
   const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
@@ -1519,7 +1524,7 @@ function HomePageInner() {
   const [signalHistory, setSignalHistory] = useState<SignalHistory>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
-  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'journal' | 'focus' | 'validation' | 'intelligence' | 'pbfb' | 'pro'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'performance' | 'tradedesk' | 'tradelog' | 'journal' | 'focus' | 'validation' | 'intelligence' | 'pbfb' | 'pro'>('scanner');
   const [sessions, setSessions] = useState<ScanSession[]>([]);
   const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
   const [reviews, setReviews] = useState<TradeReview[]>([]);
@@ -3924,6 +3929,7 @@ function HomePageInner() {
             ['scanner',      '📊', 'Scanner',      '#818cf8', 'Main screening table — 60+ sortable columns with 6 sub-views', 'indigo'],
             ['performance',  '📈', 'Performance',  '#34d399', 'Equity curve, monthly reports, and win rate dashboard', 'green'],
             ['tradedesk',    '🎯', 'Trade Desk',   '#f97316', 'Position sizing, open/closed trades, watchlist management', 'orange'],
+            ['tradelog',     '📋', 'Trade Log',    '#38bdf8', 'Daily price excursion log per trade — events, MFE, MAE, stop & target triggers', 'blue'],
             ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
             ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
             ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
@@ -5410,6 +5416,210 @@ function HomePageInner() {
             </div>
           </div>
         )}
+
+        {/* ── Trade Log Tab ── */}
+        {activeTab === 'tradelog' && (() => {
+          const fetchLog = async (sym: string) => {
+            setLogLoading(true);
+            setLogRows([]);
+            try {
+              const r = await fetch(`/api/trade-log?symbol=${encodeURIComponent(sym)}`);
+              const d = await r.json();
+              setLogRows(d.rows ?? []);
+            } catch { setLogRows([]); }
+            finally { setLogLoading(false); }
+          };
+          const selectTrade = (sym: string) => { setLogSymbol(sym); fetchLog(sym); };
+
+          const selectedTrade = trackedTrades.find(t => t.symbol === logSymbol);
+          const statusChip = (st: string) => {
+            const map: Record<string, { label: string; cls: string }> = {
+              open:         { label: 'OPEN',    cls: 'bg-amber-900/50 text-amber-300 border-amber-700' },
+              hit_t1:       { label: 'T1 HIT',  cls: 'bg-emerald-900/50 text-emerald-300 border-emerald-700' },
+              hit_t2:       { label: 'T2 HIT',  cls: 'bg-emerald-800/60 text-emerald-200 border-emerald-600' },
+              hit_t3:       { label: 'T3 HIT',  cls: 'bg-green-800/60 text-green-200 border-green-600' },
+              stopped:      { label: 'STOPPED', cls: 'bg-red-900/50 text-red-300 border-red-700' },
+              expired:      { label: 'EXPIRED', cls: 'bg-slate-700/60 text-slate-400 border-slate-600' },
+              manual_close: { label: 'CLOSED',  cls: 'bg-slate-700/60 text-slate-400 border-slate-600' },
+              closed_early: { label: 'CLOSED',  cls: 'bg-slate-700/60 text-slate-400 border-slate-600' },
+            };
+            const m = map[st] ?? { label: st.toUpperCase(), cls: 'bg-slate-700 text-slate-400 border-slate-600' };
+            return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${m.cls}`}>{m.label}</span>;
+          };
+
+          const eventRowCls = (ev: string | null) => {
+            if (!ev) return 'border-b border-slate-800/60 hover:bg-slate-800/30';
+            if (ev === 'stopped')  return 'border-b border-red-900/40 bg-red-950/30 hover:bg-red-950/50';
+            if (ev === 'expired')  return 'border-b border-slate-700/40 bg-slate-800/30';
+            return 'border-b border-emerald-900/40 bg-emerald-950/25 hover:bg-emerald-950/40'; // any hit
+          };
+          const eventLabel = (ev: string | null) => {
+            if (!ev) return null;
+            const icons: Record<string, string> = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
+            return <span className="font-semibold">{icons[ev] ?? '•'}</span>;
+          };
+          const pctColor = (v: number) => v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-400';
+          const fmt = (v: number, d = 2) => v?.toFixed(d) ?? '—';
+
+          const sortedTrades = [...trackedTrades].sort((a, b) => {
+            const order = (s: string) => s === 'open' ? 0 : 1;
+            if (order(a.status) !== order(b.status)) return order(a.status) - order(b.status);
+            return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
+          });
+
+          return (
+            <div className="flex-1 flex overflow-hidden min-h-0">
+              {/* ── Left: master trade list ── */}
+              <div className="w-52 flex-shrink-0 border-r border-slate-800 bg-[#0c1018] overflow-y-auto flex flex-col">
+                <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+                  <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Tracked</span>
+                  <span className="text-[10px] text-slate-500">{trackedTrades.length} trades</span>
+                </div>
+                {sortedTrades.length === 0 && (
+                  <div className="px-3 py-4 text-[11px] text-slate-600">No trades yet. Run a scan to auto-track BUY signals.</div>
+                )}
+                {sortedTrades.map(t => (
+                  <button key={t.symbol} onClick={() => selectTrade(t.symbol)}
+                    className={`w-full text-left px-3 py-2 flex flex-col gap-0.5 border-b border-slate-800/50 transition-colors
+                      ${logSymbol === t.symbol ? 'bg-sky-900/25 border-l-2 border-l-sky-500' : 'hover:bg-slate-800/40 border-l-2 border-l-transparent'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] font-semibold text-slate-200 tracking-wide">{t.symbol}</span>
+                      {statusChip(t.status)}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>{t.entryDate?.slice(5)}</span>
+                      {t.pnlPct != null
+                        ? <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>
+                        : t.currentPrice && t.entryPrice
+                          ? <span className={pctColor((t.currentPrice - t.entryPrice) / t.entryPrice * 100)}>
+                              {((t.currentPrice - t.entryPrice) / t.entryPrice * 100) > 0 ? '+' : ''}
+                              {fmt((t.currentPrice - t.entryPrice) / t.entryPrice * 100, 1)}%
+                            </span>
+                          : <span className="text-slate-600">—</span>
+                      }
+                    </div>
+                    {t.status === 'open' && (t.mfe != null || t.mae != null) && (
+                      <div className="flex gap-2 text-[9px] text-slate-600">
+                        {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
+                        {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Right: daily log table ── */}
+              <div className="flex-1 overflow-auto flex flex-col min-w-0">
+                {!logSymbol ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center text-slate-600">
+                      <div className="text-2xl mb-2">📋</div>
+                      <div className="text-sm">Select a trade to view its daily log</div>
+                      <div className="text-xs mt-1">Log populates nightly at 19:30 IST after market close</div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Trade header */}
+                    {selectedTrade && (
+                      <div className="flex-shrink-0 px-4 py-3 border-b border-slate-800 bg-[#0d1117] flex items-center gap-4 flex-wrap">
+                        <span className="text-base font-bold text-slate-100">{selectedTrade.symbol}</span>
+                        {statusChip(selectedTrade.status)}
+                        <span className="text-xs text-slate-500">Entry <span className="text-slate-300">₹{fmt(selectedTrade.entryPrice)}</span> on {selectedTrade.entryDate?.slice(0, 10)}</span>
+                        <span className="text-xs text-slate-500">SL <span className="text-red-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
+                        <span className="text-xs text-slate-500">T1 <span className="text-emerald-400">₹{fmt(selectedTrade.target1)}</span></span>
+                        <span className="text-xs text-slate-500">T2 <span className="text-emerald-300">₹{fmt(selectedTrade.target2)}</span></span>
+                        <span className="text-xs text-slate-500">T3 <span className="text-green-300">₹{fmt(selectedTrade.target3)}</span></span>
+                        {selectedTrade.breakoutTier && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border
+                            ${selectedTrade.breakoutTier === 'A+' ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300'
+                              : selectedTrade.breakoutTier === 'A' ? 'bg-sky-900/40 border-sky-700 text-sky-300'
+                              : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
+                            {selectedTrade.breakoutTier}
+                          </span>
+                        )}
+                        {selectedTrade.mfe != null && (
+                          <span className="text-xs text-emerald-600">Peak MFE <span className="text-emerald-400 font-semibold">+{fmt(selectedTrade.mfe, 1)}%</span></span>
+                        )}
+                        {selectedTrade.mae != null && (
+                          <span className="text-xs text-red-700">Worst MAE <span className="text-red-400 font-semibold">-{fmt(selectedTrade.mae, 1)}%</span></span>
+                        )}
+                        {selectedTrade.daysHeld != null && (
+                          <span className="text-xs text-slate-500">Days <span className="text-slate-300">{selectedTrade.daysHeld}</span></span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Table */}
+                    {logLoading ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-600 text-sm">Loading log…</div>
+                    ) : logRows.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center text-slate-600">
+                          <div className="text-lg mb-1">📭</div>
+                          <div className="text-sm">No log yet for {logSymbol}</div>
+                          <div className="text-xs mt-1 text-slate-700">Nightly cron runs at 19:30 IST on trading days</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-auto flex-1">
+                        <table className="w-full text-xs border-separate border-spacing-0">
+                          <thead className="sticky top-0 z-10">
+                            <tr className="bg-[#0a0f16] text-slate-500 text-[10px] uppercase tracking-wider">
+                              <th className="px-3 py-2 text-center font-medium border-b border-slate-800">Day</th>
+                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800">Date</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">High</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">Low</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">Close</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">vs Entry</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-600">MFE%</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">MAE%</th>
+                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800">Event</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {logRows.map(row => {
+                              const vsEntry = selectedTrade
+                                ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
+                                : null;
+                              return (
+                                <tr key={row.date} className={eventRowCls(row.event_type)}>
+                                  <td className="px-3 py-1.5 text-center text-slate-500 font-mono">{row.day_num}</td>
+                                  <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums">{row.date}</td>
+                                  <td className="px-3 py-1.5 text-right text-slate-300 font-mono tabular-nums">{fmt(row.high)}</td>
+                                  <td className="px-3 py-1.5 text-right text-slate-300 font-mono tabular-nums">{fmt(row.low)}</td>
+                                  <td className="px-3 py-1.5 text-right font-semibold font-mono tabular-nums text-slate-200">{fmt(row.close)}</td>
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${vsEntry != null ? pctColor(vsEntry) : 'text-slate-500'}`}>
+                                    {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-emerald-500">+{fmt(row.mfe_pct, 2)}%</td>
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-500">-{fmt(row.mae_pct, 2)}%</td>
+                                  <td className="px-3 py-1.5 text-left">
+                                    <div className="flex items-center gap-1.5">
+                                      {eventLabel(row.event_type)}
+                                      {row.event_detail && (
+                                        <span className={`text-[11px] font-medium
+                                          ${row.event_type === 'stopped' ? 'text-red-400'
+                                          : row.event_type === 'expired' ? 'text-slate-400'
+                                          : 'text-emerald-400'}`}>
+                                          {row.event_detail}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Trade Auto Validation Tab (Scientific Dashboard) ── */}
         {activeTab === 'validation' && (
