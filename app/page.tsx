@@ -5461,6 +5461,67 @@ function HomePageInner() {
           const pctColor = (v: number) => v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-400';
           const fmt = (v: number, d = 2) => v?.toFixed(d) ?? '—';
 
+          const highCls = (h: number) => {
+            if (!selectedTrade) return 'text-slate-300';
+            if (selectedTrade.target3 != null && h >= selectedTrade.target3) return 'text-green-300 font-semibold';
+            if (selectedTrade.target2 != null && h >= selectedTrade.target2) return 'text-emerald-300 font-semibold';
+            if (h >= selectedTrade.target1) return 'text-emerald-400 font-semibold';
+            if (h > selectedTrade.entryPrice) return 'text-emerald-600';
+            return 'text-slate-400';
+          };
+          const lowCls = (l: number) => {
+            if (!selectedTrade) return 'text-slate-300';
+            if (l <= selectedTrade.stopLoss) return 'text-red-300 font-semibold';
+            if (l < selectedTrade.entryPrice) return 'text-amber-400';
+            return 'text-slate-500';
+          };
+          const closeCls = (c: number) => {
+            if (!selectedTrade) return 'text-slate-200';
+            const diff = (c - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+            if (diff >= 5) return 'text-emerald-300 font-bold';
+            if (diff >= 2) return 'text-emerald-400 font-semibold';
+            if (diff > 0) return 'text-emerald-600';
+            if (diff >= -1) return 'text-amber-500';
+            return 'text-red-400 font-semibold';
+          };
+          const vsEntryCls = (v: number) => {
+            if (v >= 5) return 'text-emerald-300 font-bold';
+            if (v >= 2) return 'text-emerald-400 font-semibold';
+            if (v > 0) return 'text-emerald-600';
+            if (v >= -2) return 'text-amber-500';
+            return 'text-red-400 font-semibold';
+          };
+          const mfeCls = (v: number) => {
+            if (v >= 8) return 'text-emerald-200 font-bold';
+            if (v >= 5) return 'text-emerald-300 font-semibold';
+            if (v >= 3) return 'text-emerald-400';
+            if (v >= 1) return 'text-emerald-600';
+            return 'text-slate-500';
+          };
+          const maeCls = (v: number) => {
+            if (v >= 8) return 'text-red-200 font-bold';
+            if (v >= 5) return 'text-red-300 font-semibold';
+            if (v >= 3) return 'text-red-400';
+            if (v >= 1) return 'text-red-600';
+            return 'text-slate-500';
+          };
+          const highTag = (h: number) => {
+            if (!selectedTrade) return null;
+            if (selectedTrade.target3 != null && h >= selectedTrade.target3)
+              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-900/60 text-green-300 border border-green-700">T3✓</span>;
+            if (selectedTrade.target2 != null && h >= selectedTrade.target2)
+              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700">T2✓</span>;
+            if (h >= selectedTrade.target1)
+              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-sky-900/60 text-sky-300 border border-sky-700">T1✓</span>;
+            return null;
+          };
+          const lowTag = (l: number) => {
+            if (!selectedTrade) return null;
+            if (l <= selectedTrade.stopLoss)
+              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>;
+            return null;
+          };
+
           const sortedTrades = [...trackedTrades].sort((a, b) => {
             const order = (s: string) => s === 'open' ? 0 : 1;
             if (order(a.status) !== order(b.status)) return order(a.status) - order(b.status);
@@ -5563,18 +5624,20 @@ function HomePageInner() {
                       </div>
                     ) : (
                       <div className="overflow-auto flex-1">
-                        <table className="w-full text-xs border-separate border-spacing-0">
+                        <table className="min-w-max w-full text-xs border-separate border-spacing-0">
                           <thead className="sticky top-0 z-10">
-                            <tr className="bg-[#0a0f16] text-slate-500 text-[10px] uppercase tracking-wider">
-                              <th className="px-3 py-2 text-center font-medium border-b border-slate-800">Day</th>
-                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800">Date</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">High</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">Low</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">Close</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800">vs Entry</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-600">MFE%</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">MAE%</th>
-                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800">Event</th>
+                            <tr className="bg-[#0a0f16] text-[10px] uppercase tracking-wider">
+                              <th className="px-3 py-2 text-center font-medium border-b border-slate-800 text-slate-600">Day</th>
+                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800 text-slate-500">Date</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-600">Entry ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">Stop ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">High</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">Low</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">Close</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">vs Entry</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-700">MFE%</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-800">MAE%</th>
+                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800 text-slate-500">Event</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5584,16 +5647,44 @@ function HomePageInner() {
                                 : null;
                               return (
                                 <tr key={row.date} className={eventRowCls(row.event_type)}>
-                                  <td className="px-3 py-1.5 text-center text-slate-500 font-mono">{row.day_num}</td>
-                                  <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums">{row.date}</td>
-                                  <td className="px-3 py-1.5 text-right text-slate-300 font-mono tabular-nums">{fmt(row.high)}</td>
-                                  <td className="px-3 py-1.5 text-right text-slate-300 font-mono tabular-nums">{fmt(row.low)}</td>
-                                  <td className="px-3 py-1.5 text-right font-semibold font-mono tabular-nums text-slate-200">{fmt(row.close)}</td>
-                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${vsEntry != null ? pctColor(vsEntry) : 'text-slate-500'}`}>
+                                  <td className="px-3 py-1.5 text-center text-slate-600 font-mono text-[11px]">{row.day_num}</td>
+                                  <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums text-[11px]">{row.date}</td>
+                                  {/* Entry — static reference col, sky tinted */}
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-sky-500/70 text-[11px]">
+                                    {selectedTrade ? fmt(selectedTrade.entryPrice) : '—'}
+                                  </td>
+                                  {/* Stop — static reference col, red tinted */}
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-600/70 text-[11px]">
+                                    {selectedTrade ? fmt(selectedTrade.stopLoss) : '—'}
+                                  </td>
+                                  {/* High — green gradient + target chip */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${highCls(row.high)}`}>
+                                    <span className="inline-flex items-center justify-end gap-0.5">
+                                      {fmt(row.high)}{highTag(row.high)}
+                                    </span>
+                                  </td>
+                                  {/* Low — amber/red gradient + stop breach chip */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${lowCls(row.low)}`}>
+                                    <span className="inline-flex items-center justify-end gap-0.5">
+                                      {fmt(row.low)}{lowTag(row.low)}
+                                    </span>
+                                  </td>
+                                  {/* Close — color encodes position vs entry */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${closeCls(row.close)}`}>
+                                    {fmt(row.close)}
+                                  </td>
+                                  {/* vs Entry% — intensity gradient */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${vsEntry != null ? vsEntryCls(vsEntry) : 'text-slate-500'}`}>
                                     {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
                                   </td>
-                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-emerald-500">+{fmt(row.mfe_pct, 2)}%</td>
-                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-500">-{fmt(row.mae_pct, 2)}%</td>
+                                  {/* MFE — green intensity */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${mfeCls(row.mfe_pct)}`}>
+                                    +{fmt(row.mfe_pct, 2)}%
+                                  </td>
+                                  {/* MAE — red intensity */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${maeCls(row.mae_pct)}`}>
+                                    -{fmt(row.mae_pct, 2)}%
+                                  </td>
                                   <td className="px-3 py-1.5 text-left">
                                     <div className="flex items-center gap-1.5">
                                       {eventLabel(row.event_type)}
