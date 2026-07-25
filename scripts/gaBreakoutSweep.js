@@ -23,11 +23,18 @@ const bt   = require('./_compiled_current/mfeBacktest');
 // ── CLI args ──────────────────────────────────────────────────────────────────
 const ARGS    = process.argv.slice(2);
 const argVal  = (f, d) => { const i = ARGS.indexOf(f); return i >= 0 ? ARGS[i + 1] : d; };
-const LIMIT   = parseInt(argVal('--limit',   '0'),  10);
-const POP     = parseInt(argVal('--pop',    '50'),  10);
-const GEN     = parseInt(argVal('--gen',    '25'),  10);
-const HORIZON = parseInt(argVal('--horizon', '20'), 10);
-const MODEL_F = argVal('--model', '').toUpperCase();
+const LIMIT       = parseInt(argVal('--limit',      '0'),  10);
+const POP         = parseInt(argVal('--pop',        '50'),  10);
+const GEN         = parseInt(argVal('--gen',        '25'),  10);
+const HORIZON     = parseInt(argVal('--horizon',    '20'),  10);
+const MODEL_F     = argVal('--model', '').toUpperCase();
+const MIN_SIGNALS = parseInt(argVal('--minSignals', '0'),   10);
+
+// Apply minSignals hard floor: candidates below the threshold are rejected
+function calcFitness(agg) {
+  if (MIN_SIGNALS > 0 && agg.signals < MIN_SIGNALS) return -999 + agg.signals * 0.001;
+  return agg.fitness;
+}
 
 // ── Universe ──────────────────────────────────────────────────────────────────
 const CSV_DIR     = 'C:/Users/drkkr/Downloads/NIFTY ALL1783';
@@ -226,7 +233,7 @@ function runGA(name, def) {
   for (let i = 0; i < POP; i++) {
     const params = def.init();
     const agg    = evaluate(def.make(params));
-    pop.push({ params, agg, fitness: agg.fitness });
+    pop.push({ params, agg, fitness: calcFitness(agg) });
     if ((i + 1) % 10 === 0) process.stdout.write('.');
   }
   process.stdout.write('\n');
@@ -246,7 +253,7 @@ function runGA(name, def) {
       let child   = def.crossover(pa, pb);
       if (Math.random() < MUT_RATE) child = def.mutate(child);
       const agg   = evaluate(def.make(child));
-      next.push({ params: child, agg, fitness: agg.fitness });
+      next.push({ params: child, agg, fitness: calcFitness(agg) });
     }
 
     pop = next.sort((a, b) => b.fitness - a.fitness);

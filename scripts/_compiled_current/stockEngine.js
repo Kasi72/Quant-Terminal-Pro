@@ -1117,7 +1117,9 @@ function buildTradeEngine(sig, prevCandle, zone, atr14, atrPct, stage, candles, 
     }
     const breakoutLevel = tick(Math.max(hh252 > 0 ? hh252 : sig.h, zone.zoneHigh));
     const pctFrom52W = hh252 > 0 && sig.c > 0 ? Math.max(0, (hh252 - sig.c) / sig.c * 100) : 100;
-    const breakoutTier = pctFrom52W <= 15 && zone.zoneTightnessPct <= 10 ? 'A+' // VCP tight coil near 52W high
+    // GA-optimal VCP thresholds: near52w=10, tight=15.2 (ga_results_2026-07-25T07-38-57.json)
+    // Tighter 52W proximity (10% vs prior 15%); wider zone tolerance (15% vs prior 10%)
+    const breakoutTier = pctFrom52W <= 10 && zone.zoneTightnessPct <= 15 ? 'A+' // VCP: tight coil within 10% of 52W high
         : pctFrom52W <= 25 ? 'A' // at or approaching 52W high
             : 'B'; // zone breakout, not near 52W
     // Kaufman Efficiency Ratio: measures how "efficient" recent price movement is.
