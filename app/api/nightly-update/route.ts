@@ -3,7 +3,7 @@ import { getServiceClient } from '@/lib/supabase';
 import type { TrackedTrade } from '@/lib/tradeOps';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const USER_ID = 'drkkr';
 
@@ -377,14 +377,16 @@ export async function GET(req: NextRequest) {
     }
 
     if (logRows.length > 0) {
-      await db.from('trade_daily_log')
+      const { error: logErr } = await db.from('trade_daily_log')
         .upsert(logRows, { onConflict: 'user_id,symbol,date' });
+      if (logErr) summary.errors.push(`${trade.symbol}: log upsert failed: ${logErr.message}`);
     }
   };
 
-  const BATCH = 5;
-  for (let i = 0; i < trades.length; i += BATCH) {
-    await Promise.all(trades.slice(i, i + BATCH).map(processTrade_));
+  // Sequential with a small delay — avoids Yahoo rate-limit 429s that batch-5 parallel was hitting
+  for (const trade of trades) {
+    await processTrade_(trade);
+    await new Promise(r => setTimeout(r, 250));
   }
 
   return NextResponse.json(summary);
