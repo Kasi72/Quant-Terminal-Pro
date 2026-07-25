@@ -49,7 +49,7 @@ import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
   computeSelfAdaptiveTrend,
-  type AnalysisResult, type ParamSetKey, type StageRating, type MultiAnalysisResult, type Candle,
+  type AnalysisResult, type ParamSetKey, type StageRating, type Candle,
   type SelfAdaptiveTrendResult,
 } from '@/lib/stockEngine';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
@@ -524,7 +524,7 @@ const COLUMNS: ColDef[] = [
     cellClass: r => r.inflectionScore >= 80 ? 'text-green-300 font-semibold' : r.inflectionScore >= 60 ? 'text-emerald-400' : r.inflectionScore >= 40 ? 'text-yellow-300' : 'text-slate-400' },
   { key: 'confidence', label: 'Conf%',      width: 68,  align: 'right',
     headerTipHtml: '<div class="rt-hdr">Confidence Percentage (0-100%)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How RELIABLE the signal classification is. Measures agreement across all 5 param sets and consistency of the inflection score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How RELIABLE the signal classification is. Measures agreement across all 6 archetypes and consistency of the inflection score.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">90%+</span></div><div><div class="rt-desc">Very high — most param sets agree on the stage. Classification is trustworthy.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">70-89%</span></div><div><div class="rt-desc">Good — reasonable agreement. Classification is likely correct.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">50-69%</span></div><div><div class="rt-desc">Moderate — some param sets disagree. Verify with other indicators.</div></div></div>'
@@ -1302,7 +1302,7 @@ type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'stat
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
   overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
-  screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
+  screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','clSN','ors_reversal','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','brkTier','sharpe','insBar']),
@@ -1443,7 +1443,6 @@ function HomePageInner() {
   const [paramSetKey, setParamSetKey] = useState<ParamSetKey>('optimized_deployable_20plus');
   const [scanAll, setScanAll] = useState(false);
   const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [multiResults, setMultiResults] = useState<MultiAnalysisResult[]>([]);
   const [stopAlerts, setStopAlerts] = useState<Array<{symbol: string; stopPrice: number; timestamp: string; entryPrice: number}>>([]);
   const [gapAlert, setGapAlert] = useState<{type:'bullish'|'bearish'|null;gapPct:number;vix:number;confidence:number;prevClose:number;todayOpen:number}|null>(null);
   const [flagMap, setFlagMap] = useState<Record<string, {poleGain: number; flagDays: number; measuredTarget: number}>>({});
@@ -1747,7 +1746,6 @@ function HomePageInner() {
     setScanning(true); scanningRef.current = true;
     try {
     setResults([]);
-    setMultiResults([]);
     setSelectedRowIdx(-1);
     setProgress(0);
     setErrCount(0);
@@ -1765,7 +1763,6 @@ function HomePageInner() {
     const freshFullCandleMap: Record<string, Candle[]> = {};  // full history for post-scan cluster breakdown
     const freshClenowMap: Record<string, {score: number; r2: number; annReturn: number; quality: string}> = {};
     const freshSatMap: Record<string, SelfAdaptiveTrendResult> = {};
-    const newMultiResults: MultiAnalysisResult[] = [];
     const newFailed: Array<{sym: string; err: string}> = [];
     const CONCURRENCY = 12;
     const queue = [...scanSymbols];
@@ -1773,7 +1770,6 @@ function HomePageInner() {
 
     function flushResults() {
       setResults([...newResults]);
-      if (scanAll) setMultiResults([...newMultiResults]);
     }
 
     function scheduleFlush() {
@@ -1813,7 +1809,6 @@ function HomePageInner() {
         let result: AnalysisResult;
         if (scanAll) {
           const multi = analyzeStockMulti(candles, resolvedSymbol);
-          newMultiResults.push(multi);
           result = multi.best;
         } else if (lookback > 1) {
           result = analyzeStockWithLookback(candles, paramSetKey, lookback);
