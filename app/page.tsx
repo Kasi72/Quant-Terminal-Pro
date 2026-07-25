@@ -5695,16 +5695,20 @@ function HomePageInner() {
                           <thead className="sticky top-0 z-10">
                             <tr className="bg-[#0a0f16] text-[10px] uppercase tracking-wider">
                               <th className="px-3 py-2 text-center font-medium border-b border-slate-800 text-slate-600">Day</th>
-                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800 text-slate-500">Date</th>
+                              <th className="px-3 py-2 text-left   font-medium border-b border-slate-800 text-slate-500">Date</th>
+                              {/* Reference anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-600">Entry ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">Stop ₹</th>
+                              {/* CMP + % change — placed immediately after anchors */}
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-400">CMP ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-500">% Entry</th>
+                              {/* Daily range */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">High</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">Low</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">Close</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">vs Entry</th>
+                              {/* Cumulative excursions */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-700">MFE%</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-800">MAE%</th>
-                              <th className="px-3 py-2 text-left font-medium border-b border-slate-800 text-slate-500">Event</th>
+                              <th className="px-3 py-2 text-left  font-medium border-b border-slate-800 text-slate-500">Event</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5716,14 +5720,25 @@ function HomePageInner() {
                                 <tr key={row.date} className={eventRowCls(row.event_type)}>
                                   <td className="px-3 py-1.5 text-center text-slate-600 font-mono text-[11px]">{row.day_num}</td>
                                   <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums text-[11px]">{row.date}</td>
-                                  {/* Entry — static reference col, sky tinted */}
+
+                                  {/* Entry — static reference, sky */}
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-sky-500/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.entryPrice) : '—'}
                                   </td>
-                                  {/* Stop — static reference col, red tinted */}
+                                  {/* Stop — static reference, red */}
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-600/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.stopLoss) : '—'}
                                   </td>
+
+                                  {/* CMP = day's closing price, violet + color by position vs entry */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${closeCls(row.close)}`}>
+                                    {fmt(row.close)}
+                                  </td>
+                                  {/* % Entry = (CMP − entry) / entry — intensity gradient */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${vsEntry != null ? vsEntryCls(vsEntry) : 'text-slate-500'}`}>
+                                    {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
+                                  </td>
+
                                   {/* High — green gradient + target chip */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${highCls(row.high)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
@@ -5736,14 +5751,7 @@ function HomePageInner() {
                                       {fmt(row.low)}{lowTag(row.low)}
                                     </span>
                                   </td>
-                                  {/* Close — color encodes position vs entry */}
-                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${closeCls(row.close)}`}>
-                                    {fmt(row.close)}
-                                  </td>
-                                  {/* vs Entry% — intensity gradient */}
-                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${vsEntry != null ? vsEntryCls(vsEntry) : 'text-slate-500'}`}>
-                                    {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
-                                  </td>
+
                                   {/* MFE — green intensity */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${mfeCls(row.mfe_pct)}`}>
                                     +{fmt(row.mfe_pct, 2)}%
@@ -5752,6 +5760,7 @@ function HomePageInner() {
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${maeCls(row.mae_pct)}`}>
                                     -{fmt(row.mae_pct, 2)}%
                                   </td>
+
                                   <td className="px-3 py-1.5 text-left">
                                     <div className="flex items-center gap-1.5">
                                       {eventLabel(row.event_type)}
