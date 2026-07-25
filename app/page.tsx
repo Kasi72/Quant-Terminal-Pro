@@ -1515,6 +1515,8 @@ function HomePageInner() {
   const [logRows, setLogRows] = useState<DailyLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
   const [logShareCopied, setLogShareCopied] = useState(false);
+  const [cmpData, setCmpData] = useState<{ price: number; dayChangePct: number; marketState: string } | null>(null);
+  const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
   const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
@@ -5437,7 +5439,24 @@ function HomePageInner() {
             } catch { setLogRows([]); }
             finally { setLogLoading(false); }
           };
-          const selectTrade = (sym: string) => { setLogSymbol(sym); fetchLog(sym); };
+
+          const fetchCMP = async (sym: string) => {
+            setCmpData(null);
+            setCmpLoading(true);
+            try {
+              const r = await fetch(`/api/cmp?symbol=${encodeURIComponent(sym)}`);
+              const d = await r.json();
+              if (d.price) setCmpData({ price: d.price, dayChangePct: d.dayChangePct, marketState: d.marketState });
+            } catch { /* silent */ }
+            finally { setCmpLoading(false); }
+          };
+
+          const selectTrade = (sym: string) => {
+            setLogSymbol(sym);
+            setCmpData(null);
+            fetchLog(sym);
+            fetchCMP(sym);
+          };
 
           const selectedTrade = trackedTrades.find(t => t.symbol === logSymbol);
           const statusChip = (st: string) => {
@@ -5648,20 +5667,27 @@ function HomePageInner() {
                         {statusChip(selectedTrade.status)}
                         <span className="text-xs text-slate-500">Entry <span className="text-slate-300">₹{fmt(selectedTrade.entryPrice)}</span> on {selectedTrade.entryDate?.slice(0, 10)}</span>
                         <span className="text-xs text-slate-500">SL <span className="text-red-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
-                        {/* CMP — sourced from last logRow.close (Yahoo Finance, accurate) */}
-                        {(() => {
-                          const lastRow = logRows[logRows.length - 1];
-                          if (logLoading || !lastRow) return null;
-                          const cmp = lastRow.close;
-                          const cmpPct = (cmp - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+                        {/* CMP — live from Yahoo Finance via /api/cmp */}
+                        {cmpLoading && (
+                          <span className="text-xs text-slate-600 animate-pulse">CMP…</span>
+                        )}
+                        {!cmpLoading && cmpData && (() => {
+                          const entryPct = (cmpData.price - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+                          const marketDot = cmpData.marketState === 'REGULAR' ? '🟢' : cmpData.marketState === 'PRE' ? '🌅' : '🔵';
                           return (
                             <>
                               <span className="text-xs text-slate-500">
-                                CMP <span className="text-violet-300 font-semibold">₹{fmt(cmp)}</span>
+                                {marketDot} CMP{' '}
+                                <span className="text-violet-300 font-semibold">₹{fmt(cmpData.price)}</span>
                               </span>
-                              <span className={`text-xs font-bold ${vsEntryCls(cmpPct)}`}>
-                                {cmpPct >= 0 ? '+' : ''}{fmt(cmpPct, 2)}%
+                              <span className={`text-xs font-bold ${vsEntryCls(entryPct)}`}>
+                                {entryPct >= 0 ? '+' : ''}{fmt(entryPct, 2)}% <span className="text-slate-600 font-normal">(vs entry)</span>
                               </span>
+                              {Math.abs(cmpData.dayChangePct) > 0.01 && (
+                                <span className={`text-[10px] ${cmpData.dayChangePct >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                  day {cmpData.dayChangePct >= 0 ? '+' : ''}{fmt(cmpData.dayChangePct, 2)}%
+                                </span>
+                              )}
                             </>
                           );
                         })()}
