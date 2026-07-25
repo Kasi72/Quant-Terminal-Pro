@@ -5648,21 +5648,23 @@ function HomePageInner() {
                         {statusChip(selectedTrade.status)}
                         <span className="text-xs text-slate-500">Entry <span className="text-slate-300">₹{fmt(selectedTrade.entryPrice)}</span> on {selectedTrade.entryDate?.slice(0, 10)}</span>
                         <span className="text-xs text-slate-500">SL <span className="text-red-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
-                        {/* CMP + % since entry — always visible in header */}
-                        {selectedTrade.currentPrice != null && (() => {
-                          const cmpPct = (selectedTrade.currentPrice! - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+                        {/* CMP — sourced from last logRow.close (Yahoo Finance, accurate) */}
+                        {(() => {
+                          const lastRow = logRows[logRows.length - 1];
+                          if (logLoading || !lastRow) return null;
+                          const cmp = lastRow.close;
+                          const cmpPct = (cmp - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
                           return (
                             <>
-                              <span className="text-xs text-slate-500">CMP <span className="text-violet-300 font-semibold">₹{fmt(selectedTrade.currentPrice!)}</span></span>
-                              <span className={`text-xs font-bold ${vsEntryCls(cmpPct)}`}>{cmpPct >= 0 ? '+' : ''}{fmt(cmpPct, 2)}%</span>
+                              <span className="text-xs text-slate-500">
+                                CMP <span className="text-violet-300 font-semibold">₹{fmt(cmp)}</span>
+                              </span>
+                              <span className={`text-xs font-bold ${vsEntryCls(cmpPct)}`}>
+                                {cmpPct >= 0 ? '+' : ''}{fmt(cmpPct, 2)}%
+                              </span>
                             </>
                           );
                         })()}
-                        {selectedTrade.currentPrice == null && selectedTrade.pnlPct != null && (
-                          <span className={`text-xs font-bold ${vsEntryCls(selectedTrade.pnlPct)}`}>
-                            {selectedTrade.pnlPct >= 0 ? '+' : ''}{fmt(selectedTrade.pnlPct, 2)}% exit
-                          </span>
-                        )}
                         <span className="text-xs text-slate-500">T1 <span className="text-emerald-400">₹{fmt(selectedTrade.target1)}</span></span>
                         <span className="text-xs text-slate-500">T2 <span className="text-emerald-300">₹{fmt(selectedTrade.target2)}</span></span>
                         <span className="text-xs text-slate-500">T3 <span className="text-green-300">₹{fmt(selectedTrade.target3)}</span></span>
