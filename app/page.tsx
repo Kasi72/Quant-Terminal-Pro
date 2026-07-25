@@ -5548,6 +5548,23 @@ function HomePageInner() {
               return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>;
             return null;
           };
+          const targetGap = (close: number): { label: string; gap: number | null; cls: string } | null => {
+            if (!selectedTrade) return null;
+            const { target1, target2, target3 } = selectedTrade;
+            if (close < target1) {
+              const gap = (target1 - close) / close * 100;
+              return { label: 'T1', gap, cls: gap < 2 ? 'text-amber-300 font-bold' : gap < 5 ? 'text-amber-500' : 'text-slate-500' };
+            }
+            if (target2 != null && close < target2) {
+              const gap = (target2 - close) / close * 100;
+              return { label: 'T2', gap, cls: gap < 2 ? 'text-emerald-300 font-bold' : gap < 5 ? 'text-emerald-500' : 'text-slate-400' };
+            }
+            if (target3 != null && close < target3) {
+              const gap = (target3 - close) / close * 100;
+              return { label: 'T3', gap, cls: gap < 2 ? 'text-green-300 font-bold' : gap < 5 ? 'text-green-500' : 'text-slate-400' };
+            }
+            return { label: 'T3', gap: null, cls: 'text-emerald-400 font-bold' };
+          };
 
           const sortedTrades = [...trackedTrades].sort((a, b) => {
             const order = (s: string) => s === 'open' ? 0 : 1;
@@ -5745,6 +5762,7 @@ function HomePageInner() {
                               {/* CMP + % change — placed immediately after anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-400">CMP ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-500">% Entry</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-amber-600">→ Target</th>
                               {/* Daily range */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">High</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-slate-500">Low</th>
@@ -5780,6 +5798,16 @@ function HomePageInner() {
                                   {/* % Entry = (CMP − entry) / entry — intensity gradient */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums font-semibold ${vsEntry != null ? vsEntryCls(vsEntry) : 'text-slate-500'}`}>
                                     {vsEntry != null ? `${vsEntry > 0 ? '+' : ''}${fmt(vsEntry, 2)}%` : '—'}
+                                  </td>
+
+                                  {/* % to next uncleared target */}
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[11px]">
+                                    {(() => {
+                                      const tg = targetGap(row.close);
+                                      if (!tg) return <span className="text-slate-600">—</span>;
+                                      if (tg.gap === null) return <span className="text-emerald-400 font-bold">T3 ✓</span>;
+                                      return <span className={tg.cls}>{tg.label} –{fmt(tg.gap, 1)}%</span>;
+                                    })()}
                                   </td>
 
                                   {/* High — green gradient + target chip */}
