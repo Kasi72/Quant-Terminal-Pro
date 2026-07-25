@@ -1763,6 +1763,8 @@ function analyzeORS(candles) {
     const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c);
     const sw5LowORS = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const pe = archetypePriceEngine(entryPrice, a14, sw5LowORS, 'ORS');
+    const btTechORS = archetypeTech(candles, endIdx);
+    pe.breakoutTier = computeBreakoutTier(candles, endIdx, btTechORS, null);
     const target4pct = pe.target5; // T1 ≈ 4–6% for typical stock
     const rrRatio = pe.rewardRisk;
     // Stage — backtest-anchored: the OOS win rate for ULTRA was measured ONLY on
@@ -2061,6 +2063,36 @@ function archetypeTech(candles, endIdx) {
         atrPct14: close > 0 ? atr14 / close * 100 : 0,
     };
 }
+// Path 2 multi-factor VCP tier classifier
+// GA-optimal geometry (near52w=10, tight=15) + 4 secondary quality gates.
+// All 6 archetypes call this after archetypePriceEngine so breakoutTier is live.
+function computeBreakoutTier(candles, endIdx, tech, zoneTightPct // pass null when archetype has no zone data
+) {
+    const N_BT = Math.min(303, endIdx);
+    let hh = 0;
+    for (let i = endIdx - N_BT; i < endIdx; i++) {
+        if (candles[i].h > hh)
+            hh = candles[i].h;
+    }
+    const price = candles[endIdx]?.c ?? 0;
+    const pctFrom52W = hh > 0 && price > 0 ? Math.max(0, (hh - price) / price * 100) : 100;
+    if (pctFrom52W > 25)
+        return 'B';
+    const zoneOk = zoneTightPct === null || zoneTightPct <= 15;
+    if (pctFrom52W <= 10 && zoneOk) {
+        const emaOk = tech.ema20Vs50 > 0;
+        const rsiOk = tech.rsi14 > 50;
+        const cmfOk = tech.cmf20 > 0;
+        const rVol = endIdx >= 3
+            ? (candles[endIdx - 1].v + candles[endIdx - 2].v + candles[endIdx - 3].v) / 3 : 0;
+        const pVol = endIdx >= 6
+            ? (candles[endIdx - 4].v + candles[endIdx - 5].v + candles[endIdx - 6].v) / 3
+            : rVol + 1;
+        if (emaOk && rsiOk && cmfOk && rVol < pVol)
+            return 'A+';
+    }
+    return 'A';
+}
 function archetypeBase(candles, key) {
     const n = candles.length;
     const sig = n > 0 ? candles[n - 1] : { c: 0, h: 0, l: 0, o: 0, v: 0, ts: 0 };
@@ -2265,6 +2297,7 @@ function analyzeVolumeFootprint(candles) {
     const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
     const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'VF');
+    pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
     const candleDNA = detectCandleDNA(candles, endIdx, atr14);
     const checklist = [
         { label: 'Volume ≥ 5.5× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
@@ -2424,6 +2457,7 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
     const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
     const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'CC');
+    pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
     const closeLoc = ca.closeLoc;
     const bodyPct = ca.bodyPct;
     const upperWickPct = ca.upperWickPct;
@@ -2558,6 +2592,7 @@ function analyzeMomentumPocket(candles, skipPrecisionGate = false) {
     const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
     const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'MP');
+    pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
     const candleDNA = detectCandleDNA(candles, endIdx, atr14);
     const checklist = [
         { label: '10-80% below 52W high (washout zone)', pass: c1, value: `${dd52W.toFixed(1)}% drawdown` },
@@ -2700,6 +2735,7 @@ function analyzeEMAStack(candles) {
     const exactRangeATR14 = sigRange / (atr14 || 0.0001);
     const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'EMA');
+    pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
     const candleDNA = detectCandleDNA(candles, endIdx, atr14);
     const checklist = [
         { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
@@ -2945,6 +2981,8 @@ function analyzeCircuitBreaker(candles) {
     const entry = sig.o > 0 ? sig.o : sig.c;
     const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
     const priceEngine = archetypePriceEngine(entry, atr14, sw5Low, 'CB');
+    const techCB = archetypeTech(candles, endIdx);
+    priceEngine.breakoutTier = computeBreakoutTier(candles, endIdx, techCB, null);
     const checklist = [
         { label: 'Bullish candle (isBull)', pass: c1, value: isBull ? 'Yes' : 'No' },
         { label: 'DI+ > DI- (diBull)', pass: c2, value: `DI+ ${diPlus.toFixed(1)} / DI- ${diMinus.toFixed(1)}` },
