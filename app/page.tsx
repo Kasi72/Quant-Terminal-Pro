@@ -1509,6 +1509,7 @@ function HomePageInner() {
   const tradesLoadedRef = useRef(false); // prevents save effect from firing before cloud load
   trackedTradesRef.current = trackedTrades;
   const [showTracker, setShowTracker] = useState(false);
+  const [autoTrackCount, setAutoTrackCount] = useState(0);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
   const [marketRegime, setMarketRegime] = useState<RegimeInfo | null>(null);
@@ -2370,6 +2371,58 @@ function HomePageInner() {
       saveSession(newResults, scanAll ? 'ALL4' : paramSetKey, scanSource);
       setSessions(loadSessions());
     }
+
+    // Auto-track: add every BUY/STRONG_BUY/ULTRA_STRONG_BUY that isn't already open
+    if (newResults.length > 0 && tradesLoadedRef.current) {
+      const openSymbols = new Set(trackedTradesRef.current.filter(t => t.status === 'open').map(t => t.symbol));
+      const toAutoTrack = newResults.filter(r =>
+        (r.stage === 'BUY' || r.stage === 'STRONG_BUY' || r.stage === 'ULTRA_STRONG_BUY') &&
+        !openSymbols.has(r.symbol) &&
+        r.priceEngine.tradeValid
+      );
+      if (toAutoTrack.length > 0) {
+        const newTrades: TrackedTrade[] = toAutoTrack.map(r => {
+          const atrInfo = detectATRState(r);
+          const zeInfo = detectZoneExplosion(r);
+          const monsterBadgeType = r.monster?.badges?.[0]?.type;
+          const rsEntry = localRsMap.get(r.symbol);
+          const tfEntry = localTfMap.get(r.symbol);
+          return {
+            symbol: r.symbol, stage: r.stage,
+            entryPrice: r.priceEngine.plannedEntry,
+            entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10),
+            stopLoss: r.priceEngine.tacticalStop < r.priceEngine.plannedEntry ? r.priceEngine.tacticalStop : 0,
+            target1: r.priceEngine.target5,
+            target2: r.priceEngine.target7,
+            target3: r.priceEngine.target10,
+            disasterStop: r.priceEngine.disasterStop,
+            paramSetKey: r.paramSetKey,
+            sector: getSectorTag(r.symbol),
+            conviction: computeConviction(r),
+            edgeScore: computeEdgeScore(r),
+            status: 'open' as const,
+            candlePattern: r.stats?.candlePattern || undefined,
+            atrState: atrInfo.explosion ? 'EXPLOSION' : (atrInfo.state || undefined),
+            tfAlignment: tfEntry?.alignment || undefined,
+            rsRank: rsEntry?.rsRank,
+            volumeBadge: detectVolumeBadge(r) || undefined,
+            zoneExplosion: zeInfo || undefined,
+            monsterBadge: monsterBadgeType || undefined,
+            regimeAtEntry: marketRegime?.label || undefined,
+            sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
+            atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
+            breakoutTier: r.priceEngine.breakoutTier ?? 'B',
+          };
+        });
+        setTrackedTrades(prev => {
+          const autoSyms = new Set(newTrades.map(t => t.symbol));
+          return [...prev.filter(t => !autoSyms.has(t.symbol) || t.status !== 'open'), ...newTrades];
+        });
+        setAutoTrackCount(toAutoTrack.length);
+        setTimeout(() => setAutoTrackCount(0), 4000);
+      }
+    }
+
     } catch (err) {
       console.error('Scan error:', err);
     } finally {
@@ -2529,6 +2582,7 @@ function HomePageInner() {
       regimeAtEntry: marketRegime?.label || undefined,
       sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
       atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
+      breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
   }
@@ -3300,6 +3354,14 @@ function HomePageInner() {
             <button onClick={() => { setShowPasteBox(false); setPasteText(''); }}
               className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* ── AUTO-TRACK TOAST ── */}
+      {autoTrackCount > 0 && (
+        <div className="flex-shrink-0 border-b border-emerald-700 bg-emerald-950/70 px-4 py-2 flex items-center gap-2">
+          <span className="text-emerald-400 font-bold text-sm">📌 Auto-tracked {autoTrackCount} new signal{autoTrackCount > 1 ? 's' : ''}</span>
+          <span className="text-emerald-600 text-xs">→ open in Tracker to review</span>
         </div>
       )}
 

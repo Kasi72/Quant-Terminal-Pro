@@ -112,6 +112,7 @@ export interface TrackedTrade {
   monsterBadge?: string;    // monster badge type at entry (MRV/MOM/BRK)
   sw5LowAtEntry?: number;   // 5-bar swing low at entry — used by G9 Structure Intact gate
   atr14AtEntry?: number;    // ATR-14 at signal bar — Chandelier trail fallback when post-entry bars < 14
+  breakoutTier?: 'A+' | 'A' | 'B';  // GA-calibrated VCP tier at entry time
   // P0: feature snapshot at entry — feeds Brain v3's Pattern Scorecard,
   // Golden/Weak Setups, Regime Scorecard, and ATR/pattern anomaly checks.
   // Without these, those panels silently have nothing to match against.
