@@ -1516,6 +1516,9 @@ function HomePageInner() {
   const [logLoading, setLogLoading] = useState(false);
   const [logShareCopied, setLogShareCopied] = useState(false);
   const [cmpData, setCmpData] = useState<{ price: number; dayChangePct: number; marketState: string } | null>(null);
+  const [logSearch, setLogSearch] = useState('');
+  const [logFilter, setLogFilter] = useState<'all' | 'open' | 'hit' | 'stopped'>('all');
+  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'status'>('date_desc');
   const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
@@ -5559,11 +5562,27 @@ function HomePageInner() {
               })
             : [] as { t1: boolean; t2: boolean; t3: boolean }[];
 
-          const sortedTrades = [...trackedTrades].sort((a, b) => {
-            const order = (s: string) => s === 'open' ? 0 : 1;
-            if (order(a.status) !== order(b.status)) return order(a.status) - order(b.status);
-            return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
-          });
+          const filteredSortedTrades = [...trackedTrades]
+            .filter(t => {
+              if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
+              if (logFilter === 'open') return t.status === 'open';
+              if (logFilter === 'hit') return ['hit_t1', 'hit_t2', 'hit_t3'].includes(t.status);
+              if (logFilter === 'stopped') return ['stopped', 'expired', 'manual_close', 'closed_early'].includes(t.status);
+              return true;
+            })
+            .sort((a, b) => {
+              if (logSort === 'date_asc') return (a.entryDate ?? '').localeCompare(b.entryDate ?? '');
+              if (logSort === 'pnl') {
+                const aP = a.pnlPct ?? (a.currentPrice && a.entryPrice ? (a.currentPrice - a.entryPrice) / a.entryPrice * 100 : -999);
+                const bP = b.pnlPct ?? (b.currentPrice && b.entryPrice ? (b.currentPrice - b.entryPrice) / b.entryPrice * 100 : -999);
+                return bP - aP;
+              }
+              if (logSort === 'status') {
+                const ord = (s: string) => s === 'open' ? 0 : ['hit_t3','hit_t2','hit_t1'].includes(s) ? 1 : 2;
+                if (ord(a.status) !== ord(b.status)) return ord(a.status) - ord(b.status);
+              }
+              return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
+            });
 
           const statusEmoji = (s: string) => ({ open: '🟡', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', stopped: '🛑', expired: '⏰', manual_close: '✅', closed_early: '✅' }[s] ?? '•');
           const statusLabel = (s: string) => ({ open: 'OPEN', hit_t1: 'T1 HIT', hit_t2: 'T2 HIT', hit_t3: 'T3 HIT', stopped: 'STOPPED', expired: 'EXPIRED', manual_close: 'CLOSED', closed_early: 'CLOSED' }[s] ?? s.toUpperCase());
@@ -5629,42 +5648,96 @@ function HomePageInner() {
           return (
             <div className="flex-1 flex overflow-hidden min-h-0">
               {/* ── Left: master trade list ── */}
-              <div className="w-52 flex-shrink-0 border-r border-slate-800 bg-[#0c1018] overflow-y-auto flex flex-col">
-                <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+              <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-[#0c1018] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
                   <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Tracked</span>
-                  <span className="text-[10px] text-slate-500">{trackedTrades.length} trades</span>
+                  <span className="text-[10px] text-slate-500">{filteredSortedTrades.length}/{trackedTrades.length}</span>
                 </div>
-                {sortedTrades.length === 0 && (
-                  <div className="px-3 py-4 text-[11px] text-slate-600">No trades yet. Run a scan to auto-track BUY signals.</div>
-                )}
-                {sortedTrades.map(t => (
-                  <button key={t.symbol} onClick={() => selectTrade(t.symbol)}
-                    className={`w-full text-left px-3 py-2 flex flex-col gap-0.5 border-b border-slate-800/50 transition-colors
-                      ${logSymbol === t.symbol ? 'bg-sky-900/25 border-l-2 border-l-sky-500' : 'hover:bg-slate-800/40 border-l-2 border-l-transparent'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] font-semibold text-slate-200 tracking-wide">{t.symbol}</span>
-                      {statusChip(t.status)}
+                {/* Search */}
+                <div className="px-2 py-1.5 border-b border-slate-800 flex-shrink-0">
+                  <input
+                    type="text"
+                    value={logSearch}
+                    onChange={e => setLogSearch(e.target.value)}
+                    placeholder="Search symbol…"
+                    className="w-full bg-slate-800/60 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-sky-600"
+                  />
+                </div>
+                {/* Filter chips */}
+                <div className="px-2 py-1 border-b border-slate-800 flex gap-1 flex-shrink-0">
+                  {(['all', 'open', 'hit', 'stopped'] as const).map(f => {
+                    const cnt = f === 'all' ? trackedTrades.length
+                      : f === 'open'    ? trackedTrades.filter(t => t.status === 'open').length
+                      : f === 'hit'     ? trackedTrades.filter(t => ['hit_t1','hit_t2','hit_t3'].includes(t.status)).length
+                      : trackedTrades.filter(t => ['stopped','expired','manual_close','closed_early'].includes(t.status)).length;
+                    return (
+                      <button key={f} onClick={() => setLogFilter(f)}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide transition-colors
+                          ${logFilter === f ? 'bg-sky-800 text-sky-100' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}`}>
+                        {f === 'all' ? `All ${cnt}` : f === 'open' ? `Open ${cnt}` : f === 'hit' ? `Hit ${cnt}` : `Closed ${cnt}`}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Sort */}
+                <div className="px-2 py-1 border-b border-slate-800 flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[9px] text-slate-600 uppercase tracking-wider flex-shrink-0">Sort</span>
+                  <select value={logSort} onChange={e => setLogSort(e.target.value as typeof logSort)}
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-400 focus:outline-none focus:border-sky-600">
+                    <option value="date_desc">Newest first</option>
+                    <option value="date_asc">Oldest first</option>
+                    <option value="pnl">Best P&amp;L</option>
+                    <option value="status">Open → Hit → Closed</option>
+                  </select>
+                </div>
+                {/* Trade list */}
+                <div className="flex-1 overflow-y-auto">
+                  {filteredSortedTrades.length === 0 && (
+                    <div className="px-3 py-4 text-[11px] text-slate-600">
+                      {logSearch ? 'No matches for that symbol.' : 'No trades yet.'}
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500">
-                      <span>{t.entryDate?.slice(5)}</span>
-                      {t.pnlPct != null
-                        ? <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>
-                        : t.currentPrice && t.entryPrice
-                          ? <span className={pctColor((t.currentPrice - t.entryPrice) / t.entryPrice * 100)}>
-                              {((t.currentPrice - t.entryPrice) / t.entryPrice * 100) > 0 ? '+' : ''}
-                              {fmt((t.currentPrice - t.entryPrice) / t.entryPrice * 100, 1)}%
-                            </span>
-                          : <span className="text-slate-600">—</span>
-                      }
+                  )}
+                  {filteredSortedTrades.map(t => (
+                    <div key={t.symbol} className={`group relative border-b border-slate-800/50 border-l-2 transition-colors
+                      ${logSymbol === t.symbol ? 'bg-sky-900/25 border-l-sky-500' : 'border-l-transparent hover:bg-slate-800/40'}`}>
+                      <button onClick={() => selectTrade(t.symbol)}
+                        className="w-full text-left px-3 py-2 flex flex-col gap-0.5 pr-6">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-slate-200 tracking-wide truncate">
+                            {t.symbol.replace('.NS', '')}
+                          </span>
+                          {statusChip(t.status)}
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>{t.entryDate?.slice(5)}</span>
+                          {t.pnlPct != null
+                            ? <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>
+                            : t.currentPrice && t.entryPrice
+                              ? <span className={pctColor((t.currentPrice - t.entryPrice) / t.entryPrice * 100)}>
+                                  {((t.currentPrice - t.entryPrice) / t.entryPrice * 100) > 0 ? '+' : ''}
+                                  {fmt((t.currentPrice - t.entryPrice) / t.entryPrice * 100, 1)}%
+                                </span>
+                              : <span className="text-slate-600">—</span>
+                          }
+                        </div>
+                        {t.status === 'open' && (t.mfe != null || t.mae != null) && (
+                          <div className="flex gap-2 text-[9px]">
+                            {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
+                            {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
+                          </div>
+                        )}
+                      </button>
+                      {/* Delete button — appears on hover */}
+                      <button
+                        onClick={e => { e.stopPropagation(); if (window.confirm(`Remove ${t.symbol} from tracking?`)) { removeTrade(t); if (logSymbol === t.symbol) setLogSymbol(null); } }}
+                        title="Remove from tracking"
+                        className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 text-[15px] leading-none transition-opacity px-0.5">
+                        ×
+                      </button>
                     </div>
-                    {t.status === 'open' && (t.mfe != null || t.mae != null) && (
-                      <div className="flex gap-2 text-[9px] text-slate-600">
-                        {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
-                        {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
-                      </div>
-                    )}
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {/* ── Right: daily log table ── */}
