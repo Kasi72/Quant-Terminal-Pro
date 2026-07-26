@@ -5973,12 +5973,12 @@ function HomePageInner() {
             {/* ═══════════════════════════════════════════ */}
             {(() => {
               const all = trackedTrades;
-              const open = all.filter(t => t.status === 'open');
-              const closed = all.filter(t => t.status !== 'open');
+              const open = all.filter(t => ['open', 'hit_t1', 'hit_t2'].includes(t.status));
+              const closed = all.filter(t => ['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early'].includes(t.status));
               const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
               const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
-              const hitT1 = closed.filter(t => t.status === 'hit_t1');
-              const hitT2 = closed.filter(t => t.status === 'hit_t2');
+              const hitT1 = open.filter(t => t.status === 'hit_t1');
+              const hitT2 = open.filter(t => t.status === 'hit_t2');
               const hitT3 = closed.filter(t => t.status === 'hit_t3');
               const stopped = closed.filter(t => t.status === 'stopped');
               const expired = closed.filter(t => t.status === 'expired');
@@ -6000,7 +6000,7 @@ function HomePageInner() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} open · {closed.length} closed · Partial exit (50/30/20)</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} active (open/T1/T2) · {closed.length} closed · Partial exit (50/30/20)</div>
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
@@ -6017,7 +6017,7 @@ function HomePageInner() {
                             data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
                             className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
                           <button
-                            disabled={scanning || trackedTrades.filter(t => t.status === 'open').length === 0}
+                            disabled={scanning || trackedTrades.filter(t => ['open','hit_t1','hit_t2'].includes(t.status)).length === 0}
                             onClick={async () => {
                               if (scanningRef.current) return;
                               // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
@@ -6073,7 +6073,7 @@ function HomePageInner() {
                               } catch {} finally { setScanning(false); scanningRef.current = false; }
                             }}
                             className="h-5 px-3 bg-cyan-900/50 hover:bg-cyan-900/70 disabled:opacity-40 border border-cyan-500 rounded text-[9px] font-bold text-cyan-200 transition-colors">
-                            {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open').length})`}
+                            {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => ['open','hit_t1','hit_t2'].includes(t.status)).length})`}
                           </button>
                           <span className="text-[9px] text-slate-600">{trackedTrades.length} tracked</span>
                           <button onClick={() => {
@@ -6296,7 +6296,7 @@ function HomePageInner() {
                         computeRollingStats(trackedTrades, 20, 'Last 20'),
                         computeRollingStats(trackedTrades, 999, 'All Time'),
                       ].filter(s => s.total > 0).map(s => {
-                        const slicedTrades = trackedTrades.filter(tt => tt.status !== 'open').slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
+                        const slicedTrades = trackedTrades.filter(tt => ['hit_t3','stopped','expired','manual_close','closed_early'].includes(tt.status)).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
                         const rt = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0);
                         const sMfeR = rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length > 0 ? rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length : 0;
                         const sLosers = slicedTrades.filter(tt => (tt.pnlPct ?? 0) < 0 && tt.entryPrice - tt.stopLoss > 0);
@@ -6371,8 +6371,9 @@ function HomePageInner() {
                           </tr></thead>
                           <tbody>
                             {[...all].sort((a, b) => {
-                              if (a.status === 'open' && b.status !== 'open') return -1;
-                              if (a.status !== 'open' && b.status === 'open') return 1;
+                              const isActive = (s: string) => ['open','hit_t1','hit_t2'].includes(s);
+                              if (isActive(a.status) && !isActive(b.status)) return -1;
+                              if (!isActive(a.status) && isActive(b.status)) return 1;
                               return 0;
                             }).map((t, i) => {
                               const rps = t.entryPrice - t.stopLoss;
@@ -6381,7 +6382,8 @@ function HomePageInner() {
                               const curPrice = t.closedPrice ?? t.currentPrice ?? 0;
                               const curPnl = curPrice > 0 && t.entryPrice > 0 ? ((curPrice - t.entryPrice) / t.entryPrice) * 100 : (t.pnlPct ?? 0);
                               const curR = rps > 0 && curPrice > 0 ? (curPrice - t.entryPrice) / rps : (t.pnlR ?? 0);
-                              const maePct = t.status !== 'open' && (t.pnlPct ?? 0) < 0 ? (t.pnlPct ?? 0) : (t.status === 'open' && curPnl < 0 ? curPnl : 0);
+                              const isActiveTrade = ['open','hit_t1','hit_t2'].includes(t.status);
+                              const maePct = !isActiveTrade && (t.pnlPct ?? 0) < 0 ? (t.pnlPct ?? 0) : (isActiveTrade && curPnl < 0 ? curPnl : 0);
                               const maeR = rps > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / rps : 0;
                               const daysLeft = 20 - (t.daysHeld ?? 0);
 

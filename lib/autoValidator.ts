@@ -790,7 +790,7 @@ export function computeRollingStats(
   lastN: number,
   label: string,
 ): RollingStats {
-  const closed = trades.filter(t => t.status !== 'open').slice(-lastN);
+  const closed = trades.filter(t => ['hit_t3','stopped','expired','manual_close','closed_early'].includes(t.status)).slice(-lastN);
   const wins   = closed.filter(t => (t.pnlPct ?? 0) > 0);
   const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
   return {
