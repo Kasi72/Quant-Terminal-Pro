@@ -1518,7 +1518,7 @@ function HomePageInner() {
   const [cmpData, setCmpData] = useState<{ price: number; dayChangePct: number; marketState: string } | null>(null);
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'open' | 'hit' | 'stopped'>('all');
-  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'status' | 'stop_dist'>('date_desc');
+  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'loss_desc' | 'status' | 'stop_dist'>('date_desc');
   const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
@@ -5572,10 +5572,9 @@ function HomePageInner() {
             })
             .sort((a, b) => {
               if (logSort === 'date_asc') return (a.entryDate ?? '').localeCompare(b.entryDate ?? '');
-              if (logSort === 'pnl') {
-                const aP = a.pnlPct ?? (a.currentPrice && a.entryPrice ? (a.currentPrice - a.entryPrice) / a.entryPrice * 100 : -999);
-                const bP = b.pnlPct ?? (b.currentPrice && b.entryPrice ? (b.currentPrice - b.entryPrice) / b.entryPrice * 100 : -999);
-                return bP - aP;
+              if (logSort === 'pnl' || logSort === 'loss_desc') {
+                const pct = (t: typeof a) => t.pnlPct ?? (t.currentPrice && t.entryPrice ? (t.currentPrice - t.entryPrice) / t.entryPrice * 100 : -999);
+                return logSort === 'pnl' ? pct(b) - pct(a) : pct(a) - pct(b);
               }
               if (logSort === 'status') {
                 const ord = (s: string) => s === 'open' ? 0 : ['hit_t3','hit_t2','hit_t1'].includes(s) ? 1 : 2;
@@ -5696,7 +5695,8 @@ function HomePageInner() {
                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-400 focus:outline-none focus:border-sky-600">
                     <option value="date_desc">Newest first</option>
                     <option value="date_asc">Oldest first</option>
-                    <option value="pnl">Best P&amp;L</option>
+                    <option value="pnl">Profit % high → low</option>
+                    <option value="loss_desc">Loss % high → low</option>
                     <option value="status">Open → Hit → Closed</option>
                     <option value="stop_dist">Close to stop ↑</option>
                   </select>
