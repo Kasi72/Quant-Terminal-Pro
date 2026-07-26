@@ -5846,6 +5846,10 @@ function HomePageInner() {
                               {/* Reference anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-600">Entry ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">Stop ₹</th>
+                              {/* Target levels */}
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-700">T1 ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-700">T2 ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-green-600">T3 ₹</th>
                               {/* CMP + % change — placed immediately after anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-400">CMP ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-violet-500">% Entry</th>
@@ -5876,6 +5880,19 @@ function HomePageInner() {
                                   {/* Stop — static reference, red */}
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-600/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.stopLoss) : '—'}
+                                  </td>
+
+                                  {/* T1 — dims until HIGH clears it, then lights up */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t1 ? 'text-sky-300 font-semibold' : 'text-sky-900'}`}>
+                                    {selectedTrade?.target1 ? fmt(selectedTrade.target1) : '—'}
+                                  </td>
+                                  {/* T2 */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t2 ? 'text-emerald-300 font-semibold' : 'text-emerald-900'}`}>
+                                    {selectedTrade?.target2 ? fmt(selectedTrade.target2) : '—'}
+                                  </td>
+                                  {/* T3 */}
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t3 ? 'text-green-300 font-semibold' : 'text-green-900'}`}>
+                                    {selectedTrade?.target3 ? fmt(selectedTrade.target3) : '—'}
                                   </td>
 
                                   {/* CMP = day's closing price, violet + color by position vs entry */}
