@@ -5552,6 +5552,30 @@ function HomePageInner() {
               })
             : [] as { t1: boolean; t2: boolean; t3: boolean; slFirst: boolean; slActive: boolean }[];
 
+          // Derive event for each row from rowTargetStatus — no DB dependency
+          const computedEvent = (rowIdx: number): string | null => {
+            if (!selectedTrade || rowIdx >= rowTargetStatus.length) return null;
+            const curr = rowTargetStatus[rowIdx];
+            const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { t1: false, t2: false, t3: false };
+            if (curr.slFirst) return 'stopped';
+            if (curr.t3 && !prev.t3) return 'hit_t3';
+            if (curr.t2 && !prev.t2) return 'hit_t2';
+            if (curr.t1 && !prev.t1) return 'hit_t1';
+            if (rowIdx === rowTargetStatus.length - 1 && selectedTrade.status === 'expired') return 'expired';
+            return null;
+          };
+          const computedEventDetail = (rowIdx: number, ev: string | null): string | null => {
+            if (!selectedTrade || !ev) return null;
+            const fmt2 = (v: number) => v.toFixed(2);
+            const pct = (price: number) => ((price - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100);
+            if (ev === 'stopped')  return `SL ₹${fmt2(selectedTrade.stopLoss)} (${pct(selectedTrade.stopLoss).toFixed(1)}%)`;
+            if (ev === 'hit_t1')   return `T1 ₹${fmt2(selectedTrade.target1)} cleared`;
+            if (ev === 'hit_t2')   return `T2 ₹${fmt2(selectedTrade.target2 ?? 0)} cleared`;
+            if (ev === 'hit_t3')   return `T3 ₹${fmt2(selectedTrade.target3 ?? 0)} — fully closed`;
+            if (ev === 'expired')  return `Day ${rowIdx + 1} — 20-day expiry`;
+            return null;
+          };
+
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
               if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
@@ -5869,7 +5893,7 @@ function HomePageInner() {
                                 ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
                                 : null;
                               return (
-                                <tr key={row.date} className={eventRowCls(row.event_type)}>
+                                <tr key={row.date} className={eventRowCls(computedEvent(rowIdx))}>
                                   <td className="px-3 py-1.5 text-center text-slate-600 font-mono text-[11px]">{row.day_num}</td>
                                   <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums text-[11px]">{row.date}</td>
 
@@ -5958,17 +5982,20 @@ function HomePageInner() {
                                   </td>
 
                                   <td className="px-3 py-1.5 text-left">
-                                    <div className="flex items-center gap-1.5">
-                                      {eventLabel(row.event_type)}
-                                      {row.event_detail && (
-                                        <span className={`text-[11px] font-medium
-                                          ${row.event_type === 'stopped' ? 'text-red-400'
-                                          : row.event_type === 'expired' ? 'text-slate-400'
-                                          : 'text-emerald-400'}`}>
-                                          {row.event_detail}
-                                        </span>
-                                      )}
-                                    </div>
+                                    {(() => {
+                                      const ev = computedEvent(rowIdx);
+                                      const detail = computedEventDetail(rowIdx, ev);
+                                      return (
+                                        <div className="flex items-center gap-1.5">
+                                          {eventLabel(ev)}
+                                          {detail && (
+                                            <span className={`text-[11px] font-medium ${ev === 'stopped' ? 'text-red-400' : ev === 'expired' ? 'text-slate-400' : 'text-emerald-400'}`}>
+                                              {detail}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                 </tr>
                               );
