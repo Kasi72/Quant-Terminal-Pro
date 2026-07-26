@@ -147,7 +147,8 @@ function toRow(t: TrackedTrade) {
 // more accurate than EOD close, matches real-world bracket-order behavior.
 
 function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
-  if (trade.status !== 'open') return trade;
+  // Only process trades that are still being watched (T3/stopped/expired are terminal)
+  if (!['open', 'hit_t1', 'hit_t2'].includes(trade.status)) return trade;
 
   const entryDate = trade.entryDate.slice(0, 10);
   const postEntry = bars.filter(b => b.date > entryDate);
@@ -160,8 +161,6 @@ function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
   let mae = trade.mae ?? 0;
   let highestPrice = trade.highestPrice ?? trade.entryPrice;
 
-  const mfeR = (pct: number) => rps > 0 ? Math.round((pct / 100 * trade.entryPrice / rps) * 100) / 100 : undefined;
-  const maeR = (pct: number) => rps > 0 ? Math.round((pct / 100 * trade.entryPrice / rps) * 100) / 100 : undefined;
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const daysFrom = (date: string) =>
     Math.ceil((new Date(date).getTime() - new Date(entryDate).getTime()) / 86400000);
@@ -172,93 +171,68 @@ function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
     highestPrice,
     mfe: round2(mfe),
     mae: round2(mae),
-    mfeR: mfeR(mfe),
-    maeR: maeR(mae),
+    mfeR: rps > 0 ? Math.round((mfe / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
+    maeR: rps > 0 ? Math.round((mae / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
     daysHeld: daysFrom(bar.date),
     lastCheckDate: bar.date,
   });
 
+  // T1 and T2 are milestones (partial exits), not terminal states.
+  // Tracking continues until T3, stop, or 20-day expiry — whichever comes first.
+  let t1Hit = false, t2Hit = false;
+
+  // Weighted P&L accounting for partial exits already crystallised
+  const calcPnl = (closePrice: number) => {
+    if (t2Hit) return round2(((trade.target1 * 0.5 + trade.target2 * 0.3 + closePrice * 0.2) - trade.entryPrice) / trade.entryPrice * 100);
+    if (t1Hit) return round2(((trade.target1 * 0.5 + closePrice * 0.5) - trade.entryPrice) / trade.entryPrice * 100);
+    return round2(((closePrice - trade.entryPrice) / trade.entryPrice) * 100);
+  };
+  const calcR = (pct: number) => rps > 0 ? round2(pct / 100 * trade.entryPrice / rps) : 0;
+
   for (const bar of postEntry) {
-    // Track MFE / MAE before checking exits
     const barMfe = ((bar.high - trade.entryPrice) / trade.entryPrice) * 100;
     const barMae = ((trade.entryPrice - bar.low) / trade.entryPrice) * 100;
     if (barMfe > mfe) mfe = barMfe;
     if (barMae > mae) mae = barMae;
     if (bar.high > highestPrice) highestPrice = bar.high;
 
-    // Stop check: use stricter of disasterStop and stopLoss
     const stopLevel = (trade.disasterStop > 0 && trade.stopLoss > 0)
       ? Math.max(trade.disasterStop, trade.stopLoss)
       : (trade.stopLoss > 0 ? trade.stopLoss : trade.disasterStop);
 
+    // TERMINAL: stop hit
     if (stopLevel > 0 && bar.low <= stopLevel) {
-      const pnlPct = round2(((stopLevel - trade.entryPrice) / trade.entryPrice) * 100);
-      return {
-        ...baseUpdate(bar),
-        status: 'stopped',
-        closedPrice: stopLevel,
-        closedDate: bar.date,
-        pnlPct,
-        pnlR: rps > 0 ? round2((stopLevel - trade.entryPrice) / rps) : -1,
-      };
+      const pnlPct = calcPnl(stopLevel);
+      return { ...baseUpdate(bar), status: 'stopped', closedPrice: stopLevel, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
     }
 
-    // Target checks — T3 first (highest bar)
+    // TERMINAL: T3 hit
     if (trade.target3 > 0 && bar.high >= trade.target3) {
       const wt = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
       const pnlPct = round2(((wt - trade.entryPrice) / trade.entryPrice) * 100);
-      return {
-        ...baseUpdate(bar),
-        status: 'hit_t3',
-        closedPrice: trade.target3,
-        closedDate: bar.date,
-        pnlPct,
-        pnlR: rps > 0 ? round2((wt - trade.entryPrice) / rps) : 0,
-      };
+      return { ...baseUpdate(bar), status: 'hit_t3', closedPrice: trade.target3, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
     }
-    if (trade.target2 > 0 && bar.high >= trade.target2) {
-      const wt = trade.target1 * 0.5 + trade.target2 * 0.3 + bar.close * 0.2;
-      const pnlPct = round2(((wt - trade.entryPrice) / trade.entryPrice) * 100);
-      return {
-        ...baseUpdate(bar),
-        status: 'hit_t2',
-        closedPrice: trade.target2,
-        closedDate: bar.date,
-        pnlPct,
-        pnlR: rps > 0 ? round2((wt - trade.entryPrice) / rps) : 0,
-      };
-    }
-    if (trade.target1 > 0 && bar.high >= trade.target1) {
-      const wt = trade.target1 * 0.5 + bar.close * 0.5;
-      const pnlPct = round2(((wt - trade.entryPrice) / trade.entryPrice) * 100);
-      return {
-        ...baseUpdate(bar),
-        status: 'hit_t1',
-        closedPrice: trade.target1,
-        closedDate: bar.date,
-        pnlPct,
-        pnlR: rps > 0 ? round2((wt - trade.entryPrice) / rps) : 0,
-      };
-    }
+
+    // MILESTONE: T2 hit — mark and continue scanning for T3
+    if (!t2Hit && trade.target2 > 0 && bar.high >= trade.target2) t2Hit = true;
+
+    // MILESTONE: T1 hit — mark and continue scanning for T2/T3
+    if (!t1Hit && trade.target1 > 0 && bar.high >= trade.target1) t1Hit = true;
   }
 
-  // Still open — apply expiry check and update metrics
   const lastBar = postEntry[postEntry.length - 1];
   const daysHeld = daysFrom(lastBar.date);
 
+  // TERMINAL: 20-day expiry — P&L reflects any partial exits already taken
   if (daysHeld >= 20) {
-    const pnlPct = round2(((lastBar.close - trade.entryPrice) / trade.entryPrice) * 100);
-    return {
-      ...baseUpdate(lastBar),
-      status: 'expired',
-      closedPrice: lastBar.close,
-      closedDate: lastBar.date,
-      pnlPct,
-      pnlR: rps > 0 ? round2((lastBar.close - trade.entryPrice) / rps) : 0,
-    };
+    const pnlPct = calcPnl(lastBar.close);
+    return { ...baseUpdate(lastBar), status: 'expired', closedPrice: lastBar.close, closedDate: lastBar.date, pnlPct, pnlR: calcR(pnlPct) };
   }
 
-  return { ...baseUpdate(lastBar), status: 'open' };
+  // Still within 20 days — return current milestone, no closedDate (still tracking)
+  const status: TrackedTrade['status'] = t2Hit ? 'hit_t2' : t1Hit ? 'hit_t1' : 'open';
+  const pnlPct = calcPnl(lastBar.close);
+  return { ...baseUpdate(lastBar), status, closedPrice: undefined, closedDate: undefined, pnlPct, pnlR: calcR(pnlPct) };
 }
 
 // ── Daily log helpers ─────────────────────────────────────────────────────────
@@ -288,12 +262,12 @@ export async function GET(req: NextRequest) {
 
   const db = getServiceClient();
 
-  // Load all open trades
+  // Load all trades still being watched (open + partial-target milestones)
   const { data: rows, error: loadErr } = await db
     .from('tracked_trades')
     .select('*')
     .eq('user_id', USER_ID)
-    .eq('status', 'open');
+    .in('status', ['open', 'hit_t1', 'hit_t2']);
 
   if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
 
