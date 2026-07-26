@@ -1518,7 +1518,7 @@ function HomePageInner() {
   const [cmpData, setCmpData] = useState<{ price: number; dayChangePct: number; marketState: string } | null>(null);
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'open' | 'hit' | 'stopped'>('all');
-  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'status'>('date_desc');
+  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'status' | 'stop_dist'>('date_desc');
   const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
@@ -5581,6 +5581,15 @@ function HomePageInner() {
                 const ord = (s: string) => s === 'open' ? 0 : ['hit_t3','hit_t2','hit_t1'].includes(s) ? 1 : 2;
                 if (ord(a.status) !== ord(b.status)) return ord(a.status) - ord(b.status);
               }
+              if (logSort === 'stop_dist') {
+                const dist = (t: typeof a) => {
+                  const cmp = t.currentPrice;
+                  const sl  = t.stopLoss;
+                  if (!cmp || !sl || sl <= 0) return 9999;
+                  return (cmp - sl) / cmp * 100;
+                };
+                return dist(a) - dist(b);
+              }
               return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
             });
 
@@ -5689,6 +5698,7 @@ function HomePageInner() {
                     <option value="date_asc">Oldest first</option>
                     <option value="pnl">Best P&amp;L</option>
                     <option value="status">Open → Hit → Closed</option>
+                    <option value="stop_dist">Close to stop ↑</option>
                   </select>
                 </div>
                 {/* Trade list */}
@@ -5721,12 +5731,24 @@ function HomePageInner() {
                               : <span className="text-slate-600">—</span>
                           }
                         </div>
-                        {t.status === 'open' && (t.mfe != null || t.mae != null) && (
-                          <div className="flex gap-2 text-[9px]">
-                            {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
-                            {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
-                          </div>
-                        )}
+                        {logSort === 'stop_dist' && t.currentPrice && t.stopLoss && t.stopLoss > 0
+                          ? (() => {
+                              const gap = (t.currentPrice - t.stopLoss) / t.currentPrice * 100;
+                              const cls = gap < 3 ? 'text-red-400 font-bold' : gap < 6 ? 'text-amber-400' : 'text-slate-500';
+                              return (
+                                <div className="flex items-center justify-between text-[9px]">
+                                  <span className="text-slate-600">SL {fmt(t.stopLoss, 1)}</span>
+                                  <span className={cls}>{fmt(gap, 1)}% to stop</span>
+                                </div>
+                              );
+                            })()
+                          : t.status === 'open' && (t.mfe != null || t.mae != null) && (
+                              <div className="flex gap-2 text-[9px]">
+                                {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
+                                {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
+                              </div>
+                            )
+                        }
                       </button>
                       {/* Delete button — appears on hover */}
                       <button
