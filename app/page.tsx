@@ -5576,6 +5576,15 @@ function HomePageInner() {
             return null;
           };
 
+          // Cut the table at the terminal event row — no data shown after T3/stop/expiry
+          const terminalRowIdx = (() => {
+            for (let i = 0; i < rowTargetStatus.length; i++) {
+              const ev = computedEvent(i);
+              if (ev === 'stopped' || ev === 'hit_t3' || ev === 'expired') return i;
+            }
+            return rowTargetStatus.length - 1;
+          })();
+
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
               if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
@@ -5888,7 +5897,7 @@ function HomePageInner() {
                             </tr>
                           </thead>
                           <tbody>
-                            {logRows.map((row, rowIdx) => {
+                            {logRows.slice(0, terminalRowIdx + 1).map((row, rowIdx) => {
                               const vsEntry = selectedTrade
                                 ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
                                 : null;
