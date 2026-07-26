@@ -5535,32 +5535,22 @@ function HomePageInner() {
             if (v >= 1) return 'text-red-600';
             return 'text-slate-500';
           };
-          const highTag = (h: number) => {
-            if (!selectedTrade) return null;
-            if (selectedTrade.target3 != null && h >= selectedTrade.target3)
-              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-900/60 text-green-300 border border-green-700">T3✓</span>;
-            if (selectedTrade.target2 != null && h >= selectedTrade.target2)
-              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700">T2✓</span>;
-            if (h >= selectedTrade.target1)
-              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-sky-900/60 text-sky-300 border border-sky-700">T1✓</span>;
-            return null;
-          };
-          const lowTag = (l: number) => {
-            if (!selectedTrade) return null;
-            if (l <= selectedTrade.stopLoss)
-              return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>;
-            return null;
-          };
-          // One-pass: a target is cleared the day its HIGH crosses it (close may still be below)
-          let _rc1 = false, _rc2 = false, _rc3 = false;
+          // One-pass: stop fires first (same priority as processTrade). SL✗ badge only on first hit bar.
+          // Targets accumulate only while stop hasn't fired. High badges suppressed after stop fires.
+          let _rc1 = false, _rc2 = false, _rc3 = false, _slHit = false;
           const rowTargetStatus = selectedTrade
             ? logRows.map(r => {
-                if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
-                if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
-                if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
-                return { t1: _rc1, t2: _rc2, t3: _rc3 };
+                const sl = selectedTrade.stopLoss ?? 0;
+                const slFirst = !_slHit && sl > 0 && r.low <= sl;
+                if (slFirst) _slHit = true;
+                if (!_slHit) {
+                  if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
+                  if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
+                  if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
+                }
+                return { t1: _rc1, t2: _rc2, t3: _rc3, slFirst, slActive: _slHit };
               })
-            : [] as { t1: boolean; t2: boolean; t3: boolean }[];
+            : [] as { t1: boolean; t2: boolean; t3: boolean; slFirst: boolean; slActive: boolean }[];
 
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
@@ -5916,16 +5906,28 @@ function HomePageInner() {
                                     })()}
                                   </td>
 
-                                  {/* High — green gradient + target chip */}
+                                  {/* High — green gradient + target chip (suppressed after stop fires) */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${highCls(row.high)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
-                                      {fmt(row.high)}{highTag(row.high)}
+                                      {fmt(row.high)}
+                                      {selectedTrade && rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].slActive && (() => {
+                                        const h = row.high;
+                                        if (selectedTrade.target3 != null && h >= selectedTrade.target3)
+                                          return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-900/60 text-green-300 border border-green-700">T3✓</span>;
+                                        if (selectedTrade.target2 != null && h >= selectedTrade.target2)
+                                          return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700">T2✓</span>;
+                                        if (h >= selectedTrade.target1)
+                                          return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-sky-900/60 text-sky-300 border border-sky-700">T1✓</span>;
+                                        return null;
+                                      })()}
                                     </span>
                                   </td>
-                                  {/* Low — amber/red gradient + stop breach chip */}
+                                  {/* Low — amber/red gradient + stop breach chip (first hit only) */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${lowCls(row.low)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
-                                      {fmt(row.low)}{lowTag(row.low)}
+                                      {fmt(row.low)}
+                                      {rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].slFirst &&
+                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>}
                                     </span>
                                   </td>
 
