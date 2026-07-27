@@ -5110,50 +5110,65 @@ function HomePageInner() {
                             if (!res || !['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(res.stage)) continue;
                             const pe = res.priceEngine;
                             if (!pe?.tradeValid || pe.tacticalStop <= 0 || pe.target5 <= pe.plannedEntry) continue;
-                            const entry = pe.plannedEntry;
+                            const eBar = bars[i + 1];
+                            if (!eBar) { i++; advanced = true; break; }
+                            const plannedEntry = pe.plannedEntry;
                             const stop  = pe.tacticalStop;
                             const t1 = pe.target5, t2 = pe.target7, t3 = pe.target10;
+                            let entryFillType: BacktestTrade['entryFillType'] = 'trigger';
+                            let entry = plannedEntry * 1.0005;
+                            const gapThroughPct = plannedEntry > 0 ? (eBar.o - plannedEntry) / plannedEntry * 100 : 0;
+                            if (eBar.o > plannedEntry) {
+                              // Conservative buy-stop model: gap-through fills at open, but skip excessive chase gaps.
+                              if (gapThroughPct > 2.5) { i++; advanced = true; break; }
+                              entry = eBar.o * 1.0005;
+                              entryFillType = 'gap_open';
+                            } else if (eBar.h < plannedEntry) {
+                              // Signal did not trigger on the next session.
+                              i++; advanced = true; break;
+                            }
+                            if (entry <= stop || entry >= t1) { i++; advanced = true; break; }
                             const maxHold = Math.min(pe.maxHoldBars ?? 20, bars.length - i - 2);
                             const riskPct = Math.max((entry - stop) / entry * 100, 0.1);
                             const { w1: W1, w2: W2, w3: W3 } = ARCH_EXIT[key] ?? { w1:0.50, w2:0.30, w3:0.20 };
-                            let phase = 1, wLeft = 1.0, wPL = 0, t1Hit = false;
-                            let mfe = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
-                            const eBar = bars[i + 1];
-                            if (!eBar) { i++; advanced = true; break; }
-                            if (eBar.o < stop) {
-                              wPL = (eBar.o - entry) / entry * 100; exitI = i + 1; exitType = 'stopped';
-                            } else {
-                              for (let j = i + 1; j <= i + maxHold && j < bars.length; j++) {
-                                const b = bars[j]; exitI = j;
-                                const hiD = (b.h - entry) / entry * 100; if (hiD > mfe) mfe = hiD;
-                                if (phase === 1) {
-                                  if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                  if (b.h >= t1)   { wPL += W1 * (t1 - entry) / entry * 100; wLeft -= W1; t1Hit = true; phase = 2; }
-                                }
-                                if (phase === 2) {
-                                  if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                  if (b.h >= t2)   { wPL += W2 * (t2 - entry) / entry * 100; wLeft -= W2; phase = 3; }
-                                }
-                                if (phase === 3) {
-                                  if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                  if (b.h >= t3)   { wPL += W3 * (t3 - entry) / entry * 100; wLeft = 0; exitType = 'target'; break; }
-                                }
-                                if (j === i + maxHold && wLeft > 0) {
-                                  wPL += wLeft * (b.c - entry) / entry * 100;
-                                  exitType = t1Hit ? 'target' : wPL > 0 ? 'target' : 'stopped';
-                                }
+                            let phase = 1, wLeft = 1.0, wPL = 0;
+                            let mfe = 0, mae = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
+                            for (let j = i + 1; j <= i + maxHold && j < bars.length; j++) {
+                              const b = bars[j]; exitI = j;
+                              const hiD = (b.h - entry) / entry * 100; if (hiD > mfe) mfe = hiD;
+                              const lowD = (entry - b.l) / entry * 100; if (lowD > mae) mae = lowD;
+                              if (phase === 1) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t1)   { wPL += Math.min(W1, wLeft) * (t1 - entry) / entry * 100; wLeft -= Math.min(W1, wLeft); phase = 2; }
+                              }
+                              if (phase === 2) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t2)   { wPL += Math.min(W2, wLeft) * (t2 - entry) / entry * 100; wLeft -= Math.min(W2, wLeft); phase = 3; }
+                              }
+                              if (phase === 3) {
+                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
+                                if (b.h >= t3)   { wPL += Math.min(W3, wLeft) * (t3 - entry) / entry * 100; wLeft = 0; exitType = 'target'; break; }
+                              }
+                              if (j === i + maxHold && wLeft > 0) {
+                                wPL += wLeft * (b.c - entry) / entry * 100;
+                                exitType = 'expired';
                               }
                             }
                             const exitPrice = entry * (1 + wPL / 100);
                             const shares = Math.max(1, Math.floor(accountSize * 0.01 / (riskPct / 100 * entry)));
                             const costs = computeTradeCosts(entry * shares, exitPrice * shares);
+                            const riskRupees = Math.max(0.01, (entry - stop) * shares);
+                            const pnlGross = wPL * shares * entry / 100;
+                            const pnlNet = pnlGross - costs.totalCost;
                             allTrades.push({
                               symbol: sym, entryDate: new Date((eBar.ts + 19800) * 1000).toISOString().slice(0, 10),
                               entryPrice: entry, stopLoss: stop, target1: t1,
                               exitPrice, exitDate: new Date((bars[exitI].ts + 19800) * 1000).toISOString().slice(0, 10),
                               exitType, pnlPct: wPL, pnlR: wPL / riskPct,
-                              pnlGross: wPL * shares * entry / 100, pnlNet: wPL * shares * entry / 100 - costs.totalCost,
-                              costs, daysHeld: exitI - (i + 1), mfe, shares,
+                              pnlNetR: pnlNet / riskRupees,
+                              pnlGross, pnlNet,
+                              costs, daysHeld: exitI - (i + 1), mfe, mae, shares,
+                              paramSetKey: key, stage: res.stage, conviction: computeConviction(res), hit5: mfe >= 5, entryFillType,
                             });
                             i = exitI + 1; advanced = true; break;
                           }
@@ -5177,20 +5192,26 @@ function HomePageInner() {
               ) : (
                 <>
                   {/* KPIs */}
-                  <div className="grid grid-cols-6 gap-2 mb-3">
+                  <div className="grid grid-cols-8 gap-2 mb-3">
                     {[
                       { label: 'Signals', value: String(backtestResult.totalSignals), color: 'text-slate-200' },
-                      { label: 'Win Rate', value: `${backtestResult.winRate.toFixed(0)}%`, color: backtestResult.winRate >= 55 ? 'text-emerald-400' : 'text-red-400' },
-                      { label: 'Expectancy', value: `${backtestResult.expectancyR >= 0 ? '+' : ''}${backtestResult.expectancyR.toFixed(2)}R`, color: backtestResult.expectancyR >= 0 ? 'text-emerald-400' : 'text-red-400' },
-                      { label: 'Profit Factor', value: backtestResult.profitFactor.toFixed(2), color: backtestResult.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-amber-400' },
+                      { label: 'Net Win', value: `${backtestResult.winRate.toFixed(0)}%`, sub: `${backtestResult.winRateCILow.toFixed(0)}-${backtestResult.winRateCIHigh.toFixed(0)}% CI`, color: backtestResult.winRate >= 55 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'Hit +5%', value: `${backtestResult.hit5Rate.toFixed(0)}%`, sub: `${backtestResult.hit5Wins}/${backtestResult.totalSignals} · ${backtestResult.hit5CILow.toFixed(0)}-${backtestResult.hit5CIHigh.toFixed(0)}% CI`, color: backtestResult.hit5Rate >= 60 ? 'text-emerald-400' : backtestResult.hit5Rate >= 45 ? 'text-amber-400' : 'text-red-400' },
+                      { label: 'Net Exp', value: `${backtestResult.expectancyR >= 0 ? '+' : ''}${backtestResult.expectancyR.toFixed(2)}R`, sub: 'after costs', color: backtestResult.expectancyR >= 0 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'Net PF', value: backtestResult.profitFactor.toFixed(2), color: backtestResult.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-amber-400' },
+                      { label: 'OOS Exp', value: `${backtestResult.walkForward.outSampleExp >= 0 ? '+' : ''}${backtestResult.walkForward.outSampleExp.toFixed(2)}R`, sub: `${backtestResult.walkForward.outSampleWR.toFixed(0)}% WR`, color: backtestResult.walkForward.outSampleExp >= 0 ? 'text-emerald-400' : 'text-red-400' },
+                      { label: 'OOS Hit5', value: `${backtestResult.walkForward.outSampleHit5.toFixed(0)}%`, sub: `PF ${backtestResult.walkForward.outSamplePF.toFixed(2)}`, color: backtestResult.walkForward.outSampleHit5 >= 60 && backtestResult.walkForward.outSamplePF >= 1 ? 'text-emerald-400' : 'text-amber-400' },
                       { label: 'Max DD', value: `${backtestResult.maxDrawdownPct.toFixed(1)}%`, color: backtestResult.maxDrawdownPct < 15 ? 'text-emerald-400' : 'text-red-400' },
-                      { label: 'Sharpe', value: backtestResult.sharpeRatio.toFixed(2), color: backtestResult.sharpeRatio >= 1.5 ? 'text-emerald-400' : 'text-amber-400' },
                     ].map((k, i) => (
                       <div key={i} className="bg-slate-900/40 rounded px-2 py-1.5 text-center">
                         <div className="text-[10px] text-slate-500">{k.label}</div>
                         <div className={`text-lg font-bold ${k.color}`}>{k.value}</div>
+                        {'sub' in k && k.sub && <div className="text-[8px] text-slate-600">{k.sub}</div>}
                       </div>
                     ))}
+                  </div>
+                  <div className="text-[10px] text-slate-600 mb-3 bg-slate-900/30 rounded px-2 py-1">
+                    Scientific mode: next-session trigger/gap-fill entry, skips &gt;2.5% chase gaps, stop-first daily OHLC ambiguity, net-of-cost R metrics, Wilson confidence bands, and 70/30 chronological OOS validation.
                   </div>
 
                   {/* Equity Curve */}
@@ -5301,8 +5322,10 @@ function HomePageInner() {
                       <div className="text-slate-500 font-semibold mb-1">Walk-Forward (70/30 split)</div>
                       <div className="space-y-0.5">
                         <div className="flex justify-between"><span className="text-slate-600">In-Sample WR</span><span className="text-slate-300 font-mono">{backtestResult.walkForward.inSampleWR.toFixed(0)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">In-Sample Hit5/PF</span><span className="text-slate-300 font-mono">{backtestResult.walkForward.inSampleHit5.toFixed(0)}% / {backtestResult.walkForward.inSamplePF.toFixed(2)}</span></div>
                         <div className="flex justify-between"><span className="text-slate-600">In-Sample Exp</span><span className="text-slate-300 font-mono">{backtestResult.walkForward.inSampleExp >= 0 ? '+' : ''}{backtestResult.walkForward.inSampleExp.toFixed(2)}R</span></div>
                         <div className="flex justify-between"><span className="text-slate-600">Out-Sample WR</span><span className={`font-mono font-bold ${backtestResult.walkForward.outSampleWR >= backtestResult.walkForward.inSampleWR * 0.8 ? 'text-emerald-400' : 'text-amber-400'}`}>{backtestResult.walkForward.outSampleWR.toFixed(0)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-600">Out-Sample Hit5/PF</span><span className={`font-mono font-bold ${backtestResult.walkForward.outSampleHit5 >= backtestResult.walkForward.inSampleHit5 * 0.8 && backtestResult.walkForward.outSamplePF >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>{backtestResult.walkForward.outSampleHit5.toFixed(0)}% / {backtestResult.walkForward.outSamplePF.toFixed(2)}</span></div>
                         <div className="flex justify-between"><span className="text-slate-600">Out-Sample Exp</span><span className={`font-mono font-bold ${backtestResult.walkForward.outSampleExp >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{backtestResult.walkForward.outSampleExp >= 0 ? '+' : ''}{backtestResult.walkForward.outSampleExp.toFixed(2)}R</span></div>
                         <div className="flex justify-between"><span className="text-slate-600">Degradation</span><span className={`font-mono ${backtestResult.walkForward.degradation < 30 ? 'text-emerald-400' : 'text-amber-400'}`}>{backtestResult.walkForward.degradation.toFixed(0)}%</span></div>
                         <div className={`mt-1 text-center font-semibold ${backtestResult.walkForward.robust ? 'text-emerald-400' : 'text-red-400'}`}>{backtestResult.walkForward.robust ? '✓ ROBUST' : '✗ NOT ROBUST'}</div>

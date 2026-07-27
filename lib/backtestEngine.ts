@@ -65,13 +65,20 @@ export interface BacktestTrade {
   exitDate: string;
   exitType: 'target' | 'stopped' | 'expired';
   pnlPct: number;
-  pnlR: number;
+  pnlR: number;           // gross R before costs
+  pnlNetR?: number;       // net R after costs
   pnlGross: number;      // before costs
   pnlNet: number;        // after Kotak costs
   costs: TradeCosts;
   daysHeld: number;
   mfe: number;
+  mae?: number;
   shares: number;
+  paramSetKey?: string;
+  stage?: string;
+  conviction?: number;
+  hit5?: boolean;
+  entryFillType?: 'trigger' | 'gap_open' | 'open';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -188,12 +195,14 @@ export function runBacktest(
     const pnlNet = pnlGross - costs.totalCost;
     const pnlPct = safe((exitPrice - entryPrice) / entryPrice * 100);
     const pnlR = safe((exitPrice - entryPrice) / riskPerShare);
+    const pnlNetR = riskPerShare * shares > 0 ? safe(pnlNet / (riskPerShare * shares)) : pnlR;
     const mfe = safe((mfePrice - entryPrice) / entryPrice * 100);
+    const mae = safe(Math.max(0, (entryPrice - Math.min(...candles.slice(entryIdx, exitIdx + 1).map(c => c.l))) / entryPrice * 100));
     const daysHeld = exitIdx - entryIdx;
     const entryDate = new Date(candles[entryIdx].ts * 1000).toISOString().slice(0, 10);
     const exitDate = new Date(candles[exitIdx].ts * 1000).toISOString().slice(0, 10);
 
-    trades.push({ symbol, entryDate, entryPrice: safe(entryPrice), stopLoss: safe(stopLoss), target1: safe(target1), exitPrice: safe(exitPrice), exitDate, exitType, pnlPct, pnlR, pnlGross: safe(pnlGross), pnlNet: safe(pnlNet), costs, daysHeld, mfe, shares });
+    trades.push({ symbol, entryDate, entryPrice: safe(entryPrice), stopLoss: safe(stopLoss), target1: safe(target1), exitPrice: safe(exitPrice), exitDate, exitType, pnlPct, pnlR, pnlNetR, pnlGross: safe(pnlGross), pnlNet: safe(pnlNet), costs, daysHeld, mfe, mae, shares, hit5: mfe >= 5 });
 
     i = exitIdx; // skip ahead
   }
@@ -249,7 +258,7 @@ export interface MonteCarloResult {
 export function runMonteCarlo(trades: BacktestTrade[], startingCapital: number, simulations = 500): MonteCarloResult {
   if (trades.length < 5) return { median: startingCapital, p10: startingCapital, p90: startingCapital, ruinProbability: 0, distribution: [] };
 
-  const rMultiples = trades.map(t => t.pnlR);
+  const rMultiples = trades.map(netR);
   const results: number[] = [];
   let ruinCount = 0;
 
@@ -328,7 +337,7 @@ export function analyzeDrawdowns(trades: BacktestTrade[], startingCapital: numbe
   let recoveryTrades = 0;
   let recEquity = equityAtMaxDDEnd;
   for (let i = maxDDEnd + 1; i < trades.length; i++) {
-    recEquity += startingCapital * 0.01 * trades[i].pnlR;
+    recEquity += trades[i].pnlNet;
     recoveryTrades++;
     if (recEquity >= peakAtMaxDD) break;
   }
@@ -343,14 +352,18 @@ export function analyzeDrawdowns(trades: BacktestTrade[], startingCapital: numbe
 export interface WalkForwardResult {
   inSampleWR: number;
   inSampleExp: number;
+  inSamplePF: number;
+  inSampleHit5: number;
   outSampleWR: number;
   outSampleExp: number;
+  outSamplePF: number;
+  outSampleHit5: number;
   robust: boolean;         // out-of-sample expectancy > 0
   degradation: number;     // % drop in expectancy from in-sample to out-sample
 }
 
 export function walkForwardValidation(trades: BacktestTrade[], splitPct = 70): WalkForwardResult {
-  if (trades.length < 10) return { inSampleWR: 0, inSampleExp: 0, outSampleWR: 0, outSampleExp: 0, robust: false, degradation: 100 };
+  if (trades.length < 10) return { inSampleWR: 0, inSampleExp: 0, inSamplePF: 0, inSampleHit5: 0, outSampleWR: 0, outSampleExp: 0, outSamplePF: 0, outSampleHit5: 0, robust: false, degradation: 100 };
 
   const sorted = [...trades].sort((a, b) => a.entryDate.localeCompare(b.entryDate));
   const splitIdx = Math.floor(sorted.length * splitPct / 100);
@@ -358,10 +371,15 @@ export function walkForwardValidation(trades: BacktestTrade[], splitPct = 70): W
   const outSample = sorted.slice(splitIdx);
 
   const calc = (t: BacktestTrade[]) => {
-    const wins = t.filter(x => x.pnlR > 0);
+    const rVals = t.map(netR);
+    const wins = t.filter(x => netR(x) > 0);
+    const totalWin = rVals.filter(r => r > 0).reduce((s, r) => s + r, 0);
+    const totalLoss = Math.abs(rVals.filter(r => r <= 0).reduce((s, r) => s + r, 0));
     const wr = t.length > 0 ? wins.length / t.length * 100 : 0;
-    const exp = t.length > 0 ? t.reduce((s, x) => s + x.pnlR, 0) / t.length : 0;
-    return { wr: safe(wr), exp: safe(exp) };
+    const exp = t.length > 0 ? rVals.reduce((s, r) => s + r, 0) / t.length : 0;
+    const pf = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? 99 : 0;
+    const hit5 = t.length > 0 ? t.filter(x => (x.hit5 ?? x.mfe >= 5)).length / t.length * 100 : 0;
+    return { wr: safe(wr), exp: safe(exp), pf: safe(pf), hit5: safe(hit5) };
   };
 
   const is = calc(inSample);
@@ -369,9 +387,9 @@ export function walkForwardValidation(trades: BacktestTrade[], splitPct = 70): W
   const degradation = is.exp > 0 ? safe((1 - os.exp / is.exp) * 100) : 100;
 
   return {
-    inSampleWR: is.wr, inSampleExp: is.exp,
-    outSampleWR: os.wr, outSampleExp: os.exp,
-    robust: os.exp > 0,
+    inSampleWR: is.wr, inSampleExp: is.exp, inSamplePF: is.pf, inSampleHit5: is.hit5,
+    outSampleWR: os.wr, outSampleExp: os.exp, outSamplePF: os.pf, outSampleHit5: os.hit5,
+    robust: os.exp > 0 && os.pf >= 1,
     degradation: safe(Math.max(0, degradation)),
   };
 }
@@ -394,16 +412,16 @@ export function parameterSensitivity(candles: Candle[], symbol: string): Sensiti
   // Current model uses hybrid clamp — run single backtest and report
   const trades = runBacktest(candles, symbol, 200, 10, 1000000, 1.0);
   if (trades.length >= 3) {
-    const wins = trades.filter(t => t.pnlR > 0);
-    const losses = trades.filter(t => t.pnlR <= 0);
-    const totalWin = wins.reduce((s, t) => s + t.pnlR, 0);
-    const totalLoss = losses.reduce((s, t) => s + Math.abs(t.pnlR), 0);
+    const wins = trades.filter(t => netR(t) > 0);
+    const losses = trades.filter(t => netR(t) <= 0);
+    const totalWin = wins.reduce((s, t) => s + netR(t), 0);
+    const totalLoss = losses.reduce((s, t) => s + Math.abs(netR(t)), 0);
     results.push({
       param: 'Hybrid T1',
       value: 2.15,
       trades: trades.length,
       winRate: safe(wins.length / trades.length * 100),
-      expectancy: safe(trades.reduce((s, t) => s + t.pnlR, 0) / trades.length),
+      expectancy: safe(trades.reduce((s, t) => s + netR(t), 0) / trades.length),
       profitFactor: totalLoss > 0 ? safe(totalWin / totalLoss) : totalWin > 0 ? 99 : 0,
     });
   }
@@ -420,6 +438,12 @@ export interface BacktestResult {
   wins: number;
   losses: number;
   winRate: number;
+  winRateCILow: number;
+  winRateCIHigh: number;
+  hit5Wins: number;
+  hit5Rate: number;
+  hit5CILow: number;
+  hit5CIHigh: number;
   avgWinR: number;
   avgLossR: number;
   expectancyR: number;
@@ -440,6 +464,21 @@ export interface BacktestResult {
   sensitivity: SensitivityRow[];
 }
 
+function netR(t: BacktestTrade): number {
+  if (Number.isFinite(t.pnlNetR)) return t.pnlNetR ?? 0;
+  const riskRupees = Math.max(0, (t.entryPrice - t.stopLoss) * t.shares);
+  return riskRupees > 0 ? safe(t.pnlNet / riskRupees) : safe(t.pnlR);
+}
+
+function wilsonPct(wins: number, n: number, z = 1.96): { low: number; high: number } {
+  if (n <= 0) return { low: 0, high: 0 };
+  const p = Math.max(0, Math.min(1, wins / n));
+  const denom = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / denom;
+  const half = (z * Math.sqrt((p * (1 - p) / n) + (z * z / (4 * n * n)))) / denom;
+  return { low: safe(Math.max(0, center - half) * 100), high: safe(Math.min(1, center + half) * 100) };
+}
+
 export function aggregateBacktest(
   allTrades: BacktestTrade[],
   niftyCandles?: Candle[],
@@ -448,24 +487,30 @@ export function aggregateBacktest(
   const t = allTrades;
   const empty: BacktestResult = {
     totalSignals: 0, trades: [], wins: 0, losses: 0, winRate: 0, avgWinR: 0, avgLossR: 0,
+    winRateCILow: 0, winRateCIHigh: 0, hit5Wins: 0, hit5Rate: 0, hit5CILow: 0, hit5CIHigh: 0,
     expectancyR: 0, profitFactor: 0, maxDrawdownPct: 0, sharpeRatio: 0,
     maxConsecWins: 0, maxConsecLosses: 0, totalCosts: 0, avgCostPerTrade: 0,
     equityCurve: [], monthlyReturns: [],
     benchmark: null, monteCarlo: null,
     drawdownAnalysis: { maxDDPct: 0, maxDDDuration: 0, avgDDPct: 0, recoveryTrades: 0, underwaterCurve: [] },
-    walkForward: { inSampleWR: 0, inSampleExp: 0, outSampleWR: 0, outSampleExp: 0, robust: false, degradation: 100 },
+    walkForward: { inSampleWR: 0, inSampleExp: 0, inSamplePF: 0, inSampleHit5: 0, outSampleWR: 0, outSampleExp: 0, outSamplePF: 0, outSampleHit5: 0, robust: false, degradation: 100 },
     sensitivity: [],
   };
   if (t.length === 0) return empty;
 
-  const wins = t.filter(x => x.pnlR > 0);
-  const losses = t.filter(x => x.pnlR <= 0);
+  const rValues = t.map(netR);
+  const wins = t.filter(x => netR(x) > 0);
+  const losses = t.filter(x => netR(x) <= 0);
+  const hit5Wins = t.filter(x => x.hit5 ?? x.mfe >= 5).length;
   const winRate = t.length > 0 ? wins.length / t.length * 100 : 0;
-  const avgWinR = wins.length > 0 ? wins.reduce((s, x) => s + x.pnlR, 0) / wins.length : 0;
-  const avgLossR = losses.length > 0 ? losses.reduce((s, x) => s + Math.abs(x.pnlR), 0) / losses.length : 0;
-  const expectancyR = t.length > 0 ? t.reduce((s, x) => s + x.pnlR, 0) / t.length : 0;
-  const totalWinR = wins.reduce((s, x) => s + x.pnlR, 0);
-  const totalLossR = losses.reduce((s, x) => s + Math.abs(x.pnlR), 0);
+  const hit5Rate = t.length > 0 ? hit5Wins / t.length * 100 : 0;
+  const winCI = wilsonPct(wins.length, t.length);
+  const hit5CI = wilsonPct(hit5Wins, t.length);
+  const avgWinR = wins.length > 0 ? wins.reduce((s, x) => s + netR(x), 0) / wins.length : 0;
+  const avgLossR = losses.length > 0 ? losses.reduce((s, x) => s + Math.abs(netR(x)), 0) / losses.length : 0;
+  const expectancyR = t.length > 0 ? rValues.reduce((s, r) => s + r, 0) / t.length : 0;
+  const totalWinR = wins.reduce((s, x) => s + netR(x), 0);
+  const totalLossR = losses.reduce((s, x) => s + Math.abs(netR(x)), 0);
   const profitFactor = totalLossR > 0 ? safe(totalWinR / totalLossR) : totalWinR > 0 ? 99 : 0;
 
   // Costs
@@ -485,7 +530,6 @@ export function aggregateBacktest(
   }
 
   // Sharpe
-  const rValues = t.map(x => x.pnlR);
   const meanR = rValues.reduce((s, v) => s + v, 0) / rValues.length;
   const sdR = rValues.length > 1 ? Math.sqrt(rValues.reduce((s, v) => s + (v - meanR) ** 2, 0) / (rValues.length - 1)) : 0;
   const sharpeRatio = sdR > 0 ? safe(meanR / sdR * Math.sqrt(Math.min(t.length, 252) / Math.max(1, t.length / 20))) : 0;
@@ -493,7 +537,7 @@ export function aggregateBacktest(
   // Streaks
   let cw = 0, cl = 0, mcw = 0, mcl = 0;
   for (const x of t) {
-    if (x.pnlR > 0) { cw++; cl = 0; if (cw > mcw) mcw = cw; }
+    if (netR(x) > 0) { cw++; cl = 0; if (cw > mcw) mcw = cw; }
     else { cl++; cw = 0; if (cl > mcl) mcl = cl; }
   }
 
@@ -502,8 +546,8 @@ export function aggregateBacktest(
   for (const x of t) { const m = x.entryDate.slice(0, 7); if (!months.has(m)) months.set(m, []); months.get(m)!.push(x); }
   const monthlyReturns: BacktestResult['monthlyReturns'] = [];
   for (const [month, mt] of months) {
-    const mWins = mt.filter(x => x.pnlR > 0);
-    monthlyReturns.push({ month, trades: mt.length, winRate: safe(mWins.length / mt.length * 100), pnlR: safe(mt.reduce((s, x) => s + x.pnlR, 0)) });
+    const mWins = mt.filter(x => netR(x) > 0);
+    monthlyReturns.push({ month, trades: mt.length, winRate: safe(mWins.length / mt.length * 100), pnlR: safe(mt.reduce((s, x) => s + netR(x), 0)) });
   }
 
   // v2 features
@@ -514,7 +558,9 @@ export function aggregateBacktest(
 
   return {
     totalSignals: t.length, trades: t, wins: wins.length, losses: losses.length,
-    winRate: safe(winRate), avgWinR: safe(avgWinR), avgLossR: safe(avgLossR),
+    winRate: safe(winRate), winRateCILow: safe(winCI.low), winRateCIHigh: safe(winCI.high),
+    hit5Wins, hit5Rate: safe(hit5Rate), hit5CILow: safe(hit5CI.low), hit5CIHigh: safe(hit5CI.high),
+    avgWinR: safe(avgWinR), avgLossR: safe(avgLossR),
     expectancyR: safe(expectancyR), profitFactor: safe(profitFactor),
     maxDrawdownPct: safe(maxDD), sharpeRatio: safe(sharpeRatio),
     maxConsecWins: mcw, maxConsecLosses: mcl,
