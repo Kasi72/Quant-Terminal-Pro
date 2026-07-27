@@ -858,7 +858,7 @@ const COLUMNS: ColDef[] = [
     cellClass: r => r.momentum.rsNifty20 >= 1.05 ? 'text-emerald-400 font-semibold' : r.momentum.rsNifty20 >= 1.0 ? 'text-slate-300' : 'text-red-400' },
   { key: 'brain', label: '🧠 Brain', width: 80, align: 'right',
     headerTipHtml: '<div class="rt-hdr">🧠 Adaptive Brain v2</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain-adjusted conviction score. Learns from YOUR closed trades using Bayesian inference.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain-adjusted conviction score. Learns from +5% decided trades using Bayesian inference.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Factors</span></div><div><div class="rt-desc">Adjusts for: sector performance, stock memory, streak, conviction threshold, Clenow, overlays</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Sizing</span></div><div><div class="rt-desc">90+: A+ (1.5% risk) · 75+: Good (1%) · 60+: Avg (0.75%) · 45+: Weak (0.5%) · &lt;45: Skip</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
@@ -1464,6 +1464,7 @@ function HomePageInner() {
   const [showFlowSettings, setShowFlowSettings] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [brainInsights, setBrainInsights] = useState<any>(null);
+  const [brainError, setBrainError] = useState('');
   const [showAllSignals, setShowAllSignals] = useState(false);
   const [fiiSellStreak, setFiiSellStreak] = useState<number>(() => {
     try { return Math.max(0, parseInt(localStorage.getItem('qtp_fii_streak') || '0') || 0); } catch { return 0; }
@@ -2072,7 +2073,7 @@ function HomePageInner() {
         let riskLabel = adj.sizing.label;
         let riskPct = adj.sizing.risk;
         if (setupQual) {
-          riskPct = Math.round(adj.sizing.risk * setupQual.sizeMultiplier * 10) / 10;
+          riskPct = Math.min(1.5, Math.round(adj.sizing.risk * setupQual.sizeMultiplier * 10) / 10);
           riskLabel = setupQual.tier === 'ELITE' ? `ELITE — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
                      setupQual.tier === 'STRONG' ? `STRONG — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)` :
                      setupQual.tier === 'GOOD'   ? `GOOD — normal size (${setupQual.expectedPnl.toFixed(1)}% avg)` :
@@ -2082,7 +2083,7 @@ function HomePageInner() {
         const pm = bi.premortem(r, { sector: getSectorTag(r.symbol), conviction: computeConviction(r) });
         newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: {feature: string}) => a.feature).join(', ') || '', confidence: adj.confidence, premortem: pm };
       }
-      // Engine 2: Thompson ranking for priority order — multi-factor (sector + stock + ATR + pattern + conviction tier)
+      // Engine 2: deterministic posterior ranking for priority order — multi-factor (sector + stock + ATR + pattern + conviction tier)
       if (buySignals.length > 1) {
         const extraMap: Record<string, {sector: string; atrState?: string; candlePattern?: string; conviction?: number}> = {};
         for (const r of buySignals) {
@@ -2100,7 +2101,12 @@ function HomePageInner() {
         }
       }
       setBrainScores(newBrainScores);
-    } catch { /* brain computation failed — non-critical */ }
+      setBrainError('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Brain computation failed';
+      setBrainError(msg);
+      setBrainScores({});
+    }
     // Market breadth: % of stocks above 200 SMA
     if (newResults.length > 20) {
       const above200 = newResults.filter(r => r.stats?.sma200 > 0 && r.lastClose > r.stats.sma200).length;
@@ -2306,7 +2312,7 @@ function HomePageInner() {
             if (brainAdj.anomalies?.anomalyCount > 0) {
               msg += `⚠ ${brainAdj.anomalies.anomalyCount} anomal${brainAdj.anomalies.anomalyCount > 1 ? 'ies' : 'y'}: ${brainAdj.anomalies.anomalies.map((a) => `${a.feature} (${a.note})`).join(', ')}\n`;
             }
-            // Engine 2: Thompson priority (if multiple signals)
+            // Engine 2: posterior priority (if multiple signals)
             const otherBuys = newResults.filter(x => x.symbol !== r.symbol && ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(x.stage));
             if (otherBuys.length > 0) {
               const allBuys = [r, ...otherBuys];
@@ -2317,7 +2323,7 @@ function HomePageInner() {
               }
               const ranked = brainTg.thompsonRank(allBuys, extraMap);
               const myRank = ranked.find((x: {symbol: string; badge: string}) => x.symbol === r.symbol);
-              if (myRank) msg += `🏆 Thompson Priority: <b>${myRank.badge}</b> of ${ranked.length} signals\n`;
+              if (myRank) msg += `🏆 Posterior Priority: <b>${myRank.badge}</b> of ${ranked.length} signals\n`;
             }
             // Engine 5: Param set bandit
             if (brainTg.bestParamSet) {
@@ -2362,7 +2368,7 @@ function HomePageInner() {
           const prevSyms2 = new Set(resultsRef.current.map(r => r.symbol));
           const newSigs = actionable.filter(r => !prevSyms2.has(r.symbol)).map(r => r.symbol);
           const ws = computeWinRateStats(trackedTradesRef.current);
-          const cumR = trackedTradesRef.current.filter(t => t.status !== 'open').reduce((s, t) => s + (t.pnlR ?? 0), 0);
+          const cumR = trackedTradesRef.current.filter(isTerminalTrade).reduce((s, t) => s + (t.pnlR ?? 0), 0);
           const best = actionable.sort((a, b) => computeConviction(b) - computeConviction(a))[0];
           sendTelegramMessage(tg, formatDailySummaryAlert(today, newResults.length, actionable.length, newSigs, [],
             trackedTradesRef.current.filter(t => t.status === 'open').length, ws.winRate, cumR,
@@ -4457,9 +4463,9 @@ function HomePageInner() {
               const ws = computeWinRateStats(trackedTrades);
               const sysExp = brainInsights?.expectancy;
               const brainConf = brainInsights?.confidence ?? 'INACTIVE';
-              const confColor = brainConf === 'HIGH' ? '#4ade80' : brainConf === 'MEDIUM' ? '#facc15' : brainConf === 'LOW' ? '#fb923c' : '#475569';
-              const totalClosed = trackedTrades.filter(t => t.status !== 'open').length;
-              const needsMoreTrades = totalClosed < 5;
+              const confColor = brainConf === 'EXPERT' || brainConf === 'HIGH' || brainConf === 'GOOD' ? '#4ade80' : brainConf === 'MODERATE' || brainConf === 'DEVELOPING' ? '#facc15' : brainConf === 'LOW' ? '#fb923c' : '#475569';
+              const decidedTrades = trackedTrades.filter(isTradeResolvedForWinRate).length;
+              const needsMoreTrades = decidedTrades < 5;
               return (
                 <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
                   <div className="flex items-center gap-2 mb-2.5">
@@ -4469,19 +4475,19 @@ function HomePageInner() {
                     )}
                   </div>
                   <div className="grid grid-cols-5 gap-2">
-                    {/* Card 1: Closed Trades */}
+                    {/* Card 1: Decided Trades */}
                     <div className="bg-slate-900/50 rounded p-2 text-center">
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Closed Trades</div>
-                      <div className="text-xl font-bold font-mono text-slate-200">{totalClosed}</div>
-                      {needsMoreTrades && <div className="text-[8px] text-amber-500 mt-0.5">Need {5 - totalClosed} more</div>}
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">5% Decided</div>
+                      <div className="text-xl font-bold font-mono text-slate-200">{decidedTrades}</div>
+                      {needsMoreTrades && <div className="text-[8px] text-amber-500 mt-0.5">Need {5 - decidedTrades} more</div>}
                     </div>
                     {/* Card 2: Win Rate */}
                     <div className="bg-slate-900/50 rounded p-2 text-center">
                       <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Win Rate</div>
-                      <div className="text-xl font-bold font-mono" style={{color: ws.total >= 5 ? (ws.winRate >= 55 ? '#4ade80' : ws.winRate >= 40 ? '#facc15' : '#ef4444') : '#475569'}}>
-                        {ws.total >= 5 ? `${ws.winRate}%` : '—'}
+                      <div className="text-xl font-bold font-mono" style={{color: ws.decided >= 5 ? (ws.winRate >= 55 ? '#4ade80' : ws.winRate >= 40 ? '#facc15' : '#ef4444') : '#475569'}}>
+                        {ws.decided >= 5 ? `${ws.winRate.toFixed(0)}%` : '—'}
                       </div>
-                      {ws.total >= 5 && <div className="text-[8px] text-slate-600">{ws.hitT1 + ws.hitT2 + ws.hitT3}W / {ws.stopped + ws.expired + ws.manualClose + ws.closedEarly}L</div>}
+                      {ws.decided >= 5 && <div className="text-[8px] text-slate-600">{ws.wins} hit +5% / {ws.losses} no-hit</div>}
                     </div>
                     {/* Card 3: Expectancy */}
                     <div className="bg-slate-900/50 rounded p-2 text-center">
@@ -4489,13 +4495,13 @@ function HomePageInner() {
                       <div className="text-xl font-bold font-mono" style={{color: sysExp == null ? '#475569' : sysExp >= 1 ? '#4ade80' : sysExp >= 0 ? '#facc15' : '#ef4444'}}>
                         {sysExp != null ? `${sysExp >= 0 ? '+' : ''}${sysExp.toFixed(2)}%` : '—'}
                       </div>
-                      {sysExp != null && <div className="text-[8px] text-slate-600">per trade</div>}
+                      {sysExp != null && <div className="text-[8px] text-slate-600">per 5% decided trade</div>}
                     </div>
                     {/* Card 4: Brain Confidence */}
                     <div className="bg-slate-900/50 rounded p-2 text-center">
                       <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Brain State</div>
                       <div className="text-sm font-bold font-mono mt-1" style={{color: confColor}}>{brainConf}</div>
-                      <div className="text-[8px] text-slate-600 mt-0.5">{brainConf === 'HIGH' ? 'scores reliable' : brainConf === 'MEDIUM' ? 'moderate signal' : brainConf === 'LOW' ? 'near-baseline' : 'track trades'}</div>
+                      <div className="text-[8px] text-slate-600 mt-0.5">{brainConf === 'EXPERT' || brainConf === 'HIGH' || brainConf === 'GOOD' ? 'scores reliable' : brainConf === 'MODERATE' ? 'moderate signal' : brainConf === 'DEVELOPING' ? 'developing' : brainConf === 'LOW' ? 'near-baseline' : 'track trades'}</div>
                     </div>
                     {/* Card 5: FII Streak */}
                     <div className="bg-slate-900/50 rounded p-2 text-center">
@@ -4513,6 +4519,16 @@ function HomePageInner() {
                 </div>
               );
             })()}
+
+            {brainError && (
+              <div className="flex items-start gap-3 bg-red-900/20 border border-red-700/50 rounded-lg px-3 py-2.5">
+                <span className="text-lg mt-0.5">⚠</span>
+                <div>
+                  <div className="text-[11px] font-bold text-red-300 mb-0.5">Brain computation failed</div>
+                  <div className="text-[10px] text-red-400/80 font-mono">{brainError}</div>
+                </div>
+              </div>
+            )}
 
             {/* ── EMOTIONAL ALERT BANNER ── */}
             {brainInsights?.emotionalAlert && brainInsights.streakType === 'L' && brainInsights.currentStreak >= 2 && (
@@ -4541,8 +4557,8 @@ function HomePageInner() {
               const ranked = rankSignalsByBrainV2(buySignals, brainScores, brainPrior, brainInsights?.confidence);
               const brainConf = brainInsights?.confidence;
               const calCtx = getNSECalendarContext(fiiSellStreak);
-              const totalClosed = trackedTrades.filter(t => t.status !== 'open').length;
-              const isWarmingUp = totalClosed < 5;
+              const decidedTrades = trackedTrades.filter(isTradeResolvedForWinRate).length;
+              const isWarmingUp = decidedTrades < 5;
               const visibleCount = showAllSignals ? ranked.length : Math.min(8, ranked.length);
               const paramShort: Record<string,string> = {
                 'optimized_deployable_20plus':    'VF',
@@ -4598,8 +4614,8 @@ function HomePageInner() {
                     <div className="bg-amber-900/15 border border-amber-800/40 rounded px-3 py-2 flex items-start gap-2">
                       <span className="text-amber-400 mt-0.5">🧠</span>
                       <div>
-                        <div className="text-[10px] font-semibold text-amber-300 mb-0.5">Brain warming up ({totalClosed}/{5} closed trades)</div>
-                        <div className="text-[9px] text-amber-500/80">Scores below are near-baseline until you close {5 - totalClosed} more trade{5 - totalClosed !== 1 ? 's' : ''}. Track your trades in the Trade Desk to activate Bayesian learning.</div>
+                        <div className="text-[10px] font-semibold text-amber-300 mb-0.5">Brain warming up ({decidedTrades}/{5} 5% decided trades)</div>
+                        <div className="text-[9px] text-amber-500/80">Scores below are near-baseline until {5 - decidedTrades} more trade{5 - decidedTrades !== 1 ? 's' : ''} either hit +5% or finish terminal no-hit.</div>
                       </div>
                     </div>
                   )}
@@ -4623,8 +4639,8 @@ function HomePageInner() {
                             {q ? (
                               <span className="font-mono font-bold text-[11px] w-14 shrink-0" style={{color: q.color}}>{q.expectedPnl >= 0 ? '+' : ''}{q.expectedPnl.toFixed(1)}%</span>
                             ) : <span className="w-14 shrink-0"/>}
-                            {q ? <span className="text-[10px] text-slate-500 w-12 shrink-0">{q.wr}%WR</span> : <span className="w-12 shrink-0"/>}
-                            {q && <span className="text-[9px] font-bold px-1 rounded shrink-0" style={{color: q.color, backgroundColor: `${q.color}20`}}>{q.tier}</span>}
+                            {q ? <span className="text-[10px] text-slate-500 w-12 shrink-0" title={q.fallback ? `Using ${q.source} fallback; exact combo has n=${q.exactN}` : 'Exact stage-param prior'}>{q.fallback ? '~' : ''}{q.wr}%WR</span> : <span className="w-12 shrink-0"/>}
+                            {q && <span className="text-[9px] font-bold px-1 rounded shrink-0" style={{color: q.color, backgroundColor: `${q.color}20`}} title={q.fallback ? `Fallback source: ${q.source}; exact n=${q.exactN}` : 'Exact stage-param prior'}>{q.fallback ? '~' : ''}{q.tier}</span>}
                             <span className="text-slate-500 text-[10px] shrink-0">R:R {pe?.rewardRisk?.toFixed(1) ?? '—'}</span>
                             <span className="ml-auto text-[10px] shrink-0" style={{color: sig.brainScore >= 75 ? '#22d3ee' : sig.brainScore >= 60 ? '#facc15' : '#94a3b8'}}>
                               🧠{sig.brainScore} · {sig.riskLabel || `${sig.riskPct}% risk`}
@@ -4670,7 +4686,7 @@ function HomePageInner() {
                   )}
 
                   <div className="text-[10px] text-slate-700 pt-1 border-t border-slate-700/30">
-                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% · Thompson: 5 factors · PM = premortem WR · FII sell streak adjusts all scores · Click row → scanner detail
+                    Brain weight {ranked[0]?.brainWeight ?? 60}% · Prior weight {100 - (ranked[0]?.brainWeight ?? 60)}% · Posterior rank: 5 factors · PM = premortem +5% WR · FII sell streak adjusts all scores · Click row → scanner detail
                   </div>
                 </div>
               );
@@ -4714,7 +4730,7 @@ function HomePageInner() {
               };
               return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
-                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Setup Quality Matrix — Avg P&L by Stage × Param Set</div>
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Setup Quality Matrix — Prior Avg P&L by Stage × Param Set</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -4749,7 +4765,7 @@ function HomePageInner() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-700">Based on {brainPrior?.total ?? '—'}-trade backtest. Green ≥+3.8% · Cyan ≥+2.8% · Yellow ≥+1.8% · Orange ≥+0.5% · Red below</div>
+                  <div className="mt-2 text-[10px] text-slate-700">Based on {brainPrior?.total ?? '—'}-trade bundled prior. Sparse cells are dimmed; row/signal fallbacks are marked with ~. Green ≥+3.8% · Cyan ≥+2.8% · Yellow ≥+1.8% · Orange ≥+0.5% · Red below</div>
                 </div>
               );
             })()}
@@ -4968,10 +4984,10 @@ function HomePageInner() {
             {/* #9: Risk of Ruin */}
             {(() => {
               const ws = computeWinRateStats(trackedTrades);
-              if (ws.total < 5) return (
+              if (ws.decided < 5) return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
                   <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Risk of Ruin</div>
-                  <div className="text-xs text-slate-600">Need 5+ closed trades to compute risk metrics</div>
+                  <div className="text-xs text-slate-600">Need 5+ trades that either hit +5% or finish terminal no-hit to compute risk metrics</div>
                 </div>
               );
               const ror = computeRiskOfRuin(ws.winRate, ws.avgWinR, Math.abs(ws.avgLossR), 1.0);
@@ -5034,7 +5050,7 @@ function HomePageInner() {
             {/* Legend */}
             <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
               <div><span className="text-slate-500 font-semibold">Signal Command:</span> Ranks current BUY signals by composite score (brain + backtest expected P&L). Size up on ELITE tier setups.</div>
-              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from {brainPrior?.total ?? '—'}-trade backtest. STRONG_BUY + Compression Coil (CC) is the elite tier. R5: PS+ES = BULL POOL at breadth&gt;50% (75% OOS Hit5).</div>
+              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from the {brainPrior?.total ?? '—'}-trade bundled prior. Exact sparse combos are dimmed; fallback estimates are marked with ~.</div>
               <div><span className="text-slate-500 font-semibold">RS Rank:</span> Mansfield Relative Strength percentile (0-100). Above 70 = leader, below 30 = laggard. Only buy RS leaders.</div>
               <div><span className="text-slate-500 font-semibold">TF Align:</span> DW = Daily + Weekly breakout confirmed (highest probability). D = Daily only (weekly still compressing).</div>
               <div><span className="text-slate-500 font-semibold">Sector Rotation:</span> Green = money flowing in + signals appearing. Red = money leaving. Trade WITH sector momentum.</div>
@@ -7810,7 +7826,7 @@ function HomePageInner() {
                                 const tipParts = bs.adjustments.map((a: {factor: string; adj: number; reason: string; engine?: string}) =>
                                   `<div class="rt-row"><div><span class="rt-badge ${a.adj>0?'bg-emerald':'bg-orange'}">${a.adj>=0?'+':''}${a.adj}</span></div><div><div class="rt-desc">${a.factor}: ${a.reason}${a.engine && a.engine !== 'Bayesian' ? ` <span style="opacity:0.6;font-size:9px">[${a.engine}]</span>` : ''}</div></div></div>`).join('');
                                 return <div className="flex items-center gap-1 cursor-help"
-                                  data-tip-html={`<div class="rt-hdr">🧠 Brain v3 — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Conviction: ${bs.original} → Brain: ${bs.brain} (${delta>=0?'+':''}${delta})</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-purple">Form</span></div><div><div class="rt-desc">${bs.formLabel} (EMA ${bs.formEMA}) · Trend: ${bs.formTrend}</div></div></div>${bs.anomalyCount > 0 ? `<div class="rt-row"><div><span class="rt-badge bg-orange">⚠ ${bs.anomalyCount} anomaly</span></div><div><div class="rt-desc">${bs.anomalyNote}</div></div></div>` : ''}<div class="rt-row"><div><span class="rt-badge bg-slate">CI</span></div><div><div class="rt-desc">Range ${bs.ciLow}-${bs.ciHigh} · ${bs.ciHigh-bs.ciLow<=20?'Narrow (reliable)':bs.ciHigh-bs.ciLow<=35?'Moderate':'Wide (need more trades)'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Engines</span></div><div><div class="rt-desc">Bayesian + Thompson + Anomaly + Form EMA + Bandit</div></div></div>`}>
+                                  data-tip-html={`<div class="rt-hdr">🧠 Brain v3 — ${row.symbol.replace('.NS','').replace('.BO','')}</div><div class="rt-row"><div><span class="rt-badge bg-cyan">Original</span></div><div><div class="rt-desc">Conviction: ${bs.original} → Brain: ${bs.brain} (${delta>=0?'+':''}${delta})</div></div></div>${tipParts}<div class="rt-row"><div><span class="rt-badge bg-teal">Sizing</span></div><div><div class="rt-desc">${bs.riskLabel} (${bs.riskPct}% risk)</div></div></div><div class="rt-row"><div><span class="rt-badge bg-purple">Form</span></div><div><div class="rt-desc">${bs.formLabel} (EMA ${bs.formEMA}) · Trend: ${bs.formTrend}</div></div></div>${bs.anomalyCount > 0 ? `<div class="rt-row"><div><span class="rt-badge bg-orange">⚠ ${bs.anomalyCount} anomaly</span></div><div><div class="rt-desc">${bs.anomalyNote}</div></div></div>` : ''}<div class="rt-row"><div><span class="rt-badge bg-slate">CI</span></div><div><div class="rt-desc">Range ${bs.ciLow}-${bs.ciHigh} · ${bs.ciHigh-bs.ciLow<=20?'Narrow (reliable)':bs.ciHigh-bs.ciLow<=35?'Moderate':'Wide (need more trades)'}</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Engines</span></div><div><div class="rt-desc">Bayesian + Posterior rank + Anomaly + Form EMA + Bandit</div></div></div>`}>
                                   <span className="font-mono font-bold text-[11px]" style={{color}}>{bs.brain}</span>
                                   <span className="text-[9px]" style={{color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8'}}>{arrow}</span>
                                   {bs.priority === 1 && <span className="ml-0.5 px-0.5 bg-yellow-500/30 border border-yellow-500 rounded text-[7px] text-yellow-300 font-bold">#1</span>}
