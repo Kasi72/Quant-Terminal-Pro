@@ -1,6 +1,14 @@
 // ─── Trade Tear Sheet Generator (PDF + XLSX) ────────────────────────────────
 
-import type { TrackedTrade } from './tradeOps';
+import {
+  didReachFivePctTarget,
+  getTradeMaePct,
+  getTradeMfePct,
+  getTradeMfeR,
+  isTerminalTrade,
+  isTradeResolvedForWinRate,
+  type TrackedTrade,
+} from './tradeOps';
 
 function safe(v: number, f = 0): number { return Number.isFinite(v) ? v : f; }
 
@@ -60,32 +68,33 @@ export interface TearSheetTrade {
 }
 
 export function buildTearSheetData(trades: TrackedTrade[], accountSize: number): TearSheetData {
-  const closed = trades.filter(t => t.status !== 'open');
-  const open = trades.filter(t => t.status === 'open');
-  const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
-  const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
-  const winRate = closed.length > 0 ? safe(wins.length / closed.length * 100) : 0;
-  const totalWinR = wins.reduce((s, t) => s + safe(t.pnlR ?? 0), 0);
+  const decided = trades.filter(isTradeResolvedForWinRate);
+  const terminal = trades.filter(isTerminalTrade);
+  const open = trades.filter(t => ['open', 'hit_t1', 'hit_t2'].includes(t.status));
+  const wins = decided.filter(didReachFivePctTarget);
+  const losses = decided.filter(t => !didReachFivePctTarget(t));
+  const winRate = decided.length > 0 ? safe(wins.length / decided.length * 100) : 0;
+  const totalWinR = wins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0);
   const totalLossR = losses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0);
   const profitFactor = totalLossR > 0 ? safe(totalWinR / totalLossR) : totalWinR > 0 ? 999 : 0;
-  const expectancy = closed.length > 0 ? safe(closed.reduce((s, t) => s + safe(t.pnlPct ?? 0), 0) / closed.length) : 0;
+  const expectancy = decided.length > 0 ? safe(decided.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlPct ?? 0, getTradeMfePct(t)) : (t.pnlPct ?? 0)), 0) / decided.length) : 0;
 
-  const realizedPnl = closed.reduce((s, t) => {
+  const realizedPnl = terminal.reduce((s, t) => {
     const rps = t.entryPrice - t.stopLoss;
     const riskAmt = accountSize * 0.01;
     return s + (rps > 0 ? riskAmt * safe(t.pnlR ?? 0) : 0);
   }, 0);
 
-  const t1Hits = closed.filter(t => t.status === 'hit_t1');
-  const t2Hits = closed.filter(t => t.status === 'hit_t2');
-  const t3Hits = closed.filter(t => t.status === 'hit_t3');
-  const stopped = closed.filter(t => t.status === 'stopped');
-  const expired = closed.filter(t => t.status === 'expired');
+  const t1Hits = trades.filter(t => t.status === 'hit_t1');
+  const t2Hits = trades.filter(t => t.status === 'hit_t2');
+  const t3Hits = terminal.filter(t => t.status === 'hit_t3');
+  const stopped = terminal.filter(t => t.status === 'stopped');
+  const expired = terminal.filter(t => t.status === 'expired');
 
   const tearTrades: TearSheetTrade[] = trades.map((t, i) => {
     const rps = t.entryPrice - t.stopLoss;
     const riskPct = t.entryPrice > 0 ? safe(rps / t.entryPrice * 100) : 0;
-    const mfePct = t.highestPrice && t.entryPrice > 0 ? safe((t.highestPrice - t.entryPrice) / t.entryPrice * 100) : 0;
+    const mfePct = getTradeMfePct(t);
     const unrealPnl = t.status === 'open' && t.currentPrice ? safe((t.currentPrice - t.entryPrice) / t.entryPrice * 100) : 0;
     const exitModel = t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% BE' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? 'Active' : 'Market close';
     const outcome = t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1 HIT' : t.status === 'hit_t2' ? 'T2 HIT' : t.status === 'hit_t3' ? 'T3 HIT' : t.status === 'stopped' ? 'STOPPED' : t.status === 'expired' ? 'EXPIRED' : 'CLOSED';
@@ -112,7 +121,7 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
       weightedPnlPct: safe(t.pnlPct ?? unrealPnl),
       rMult: safe(t.pnlR ?? 0),
       mfePct,
-      maePct: (t.pnlPct ?? 0) < 0 ? safe(t.pnlPct ?? 0) : 0,
+      maePct: -getTradeMaePct(t),
       daysHeld: t.daysHeld ?? 0,
       exitModel,
       outcome,
@@ -124,7 +133,7 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
   return {
     generatedDate: new Date().toISOString().slice(0, 10),
     accountSize, riskPerTrade: 1.0,
-    totalTrades: trades.length, openTrades: open.length, closedTrades: closed.length,
+    totalTrades: trades.length, openTrades: open.length, closedTrades: decided.length,
     wins: wins.length, losses: losses.length, winRate, profitFactor, expectancy,
     realizedPnlRupees: safe(realizedPnl), realizedPnlPct: accountSize > 0 ? safe(realizedPnl / accountSize * 100) : 0,
     trades: tearTrades,
@@ -150,8 +159,8 @@ export async function exportTearSheetXLSX(data: TearSheetData) {
     [`Generated: ${data.generatedDate}`, `Account: ₹${data.accountSize.toLocaleString('en-IN')}`, `Risk/Trade: ${data.riskPerTrade}%`],
     [],
     ['PORTFOLIO SUMMARY'],
-    ['Total Trades', data.totalTrades, 'Open', data.openTrades, 'Closed', data.closedTrades],
-    ['Win Rate', `${data.winRate.toFixed(1)}%`, 'Wins', data.wins, 'Losses', data.losses],
+    ['Total Trades', data.totalTrades, 'Active', data.openTrades, '5% Decided', data.closedTrades],
+    ['5% Win Rate', `${data.winRate.toFixed(1)}%`, '+5% Hits', data.wins, 'No-Hit Terminal', data.losses],
     ['Profit Factor', data.profitFactor.toFixed(2), 'Expectancy', `${data.expectancy.toFixed(2)}%`],
     ['Realized P&L', `₹${data.realizedPnlRupees.toFixed(0)}`, 'As % of Account', `${data.realizedPnlPct.toFixed(2)}%`],
     [],
@@ -199,8 +208,8 @@ export async function exportTearSheetPDF(data: TearSheetData) {
   doc.setFontSize(10);
   doc.setTextColor(200, 200, 200);
   const y = 28;
-  doc.text(`Total: ${data.totalTrades} (${data.openTrades} open, ${data.closedTrades} closed)`, 14, y);
-  doc.text(`Win Rate: ${data.winRate.toFixed(0)}% (${data.wins}W/${data.losses}L)`, 100, y);
+  doc.text(`Total: ${data.totalTrades} (${data.openTrades} active, ${data.closedTrades} 5% decided)`, 14, y);
+  doc.text(`5% WR: ${data.winRate.toFixed(0)}% (${data.wins} hit/${data.losses} no-hit)`, 100, y);
   doc.text(`PF: ${data.profitFactor.toFixed(2)}`, 180, y);
   doc.text(`Exp: ${data.expectancy.toFixed(2)}%`, 210, y);
   doc.setTextColor(80, 220, 130);
@@ -214,7 +223,7 @@ export async function exportTearSheetPDF(data: TearSheetData) {
   // Trade log table
   autoTable(doc, {
     startY: y + 12,
-    head: [['#', 'Symbol', 'Stage', 'Entry', 'Entry Dt', 'SL', 'Risk%', 'T1', 'T1 Date', 'T1%', 'T2', 'T2 Date', 'T2%', 'Exit', 'Exit Dt', 'P&L%', 'R-Mult', 'MFE%', 'Days', 'Exit Model', 'Outcome', 'Conv']],
+    head: [['#', 'Symbol', 'Stage', 'Entry', 'Entry Dt', 'SL', 'Risk%', 'T1', 'T1 Date', 'T1%', 'T2', 'T2 Date', 'T2%', 'Exit', 'Exit Dt', 'P&L%', 'R-Mult', 'MFE%', 'MAE%', 'Days', 'Exit Model', 'Outcome', 'Conv']],
     body: data.trades.map(t => [
       t.num, t.symbol, t.stage.slice(0, 12),
       `Rs.${t.entryPrice.toFixed(0)}`, t.entryDate, `Rs.${t.stopLoss.toFixed(0)}`, `${t.riskPct.toFixed(1)}%`,
@@ -223,7 +232,7 @@ export async function exportTearSheetPDF(data: TearSheetData) {
       t.exitPrice > 0 ? `Rs.${t.exitPrice.toFixed(0)}` : '-', t.exitDate,
       `${t.weightedPnlPct >= 0 ? '+' : ''}${t.weightedPnlPct.toFixed(2)}%`,
       `${t.rMult >= 0 ? '+' : ''}${t.rMult.toFixed(1)}R`,
-      `${t.mfePct.toFixed(1)}%`, String(t.daysHeld), t.exitModel, t.outcome, String(t.conviction),
+      `${t.mfePct.toFixed(1)}%`, `${t.maePct.toFixed(1)}%`, String(t.daysHeld), t.exitModel, t.outcome, String(t.conviction),
     ]),
     styles: { fontSize: 7, cellPadding: 1.5, textColor: [200, 200, 200], fillColor: [15, 23, 42] },
     headStyles: { fillColor: [30, 41, 59], textColor: [148, 163, 184], fontStyle: 'bold' },

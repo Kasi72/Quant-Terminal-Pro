@@ -1,4 +1,10 @@
-import { didReachFivePctTarget, getTradeMfePct, isTradeResolvedForWinRate, type TrackedTrade } from './tradeOps';
+import {
+  didReachFivePctTarget,
+  getTradeMaePct,
+  getTradeMfePct,
+  isTradeResolvedForWinRate,
+  type TrackedTrade,
+} from './tradeOps';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -793,6 +799,7 @@ export function computeRollingStats(
   const closed = trades.filter(isTradeResolvedForWinRate).slice(-lastN);
   const wins   = closed.filter(didReachFivePctTarget);
   const losses = closed.filter(t => !didReachFivePctTarget(t));
+  const maeTrades = closed.filter(t => getTradeMaePct(t) > 0);
   return {
     period:          label,
     total:           closed.length,
@@ -800,7 +807,7 @@ export function computeRollingStats(
     losses:          losses.length,
     winRate:         closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
     avgMFE:          wins.length   > 0 ? wins.reduce((s, t)   => s + getTradeMfePct(t), 0) / wins.length   : 0,
-    avgMAE:          losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlPct ?? 0), 0) / losses.length : 0,
+    avgMAE:          maeTrades.length > 0 ? maeTrades.reduce((s, t) => s + getTradeMaePct(t), 0) / maeTrades.length : 0,
     avgTimeToTarget: wins.length   > 0 ? wins.reduce((s, t)   => s + (t.daysHeld ?? 0), 0) / wins.length  : 0,
   };
 }

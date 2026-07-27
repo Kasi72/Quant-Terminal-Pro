@@ -1,4 +1,11 @@
-import type { TrackedTrade } from './tradeOps';
+import {
+  didReachFivePctTarget,
+  getTradeMaeR,
+  getTradeMfeR,
+  isTerminalTrade,
+  isTradeResolvedForWinRate,
+  type TrackedTrade,
+} from './tradeOps';
 
 function safe(v: number, fallback = 0): number { return Number.isFinite(v) ? v : fallback; }
 
@@ -16,13 +23,16 @@ export interface MfeMaePoint {
 
 export function computeMfeMaeScatter(trades: TrackedTrade[]): MfeMaePoint[] {
   return trades
-    .filter(t => t.status !== 'open' && t.entryPrice > 0 && t.stopLoss > 0)
+    .filter(t => isTradeResolvedForWinRate(t) && t.entryPrice > 0 && t.stopLoss > 0)
     .map(t => {
-      const rps = Math.max(t.entryPrice - t.stopLoss, 0.01);
-      const mfeR = t.highestPrice ? safe((t.highestPrice - t.entryPrice) / rps) : 0;
       const pnlR = safe(t.pnlR ?? 0);
-      const maeR = t.maeR != null ? safe(t.maeR) : (pnlR < 0 ? pnlR : 0);
-      return { symbol: t.symbol, maeR, mfeR, pnlR, winner: pnlR > 0 };
+      return {
+        symbol: t.symbol,
+        maeR: safe(getTradeMaeR(t)),
+        mfeR: safe(getTradeMfeR(t)),
+        pnlR,
+        winner: didReachFivePctTarget(t),
+      };
     });
 }
 
@@ -37,7 +47,7 @@ export interface ExpectancyPoint {
 }
 
 export function computeExpectancyCurve(trades: TrackedTrade[]): ExpectancyPoint[] {
-  const closed = trades.filter(t => t.status !== 'open' && t.closedDate)
+  const closed = trades.filter(t => isTerminalTrade(t) && t.closedDate)
     .sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
   let cumR = 0;
   return [{ tradeNum: 0, cumulativeR: 0, symbol: '' }, ...closed.map((t, i) => {
@@ -53,7 +63,7 @@ export function computeExpectancyCurve(trades: TrackedTrade[]): ExpectancyPoint[
 export interface RBucket { range: string; count: number; color: string; }
 
 export function computeRDistribution(trades: TrackedTrade[]): RBucket[] {
-  const closed = trades.filter(t => t.status !== 'open');
+  const closed = trades.filter(isTerminalTrade);
   const buckets: Record<string, { count: number; color: string }> = {
     '<-2R': { count: 0, color: '#dc2626' },
     '-2 to -1R': { count: 0, color: '#ef4444' },
@@ -94,42 +104,39 @@ export interface OptimizationResult {
 }
 
 export function computeOptimization(trades: TrackedTrade[]): OptimizationResult | null {
-  const closed = trades.filter(t => t.status !== 'open' && t.entryPrice > 0 && t.stopLoss > 0);
+  const closed = trades.filter(t => isTradeResolvedForWinRate(t) && t.entryPrice > 0 && t.stopLoss > 0);
   if (closed.length < 5) return null;
 
-  const wins = closed.filter(t => (t.pnlR ?? 0) > 0);
-  const losses = closed.filter(t => (t.pnlR ?? 0) < 0);
+  const wins = closed.filter(didReachFivePctTarget);
+  const losses = closed.filter(t => !didReachFivePctTarget(t));
   const wr = closed.length > 0 ? wins.length / closed.length * 100 : 0;
-  const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / wins.length : 0;
+  const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / wins.length : 0;
   const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / losses.length : 0;
-  const expectancy = closed.length > 0 ? closed.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / closed.length : 0;
+  const expectancy = closed.length > 0 ? safe((wins.length / closed.length) * avgWinR - (losses.length / closed.length) * avgLossR) : 0;
 
   // Simulate tighter stop (0.7R) — use stored maeR if available, else fall back to pnlR proxy
   const tighterSurvive = closed.filter(t => {
-    if (t.maeR != null) return Math.abs(t.maeR) <= 0.7;
-    // For winners without maeR data we can't know MAE — exclude them (conservative)
-    if ((t.pnlR ?? 0) > 0) return false;
+    if (getTradeMaeR(t) !== 0) return Math.abs(getTradeMaeR(t)) <= 0.7;
+    if (didReachFivePctTarget(t)) return false;
     return Math.abs(t.pnlR ?? 0) <= 0.7;
   });
-  const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(t => (t.pnlR ?? 0) > 0).length / tighterSurvive.length * 100 : 0;
-  const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / tighterSurvive.length : 0;
+  const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(didReachFivePctTarget).length / tighterSurvive.length * 100 : 0;
+  const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / tighterSurvive.length : 0;
 
   // Simulate wider stop (1.5R) — trades that were stopped with |maeR| <= 1.5 survive
   const widerSurvive = closed.filter(t => {
-    if (t.maeR != null) return Math.abs(t.maeR) <= 1.5;
-    if ((t.pnlR ?? 0) > 0) return true; // winners survive wider stop
+    if (getTradeMaeR(t) !== 0) return Math.abs(getTradeMaeR(t)) <= 1.5;
+    if (didReachFivePctTarget(t)) return true; // 5% hits survive wider stop
     return Math.abs(t.pnlR ?? 0) <= 1.5;
   });
-  const widerWR = widerSurvive.length > 0 ? widerSurvive.filter(t => (t.pnlR ?? 0) > 0).length / widerSurvive.length * 100 : 0;
-  const widerExp = widerSurvive.length > 0 ? widerSurvive.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / widerSurvive.length : 0;
+  const widerWR = widerSurvive.length > 0 ? widerSurvive.filter(didReachFivePctTarget).length / widerSurvive.length * 100 : 0;
+  const widerExp = widerSurvive.length > 0 ? widerSurvive.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / widerSurvive.length : 0;
 
   // MFE reach analysis
   const mfeReachPct: OptimizationResult['mfeReachPct'] = [];
   for (const rLevel of [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0]) {
     const reaching = closed.filter(t => {
-      const rps = Math.max(t.entryPrice - t.stopLoss, 0.01);
-      const mfeR = t.highestPrice ? (t.highestPrice - t.entryPrice) / rps : 0;
-      return mfeR >= rLevel;
+      return getTradeMfeR(t) >= rLevel;
     });
     mfeReachPct.push({ rLevel, pctReaching: safe(reaching.length / closed.length * 100) });
   }
@@ -138,14 +145,11 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   const optimalT1R = mfeReachPct.filter(m => m.pctReaching >= 60).pop()?.rLevel ?? 1.0;
 
   // Profit capture: avg actual R for winners / avg MFE R for same winners
-  const winsWithMfe = wins.filter(t => t.highestPrice && t.highestPrice > t.entryPrice);
+  const winsWithMfe = wins.filter(t => getTradeMfeR(t) > 0);
   const avgMfeR = winsWithMfe.length > 0
-    ? winsWithMfe.reduce((s, t) => {
-        const rps = Math.max(t.entryPrice - t.stopLoss, 0.01);
-        return s + (t.highestPrice! - t.entryPrice) / rps;
-      }, 0) / winsWithMfe.length : 1;
+    ? winsWithMfe.reduce((s, t) => s + getTradeMfeR(t), 0) / winsWithMfe.length : 1;
   const avgWinRForCapture = winsWithMfe.length > 0
-    ? winsWithMfe.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / winsWithMfe.length : 0;
+    ? winsWithMfe.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / winsWithMfe.length : 0;
   const profitCapturePct = avgMfeR > 0 ? safe(avgWinRForCapture / avgMfeR * 100) : 0;
 
   return {
@@ -164,9 +168,9 @@ export interface RegimePerf { regime: string; trades: number; winRate: number; a
 
 export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
   // Simple proxy: if entry was when Nifty trend was up/down
-  // Without stored regime data, use PnL sign clustering as proxy
-  const closed = trades.filter(t => t.status !== 'open')
-    .sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
+  // Without stored regime data, use chronological buckets as a proxy.
+  const closed = trades.filter(isTradeResolvedForWinRate)
+    .sort((a, b) => (a.closedDate ?? a.entryDate ?? '').localeCompare(b.closedDate ?? b.entryDate ?? ''));
   if (closed.length < 3) return [];
 
   // Split into chronological halves as proxy for different regimes
@@ -177,17 +181,17 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
   ];
 
   return periods.map(p => {
-    const wins = p.trades.filter(t => (t.pnlR ?? 0) > 0);
-    const avgR = p.trades.length > 0 ? p.trades.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / p.trades.length : 0;
+    const wins = p.trades.filter(didReachFivePctTarget);
+    const avgR = p.trades.length > 0 ? p.trades.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / p.trades.length : 0;
     return {
       regime: p.label, trades: p.trades.length,
       winRate: p.trades.length > 0 ? safe(wins.length / p.trades.length * 100) : 0,
       avgR: safe(avgR),
       expectancy: (() => {
-        const pWins = p.trades.filter(t => (t.pnlR ?? 0) > 0);
-        const pLosses = p.trades.filter(t => (t.pnlR ?? 0) < 0);
+        const pWins = p.trades.filter(didReachFivePctTarget);
+        const pLosses = p.trades.filter(t => !didReachFivePctTarget(t));
         const wr2 = p.trades.length > 0 ? pWins.length / p.trades.length : 0;
-        const awr = pWins.length > 0 ? pWins.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / pWins.length : 0;
+        const awr = pWins.length > 0 ? pWins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / pWins.length : 0;
         const alr = pLosses.length > 0 ? pLosses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / pLosses.length : 0;
         return safe(wr2 * awr - (1 - wr2) * alr);
       })(),
@@ -202,7 +206,7 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
 export interface SectorPerf { sector: string; trades: number; winRate: number; avgR: number; bestSymbol: string; }
 
 export function computeSectorPerformance(trades: TrackedTrade[]): SectorPerf[] {
-  const closed = trades.filter(t => t.status !== 'open');
+  const closed = trades.filter(isTradeResolvedForWinRate);
   const sectors = new Map<string, TrackedTrade[]>();
   for (const t of closed) {
     const sec = t.sector || 'Unknown';
@@ -212,9 +216,9 @@ export function computeSectorPerformance(trades: TrackedTrade[]): SectorPerf[] {
   const results: SectorPerf[] = [];
   for (const [sector, st] of sectors) {
     if (st.length < 1) continue;
-    const wins = st.filter(t => (t.pnlR ?? 0) > 0);
-    const avgR = st.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / st.length;
-    const best = st.reduce((b, t) => (t.pnlR ?? 0) > (b.pnlR ?? 0) ? t : b, st[0]);
+    const wins = st.filter(didReachFivePctTarget);
+    const avgR = st.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / st.length;
+    const best = st.reduce((b, t) => Math.max(t.pnlR ?? 0, getTradeMfeR(t)) > Math.max(b.pnlR ?? 0, getTradeMfeR(b)) ? t : b, st[0]);
     results.push({ sector, trades: st.length, winRate: safe(wins.length / st.length * 100), avgR: safe(avgR), bestSymbol: best.symbol });
   }
   return results.sort((a, b) => (b.avgR - a.avgR) || a.sector.localeCompare(b.sector));
@@ -227,9 +231,12 @@ export function computeSectorPerformance(trades: TrackedTrade[]): SectorPerf[] {
 export interface ConvictionPoint { conviction: number; pnlR: number; symbol: string; winner: boolean; }
 
 export function computeConvictionCorrelation(trades: TrackedTrade[]): { points: ConvictionPoint[]; correlation: number } {
-  const closed = trades.filter(t => t.status !== 'open' && t.conviction != null);
+  const closed = trades.filter(t => isTradeResolvedForWinRate(t) && t.conviction != null);
   const points = closed.map(t => ({
-    conviction: t.conviction ?? 0, pnlR: safe(t.pnlR ?? 0), symbol: t.symbol, winner: (t.pnlR ?? 0) > 0,
+    conviction: t.conviction ?? 0,
+    pnlR: safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)),
+    symbol: t.symbol,
+    winner: didReachFivePctTarget(t),
   }));
   if (points.length < 3) return { points, correlation: 0 };
 
@@ -248,15 +255,15 @@ export function computeConvictionCorrelation(trades: TrackedTrade[]): { points: 
 export interface EdgePoint { windowEnd: number; winRate: number; avgR: number; }
 
 export function computeEdgeDecay(trades: TrackedTrade[], windowSize = 5): { points: EdgePoint[]; trending: 'improving' | 'stable' | 'decaying' } {
-  const closed = trades.filter(t => t.status !== 'open' && t.closedDate)
-    .sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
+  const closed = trades.filter(t => isTradeResolvedForWinRate(t) && (t.closedDate || t.entryDate))
+    .sort((a, b) => (a.closedDate ?? a.entryDate ?? '').localeCompare(b.closedDate ?? b.entryDate ?? ''));
   if (closed.length < windowSize) return { points: [], trending: 'stable' };
 
   const points: EdgePoint[] = [];
   for (let i = windowSize; i <= closed.length; i++) {
     const window = closed.slice(i - windowSize, i);
-    const wins = window.filter(t => (t.pnlR ?? 0) > 0).length;
-    const avgR = window.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / windowSize;
+    const wins = window.filter(didReachFivePctTarget).length;
+    const avgR = window.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / windowSize;
     points.push({ windowEnd: i, winRate: safe(wins / windowSize * 100), avgR: safe(avgR) });
   }
 
@@ -277,7 +284,7 @@ export function computeEdgeDecay(trades: TrackedTrade[], windowSize = 5): { poin
 export interface DayPerf { day: string; trades: number; winRate: number; avgR: number; }
 
 export function computeDayOfWeek(trades: TrackedTrade[]): DayPerf[] {
-  const closed = trades.filter(t => t.status !== 'open' && t.entryDate);
+  const closed = trades.filter(t => isTradeResolvedForWinRate(t) && t.entryDate);
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const buckets = new Map<number, TrackedTrade[]>();
   for (const t of closed) {
@@ -291,11 +298,11 @@ export function computeDayOfWeek(trades: TrackedTrade[]): DayPerf[] {
   for (let d = 1; d <= 5; d++) {
     const bt = buckets.get(d) ?? [];
     if (bt.length === 0) continue;
-    const wins = bt.filter(t => (t.pnlR ?? 0) > 0);
+    const wins = bt.filter(didReachFivePctTarget);
     results.push({
       day: days[d], trades: bt.length,
       winRate: safe(wins.length / bt.length * 100),
-      avgR: safe(bt.reduce((s, t) => s + safe(t.pnlR ?? 0), 0) / bt.length),
+      avgR: safe(bt.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / bt.length),
     });
   }
   return results;

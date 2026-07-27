@@ -61,7 +61,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
-  didReachFivePctTarget, isTerminalTrade, isTradeResolvedForWinRate,
+  didReachFivePctTarget, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
 } from '@/lib/tradeOps';
@@ -6095,16 +6095,16 @@ function HomePageInner() {
               const stopped = terminal.filter(t => t.status === 'stopped');
               const expired = terminal.filter(t => t.status === 'expired');
 
-              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, t.mfeR ?? 0), 0) / wins.length : 0;
+              const qtyOf = (t: TrackedTrade) => Math.max(1, t.qty ?? 1);
+              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, getTradeMfeR(t)), 0) / wins.length : 0;
               const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlR ?? 0), 0) / losses.length : 0;
               const avgDays = closed.length > 0 ? closed.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / closed.length : 0;
               const avgDaysWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / wins.length : 0;
 
-              const riskTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0);
-              const avgMfeR = riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).length > 0
-                ? riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).reduce((s, t) => s + (t.highestPrice! - t.entryPrice) / (t.entryPrice - t.stopLoss), 0) / riskTrades.filter(t => t.highestPrice != null && t.highestPrice > 0).length : 0;
-              const avgMaeR = losses.filter(t => t.entryPrice - t.stopLoss > 0).length > 0
-                ? losses.filter(t => t.entryPrice - t.stopLoss > 0).reduce((s, t) => s + ((t.pnlPct ?? 0) / 100 * t.entryPrice) / (t.entryPrice - t.stopLoss), 0) / losses.filter(t => t.entryPrice - t.stopLoss > 0).length : 0;
+              const mfeRTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0 && getTradeMfeR(t) > 0);
+              const avgMfeR = mfeRTrades.length > 0 ? mfeRTrades.reduce((s, t) => s + getTradeMfeR(t), 0) / mfeRTrades.length : 0;
+              const maeRTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0 && getTradeMaePct(t) > 0);
+              const avgMaeR = maeRTrades.length > 0 ? maeRTrades.reduce((s, t) => s + getTradeMaeR(t), 0) / maeRTrades.length : 0;
 
               return (
                 <>
@@ -6237,7 +6237,7 @@ function HomePageInner() {
                         <span className="text-slate-700">|</span>
                         {/* Portfolio heat */}
                         {(() => {
-                          const deployed = open.reduce((s, t) => s + t.entryPrice, 0);
+                          const deployed = open.reduce((s, t) => s + t.entryPrice * qtyOf(t), 0);
                           const deployedPct = accountSize > 0 ? (deployed / accountSize * 100) : 0;
                           const maxPos = 5;
                           const room = maxPos - open.length;
@@ -6318,9 +6318,9 @@ function HomePageInner() {
                     {[
                       { label: 'Total Trades', value: String(all.length), sub: `${open.length} active · ${closed.length} decided`, color: 'text-slate-200' },
                       { label: '5% Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length} hit +5% / ${losses.length} no-hit`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
-                      { label: 'Avg Win R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `Avg Loss: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
-                      { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Best price in R', color: 'text-emerald-300' },
-                      { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Worst drawdown in R', color: 'text-red-300' },
+                      { label: 'Avg Hit R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `No-hit avg: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
+                      { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Avg best excursion in R', color: 'text-emerald-300' },
+                      { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Avg adverse excursion in R', color: 'text-red-300' },
                       { label: 'Avg Days', value: avgDays > 0 ? `${avgDays.toFixed(1)}d` : '—', sub: avgDaysWin > 0 ? `Winners: ${avgDaysWin.toFixed(1)}d` : '', color: 'text-slate-300' },
                     ].map((kpi, i) => (
                       <div key={i} className="bg-slate-800/40 rounded-lg px-3 py-2 text-center">
@@ -6338,7 +6338,7 @@ function HomePageInner() {
                       {(() => {
                         const unrealPnls = open.filter(t => t.currentPrice && t.entryPrice > 0).map(t => ((t.currentPrice! - t.entryPrice) / t.entryPrice) * 100);
                         const avgUnreal = unrealPnls.length > 0 ? unrealPnls.reduce((s, v) => s + v, 0) / unrealPnls.length : 0;
-                        const totalRisk = open.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
+                        const totalRisk = open.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0) * qtyOf(t), 0);
                         return <>
                           <span className={`font-mono font-semibold ${avgUnreal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Avg P&L: {avgUnreal >= 0 ? '+' : ''}{avgUnreal.toFixed(2)}%</span>
                           <span className="text-red-400 font-mono">At risk: ₹{totalRisk.toFixed(0)}</span>
@@ -6365,15 +6365,16 @@ function HomePageInner() {
                     ))}
                   </div>
 
-                  {/* #5: Best / Worst trade highlight */}
+                  {/* #5: Terminal P&L highlight */}
                   {terminal.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {(() => {
                         const best = terminal.reduce((b, t) => (t.pnlPct ?? 0) > (b.pnlPct ?? 0) ? t : b, terminal[0]);
                         const worst = terminal.reduce((w, t) => (t.pnlPct ?? 0) < (w.pnlPct ?? 0) ? t : w, terminal[0]);
+                        const hasActualLoss = (worst.pnlPct ?? 0) < 0;
                         return <>
                           <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-lg px-3 py-2 text-xs">
-                            <div className="text-[10px] text-emerald-500 font-semibold uppercase">Best Trade</div>
+                            <div className="text-[10px] text-emerald-500 font-semibold uppercase">Best Terminal P&L</div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="font-mono text-emerald-400 font-bold">{best.symbol.replace('.NS','').replace('.BO','')}</span>
                               <span className="text-emerald-300 font-mono">+{(best.pnlPct ?? 0).toFixed(2)}%</span>
@@ -6382,12 +6383,12 @@ function HomePageInner() {
                             </div>
                           </div>
                           {worst !== best && (
-                            <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2 text-xs">
-                              <div className="text-[10px] text-red-500 font-semibold uppercase">Worst Trade</div>
+                            <div className={`${hasActualLoss ? 'bg-red-900/20 border-red-800/30' : 'bg-amber-900/15 border-amber-800/30'} border rounded-lg px-3 py-2 text-xs`}>
+                              <div className={`text-[10px] ${hasActualLoss ? 'text-red-500' : 'text-amber-500'} font-semibold uppercase`}>{hasActualLoss ? 'Worst Terminal P&L' : 'Lowest Terminal P&L'}</div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="font-mono text-red-400 font-bold">{worst.symbol.replace('.NS','').replace('.BO','')}</span>
-                                <span className="text-red-300 font-mono">{(worst.pnlPct ?? 0).toFixed(2)}%</span>
-                                <span className="text-red-400/60 font-mono">{(worst.pnlR ?? 0).toFixed(1)}R</span>
+                                <span className={`font-mono ${hasActualLoss ? 'text-red-400' : 'text-amber-400'} font-bold`}>{worst.symbol.replace('.NS','').replace('.BO','')}</span>
+                                <span className={`${hasActualLoss ? 'text-red-300' : 'text-amber-300'} font-mono`}>{(worst.pnlPct ?? 0) >= 0 ? '+' : ''}{(worst.pnlPct ?? 0).toFixed(2)}%</span>
+                                <span className={`${hasActualLoss ? 'text-red-400/60' : 'text-amber-400/60'} font-mono`}>{(worst.pnlR ?? 0) >= 0 ? '+' : ''}{(worst.pnlR ?? 0).toFixed(1)}R</span>
                                 <span className="text-slate-500 ml-auto">{worst.daysHeld ?? 0}d</span>
                               </div>
                             </div>
@@ -6409,10 +6410,10 @@ function HomePageInner() {
                         computeRollingStats(trackedTrades, 999, 'All Time'),
                       ].filter(s => s.total > 0).map(s => {
                         const slicedTrades = trackedTrades.filter(isTradeResolvedForWinRate).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
-                        const rt = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0);
-                        const sMfeR = rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length > 0 ? rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length : 0;
-                        const sLosers = slicedTrades.filter(tt => (tt.pnlPct ?? 0) < 0 && tt.entryPrice - tt.stopLoss > 0);
-                        const sMaeR = sLosers.length > 0 ? sLosers.reduce((sum, tt) => sum + ((tt.pnlPct ?? 0) / 100 * tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / sLosers.length : 0;
+                        const sMfeTrades = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0 && getTradeMfeR(tt) > 0);
+                        const sMaeTrades = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0 && getTradeMaePct(tt) > 0);
+                        const sMfeR = sMfeTrades.length > 0 ? sMfeTrades.reduce((sum, tt) => sum + getTradeMfeR(tt), 0) / sMfeTrades.length : 0;
+                        const sMaeR = sMaeTrades.length > 0 ? sMaeTrades.reduce((sum, tt) => sum + getTradeMaeR(tt), 0) / sMaeTrades.length : 0;
                         return (
                           <div key={s.period} className="bg-slate-900/40 rounded px-3 py-2 text-xs">
                             <div className="text-slate-400 font-semibold mb-1.5">{s.period}</div>
@@ -6489,14 +6490,13 @@ function HomePageInner() {
                               return 0;
                             }).map((t, i) => {
                               const rps = t.entryPrice - t.stopLoss;
-                              const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
-                              const mfeR = t.highestPrice && rps > 0 ? (t.highestPrice - t.entryPrice) / rps : 0;
+                              const mfePct = getTradeMfePct(t);
+                              const mfeR = getTradeMfeR(t);
                               const curPrice = t.closedPrice ?? t.currentPrice ?? 0;
                               const curPnl = curPrice > 0 && t.entryPrice > 0 ? ((curPrice - t.entryPrice) / t.entryPrice) * 100 : (t.pnlPct ?? 0);
                               const curR = rps > 0 && curPrice > 0 ? (curPrice - t.entryPrice) / rps : (t.pnlR ?? 0);
-                              const isActiveTrade = ['open','hit_t1','hit_t2'].includes(t.status);
-                              const maePct = !isActiveTrade && (t.pnlPct ?? 0) < 0 ? (t.pnlPct ?? 0) : (isActiveTrade && curPnl < 0 ? curPnl : 0);
-                              const maeR = rps > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / rps : 0;
+                              const maePct = getTradeMaePct(t);
+                              const maeR = getTradeMaeR(t);
                               const daysLeft = 20 - (t.daysHeld ?? 0);
 
                               const statusCfg: Record<string, { label: string; color: string }> = {
@@ -6534,7 +6534,7 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(2)}R` : '—'}</td>
-                                  <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(2)}%` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${maePct > 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct > 0 ? `-${maePct.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right ${t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
                                   {/* #3/#7: Days to expiry countdown */}
@@ -6608,7 +6608,7 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Expectancy Curve (Cumulative R)</div>
                       {(() => {
                         const curve = computeExpectancyCurve(trackedTrades);
-                        if (curve.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more closed trades</div>;
+                        if (curve.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more terminal trades</div>;
                         const maxR = Math.max(...curve.map(p => p.cumulativeR), 0.1);
                         const minR = Math.min(...curve.map(p => p.cumulativeR), -0.1);
                         const range = maxR - minR || 1;
@@ -6665,7 +6665,7 @@ function HomePageInner() {
                     <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">MFE vs MAE Scatter (each dot = 1 trade)</div>
                     {(() => {
                       const points = computeMfeMaeScatter(trackedTrades);
-                      if (points.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more closed trades</div>;
+                      if (points.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more 5% decided trades</div>;
                       const maxMfe = Math.max(...points.map(p => p.mfeR), 1);
                       const minMae = Math.min(...points.map(p => p.maeR), -1);
                       return (
@@ -6702,7 +6702,7 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Target Reach Analysis</div>
                       {(() => {
                         const opt = computeOptimization(trackedTrades);
-                        if (!opt) return <div className="text-xs text-slate-600 py-2">Need 5+ closed trades</div>;
+                        if (!opt) return <div className="text-xs text-slate-600 py-2">Need 5+ 5% decided trades</div>;
                         return (
                           <div className="space-y-1.5">
                             {opt.mfeReachPct.map(m => (
@@ -6730,7 +6730,7 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Conviction vs Outcome</div>
                       {(() => {
                         const { points, correlation } = computeConvictionCorrelation(trackedTrades);
-                        if (points.length < 3) return <div className="text-xs text-slate-600 py-2">Need 3+ closed trades</div>;
+                        if (points.length < 3) return <div className="text-xs text-slate-600 py-2">Need 3+ 5% decided trades</div>;
                         return (
                           <div>
                             <div className="relative h-28 border border-slate-700/30 rounded overflow-hidden mb-1">
@@ -6790,7 +6790,7 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Entry Day Analysis</div>
                       {(() => {
                         const days = computeDayOfWeek(trackedTrades);
-                        if (days.length === 0) return <div className="text-xs text-slate-600 py-2">Need closed trades</div>;
+                        if (days.length === 0) return <div className="text-xs text-slate-600 py-2">Need 5% decided trades</div>;
                         return (
                           <div className="space-y-1">
                             {days.map(d => (
@@ -6814,7 +6814,7 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Sector Performance</div>
                       {(() => {
                         const sectors = computeSectorPerformance(trackedTrades);
-                        if (sectors.length === 0) return <div className="text-xs text-slate-600 py-2">Need closed trades</div>;
+                        if (sectors.length === 0) return <div className="text-xs text-slate-600 py-2">Need 5% decided trades</div>;
                         return (
                           <div className="space-y-1">
                             {sectors.slice(0, 6).map(s => (
@@ -6860,7 +6860,7 @@ function HomePageInner() {
                   {/* SECTION 5B: WHAT'S WORKING                 */}
                   {/* ═══════════════════════════════════════════ */}
                   {(() => {
-                    const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                    const closed = trackedTrades.filter(isTradeResolvedForWinRate);
                     const signalDefs: Array<{ name: string; icon: string; check: (t: TrackedTrade) => boolean }> = [
                       { name: 'Zone Explosion', icon: '💎', check: t => t.zoneExplosion === 'HIGH_CONVICTION' },
                       { name: 'Zone Confirmed',  icon: '🎯', check: t => t.zoneExplosion === 'CONFIRMED' },
@@ -6875,9 +6875,9 @@ function HomePageInner() {
                     const rows = signalDefs.map(def => {
                       const matching = closed.filter(def.check);
                       if (matching.length < 2) return null;
-                      const wins = matching.filter(t => (t.pnlPct ?? 0) > 0);
+                      const wins = matching.filter(didReachFivePctTarget);
                       const wr = (wins.length / matching.length) * 100;
-                      const avgPnl = matching.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / matching.length;
+                      const avgPnl = matching.reduce((s, t) => s + (didReachFivePctTarget(t) ? Math.max(t.pnlPct ?? 0, getTradeMfePct(t)) : (t.pnlPct ?? 0)), 0) / matching.length;
                       return { name: def.name, icon: def.icon, n: matching.length, wins: wins.length, wr, avgPnl };
                     }).filter((x): x is { name: string; icon: string; n: number; wins: number; wr: number; avgPnl: number } => x !== null)
                       .sort((a, b) => b.wr - a.wr);
@@ -6885,16 +6885,16 @@ function HomePageInner() {
                       <div className="bg-slate-800/30 rounded-lg overflow-hidden">
                         <div className="px-3 py-2 bg-slate-800/50 flex items-center gap-2">
                           <span className="text-xs text-slate-300 font-semibold">📊 What's Working — Signal Attribution</span>
-                          <span className="text-[10px] text-slate-600 ml-auto">{closed.length} closed trades</span>
+                          <span className="text-[10px] text-slate-600 ml-auto">{closed.length} 5% decided trades</span>
                         </div>
                         <div className="px-3 pb-3 pt-2">
                           {closed.length < 3 ? (
-                            <div className="text-[10px] text-slate-600 text-center py-2">Need 3+ closed trades to see which signals are working for you</div>
+                            <div className="text-[10px] text-slate-600 text-center py-2">Need 3+ 5% decided trades to see which signals are working for you</div>
                           ) : rows.length === 0 ? (
                             <div className="text-[10px] text-slate-600 text-center py-2">No signals with 2+ trades yet — keep tracking</div>
                           ) : (
                             <>
-                              <div className="text-[10px] text-slate-600 mb-2">Win rate per signal present at entry — min 2 trades shown</div>
+                              <div className="text-[10px] text-slate-600 mb-2">5% hit rate per signal present at entry — min 2 trades shown</div>
                               <div className="space-y-1.5">
                                 {rows.map(row => (
                                   <div key={row.name} className="flex items-center gap-2 text-[10px]">
@@ -7468,16 +7468,17 @@ function HomePageInner() {
                             <div className="text-slate-500 mb-1">{s.period}</div>
                             <div className={`text-lg font-bold ${s.winRate >= 55 ? 'text-emerald-400' : s.winRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{s.winRate.toFixed(0)}%</div>
                             <div className="text-slate-600">{s.wins}W / {s.losses}L of {s.total}</div>
-                            {s.avgTimeToTarget > 0 && <div className="text-slate-600 mt-0.5">Avg {s.avgTimeToTarget.toFixed(1)}d to T1</div>}
+                            {s.avgTimeToTarget > 0 && <div className="text-slate-600 mt-0.5">Avg {s.avgTimeToTarget.toFixed(1)}d to +5%</div>}
                             {s.avgMFE > 0 && <div className="text-emerald-600 mt-0.5" title="Avg best price on winners">MFE +{s.avgMFE.toFixed(1)}%</div>}
-                            {s.avgMAE > 0 && <div className="text-red-600" title="Avg worst drawdown on losers">MAE -{s.avgMAE.toFixed(1)}%</div>}
+                            {s.avgMAE > 0 && <div className="text-red-600" title="Average adverse excursion across decided trades">MAE -{s.avgMAE.toFixed(1)}%</div>}
                             {(() => {
-                              const closed = trackedTrades.filter(tt => tt.status !== 'open').slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
+                              const closed = trackedTrades.filter(isTradeResolvedForWinRate).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
                               const riskTrades = closed.filter(tt => tt.entryPrice - tt.stopLoss > 0);
                               if (riskTrades.length === 0) return null;
-                              const mfeTrades = riskTrades.filter(tt => tt.highestPrice != null && tt.highestPrice > 0);
-                              const avgMfeR = mfeTrades.length > 0 ? mfeTrades.reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / mfeTrades.length : 0;
-                              const avgMaeR = riskTrades.filter(tt => (tt.pnlPct ?? 0) < 0).reduce((sum, tt) => sum + ((tt.pnlPct ?? 0) / 100 * tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / (riskTrades.filter(tt => (tt.pnlPct ?? 0) < 0).length || 1);
+                              const mfeTrades = riskTrades.filter(tt => getTradeMfeR(tt) > 0);
+                              const maeTrades = riskTrades.filter(tt => getTradeMaePct(tt) > 0);
+                              const avgMfeR = mfeTrades.length > 0 ? mfeTrades.reduce((sum, tt) => sum + getTradeMfeR(tt), 0) / mfeTrades.length : 0;
+                              const avgMaeR = maeTrades.length > 0 ? maeTrades.reduce((sum, tt) => sum + getTradeMaeR(tt), 0) / maeTrades.length : 0;
                               return <>
                                 {avgMfeR > 0 && <div className="text-emerald-500 text-[10px]">MFE-R +{avgMfeR.toFixed(1)}R</div>}
                                 {avgMaeR < 0 && <div className="text-red-500 text-[10px]">MAE-R {avgMaeR.toFixed(1)}R</div>}

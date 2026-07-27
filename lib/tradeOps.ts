@@ -197,6 +197,33 @@ export function getTradeMfePct(t: TrackedTrade): number {
   return Math.max(0, t.pnlPct ?? 0);
 }
 
+export function getTradeMfeR(t: TrackedTrade): number {
+  if (Number.isFinite(t.mfeR)) return Math.max(0, t.mfeR ?? 0);
+  const riskPerShare = t.entryPrice - t.stopLoss;
+  const mfePct = getTradeMfePct(t);
+  return riskPerShare > 0 && t.entryPrice > 0 ? ((mfePct / 100) * t.entryPrice) / riskPerShare : 0;
+}
+
+export function getTradeMaePct(t: TrackedTrade): number {
+  if (Number.isFinite(t.mae)) return Math.abs(t.mae ?? 0);
+  const riskPerShare = t.entryPrice - t.stopLoss;
+  if (Number.isFinite(t.maeR) && riskPerShare > 0 && t.entryPrice > 0) {
+    return (Math.abs(t.maeR ?? 0) * riskPerShare / t.entryPrice) * 100;
+  }
+  const referencePrice = t.closedPrice ?? t.currentPrice ?? 0;
+  if (t.entryPrice > 0 && referencePrice > 0 && referencePrice < t.entryPrice) {
+    return ((t.entryPrice - referencePrice) / t.entryPrice) * 100;
+  }
+  return (t.pnlPct ?? 0) < 0 ? Math.abs(t.pnlPct ?? 0) : 0;
+}
+
+export function getTradeMaeR(t: TrackedTrade): number {
+  if (Number.isFinite(t.maeR) && (t.maeR ?? 0) !== 0) return -Math.abs(t.maeR ?? 0);
+  const riskPerShare = t.entryPrice - t.stopLoss;
+  const maePct = getTradeMaePct(t);
+  return riskPerShare > 0 && t.entryPrice > 0 ? -((maePct / 100) * t.entryPrice) / riskPerShare : 0;
+}
+
 export function didReachFivePctTarget(t: TrackedTrade): boolean {
   return getTradeMfePct(t) >= FIVE_PCT_WIN_THRESHOLD;
 }
@@ -216,7 +243,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
 
   const totalWinPct = wins.reduce((s, t) => s + Math.max(t.pnlPct ?? 0, getTradeMfePct(t)), 0);
   const totalLossPct = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
-  const totalWinR = wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, t.mfeR ?? 0), 0);
+  const totalWinR = wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, getTradeMfeR(t)), 0);
   const totalLossR = Math.abs(losses.reduce((s, t) => s + (t.pnlR ?? 0), 0));
 
   let bestTrade: { symbol: string; pnlPct: number } | null = null;
@@ -230,12 +257,10 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   // Current streak
   let streakWins = 0, streakLosses = 0;
   for (let i = closed.length - 1; i >= 0; i--) {
-    const pnl = closed[i].pnlPct ?? 0;
-    const isWin = pnl > 0;
-    const isBreakeven = pnl === 0;
-    if (i === closed.length - 1) { if (isWin) streakWins = 1; else if (!isBreakeven) streakLosses = 1; }
+    const isWin = didReachFivePctTarget(closed[i]);
+    if (i === closed.length - 1) { if (isWin) streakWins = 1; else streakLosses = 1; }
     else if (isWin && streakWins > 0) streakWins++;
-    else if (!isWin && !isBreakeven && streakLosses > 0) streakLosses++;
+    else if (!isWin && streakLosses > 0) streakLosses++;
     else break;
   }
 
