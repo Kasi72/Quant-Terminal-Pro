@@ -142,9 +142,12 @@ export interface TrackedTrade {
   trailLog?: Array<{ day: number; newStop: number; reason: string }>;
   gateLog?: Array<{
     day: number;
+    date?: string;
     close: number;
+    low?: number;
     stopLevel: number;
     dipPct: number;
+    triggerType?: 'intraday_low' | 'close' | 'gap_down';
     gatesTested: Array<{ gate: string; passed: boolean; reason: string }>;
     result: string;
   }>;

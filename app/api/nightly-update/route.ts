@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import type { TrackedTrade } from '@/lib/tradeOps';
+import { validateTrade, applyValidation } from '@/lib/autoValidator';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -299,7 +300,19 @@ export async function GET(req: NextRequest) {
       return;
     }
 
-    const updated = processTrade(trade, bars);
+    const entryDate = trade.entryDate.slice(0, 10);
+    const postEntry = bars.filter(b => b.date > entryDate);
+    const validation = validateTrade(trade, postEntry.map(b => ({
+      o: b.open, h: b.high, l: b.low, c: b.close, d: b.date,
+    })));
+    const lastBar = postEntry[postEntry.length - 1];
+    const updated = lastBar
+      ? {
+          ...applyValidation(trade, validation),
+          currentPrice: lastBar.close,
+          lastCheckDate: lastBar.date,
+        }
+      : trade;
     summary.processed++;
 
     // Always upsert to keep currentPrice, mfe, mae fresh even if status unchanged
@@ -319,10 +332,13 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily log: upsert one row per candle from entry → today (or close date) ──
-    const entryDate = trade.entryDate.slice(0, 10);
-    const postEntry = bars.filter(b => b.date > entryDate);
     const terminalDate = updated.closedDate ?? null;
     let cumMfe = 0, cumMae = 0;
+    let seen5 = false, seenT1 = false, seenT2 = false, seenT3 = false;
+    const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();
+    for (const g of updated.gateLog ?? []) {
+      if (g.date) gateByDate.set(g.date.slice(0, 10), g);
+    }
     const logRows: Record<string, unknown>[] = [];
 
     for (let d = 0; d < postEntry.length; d++) {
@@ -332,7 +348,47 @@ export async function GET(req: NextRequest) {
       if (barMfe > cumMfe) cumMfe = barMfe;
       if (barMae > cumMae) cumMae = barMae;
 
-      const isEvent = terminalDate != null && bar.date === terminalDate;
+      const gate = gateByDate.get(bar.date);
+      let eventType: string | null = null;
+      let eventDetail: string | null = null;
+      const pct = (price: number) => ((price - trade.entryPrice) / trade.entryPrice) * 100;
+      const isTerminalDate = terminalDate != null && bar.date === terminalDate;
+      const verifiedStop = updated.status === 'stopped' && (isTerminalDate || gate?.result === 'STOPPED');
+
+      if (verifiedStop) {
+        eventType = 'stopped';
+        eventDetail = buildEventDetail(updated);
+      } else if (updated.status === 'hit_t3' && !seenT3 && trade.target3 > 0 && bar.high >= trade.target3) {
+        seenT1 = true; seenT2 = true; seenT3 = true;
+        eventType = 'hit_t3';
+        eventDetail = `T3 ₹${trade.target3.toFixed(2)} hit → ${updated.pnlPct?.toFixed(1)}%`;
+      } else if (!seen5 && trade.entryPrice > 0 && (bar.close >= trade.entryPrice * 1.05 || bar.high >= trade.entryPrice * 1.05)) {
+        seen5 = true;
+        const sameBarT2 = !seenT2 && trade.target2 > 0 && bar.high >= trade.target2;
+        const sameBarT1 = !seenT1 && trade.target1 > 0 && bar.high >= trade.target1;
+        if (sameBarT2) { seenT1 = true; seenT2 = true; }
+        else if (sameBarT1) seenT1 = true;
+        const closePct = pct(bar.close);
+        const highPct = pct(bar.high);
+        eventType = 'hit_5pct';
+        eventDetail = `+5% target crossed (${closePct >= 5 ? `CMP +${closePct.toFixed(1)}%` : `High +${highPct.toFixed(1)}%`})${sameBarT2 ? ' · T2 cleared' : sameBarT1 ? ' · T1 cleared' : ''}`;
+      } else if (!seenT2 && trade.target2 > 0 && bar.high >= trade.target2) {
+        seenT1 = true; seenT2 = true;
+        eventType = 'hit_t2';
+        eventDetail = `T2 ₹${trade.target2.toFixed(2)} cleared`;
+      } else if (!seenT1 && trade.target1 > 0 && bar.high >= trade.target1) {
+        seenT1 = true;
+        eventType = 'hit_t1';
+        eventDetail = `T1 ₹${trade.target1.toFixed(2)} cleared`;
+      } else if (gate?.result === 'SHIELDED') {
+        eventType = 'stop_shielded';
+        const blockedBy = gate.gatesTested?.find(g => g.passed === true)?.gate ?? gate.gatesTested?.[0]?.gate ?? 'Gate shield';
+        eventDetail = `SL touch shielded (${blockedBy})`;
+      } else if (updated.status === 'expired' && isTerminalDate) {
+        eventType = 'expired';
+        eventDetail = buildEventDetail(updated);
+      }
+
       logRows.push({
         user_id: USER_ID,
         symbol: trade.symbol,
@@ -344,10 +400,10 @@ export async function GET(req: NextRequest) {
         day_num: d + 1,
         mfe_pct: Math.round(cumMfe * 100) / 100,
         mae_pct: Math.round(cumMae * 100) / 100,
-        event_type: isEvent ? updated.status : null,
-        event_detail: isEvent ? buildEventDetail(updated) : null,
+        event_type: eventType,
+        event_detail: eventDetail,
       });
-      if (isEvent) break;
+      if (['stopped', 'hit_t3', 'expired'].includes(eventType ?? '')) break;
     }
 
     if (logRows.length > 0) {

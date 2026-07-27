@@ -5481,12 +5481,13 @@ function HomePageInner() {
           const eventRowCls = (ev: string | null) => {
             if (!ev) return 'border-b border-slate-800/60 hover:bg-slate-800/30';
             if (ev === 'stopped')  return 'border-b border-red-900/40 bg-red-950/30 hover:bg-red-950/50';
+            if (ev === 'stop_shielded') return 'border-b border-cyan-900/40 bg-cyan-950/20 hover:bg-cyan-950/35';
             if (ev === 'expired')  return 'border-b border-slate-700/40 bg-slate-800/30';
             return 'border-b border-emerald-900/40 bg-emerald-950/25 hover:bg-emerald-950/40'; // any hit
           };
           const eventLabel = (ev: string | null) => {
             if (!ev) return null;
-            const icons: Record<string, string> = { stopped: '🛑', hit_5pct: '✅', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
+            const icons: Record<string, string> = { stopped: '🛑', stop_shielded: '🛡', hit_5pct: '✅', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
             return <span className="font-semibold">{icons[ev] ?? '•'}</span>;
           };
           const pctColor = (v: number) => v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-400';
@@ -5536,35 +5537,63 @@ function HomePageInner() {
             if (v >= 1) return 'text-red-600';
             return 'text-slate-500';
           };
-          // One-pass: stop fires first (same priority as processTrade). SL✗ badge only on first hit bar.
-          // Targets accumulate only while stop hasn't fired. High badges suppressed after stop fires.
-          let _rc5 = false, _rc1 = false, _rc2 = false, _rc3 = false, _slHit = false;
+          const gateByDay = new Map<number, NonNullable<TrackedTrade['gateLog']>[number]>();
+          const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();
+          for (const g of selectedTrade?.gateLog ?? []) {
+            gateByDay.set(g.day, g);
+            if (g.date) gateByDate.set(g.date.slice(0, 10), g);
+          }
+          const terminalDate = selectedTrade?.closedDate?.slice(0, 10) ?? null;
+          const isTerminalStatus = (s?: string) => ['stopped', 'hit_t3', 'expired', 'manual_close', 'closed_early'].includes(s ?? '');
+          // One-pass event model. The saved trade status/gate log is authoritative for terminal stops;
+          // raw daily lows alone are treated as stop touches, not exits.
+          let _rc5 = false, _rc1 = false, _rc2 = false, _rc3 = false, _terminalReached = false;
           const rowTargetStatus = selectedTrade
             ? logRows.map(r => {
                 const sl = selectedTrade.stopLoss ?? 0;
                 const fivePctTarget = selectedTrade.entryPrice * 1.05;
-                const slFirst = !_slHit && sl > 0 && r.low <= sl;
-                if (slFirst) _slHit = true;
-                if (!_slHit) {
+                const gate = gateByDate.get(r.date) ?? gateByDay.get(r.day_num - 1) ?? gateByDay.get(r.day_num);
+                const rawStopTouch = sl > 0 && r.low <= sl;
+                const stopVerified = selectedTrade.status === 'stopped' && (
+                  (terminalDate != null && r.date === terminalDate) || gate?.result === 'STOPPED'
+                );
+                const stopShielded = !stopVerified && gate?.result === 'SHIELDED';
+                const canAccumulateTargets = !_terminalReached && !stopVerified;
+                if (canAccumulateTargets) {
                   if (!_rc5 && fivePctTarget > 0 && (r.close >= fivePctTarget || r.high >= fivePctTarget)) _rc5 = true;
                   if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
                   if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
                   if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
                 }
-                return { fivePct: _rc5, t1: _rc1, t2: _rc2, t3: _rc3, slFirst, slActive: _slHit };
+                const authoritativeT3 = selectedTrade.status === 'hit_t3' && _rc3;
+                const expiredHere = selectedTrade.status === 'expired' && (
+                  (terminalDate != null && r.date === terminalDate) || r.day_num >= 20
+                );
+                const manualClosedHere = ['manual_close', 'closed_early'].includes(selectedTrade.status) && terminalDate != null && r.date === terminalDate;
+                if (stopVerified || authoritativeT3 || expiredHere || manualClosedHere) _terminalReached = true;
+                return {
+                  fivePct: _rc5,
+                  t1: _rc1,
+                  t2: _rc2,
+                  t3: _rc3,
+                  rawStopTouch, stopVerified, stopShielded,
+                  stopGate: gate?.result ?? null,
+                  terminal: _terminalReached,
+                };
               })
-            : [] as { fivePct: boolean; t1: boolean; t2: boolean; t3: boolean; slFirst: boolean; slActive: boolean }[];
+            : [] as { fivePct: boolean; t1: boolean; t2: boolean; t3: boolean; rawStopTouch: boolean; stopVerified: boolean; stopShielded: boolean; stopGate: string | null; terminal: boolean }[];
 
           // Derive event for each row from rowTargetStatus — no DB dependency
           const computedEvent = (rowIdx: number): string | null => {
             if (!selectedTrade || rowIdx >= rowTargetStatus.length) return null;
             const curr = rowTargetStatus[rowIdx];
             const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { fivePct: false, t1: false, t2: false, t3: false };
-            if (curr.slFirst) return 'stopped';
-            if (curr.t3 && !prev.t3) return 'hit_t3';
+            if (curr.stopVerified) return 'stopped';
+            if (selectedTrade.status === 'hit_t3' && curr.t3 && !prev.t3) return 'hit_t3';
             if (curr.fivePct && !prev.fivePct) return 'hit_5pct';
             if (curr.t2 && !prev.t2) return 'hit_t2';
             if (curr.t1 && !prev.t1) return 'hit_t1';
+            if (curr.stopShielded) return 'stop_shielded';
             if (rowIdx === rowTargetStatus.length - 1 && selectedTrade.status === 'expired') return 'expired';
             return null;
           };
@@ -5573,6 +5602,11 @@ function HomePageInner() {
             const fmt2 = (v: number) => v.toFixed(2);
             const pct = (price: number) => ((price - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100);
             if (ev === 'stopped')  return `SL ₹${fmt2(selectedTrade.stopLoss)} (${pct(selectedTrade.stopLoss).toFixed(1)}%)`;
+            if (ev === 'stop_shielded') {
+              const gate = gateByDate.get(logRows[rowIdx]?.date ?? '') ?? gateByDay.get(logRows[rowIdx]?.day_num - 1) ?? gateByDay.get(logRows[rowIdx]?.day_num);
+              const blockedBy = gate?.gatesTested?.find(g => g.passed === true)?.gate ?? gate?.gatesTested?.[0]?.gate ?? 'Gate shield';
+              return `SL touch shielded (${blockedBy})`;
+            }
             if (ev === 'hit_5pct') {
               const row = logRows[rowIdx];
               const closePct = pct(row?.close ?? 0);
@@ -5595,6 +5629,10 @@ function HomePageInner() {
             for (let i = 0; i < rowTargetStatus.length; i++) {
               const ev = computedEvent(i);
               if (ev === 'stopped' || ev === 'hit_t3' || ev === 'expired') return i;
+            }
+            if (isTerminalStatus(selectedTrade?.status) && terminalDate) {
+              const idx = logRows.findIndex(r => r.date === terminalDate);
+              if (idx >= 0) return idx;
             }
             return rowTargetStatus.length - 1;
           })();
@@ -5974,7 +6012,7 @@ function HomePageInner() {
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${highCls(row.high)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
                                       {fmt(row.high)}
-                                      {selectedTrade && rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].slActive && (() => {
+                                      {selectedTrade && rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && (() => {
                                         const h = row.high;
                                         if (selectedTrade.target3 != null && h >= selectedTrade.target3)
                                           return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-900/60 text-green-300 border border-green-700">T3✓</span>;
@@ -5990,8 +6028,12 @@ function HomePageInner() {
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${lowCls(row.low)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
                                       {fmt(row.low)}
-                                      {rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].slFirst &&
+                                      {rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].stopVerified &&
                                         <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>}
+                                      {rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && rowTargetStatus[rowIdx].stopShielded &&
+                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-cyan-900/60 text-cyan-300 border border-cyan-700">SHIELD</span>}
+                                      {rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && !rowTargetStatus[rowIdx].stopShielded && rowTargetStatus[rowIdx].rawStopTouch &&
+                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-amber-900/50 text-amber-300 border border-amber-700">SL?</span>}
                                     </span>
                                   </td>
 
