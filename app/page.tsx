@@ -5486,7 +5486,7 @@ function HomePageInner() {
           };
           const eventLabel = (ev: string | null) => {
             if (!ev) return null;
-            const icons: Record<string, string> = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
+            const icons: Record<string, string> = { stopped: '🛑', hit_5pct: '✅', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
             return <span className="font-semibold">{icons[ev] ?? '•'}</span>;
           };
           const pctColor = (v: number) => v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-400';
@@ -5538,28 +5538,31 @@ function HomePageInner() {
           };
           // One-pass: stop fires first (same priority as processTrade). SL✗ badge only on first hit bar.
           // Targets accumulate only while stop hasn't fired. High badges suppressed after stop fires.
-          let _rc1 = false, _rc2 = false, _rc3 = false, _slHit = false;
+          let _rc5 = false, _rc1 = false, _rc2 = false, _rc3 = false, _slHit = false;
           const rowTargetStatus = selectedTrade
             ? logRows.map(r => {
                 const sl = selectedTrade.stopLoss ?? 0;
+                const fivePctTarget = selectedTrade.entryPrice * 1.05;
                 const slFirst = !_slHit && sl > 0 && r.low <= sl;
                 if (slFirst) _slHit = true;
                 if (!_slHit) {
+                  if (!_rc5 && fivePctTarget > 0 && (r.close >= fivePctTarget || r.high >= fivePctTarget)) _rc5 = true;
                   if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
                   if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
                   if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
                 }
-                return { t1: _rc1, t2: _rc2, t3: _rc3, slFirst, slActive: _slHit };
+                return { fivePct: _rc5, t1: _rc1, t2: _rc2, t3: _rc3, slFirst, slActive: _slHit };
               })
-            : [] as { t1: boolean; t2: boolean; t3: boolean; slFirst: boolean; slActive: boolean }[];
+            : [] as { fivePct: boolean; t1: boolean; t2: boolean; t3: boolean; slFirst: boolean; slActive: boolean }[];
 
           // Derive event for each row from rowTargetStatus — no DB dependency
           const computedEvent = (rowIdx: number): string | null => {
             if (!selectedTrade || rowIdx >= rowTargetStatus.length) return null;
             const curr = rowTargetStatus[rowIdx];
-            const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { t1: false, t2: false, t3: false };
+            const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { fivePct: false, t1: false, t2: false, t3: false };
             if (curr.slFirst) return 'stopped';
             if (curr.t3 && !prev.t3) return 'hit_t3';
+            if (curr.fivePct && !prev.fivePct) return 'hit_5pct';
             if (curr.t2 && !prev.t2) return 'hit_t2';
             if (curr.t1 && !prev.t1) return 'hit_t1';
             if (rowIdx === rowTargetStatus.length - 1 && selectedTrade.status === 'expired') return 'expired';
@@ -5570,6 +5573,16 @@ function HomePageInner() {
             const fmt2 = (v: number) => v.toFixed(2);
             const pct = (price: number) => ((price - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100);
             if (ev === 'stopped')  return `SL ₹${fmt2(selectedTrade.stopLoss)} (${pct(selectedTrade.stopLoss).toFixed(1)}%)`;
+            if (ev === 'hit_5pct') {
+              const row = logRows[rowIdx];
+              const closePct = pct(row?.close ?? 0);
+              const highPct = pct(row?.high ?? 0);
+              const source = closePct >= 5 ? `CMP +${closePct.toFixed(1)}%` : `High +${highPct.toFixed(1)}%`;
+              const curr = rowTargetStatus[rowIdx];
+              const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { t1: false, t2: false };
+              const sameBarTarget = curr.t2 && !prev.t2 ? ' · T2 cleared' : curr.t1 && !prev.t1 ? ' · T1 cleared' : '';
+              return `+5% target crossed (${source})${sameBarTarget}`;
+            }
             if (ev === 'hit_t1')   return `T1 ₹${fmt2(selectedTrade.target1)} cleared`;
             if (ev === 'hit_t2')   return `T2 ₹${fmt2(selectedTrade.target2 ?? 0)} cleared`;
             if (ev === 'hit_t3')   return `T3 ₹${fmt2(selectedTrade.target3 ?? 0)} — fully closed`;
