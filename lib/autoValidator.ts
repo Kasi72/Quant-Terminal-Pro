@@ -1,4 +1,4 @@
-import type { TrackedTrade } from './tradeOps';
+import { didReachFivePctTarget, getTradeMfePct, isTradeResolvedForWinRate, type TrackedTrade } from './tradeOps';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -790,16 +790,16 @@ export function computeRollingStats(
   lastN: number,
   label: string,
 ): RollingStats {
-  const closed = trades.filter(t => ['hit_t3','stopped','expired','manual_close','closed_early'].includes(t.status)).slice(-lastN);
-  const wins   = closed.filter(t => (t.pnlPct ?? 0) > 0);
-  const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+  const closed = trades.filter(isTradeResolvedForWinRate).slice(-lastN);
+  const wins   = closed.filter(didReachFivePctTarget);
+  const losses = closed.filter(t => !didReachFivePctTarget(t));
   return {
     period:          label,
     total:           closed.length,
     wins:            wins.length,
     losses:          losses.length,
     winRate:         closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
-    avgMFE:          wins.length   > 0 ? wins.reduce((s, t)   => s + (t.pnlPct ?? 0), 0) / wins.length   : 0,
+    avgMFE:          wins.length   > 0 ? wins.reduce((s, t)   => s + getTradeMfePct(t), 0) / wins.length   : 0,
     avgMAE:          losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlPct ?? 0), 0) / losses.length : 0,
     avgTimeToTarget: wins.length   > 0 ? wins.reduce((s, t)   => s + (t.daysHeld ?? 0), 0) / wins.length  : 0,
   };

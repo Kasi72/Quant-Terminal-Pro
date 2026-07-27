@@ -61,6 +61,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
+  didReachFivePctTarget, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
 } from '@/lib/tradeOps';
@@ -3301,7 +3302,7 @@ function HomePageInner() {
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => setShowTracker(v => !v)} data-tip="Win rate tracker — shows open positions, P&L, and trading statistics" data-tip-color="green"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-            📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% (${winStats.hitT1 + winStats.hitT2 + winStats.hitT3}W/${winStats.stopped}L · ${trackedTrades.filter(t => t.status === 'open').length} open)` : 'WR'}</button>
+            📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% 5%WR (${winStats.wins}W/${winStats.losses}L · ${winStats.open} open)` : 'WR'}</button>
           <button onClick={() => setShowSessions(v => !v)} data-tip="Saved scan sessions — compare, export, import historical scans" data-tip-color="blue"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             💾 {sessions.length || '—'}</button>
@@ -3416,9 +3417,9 @@ function HomePageInner() {
           {/* KPI Cards */}
           <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-3">
             {[
-              { label: 'Win Rate', value: `${winStats.winRate.toFixed(0)}%`, color: winStats.winRate >= 55 ? 'text-emerald-400' : winStats.winRate >= 40 ? 'text-amber-400' : 'text-red-400' },
-              { label: 'Wins', value: String(winStats.hitT1 + winStats.hitT2 + winStats.hitT3), color: 'text-emerald-400' },
-              { label: 'Losses', value: String(winStats.stopped), color: 'text-red-400' },
+              { label: '5% Win Rate', value: `${winStats.winRate.toFixed(0)}%`, color: winStats.winRate >= 55 ? 'text-emerald-400' : winStats.winRate >= 40 ? 'text-amber-400' : 'text-red-400' },
+              { label: '5% Wins', value: String(winStats.wins), color: 'text-emerald-400' },
+              { label: 'No-Hit Losses', value: String(winStats.losses), color: 'text-red-400' },
               { label: 'Open', value: String(winStats.open), color: 'text-amber-400' },
               { label: 'Profit Factor', value: winStats.profitFactor > 0 ? winStats.profitFactor.toFixed(1) : '—', color: winStats.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-slate-400' },
               { label: 'Expectancy', value: winStats.expectancy !== 0 ? `${winStats.expectancy > 0 ? '+' : ''}${winStats.expectancy.toFixed(2)}%` : '—', color: winStats.expectancy > 0 ? 'text-emerald-400' : 'text-red-400' },
@@ -6029,16 +6030,17 @@ function HomePageInner() {
             {(() => {
               const all = trackedTrades;
               const open = all.filter(t => ['open', 'hit_t1', 'hit_t2'].includes(t.status));
-              const closed = all.filter(t => ['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early'].includes(t.status));
-              const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
-              const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+              const terminal = all.filter(isTerminalTrade);
+              const closed = all.filter(isTradeResolvedForWinRate);
+              const wins = closed.filter(didReachFivePctTarget);
+              const losses = closed.filter(t => !didReachFivePctTarget(t));
               const hitT1 = open.filter(t => t.status === 'hit_t1');
               const hitT2 = open.filter(t => t.status === 'hit_t2');
-              const hitT3 = closed.filter(t => t.status === 'hit_t3');
-              const stopped = closed.filter(t => t.status === 'stopped');
-              const expired = closed.filter(t => t.status === 'expired');
+              const hitT3 = terminal.filter(t => t.status === 'hit_t3');
+              const stopped = terminal.filter(t => t.status === 'stopped');
+              const expired = terminal.filter(t => t.status === 'expired');
 
-              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + (t.pnlR ?? 0), 0) / wins.length : 0;
+              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, t.mfeR ?? 0), 0) / wins.length : 0;
               const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlR ?? 0), 0) / losses.length : 0;
               const avgDays = closed.length > 0 ? closed.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / closed.length : 0;
               const avgDaysWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / wins.length : 0;
@@ -6055,7 +6057,7 @@ function HomePageInner() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} active (open/T1/T2) · {closed.length} closed · Partial exit (50/30/20)</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} active (open/T1/T2) · {closed.length} decided for 5% WR · {terminal.length} terminal · Partial exit (50/30/20)</div>
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
@@ -6189,7 +6191,7 @@ function HomePageInner() {
                         <span className="text-slate-700">|</span>
                         {/* Total realized P&L in rupees */}
                         {(() => {
-                          const realizedPnl = closed.reduce((s, t) => {
+                          const realizedPnl = terminal.reduce((s, t) => {
                             const rps = t.entryPrice - t.stopLoss;
                             const riskAmt = accountSize * 0.01;
                             return s + (rps > 0 ? riskAmt * (t.pnlR ?? 0) : 0);
@@ -6259,8 +6261,8 @@ function HomePageInner() {
                   {/* KPI Row */}
                   <div className="grid grid-cols-6 gap-2">
                     {[
-                      { label: 'Total Trades', value: String(all.length), sub: `${open.length} open · ${closed.length} closed`, color: 'text-slate-200' },
-                      { label: 'Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length}W / ${losses.length}L`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
+                      { label: 'Total Trades', value: String(all.length), sub: `${open.length} active · ${closed.length} decided`, color: 'text-slate-200' },
+                      { label: '5% Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length} hit +5% / ${losses.length} no-hit`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
                       { label: 'Avg Win R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `Avg Loss: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
                       { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Best price in R', color: 'text-emerald-300' },
                       { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Worst drawdown in R', color: 'text-red-300' },
@@ -6309,11 +6311,11 @@ function HomePageInner() {
                   </div>
 
                   {/* #5: Best / Worst trade highlight */}
-                  {closed.length > 0 && (
+                  {terminal.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {(() => {
-                        const best = closed.reduce((b, t) => (t.pnlPct ?? 0) > (b.pnlPct ?? 0) ? t : b, closed[0]);
-                        const worst = closed.reduce((w, t) => (t.pnlPct ?? 0) < (w.pnlPct ?? 0) ? t : w, closed[0]);
+                        const best = terminal.reduce((b, t) => (t.pnlPct ?? 0) > (b.pnlPct ?? 0) ? t : b, terminal[0]);
+                        const worst = terminal.reduce((w, t) => (t.pnlPct ?? 0) < (w.pnlPct ?? 0) ? t : w, terminal[0]);
                         return <>
                           <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-lg px-3 py-2 text-xs">
                             <div className="text-[10px] text-emerald-500 font-semibold uppercase">Best Trade</div>
@@ -6351,7 +6353,7 @@ function HomePageInner() {
                         computeRollingStats(trackedTrades, 20, 'Last 20'),
                         computeRollingStats(trackedTrades, 999, 'All Time'),
                       ].filter(s => s.total > 0).map(s => {
-                        const slicedTrades = trackedTrades.filter(tt => ['hit_t3','stopped','expired','manual_close','closed_early'].includes(tt.status)).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
+                        const slicedTrades = trackedTrades.filter(isTradeResolvedForWinRate).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
                         const rt = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0);
                         const sMfeR = rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length > 0 ? rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).reduce((sum, tt) => sum + (tt.highestPrice! - tt.entryPrice) / (tt.entryPrice - tt.stopLoss), 0) / rt.filter(tt => tt.highestPrice != null && tt.highestPrice > 0).length : 0;
                         const sLosers = slicedTrades.filter(tt => (tt.pnlPct ?? 0) < 0 && tt.entryPrice - tt.stopLoss > 0);
@@ -6960,7 +6962,7 @@ function HomePageInner() {
               <span className="text-slate-500">Open: {trackedTrades.filter(t => t.status === 'open').length} positions</span>
               {winStats.total >= 5 && (
                 <span className={winStats.winRate >= 55 ? 'text-emerald-400' : 'text-amber-400'}>
-                  Win Rate: {winStats.winRate.toFixed(0)}% ({winStats.total} trades)
+                  5% Win Rate: {winStats.winRate.toFixed(0)}% ({winStats.decided}/{winStats.total} decided)
                 </span>
               )}
               {dataQuality && (

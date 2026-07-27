@@ -152,6 +152,10 @@ export interface TrackedTrade {
 
 export interface WinRateStats {
   total: number;
+  decided: number;
+  wins: number;
+  losses: number;
+  fivePctWins: number;
   open: number;
   hitT1: number;
   hitT2: number;
@@ -174,14 +178,42 @@ export interface WinRateStats {
   streakLosses: number;
 }
 
-export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
-  const closed = trades.filter(t => t.status !== 'open');
-  const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
-  const losses = closed.filter(t => (t.pnlPct ?? 0) < 0);
+export const FIVE_PCT_WIN_THRESHOLD = 5;
 
-  const totalWinPct = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
+export function getTradeMfePct(t: TrackedTrade): number {
+  if (Number.isFinite(t.mfe)) return t.mfe ?? 0;
+  if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
+    return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+  }
+  if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
+    return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
+  }
+  if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
+    return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
+  }
+  return Math.max(0, t.pnlPct ?? 0);
+}
+
+export function didReachFivePctTarget(t: TrackedTrade): boolean {
+  return getTradeMfePct(t) >= FIVE_PCT_WIN_THRESHOLD;
+}
+
+export function isTerminalTrade(t: TrackedTrade): boolean {
+  return !['open', 'hit_t1', 'hit_t2'].includes(t.status);
+}
+
+export function isTradeResolvedForWinRate(t: TrackedTrade): boolean {
+  return didReachFivePctTarget(t) || isTerminalTrade(t);
+}
+
+export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
+  const closed = trades.filter(isTradeResolvedForWinRate);
+  const wins = closed.filter(didReachFivePctTarget);
+  const losses = closed.filter(t => !didReachFivePctTarget(t));
+
+  const totalWinPct = wins.reduce((s, t) => s + Math.max(t.pnlPct ?? 0, getTradeMfePct(t)), 0);
   const totalLossPct = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
-  const totalWinR = wins.reduce((s, t) => s + (t.pnlR ?? 0), 0);
+  const totalWinR = wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, t.mfeR ?? 0), 0);
   const totalLossR = Math.abs(losses.reduce((s, t) => s + (t.pnlR ?? 0), 0));
 
   let bestTrade: { symbol: string; pnlPct: number } | null = null;
@@ -208,6 +240,10 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
 
   return {
     total: trades.length,
+    decided: closed.length,
+    wins: wins.length,
+    losses: losses.length,
+    fivePctWins: wins.length,
     open: trades.filter(t => t.status === 'open').length,
     hitT1: trades.filter(t => t.status === 'hit_t1').length,
     hitT2: trades.filter(t => t.status === 'hit_t2').length,
