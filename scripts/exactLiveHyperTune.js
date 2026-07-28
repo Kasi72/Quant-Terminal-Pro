@@ -20,6 +20,7 @@ const ULTRA_HIT75_MODE = process.env.ULTRA_HIT75 === '1';
 const HIT_TARGET = Number(process.env.HIT_TARGET || 75);
 const HIT_RATE_OBJECTIVE = ULTRA_HIT75_MODE || process.env.HIT_RATE_MODE === '1';
 const HYBRID_MODE = process.env.HYBRID === '1';
+const RELAX_PS_ONE = process.env.RELAX_PS_ONE === '1';
 const TP = TARGET5_MODE ? [5] : [2, 3, 4, 5, 6, 7, 8];
 const SL = [1, 1.5, 2, 2.5, 3, 3.5];
 const HOLD = TARGET5_MODE ? [10, 20] : [10, 15, 20, 25];
@@ -134,7 +135,7 @@ function collectWorker() {
         if (!d) continue;
         // Hard gates that are immutable in the live functions.
         if (id === 'EMAStack' && !d.crossedAboveToday) continue;
-        if (id === 'PerfectStorm' && d.fires < 2) continue;
+        if (id === 'PerfectStorm' && d.fires < (RELAX_PS_ONE ? 1 : 2)) continue;
         const eo = outcomes(c, i, atr14[i] || c[i].c * 0.02);
         const ex = excursions(c, i);
         events[id].push({ symbol, idx: i, date: new Date(c[i].ts * 1000).toISOString().slice(0, 10), d, o: eo.out, dur: eo.dur, ...ex });
@@ -274,7 +275,7 @@ function hybridGridGen(id, k) {
     tpPct: pick(TP), slAtrMult: pick([2, 2.5, 3, 3.5]), maxHoldBars: pick(HOLD)
   };
   return {
-    minFires: gv([2, 3], k, 1), minADXGate: gv([25, 30, 35, 45], k, 2), minQualityTier: gv([1, 2, 3], k, 3),
+    minFires: gv(RELAX_PS_ONE ? [1, 2, 3] : [2, 3], k, 1), minADXGate: gv([25, 30, 35, 45], k, 2), minQualityTier: gv([1, 2, 3], k, 3),
     maxCandleRisk: gv([10, 12, 16], k, 5), minCMF20: gv([.05, .1, .15, .2], k, 7),
     minOBVSlope10: gv([-1.5, -.5, 0, .5], k, 11), minAtrPct14: gv([0, 2, 2.5, 3, 3.5, 4], k, 12), maxAtrPct14: gv([999, 4, 5, 6, 8], k, 14), minCloseVsEMA20: gv([-999, 0, .5], k, 13),
     minEMA20VsEMA50: gv([-999, 0, .5], k, 17), tpPct: pick(TP),
@@ -289,7 +290,7 @@ function gridGen(id, k) {
   if (id === 'CompressionCoil') { const minCompressionBars=gv([5,7,9,10,11,12],k,1); const maxCompressionBars=Math.max(minCompressionBars,gv([8,10,12,14,16],k,2)); return { minCompressionBars, maxCompressionBars, minVolumeDeclineDays:gv([1,2,3,4,5],k,3), minPricePos20:gv([40,50,60,70,80],k,5), maxBBWidthPctl:gv([15,25,35,45,55],k,7), maxRangeATR:gv([.5,.7,.9,1.1,1.3],k,11), minCloseLoc:gv([40,50,60,70],k,13), minBodyPct:gv([20,35,50,65],k,17), maxCandleRisk:gv([6,8,10,12,14],k,19), minCMF20:gv([.1,.15,.2,.3],k,23), minOBVSlope10:gv([-1,-.5,0,.5,1],k,29), minGateVolRatio:gv([1.5,2,2.5,3],k,31), minCloseVsEMA20:gv([-999,0,.5,1],k,37), minEMA20VsEMA50:gv([-999,0,.5,1],k,41), requireDIBull:gv([false,true],k,43), maxBsc:gv(BSC,k,47), minADX:gv(ADX,k,53), tpPct:gv(TP,k,59), slAtrMult:gv(SL,k,61), maxHoldBars:gv(HOLD,k,67) }; }
   if (id === 'MomentumPocket') { const minDd52W=gv([15,25,35,45,55,65],k,1); const maxDd52W=Math.max(minDd52W,gv([40,50,60,70,80],k,2)); const minRSI14=gv([10,20,30,40,50],k,17); return { minDd52W, maxDd52W, minStabBars:gv([1,2,3,4,5,6,8],k,3), minCloseLoc:gv([30,45,60,75],k,5), minBodyPct:gv([15,30,45,60,75],k,7), maxUpperWick:gv([20,30,40,50,60],k,11), minVolRatio:gv([.8,1.2,1.6,2,2.5,3,3.5],k,13), minRSI14, maxRSI14:Math.max(gv([45,55,65,75,85],k,19),minRSI14), minCMF20:gv([-.1,0,.1,.2],k,23), minOBVSlope10:gv([-1,-.5,0,.5,1],k,29), minGateRSI14:gv([35,40,45],k,31), maxGateRSI14:gv([50,55,60],k,37), maxGateRSI2:gv([40,50,60],k,41), minGateVolRatio:gv([2,2.5,3,3.5],k,43), minCloseVsEMA20:gv([-999,0,.5,1],k,47), minEMA20VsEMA50:gv([-999,0,.5,1],k,53), requireDIBull:gv([false,true],k,59), maxBsc:gv(BSC,k,61), minADX:gv(ADX,k,67), tpPct:gv(TP,k,71), slAtrMult:gv(SL,k,73), maxHoldBars:gv(HOLD,k,79) }; }
   if (id === 'EMAStack') return { minBelowBars:gv([1,2,3,5,8,10],k,1), minEMA10VsEma20:gv([.2,.4,.6,.8,1,1.2,1.5],k,2), minBodyPct:gv([20,35,50,65,80],k,3), maxUpperWick:gv([10,15,20,30,40,50],k,5), maxCandleRisk:gv([6,8,10,12,15],k,7), minVolRatio:gv([.8,1.2,1.6,2,2.5,3,3.5],k,11), maxRSI2Last5:gv([20,30,40,50,60,70],k,13), minCMF20:gv([.1,.15,.2,.3],k,17), minOBVSlope10:gv([.5,1,2,3],k,19), minCloseVsEMA20:gv([-.5,0,.5,1],k,23), minEMA20VsEMA50:gv([-.5,0,.5,1],k,29), requireDIBull:gv([false,true],k,31), maxBsc:gv(BSC,k,37), minADX:gv(ADX,k,41), tpPct:gv(TP,k,43), slAtrMult:gv(SL,k,47), maxHoldBars:gv(HOLD,k,53) };
-  return { minFires:gv([2,3,4],k,1), minADXGate:gv([25,30,35,40,45,50,55,60],k,2), minQualityTier:gv([1,2,3,4],k,3), maxCandleRisk:gv([8,10,12,14,16,18],k,5), minCMF20:gv([.05,.1,.15,.2],k,7), minOBVSlope10:gv([-1.5,-.5,0,.5,1],k,11), minCloseVsEMA20:gv([-999,0,.5,1],k,13), minEMA20VsEMA50:gv([-999,0,.5,1],k,17), tpPct:gv(TP,k,19), slAtrMult:gv(SL,k,23), maxHoldBars:gv(HOLD,k,29) };
+  return { minFires:gv(RELAX_PS_ONE?[1,2,3,4]:[2,3,4],k,1), minADXGate:gv([25,30,35,40,45,50,55,60],k,2), minQualityTier:gv([1,2,3,4],k,3), maxCandleRisk:gv([8,10,12,14,16,18],k,5), minCMF20:gv([.05,.1,.15,.2],k,7), minOBVSlope10:gv([-1.5,-.5,0,.5,1],k,11), minCloseVsEMA20:gv([-999,0,.5,1],k,13), minEMA20VsEMA50:gv([-999,0,.5,1],k,17), tpPct:gv(TP,k,19), slAtrMult:gv(SL,k,23), maxHoldBars:gv(HOLD,k,29) };
 }
 
 function stageOk(conditions, score) { return conditions >= 4 && score >= 45; }
@@ -372,7 +373,7 @@ async function main() {
   const all=Object.fromEntries(KEYS.map(([id])=>[id,[]])); let done=0, usable=0, short=0;
   await Promise.all(chunks.map(chunk=>new Promise((resolve,reject)=>{ const w=new Worker(__filename,{workerData:{files:chunk}}); w.on('message',m=>{ if(m.type==='progress'){done+=m.n;if(done%100===0)process.stdout.write(`  ${done}/${files.length}\r`);} else if(m.type==='done'){usable+=m.meta.usable;short+=m.meta.short;for(const [id] of KEYS)all[id].push(...m.events[id]);resolve();} }); w.on('error',reject); w.on('exit',c=>{if(c)reject(new Error(`worker exited ${c}`));}); })));
   console.log(`\nEvents: ${KEYS.map(([id])=>`${id}=${all[id].length}`).join(' | ')}`);
-  const out={generated:new Date().toISOString(),dataDir:DATA_DIR,window:WINDOW,oosCut:OOS_CUT,combos:COMBOS,minOOS:MIN_OOS,target5Mode:TARGET5_MODE,hybridMode:HYBRID_MODE,ultraHit75Mode:ULTRA_HIT75_MODE,hitRateObjective:HIT_RATE_OBJECTIVE,targetHit5:HIT_TARGET,objective:TARGET5_MODE?'+5% hit-before-stop plus PF/Avg/MFE/MAE':'realized P&L',meta:{files:files.length,usable,short},bestBySet:{}};
+  const out={generated:new Date().toISOString(),dataDir:DATA_DIR,window:WINDOW,oosCut:OOS_CUT,combos:COMBOS,minOOS:MIN_OOS,target5Mode:TARGET5_MODE,hybridMode:HYBRID_MODE,relaxPerfectStormOneFire:RELAX_PS_ONE,ultraHit75Mode:ULTRA_HIT75_MODE,hitRateObjective:HIT_RATE_OBJECTIVE,targetHit5:HIT_TARGET,objective:TARGET5_MODE?'+5% hit-before-stop plus PF/Avg/MFE/MAE':'realized P&L',meta:{files:files.length,usable,short},bestBySet:{}};
   for(const [id] of KEYS){ let best=null,bestQualified=null,bestISRobust=null; for(let i=0;i<COMBOS;i++){const p=gridGen(id,i);const r=evaluate(all[id],id,p);const f=fitness(r);r.fitness=f;if(!best||f>best.fitness)best=r;const sampleOK=r.full.n>=MIN_OOS*2&&r.oos.n>=MIN_OOS;const common=sampleOK&&(HIT_RATE_OBJECTIVE?(r.full.pf>=1&&r.oos.pf>=1&&r.full.avg>0&&r.oos.avg>0&&r.full.hit5>=65&&r.oos.hit5>=HIT_TARGET):(TARGET5_MODE?(r.full.pf>=1&&r.oos.pf>=1&&r.full.avg>0&&r.oos.avg>0&&r.full.hit5>=50&&r.oos.hit5>=50):(r.full.pf>=1&&r.oos.pf>=1&&r.full.avg>0&&r.oos.avg>0&&r.full.wr>=50&&r.oos.wr>=50)));if(common&&(!bestQualified||f>bestQualified.fitness))bestQualified=r;const robust=HIT_RATE_OBJECTIVE?(common&&r.is.pf>=1&&r.is.avg>0&&r.is.hit5>=65&&r.is.n>=100):(TARGET5_MODE?(common&&r.is.pf>=1&&r.is.avg>0&&r.is.hit5>=50&&r.is.n>=100):(common&&r.is.pf>=1&&r.is.avg>0&&r.is.wr>=50&&r.is.n>=100));if(robust&&(!bestISRobust||f>bestISRobust.fitness))bestISRobust=r;} out.bestBySet[id]={best,bestQualified,bestISRobust}; const q=bestISRobust||bestQualified||best; console.log(`${id.padEnd(18)} ${bestISRobust?'ROBUST':bestQualified?'TARGET-QUALIFIED':'NO TARGET QUALIFIED'} full n=${q.full.n} Hit5=${q.full.hit5.toFixed(1)}% PF=${q.full.pf.toFixed(2)} Avg=${q.full.avg.toFixed(2)} | OOS n=${q.oos.n} Hit5=${q.oos.hit5.toFixed(1)}% PF=${q.oos.pf.toFixed(2)} Avg=${q.oos.avg.toFixed(2)}`); }
   fs.mkdirSync(OUT_DIR,{recursive:true}); const stamp=new Date().toISOString().replace(/[:.]/g,'-'); const prefix=ULTRA_HIT75_MODE?'ultra_hit75':(HYBRID_MODE?'hybrid':(HIT_RATE_OBJECTIVE?'hit_rate':'exact_live')); const jp=path.join(OUT_DIR,`${prefix}_hypertune_${stamp}.json`); fs.writeFileSync(jp,JSON.stringify(out,null,2)); console.log(`Saved: ${jp}`);
 }

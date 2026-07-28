@@ -284,6 +284,17 @@ function rrVerdictColor(rr: number): string {
   return 'text-yellow-300';
 }
 
+function isActionableSignal(r: AnalysisResult): boolean {
+  return r.stage === 'BUY' || r.stage === 'STRONG_BUY' || r.stage === 'ULTRA_STRONG_BUY';
+}
+
+function isTradePromotedSignal(r: AnalysisResult): boolean {
+  if (!isActionableSignal(r)) return false;
+  if (r.tradePromoted === false) return false;
+  if (r.tradePromoted === true) return true;
+  return true;
+}
+
 // Volume Thrust Badge — calibrated on 3,802 signals across 1,617 NSE stocks.
 // Key finding: very high volume (>4x avg) is blow-off risk. Sweet spot 1.5-3.0x.
 // HC optimal: vr20≥4.0, vp5≥5.0, rvb≤0.90, uw≤15 → +2.30% avg20d, MFE+16.17%.
@@ -2374,11 +2385,12 @@ function HomePageInner() {
       setSessions(loadSessions());
     }
 
-    // Auto-track: add every BUY/STRONG_BUY/ULTRA_STRONG_BUY that isn't already open
+    // Auto-track: add only trade-promoted BUY/STRONG/ULTRA signals.
+    // Raw BUY signals that fail practical overlays remain visible for manual review/watchlist.
     if (newResults.length > 0 && tradesLoadedRef.current) {
       const openSymbols = new Set(trackedTradesRef.current.filter(t => t.status === 'open').map(t => t.symbol));
       const toAutoTrack = newResults.filter(r =>
-        (r.stage === 'BUY' || r.stage === 'STRONG_BUY' || r.stage === 'ULTRA_STRONG_BUY') &&
+        isTradePromotedSignal(r) &&
         !openSymbols.has(r.symbol) &&
         r.priceEngine.tradeValid
       );

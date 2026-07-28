@@ -87,6 +87,30 @@ export interface ForensicOverlay {
   requireBullishPattern?: boolean;
 }
 
+export interface PracticalOverlayCheck {
+  label: string;
+  pass: boolean;
+  value: string;
+}
+
+export interface PracticalOverlayResult {
+  name: string;
+  passed: boolean;
+  reason: string;
+  metrics: {
+    body: number;        // 0-1 ratio of body/range
+    lower: number;       // 0-1 ratio of lower wick/range
+    upper: number;       // 0-1 ratio of upper wick/range
+    upperBody: number;   // upper wick/body ratio
+    lowerBody: number;   // lower wick/body ratio
+    atrPct14: number;
+    rangeATR: number;
+    score: number;
+    slope5: number;
+  };
+  checks: PracticalOverlayCheck[];
+}
+
 export interface ZoneInfo {
   zoneHigh: number; zoneLow: number; zoneATRRatio: number;
   zoneTightnessPct: number; windowLength: number;
@@ -193,6 +217,10 @@ export interface AnalysisResult {
   // 'BULL_POOL' → EMAStack/PerfectStorm + body≥35% in bull market (breadth>50%)
   // 'BEAR_ORS'  → ORS-Prime reversal (performs in bear/mixed markets, breadth≤50%)
   regimeSignal?: 'BULL_POOL' | 'BEAR_ORS' | null;
+  // Practical post-signal overlay: cost-aware +5% target promotion gate.
+  // Raw stages remain visible; tradePromoted=false means watchlist/scanner-only.
+  practicalOverlay?: PracticalOverlayResult | null;
+  tradePromoted?: boolean;
 }
 
 export interface CandleDNA {
@@ -742,6 +770,114 @@ function computeCandleArch(o: number, h: number, l: number, c: number, atr14: nu
     isHammer:   lowerWickPct >= 2 * bodyPct && closeLoc >= 60,
     isMarubozu: bodyPct >= 85,
     qualityTier: tier,
+  };
+}
+
+function isActionableStage(stage: StageRating): boolean {
+  return stage === 'BUY' || stage === 'STRONG_BUY' || stage === 'ULTRA_STRONG_BUY';
+}
+
+type PracticalOverlayConfig = {
+  name: string;
+  minBody?: number;
+  minLower?: number;
+  maxATRPct?: number;
+  minRangeATR?: number;
+  minScore?: number;
+  maxUpperBody?: number;
+  minLowerBody?: number;
+  minSlope5?: number;
+};
+
+const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConfig>> = {
+  optimized_highprecision_15plus: {
+    name: 'HighPrecision Practical Sweet Spot',
+    minLower: 0.20,
+    minLowerBody: 1.0,
+    maxATRPct: 5.0,
+  },
+  optimized_elite_10plus: {
+    name: 'Elite Practical Sweet Spot',
+    minBody: 0.40,
+    minLower: 0.20,
+    minRangeATR: 1.6,
+  },
+  optimized_ultraselective_8plus: {
+    name: 'UltraSelective Practical Sweet Spot',
+    minScore: 30,
+    maxUpperBody: 0.25,
+    minSlope5: 2,
+  },
+};
+
+const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
+  'optimized_deployable_20plus',
+  'sniper_95plus',
+]);
+
+const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
+  optimized_deployable_20plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_highprecision_15plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_elite_10plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_ultraselective_8plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+  sniper_95plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+};
+
+function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
+  if (archetypeHint === 'VF') return 'optimized_deployable_20plus';
+  if (archetypeHint === 'CC') return 'optimized_highprecision_15plus';
+  if (archetypeHint === 'MP') return 'optimized_elite_10plus';
+  if (archetypeHint === 'EMA') return 'optimized_ultraselective_8plus';
+  if (archetypeHint === 'PS') return 'sniper_95plus';
+  return null;
+}
+
+function tunedExit(key: ParamSetKey | null, name: 'targetPct' | 'slAtrMult' | 'maxHoldBars', fallback: number): number {
+  if (!key) return fallback;
+  const injected = ARCHETYPE_TUNING[key]?.[name];
+  if (typeof injected === 'number' && Number.isFinite(injected)) return injected;
+  const defaults = ARCHETYPE_EXIT_DEFAULTS[key];
+  return defaults ? defaults[name] : fallback;
+}
+
+function evaluatePracticalTradeOverlay(
+  candles: Candle[],
+  endIdx: number,
+  result: AnalysisResult,
+  atr14: number,
+): PracticalOverlayResult | null {
+  const cfg = PRACTICAL_TRADE_OVERLAYS[result.paramSetKey];
+  if (!cfg || endIdx < 0 || endIdx >= candles.length) return null;
+
+  const sig = candles[endIdx];
+  const ca = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
+  const body = ca.bodyPct / 100;
+  const lower = ca.lowerWickPct / 100;
+  const upper = ca.upperWickPct / 100;
+  const rangeATR = result.exactRangeATR14 > 0 ? result.exactRangeATR14 : ca.rangeAtr;
+  const atrPct14 = result.atrPct14 > 0 ? result.atrPct14 : (sig.c > 0 ? atr14 / sig.c * 100 : 0);
+  const score = Math.max(result.inflectionScore || 0, result.ultraPrecisionScore || 0, result.confidence || 0);
+  const slope5 = endIdx >= 5 && candles[endIdx - 5].c > 0
+    ? (sig.c / candles[endIdx - 5].c - 1) * 100
+    : 0;
+
+  const checks: PracticalOverlayCheck[] = [];
+  if (cfg.minBody != null) checks.push({ label: `Body >= ${(cfg.minBody * 100).toFixed(0)}%`, pass: body >= cfg.minBody, value: `${(body * 100).toFixed(1)}%` });
+  if (cfg.minLower != null) checks.push({ label: `Lower wick >= ${(cfg.minLower * 100).toFixed(0)}%`, pass: lower >= cfg.minLower, value: `${(lower * 100).toFixed(1)}%` });
+  if (cfg.minLowerBody != null) checks.push({ label: `Lower/body >= ${cfg.minLowerBody.toFixed(2)}`, pass: ca.lwbr >= cfg.minLowerBody, value: ca.lwbr.toFixed(2) });
+  if (cfg.maxATRPct != null) checks.push({ label: `ATR14% <= ${cfg.maxATRPct.toFixed(1)}`, pass: atrPct14 <= cfg.maxATRPct, value: `${atrPct14.toFixed(2)}%` });
+  if (cfg.minRangeATR != null) checks.push({ label: `Range/ATR >= ${cfg.minRangeATR.toFixed(1)}`, pass: rangeATR >= cfg.minRangeATR, value: `${rangeATR.toFixed(2)}x` });
+  if (cfg.minScore != null) checks.push({ label: `Score >= ${cfg.minScore}`, pass: score >= cfg.minScore, value: score.toFixed(0) });
+  if (cfg.maxUpperBody != null) checks.push({ label: `Upper/body <= ${cfg.maxUpperBody.toFixed(2)}`, pass: ca.uwbr <= cfg.maxUpperBody, value: ca.uwbr.toFixed(2) });
+  if (cfg.minSlope5 != null) checks.push({ label: `5-bar slope >= ${cfg.minSlope5.toFixed(1)}%`, pass: slope5 >= cfg.minSlope5, value: `${slope5.toFixed(2)}%` });
+
+  const passed = checks.length > 0 && checks.every(c => c.pass);
+  return {
+    name: cfg.name,
+    passed,
+    reason: passed ? 'Practical +5% target overlay passed' : checks.filter(c => !c.pass).map(c => c.label).join(', '),
+    metrics: { body, lower, upper, upperBody: ca.uwbr, lowerBody: ca.lwbr, atrPct14, rangeATR, score, slope5 },
+    checks,
   };
 }
 
@@ -2534,6 +2670,7 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
 
 function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetypeHint = ''): PriceEngine {
   const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
+  const tuneKey = archetypeKeyFromHint(archetypeHint);
 
   // ── Stop: walk-forward hyper-optimised caps (hyper_mae_study, 2026-07-23) ──
   // 3 non-overlapping OOS windows (2024H1/H2, 2025+) + 500-resample bootstrap CI.
@@ -2548,7 +2685,8 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   const isHigh    = atrPct >= 3.5;
   const isCB      = archetypeHint === 'CB';
   // CB HIGH uses 2.5× (vs 2×) — wider stop anchors are structurally sounder for UC-event momentum.
-  const atrMult   = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
+  const defaultAtrMult = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
+  const atrMult   = tunedExit(tuneKey, 'slAtrMult', defaultAtrMult);
   const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
   const capPct    = atrPct < 1.5 ? 6.0
                   : atrPct < 2.5 ? 4.0
@@ -2579,9 +2717,10 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isVF ? 0.75 : 1.5;
   const t2Mult = t1Mult * (5 / 3);
   const t3Mult = isORS ? t1Mult * 5.00 : t1Mult * (10 / 3);
-  const t5  = tick(entry * (1 + t1Mult * atrPct / 100));
-  const t7  = tick(entry * (1 + t2Mult * atrPct / 100));
-  const t10 = tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
+  const fixedTargetPct = tunedExit(tuneKey, 'targetPct', 0);
+  const t5  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct / 100)) : tick(entry * (1 + t1Mult * atrPct / 100));
+  const t7  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct * 1.5 / 100)) : tick(entry * (1 + t2Mult * atrPct / 100));
+  const t10 = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct * 2 / 100)) : tick(Math.max(entry * (1 + t3Mult * atrPct / 100), t7 + 0.05));
 
   const rewardRisk = riskAbs > 0 ? (t10 - entry) / riskAbs : 0;
   const disasterStop = tick(entry * (1 - (capPct + 1.0) / 100));
@@ -2589,13 +2728,14 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   // ── maxHoldBars: per-archetype × ATR-bucket (horizon study, 2026-07-23) ──
   // MP T1=3×ATR needs more bars to develop in volatile stocks; time-stop cuts losers.
   // ORS/HIGH signals are fast-reversal plays — fade quickly if T1 not reached by bar 12.
-  const maxHoldBars = isMP
+  const defaultMaxHoldBars = isMP
     ? (atrPct < 1.5 ? 20 : 25)                          // TIGHT:20, NORMAL/VOLATILE/HIGH:25 (Phase2: NORMAL 15→25)
     : isCB                        ? 10                   // Phase2: CB 20→10 (65.0M-sim grid, n=85972)
     : archetypeHint === 'ORS'     ? 12                   // ORS: all bands (was: HIGH-only)
     : archetypeHint === 'EMA'     ? 10                   // Phase2: EMA 20→10
     : archetypeHint === 'CC'      ? 18                   // Phase2: CC 20→18
     : 20;
+  const maxHoldBars = Math.max(1, Math.min(60, Math.round(tunedExit(tuneKey, 'maxHoldBars', defaultMaxHoldBars))));
 
   return {
     ...buildNullPriceEngine(),
@@ -2662,14 +2802,12 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   if (!ca.isGreen || ca.candleRisk > tuned(key, 'maxCandleRisk', 8)) return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
   const tech = archetypeTech(candles, endIdx);
 
-  // CMF+OBV precision gate — VOLATILE-band only (ATR 2.5–4.0%): HIGH-band WR=38.3% SR=60.7% excluded.
-  // Threshold: CMF-20 ≥ 0.15 (institutional accumulation) + OBV slope ≥ 0.5 (rising volume pressure)
-  // ATR ceiling 4.0: 3.5 was too tight (eliminated all signals via gap-up day ATR); 4.0 keeps
-  // VOLATILE-only. Signal-day ATR used; entry-day gap-up doesn't retroactively raise signal ATR.
+  // Strict VolumeFootprint sweet spot: raw exact-live OOS PF/Hit5 improved, but
+  // remains watchlist-only until cost-aware OOS expectancy clears promotion.
   // forensicMode: entire precision gate bypassed — PBFB detects pattern structure regardless of quality filters.
-  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
-      tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 4.0) ||
-      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0)))
+  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.2) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+      tech.atrPct14 < tuned(key, 'minAtrPct14', 3) || tech.atrPct14 > tuned(key, 'maxAtrPct14', 99) ||
+      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0.5) || tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 1)))
     return { ...base, conditionsMet: 0, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: 0, archetypeTotal: 6 };
 
   // Pre-10 avg range ATR
@@ -2690,14 +2828,14 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 
   // 6 signal conditions — DMI + candle-arch augmented (OOS WR 80.7%, n=2086, Wilson 79.3%)
   const bsc = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
-  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 5.5);         // institutional volume spike
-  const c2 = closeLoc >= tuned(key, 'minCloseLoc', 68) && ca.upperWickPct <= tuned(key, 'maxUpperWick', 25);
-  const c3 = hi20 > 0 && sig.c >= hi20 * tuned(key, 'minHi20Frac', 0.92);
+  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 5.0);         // institutional volume spike
+  const c2 = closeLoc >= tuned(key, 'minCloseLoc', 75) && ca.upperWickPct <= tuned(key, 'maxUpperWick', 25);
+  const c3 = hi20 > 0 && sig.c >= hi20 * tuned(key, 'minHi20Frac', 0.88);
   const c4 = exactRangeATR14 >= tuned(key, 'minRangeATR', 3.5);
   const c5 = sig.o >= prevClose * (1 + tuned(key, 'maxGapDownPct', 0) / 100);
-  const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
+  const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
              (tuned(key, 'maxBsc', 3) >= 99 || bsc <= tuned(key, 'maxBsc', 3)) &&
-             adxVal >= tuned(key, 'minADX', 45);
+             adxVal >= tuned(key, 'minADX', 25);
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
 
@@ -2723,12 +2861,12 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Volume ≥ 5.5× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'Close top 32% of range AND upper wick ≤ 25%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
-    { label: 'Price within 8% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
+    { label: 'Volume ≥ 5.0× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Close top 25% of range AND upper wick ≤ 25%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
+    { label: 'Price within 12% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
     { label: 'Range expansion ≥ 3.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
     { label: 'Open gap-down ≤ 0%', pass: c5, value: sig.o >= prevClose ? 'YES' : 'NO' },
-    { label: 'DI+ > DI− and ADX ≥ 45 (trend aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
+    { label: 'Fresh DI timing and ADX ≥ 25', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} BSC=${bsc === 99 ? 'none' : bsc} ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -3085,14 +3223,12 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
   const tech = archetypeTech(candles, endIdx);
 
-  // CMF+OBV precision gate — hypertune_mp_ema.js 2026-07-22: OOS Hit5=82.5% PF=2.98 n=40 ROBUST
-  // CI [70%,92.5%]: minCloseVsEMA20=1.0 (price 1%+ above EMA20), EMA20>EMA50 by 0.8%, OBV≥0
-  // minAtrPct14≥2.5: EMA NORMAL band (ATR<2.5%) WR=55.6% n=9 → require VOLATILE+ only
+  // Strict EMAStack sweet spot: crossover remains fresh, but the post-signal
+  // trade promotion overlay still decides whether it is auto-track eligible.
   // forensicMode: bypassed — PBFB detects EMA crossover structure regardless of quality filters.
-  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.08) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0) ||
-      tech.atrPct14 < tuned(key, 'minAtrPct14', 2.5) ||
-      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1.0) ||
-      (tuned(key, 'minEMA20VsEMA50', 0.8) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.8))))
+  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+      tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -0.5) ||
+      (tuned(key, 'minEMA20VsEMA50', 1) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 1))))
     return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
 
   const ema10Arr = computeEMA(candles, 10);
@@ -3122,31 +3258,31 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     if (candles[i].c < (ema20Arr[i] ?? 0)) belowCount++;
     else break;
   }
-  const c2 = belowCount >= tuned(key, 'minBelowBars', 8);
+  const c2 = belowCount >= tuned(key, 'minBelowBars', 1);
 
   // C3: EMA10 ≥ +0.7% above EMA20 AND crossover bar is a quality green bull candle
   const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
   const caES = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
-  const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.1) && caES.isGreen &&
-    caES.bodyPct >= tuned(key, 'minBodyPct', 30) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 8) &&
-    caES.candleRisk <= tuned(key, 'maxCandleRisk', 10);
+  const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.5) && caES.isGreen &&
+    caES.bodyPct >= tuned(key, 'minBodyPct', 50) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 20) &&
+    caES.candleRisk <= tuned(key, 'maxCandleRisk', 8);
 
   // C4: Volume on crossover day ≥ 1.3× avg
-  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.5);
+  const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.3);
 
   // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
   let recentlyOversold = false;
   for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
     const slice = candles.slice(0, i + 1);
     const r2 = computeRSI(slice, 2);
-    if (r2 <= tuned(key, 'maxRSI2Last5', 60)) { recentlyOversold = true; break; }
+    if (r2 <= tuned(key, 'maxRSI2Last5', 40)) { recentlyOversold = true; break; }
   }
   const c5 = recentlyOversold;
 
   // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 6 bars && ADX ≥ 15
-  const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 1) >= 99 || bscES <= tuned(key, 'maxBsc', 1)) &&
-    adxVal >= tuned(key, 'minADX', 35);
+  const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
+    (tuned(key, 'maxBsc', 0) >= 99 || bscES <= tuned(key, 'maxBsc', 0)) &&
+    adxVal >= tuned(key, 'minADX', 15);
 
   // Legacy: allow yesterday cross for crossedYesterday tracking only
   const crossedYesterday = endIdx > 1
@@ -3187,11 +3323,11 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
 
   const checklist: ChecklistItem[] = [
     { label: 'Crossed above EMA20 TODAY (fresh crossover)', pass: c1, value: crossedAboveToday ? 'TODAY' : crossedYesterday ? 'YESTERDAY(miss)' : 'NO' },
-    { label: 'Was below EMA20 for ≥ 8 bars prior (deep pullback)', pass: c2, value: `${belowCount} bars below` },
-    { label: 'EMA10 ≥ +0.1% above EMA20 AND green bull bar (body≥30% UW≤8%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
-    { label: 'Volume ≥ 1.5× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
-    { label: 'RSI2 ≤ 60 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
-    { label: 'DI+ crossed ≤1 bar ago, ADX ≥ 35 (strong fresh trend)', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
+    { label: 'Was below EMA20 for ≥ 1 bar prior', pass: c2, value: `${belowCount} bars below` },
+    { label: 'EMA10 ≥ +0.5% above EMA20 AND green bull bar (body≥50% UW≤20%)', pass: c3, value: `EMA10 ${ema10VsEma20 >= 0 ? '+' : ''}${ema10VsEma20.toFixed(1)}% Bd=${caES.bodyPct.toFixed(0)}% UW=${caES.upperWickPct.toFixed(0)}%` },
+    { label: 'Volume ≥ 1.3× avg on crossover', pass: c4, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'RSI2 ≤ 40 in last 5 bars', pass: c5, value: recentlyOversold ? 'YES' : 'NO' },
+    { label: 'DI+ crossed today, ADX ≥ 15', pass: c6, value: `BSC=${bscES === 99 ? 'none' : bscES} ADX${adxVal.toFixed(0)}` },
   ];
 
   return attachTuningDebug({
@@ -3213,26 +3349,27 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   }, tuning);
 }
 
-// ── Archetype 5: Perfect Storm (Set: sniper_95plus) ──
-// Composite detector: fires only when 2+ archetypes align on the same stock.
-// Rarest but highest-conviction signal in the system.
+// ── Archetype 5: Sniper / Perfect Storm (Set: sniper_95plus) ──
+// Retuned one-fire scanner route. This is intentionally scanner-only because
+// the relaxed one-archetype variant improved hit-rate but stayed below the
+// cost-aware PF/expectancy threshold for automatic trade promotion.
 function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const key: ParamSetKey = 'sniper_95plus';
   const base = archetypeBase(candles, key);
   const n = candles.length;
   if (n < 60) return base;
 
-  // ADX gate — Perfect Storm only fires in a confirmed trending regime.
+  // ADX gate — Sniper only fires in a confirmed trending regime.
   const { adx: adxArrPS } = computeDMI(candles);
   const adxValPS = adxArrPS[n - 1];
-  if (adxValPS < tuned(key, 'minADXGate', 25)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
+  if (adxValPS < tuned(key, 'minADXGate', 30)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
 
   // Candle quality gate — signal bar must be at least tier 2 (green, body ≥40%, or closeLoc ≥55%, or upper wick ≤20%)
-  // Also enforce candleRisk ≤ 12% (range/close) to avoid entering on over-extended bars
+  // Also enforce candleRisk ≤ 10% (range/close) to avoid entering on over-extended bars
   const atr14PS = computeATR14(candles)[n - 1] || candles[n - 1].c * 0.02;
   const sigPS = candles[n - 1];
   const caPS = computeCandleArch(sigPS.o, sigPS.h, sigPS.l, sigPS.c, atr14PS);
-  if (caPS.qualityTier < tuned(key, 'minQualityTier', 2) || caPS.candleRisk > tuned(key, 'maxCandleRisk', 16)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
+  if (caPS.qualityTier < tuned(key, 'minQualityTier', 2) || caPS.candleRisk > tuned(key, 'maxCandleRisk', 10)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] });
 
   // Composite CMF+OBV gate — applied at PS level so all 4 sub-archetypes share the same
   // money-flow filter regardless of their individual precision gates.
@@ -3241,13 +3378,12 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const endIdx = n - 1;
   const techPS = archetypeTech(candles, endIdx);
   { const _cmf = techPS.cmf20; const _obv = techPS.obvSlope10;
-    // Composite gate — hyper-optimized across both BREAKEVEN and six_archetype models.
-    // CMF≥0.05 (net inflow required) + OBV≥-1.5 (not in active distribution) gives the
-    // best consistent OOS WR: 66% BREAKEVEN model / 58.5% six_archetype model (n=41).
-    // volRatio20 deliberately excluded — sub-archetypes already gate on volume independently.
-    if (_cmf < tuned(key, 'minCMF20', 0.1) || _obv < tuned(key, 'minOBVSlope10', -1.5) ||
-        techPS.atrPct14 < tuned(key, 'minAtrPct14', 3) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 6) ||
-        techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -999) || techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0.5))
+    // PerfectStormRelaxed: one strong archetype in a clean volatility/flow regime.
+    // EMA20/EMA50 alignment is intentionally disabled by default (-999).
+    if (_cmf < tuned(key, 'minCMF20', 0.1) || _obv < tuned(key, 'minOBVSlope10', 0) ||
+        techPS.atrPct14 < tuned(key, 'minAtrPct14', 4) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 5) ||
+        techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0) ||
+        (tuned(key, 'minEMA20VsEMA50', -999) > -999 && techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999)))
       return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: 0, fireScores: [] }); }
 
   const vf  = analyzeVolumeFootprint(candles);
@@ -3264,7 +3400,7 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   ].filter(f => ACTIONABLE.has(f.r.stage));
 
   const tuning = { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: fires.length, fireScores: fires.map(f => f.r.inflectionScore) };
-  if (fires.length < tuned(key, 'minFires', 2)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 }, tuning);
+  if (fires.length < tuned(key, 'minFires', 1)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 }, tuning);
 
   // Pick best individual result for price engine / metrics
   const stageRank: Record<StageRating, number> = { ULTRA_STRONG_BUY: 5, STRONG_BUY: 4, BUY: 3, PRE_BREAKOUT: 2, EARLY_INFLECTION: 1, COMPRESSION_WATCH: 0, NO_SIGNAL: 0 };
@@ -3283,6 +3419,9 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
   const sigRange = sig.h - sig.l;
   const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'PS');
+  pe.breakoutTier = computeBreakoutTier(candles, endIdx, techPS, null);
 
   const checklist: ChecklistItem[] = [
     { label: 'Volume Footprint fires', pass: fires.some(f => f.name === 'VolumeFootprint'), value: fires.some(f => f.name === 'VolumeFootprint') ? `Score ${vf.inflectionScore}` : 'NO' },
@@ -3297,6 +3436,7 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
     stage, inflectionScore: Math.round(score), confidence: score,
     conditionsMet: fires.length, totalConditions: 4,
     checklist,
+    priceEngine: pe,
     monster: {
       badges: [{ type: 'MOM' as const, probability: score / 100, details: `Perfect Storm — ${fires.length}/4 archetypes: ${fires.map(f => f.label).join(', ')}` }],
       topProbability: score / 100,
@@ -3664,7 +3804,16 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       } catch { /* keep 0 */ }
     }
 
-    // 10. Hit-Rate Gate — precision tier from optimizer-tuned indicator gates
+    // 10. Practical post-signal overlay — cost-aware +5% target promotion gates.
+    // These overlays do not erase raw archetype signals; they control PREMIUM /
+    // tradePromoted status so live screening follows the practical backtest.
+    try {
+      result.practicalOverlay = evaluatePracticalTradeOverlay(candles, endIdx, result, atr14Val);
+    } catch {
+      result.practicalOverlay = null;
+    }
+
+    // 11. Hit-Rate Gate — precision tier from optimizer-tuned indicator gates
     // Gates derived from smartHitRateOptimizer Phase-1 solo sweep (1616 NIFTY ALL symbols).
     // IS/OOS cutoff: 2025-05-05. Entry = next-bar open, stop [3.5%-6.5%], target +5%.
     try {
@@ -3685,21 +3834,19 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         ) ? 'PREMIUM' : 'STANDARD';
 
       } else if (paramSetKey === 'optimized_highprecision_15plus') {
-        // CompressionCoil → OOS 70% robust (n=20)
-        result.hitRateGate = (
-          rsi14v >= 50 && rsi2v <= 80 && vol >= 2.0 && cloc >= 0.5
-        ) ? 'PREMIUM' : 'STANDARD';
+        // CompressionCoil practical overlay: lower wick >=20%, lower/body>=1, ATR14%<=5.
+        // Cost-aware OOS: n=20, Hit5=75.0%, PF=1.88, Exp=+0.254R.
+        result.hitRateGate = result.practicalOverlay?.passed ? 'PREMIUM' : 'STANDARD';
 
       } else if (paramSetKey === 'optimized_elite_10plus') {
-        // MomentumPocket → rsi14≥45 is strongest robust lifter (+6.2%, OOS 50% n=240)
-        // Old gate used cmf20 (Phase-1 showed -2.3% lift) — removed
-        result.hitRateGate = (rsi14v >= 45) ? 'PREMIUM' : 'STANDARD';
+        // MomentumPocket practical overlay: body>=40%, lower wick>=20%, range/ATR>=1.6.
+        // Cost-aware OOS: n=23, Hit5=78.3%, PF=2.90, Exp=+0.362R.
+        result.hitRateGate = result.practicalOverlay?.passed ? 'PREMIUM' : 'STANDARD';
 
       } else if (paramSetKey === 'optimized_ultraselective_8plus') {
-        // EMAStack → body≥35% gate (Round 5: OOS n=12  Hit5=75.0%  PF=2.64  IS→OOS+8.9pp)
-        // Upgraded from lowerWick≥0.3 (prior: OOS 55.6% n=18)
-        // body variable here is bodyPct (0-100 scale) from result
-        result.hitRateGate = (body >= 35) ? 'PREMIUM' : 'STANDARD';
+        // EMAStack practical overlay: score>=30, upper/body<=0.25, 5-bar slope>=2%.
+        // Cost-aware OOS: n=25, Hit5=80.0%, PF=2.66, Exp=+0.381R.
+        result.hitRateGate = result.practicalOverlay?.passed ? 'PREMIUM' : 'STANDARD';
 
       } else if (paramSetKey === 'sniper_95plus') {
         // PerfectStorm → atrPct≥3 AND body≥35% (Round 5: OOS n=12  Hit5=75.0%  PF=2.94  IS→OOS+33.9pp)
@@ -3714,8 +3861,18 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.hitRateGate = null;
       }
 
-      // Round 5 derived fields — bodyGate, bullPoolSignal, regimeSignal
+      // Round 5 / practical derived fields — bodyGate, bullPoolSignal, regimeSignal,
+      // tradePromoted. Deployable and Sniper remain scanner/watchlist-only until a
+      // cost-aware OOS retune clears PF>1.2 and positive expectancy.
       result.bodyGate = body >= 35;
+      if (WATCHLIST_ONLY_PARAM_SETS.has(paramSetKey)) {
+        result.tradePromoted = false;
+      } else if (result.practicalOverlay) {
+        result.tradePromoted = isActionableStage(result.stage) && result.practicalOverlay.passed;
+      } else if (paramSetKey === 'ors_prime_reversal') {
+        result.tradePromoted = isActionableStage(result.stage) && result.hitRateGate === 'PREMIUM';
+      }
+
       if (
         (paramSetKey === 'optimized_ultraselective_8plus' || paramSetKey === 'sniper_95plus') &&
         result.hitRateGate === 'PREMIUM'
