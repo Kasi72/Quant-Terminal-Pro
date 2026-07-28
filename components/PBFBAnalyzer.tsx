@@ -635,6 +635,11 @@ export default function PBFBAnalyzer() {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   async function fetchUCHitters() {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 35000);
+
     setUcFetching(true);
     setUcError('');
     setUcHitters([]);
@@ -642,7 +647,7 @@ export default function PBFBAnalyzer() {
       const url = ucSource === 'chartink'
         ? `/api/chartink-scan?minPct=${ucMinPct}`
         : `/api/uc-hitters?date=${ucDate}&minPct=${ucMinPct}`;
-      const res  = await fetch(url);
+      const res  = await fetch(url, { signal: controller.signal });
       const json = await res.json();
       if (!res.ok) {
         setUcError(json.error ?? 'Fetch failed');
@@ -667,9 +672,12 @@ export default function PBFBAnalyzer() {
             : (json.date ?? ucDate)
         );
       }
-    } catch {
-      setUcError('Network error — could not reach the server');
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      setUcError(isAbort ? 'Fetch timed out - NSE did not respond in time. Try again or pick another date.' : 'Network error - could not reach the server');
     } finally {
+      window.clearTimeout(timeout);
+      if (fetchAbortRef.current === controller) fetchAbortRef.current = null;
       setUcFetching(false);
     }
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { inflateRawSync } from 'node:zlib';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -51,33 +52,23 @@ async function unzipFirst(buf: Uint8Array): Promise<string | null> {
 
   const view    = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   const method  = view.getUint16(8,  true);  // 0=stored, 8=deflate
+  const compLen = view.getUint32(18, true);
   const nameLen = view.getUint16(26, true);
   const xtraLen = view.getUint16(28, true);
   const dataOff = 30 + nameLen + xtraLen;
+  if (dataOff >= buf.length) return null;
 
-  const raw = buf.slice(dataOff);
+  // Only pass the ZIP member payload to the decompressor. Passing the central
+  // directory/footer can leave DecompressionStream waiting or failing late.
+  const dataEnd = compLen > 0 ? Math.min(dataOff + compLen, buf.length) : buf.length;
+  const raw = buf.slice(dataOff, dataEnd);
 
   if (method === 0) {
     return new TextDecoder('utf-8').decode(raw);
   }
   if (method === 8) {
     try {
-      // DecompressionStream is available in the Node 18+ Vercel runtime.
-      const ds     = new DecompressionStream('deflate-raw');
-      const writer = ds.writable.getWriter();
-      const reader = ds.readable.getReader();
-      await writer.write(raw);
-      await writer.close();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      let offset = 0, total = 0;
-      for (const c of chunks) total += c.length;
-      const out = new Uint8Array(total);
-      for (const c of chunks) { out.set(c, offset); offset += c.length; }
+      const out = inflateRawSync(raw);
       return new TextDecoder('utf-8').decode(out);
     } catch { return null; }
   }
