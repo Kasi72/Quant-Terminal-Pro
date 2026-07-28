@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/screener-auth'];
+const PUBLIC_PATHS = ['/login', '/api/screener-auth', '/api/nightly-update'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Pass through auth routes and static assets
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p)) ||
+  if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`)) ||
       pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
     return NextResponse.next();
   }
