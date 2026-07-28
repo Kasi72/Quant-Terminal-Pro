@@ -229,7 +229,8 @@ export function didReachFivePctTarget(t: TrackedTrade): boolean {
 }
 
 export function isTerminalTrade(t: TrackedTrade): boolean {
-  return !['open', 'hit_t1', 'hit_t2'].includes(t.status);
+  const hasCloseDate = typeof t.closedDate === 'string' && t.closedDate.trim().length > 0;
+  return hasCloseDate || !['open', 'hit_t1', 'hit_t2'].includes(t.status);
 }
 
 export function isTradeResolvedForWinRate(t: TrackedTrade): boolean {

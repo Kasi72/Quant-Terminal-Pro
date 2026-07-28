@@ -97,7 +97,8 @@ import {
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
 import { buildTearSheetData, exportTearSheetPDF, exportTearSheetXLSX } from '@/lib/tearSheet';
-import { aggregateBacktest, computeTradeCosts, type BacktestResult, type BacktestTrade } from '@/lib/backtestEngine';
+import { aggregateBacktest, computeTradeCosts, type BacktestResult, type BacktestTrade, type KotakExecutionChannel } from '@/lib/backtestEngine';
+import { deriveTradeEventRows, getValidTradeTargets, TRADE_EVENT_ICONS, type TradeLogEvent, type TradeLogEventType } from '@/lib/tradeEvents';
 import { generateNarrative, type SignalNarrative } from '@/lib/narrativeEngine';
 import { optimizePortfolio, type PortfolioResult } from '@/lib/portfolioOptimizer';
 import {
@@ -2685,6 +2686,7 @@ function HomePageInner() {
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [backtestRunning, setBacktestRunning] = useState(false);
   const [backtestError, setBacktestError] = useState<string | null>(null);
+  const [proExecutionChannel, setProExecutionChannel] = useState<KotakExecutionChannel>('app_web');
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResult | null>(null);
   const [tgConfig, setTgConfig] = useState<TelegramConfig>({ botToken: '', chatId: '', enabled: false, alerts: { newSignal: true, momAlert: true, eliteSignal: true, targetHit: true, stopped: true, regimeChange: true, dailySummary: true, signalDecay: false, validationSummary: true } });
   const [showTgSettings, setShowTgSettings] = useState(false);
@@ -3129,14 +3131,14 @@ function HomePageInner() {
           <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
-          {trackedTrades.filter(t => t.status === 'open').length > 0 && (
+          {trackedTrades.some(t => t.status === 'stopped' || !isTerminalTrade(t)) && (
             <button disabled={scanning}
               data-tip="Fetch latest prices for tracked trades only — validates stops, targets, MFE/MAE without running a full scan"
               data-tip-color="cyan"
               onClick={async () => {
                 if (scanningRef.current) return;
                 // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
-                const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2');
+                const openTrades = trackedTradesRef.current.filter(t => t.status === 'stopped' || !isTerminalTrade(t));
                 if (openTrades.length === 0) return;
                 setScanning(true); scanningRef.current = true;
                 setTotal(openTrades.length); setProgress(0);
@@ -3212,7 +3214,7 @@ function HomePageInner() {
                 }
               }}
               className="h-7 px-2.5 bg-cyan-900/40 hover:bg-cyan-900/60 disabled:opacity-40 border border-cyan-600 rounded text-[11px] font-semibold text-cyan-300 transition-colors">
-              {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2').length})`}</button>
+              {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'stopped' || !isTerminalTrade(t)).length})`}</button>
           )}
         </div>
 
@@ -5073,7 +5075,27 @@ function HomePageInner() {
             <div className="bg-slate-800/40 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Signal History · Production Engine</div>
-                <button disabled={scanning || backtestRunning || Object.keys(candleCache).length === 0}
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex h-6 rounded border border-slate-700 overflow-hidden" title="Kotak Neo execution channel used for brokerage calculation">
+                    {([
+                      ['app_web', 'App/Web Delivery'],
+                      ['api', 'Neo API'],
+                    ] as const).map(([channel, label]) => (
+                      <button
+                        key={channel}
+                        type="button"
+                        disabled={backtestRunning}
+                        onClick={() => {
+                          setProExecutionChannel(channel);
+                          setBacktestResult(null);
+                        }}
+                        className={`px-2 text-[9px] transition-colors ${proExecutionChannel === channel ? 'bg-cyan-900/60 text-cyan-300' : 'bg-slate-900/50 text-slate-500 hover:text-slate-300'} disabled:opacity-40`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <button disabled={scanning || backtestRunning || Object.keys(candleCache).length === 0}
                   onClick={() => {
                     setBacktestRunning(true);
                     setBacktestError(null);
@@ -5133,30 +5155,80 @@ function HomePageInner() {
                             const { w1: W1, w2: W2, w3: W3 } = ARCH_EXIT[key] ?? { w1:0.50, w2:0.30, w3:0.20 };
                             let phase = 1, wLeft = 1.0, wPL = 0;
                             let mfe = 0, mae = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
+                            const sellValuePerShareByDay = new Map<number, number>();
+                            const recordSell = (dayIdx: number, fraction: number, price: number) => {
+                              if (fraction <= 0 || price <= 0) return;
+                              sellValuePerShareByDay.set(
+                                dayIdx,
+                                (sellValuePerShareByDay.get(dayIdx) ?? 0) + fraction * price,
+                              );
+                            };
                             for (let j = i + 1; j <= i + maxHold && j < bars.length; j++) {
                               const b = bars[j]; exitI = j;
                               const hiD = (b.h - entry) / entry * 100; if (hiD > mfe) mfe = hiD;
                               const lowD = (entry - b.l) / entry * 100; if (lowD > mae) mae = lowD;
                               if (phase === 1) {
-                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                if (b.h >= t1)   { wPL += Math.min(W1, wLeft) * (t1 - entry) / entry * 100; wLeft -= Math.min(W1, wLeft); phase = 2; }
+                                if (b.l <= stop) {
+                                  recordSell(j, wLeft, stop);
+                                  wPL += wLeft * (stop - entry) / entry * 100;
+                                  exitType = 'stopped';
+                                  break;
+                                }
+                                if (b.h >= t1) {
+                                  const sold = Math.min(W1, wLeft);
+                                  recordSell(j, sold, t1);
+                                  wPL += sold * (t1 - entry) / entry * 100;
+                                  wLeft -= sold;
+                                  phase = 2;
+                                }
                               }
                               if (phase === 2) {
-                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                if (b.h >= t2)   { wPL += Math.min(W2, wLeft) * (t2 - entry) / entry * 100; wLeft -= Math.min(W2, wLeft); phase = 3; }
+                                if (b.l <= stop) {
+                                  recordSell(j, wLeft, stop);
+                                  wPL += wLeft * (stop - entry) / entry * 100;
+                                  exitType = 'stopped';
+                                  break;
+                                }
+                                if (b.h >= t2) {
+                                  const sold = Math.min(W2, wLeft);
+                                  recordSell(j, sold, t2);
+                                  wPL += sold * (t2 - entry) / entry * 100;
+                                  wLeft -= sold;
+                                  phase = 3;
+                                }
                               }
                               if (phase === 3) {
-                                if (b.l <= stop) { wPL += wLeft * (stop - entry) / entry * 100; exitType = 'stopped'; break; }
-                                if (b.h >= t3)   { wPL += Math.min(W3, wLeft) * (t3 - entry) / entry * 100; wLeft = 0; exitType = 'target'; break; }
+                                if (b.l <= stop) {
+                                  recordSell(j, wLeft, stop);
+                                  wPL += wLeft * (stop - entry) / entry * 100;
+                                  exitType = 'stopped';
+                                  break;
+                                }
+                                if (b.h >= t3) {
+                                  const sold = Math.min(W3, wLeft);
+                                  recordSell(j, sold, t3);
+                                  wPL += sold * (t3 - entry) / entry * 100;
+                                  wLeft -= sold;
+                                  exitType = 'target';
+                                  break;
+                                }
                               }
                               if (j === i + maxHold && wLeft > 0) {
+                                recordSell(j, wLeft, b.c);
                                 wPL += wLeft * (b.c - entry) / entry * 100;
+                                wLeft = 0;
                                 exitType = 'expired';
                               }
                             }
                             const exitPrice = entry * (1 + wPL / 100);
                             const shares = Math.max(1, Math.floor(accountSize * 0.01 / (riskPct / 100 * entry)));
-                            const costs = computeTradeCosts(entry * shares, exitPrice * shares);
+                            const costs = computeTradeCosts(entry * shares, exitPrice * shares, {
+                              executionChannel: proExecutionChannel,
+                              dpSellValues: [...sellValuePerShareByDay.values()].map(v => v * shares),
+                              // Entry fill already includes 0.05%; model 0.05% market impact on exits here.
+                              buySlippagePct: 0,
+                              sellSlippagePct: 0.05,
+                            });
                             const riskRupees = Math.max(0.01, (entry - stop) * shares);
                             const pnlGross = wPL * shares * entry / 100;
                             const pnlNet = pnlGross - costs.totalCost;
@@ -5183,6 +5255,7 @@ function HomePageInner() {
                   }}
                   className="h-6 px-3 bg-amber-900/40 hover:bg-amber-900/60 border border-amber-600 rounded text-[11px] font-semibold text-amber-300 disabled:opacity-40 transition-colors">
                   {backtestRunning ? '⏳ Running…' : backtestResult ? 'Re-run Backtest' : 'Run Backtest'}</button>
+                </div>
               </div>
               {backtestError && (
                 <div className="text-xs text-red-400 py-2 px-3 bg-red-950/30 rounded border border-red-900/50 mb-2">⚠ {backtestError}</div>
@@ -5211,7 +5284,7 @@ function HomePageInner() {
                     ))}
                   </div>
                   <div className="text-[10px] text-slate-600 mb-3 bg-slate-900/30 rounded px-2 py-1">
-                    Scientific mode: next-session trigger/gap-fill entry, skips &gt;2.5% chase gaps, stop-first daily OHLC ambiguity, net-of-cost R metrics, Wilson confidence bands, and 70/30 chronological OOS validation.
+                    Scientific mode: next-session trigger/gap-fill entry, skips &gt;2.5% chase gaps, stop-first daily OHLC ambiguity, Kotak Neo {proExecutionChannel === 'api' ? 'Trade API delivery' : 'Trade Free app/web delivery'} costs, net-of-cost R metrics, Wilson confidence bands, and 70/30 chronological OOS validation.
                   </div>
 
                   {/* Equity Curve */}
@@ -5263,12 +5336,19 @@ function HomePageInner() {
 
                   {/* Kotak Costs Summary */}
                   <div className="bg-slate-900/40 rounded p-2 mb-3 text-[10px]">
-                    <div className="text-slate-500 font-semibold mb-1">Kotak Securities Costs</div>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="text-slate-500 font-semibold">Kotak Neo · {proExecutionChannel === 'api' ? 'Neo Trade API Equity Delivery' : 'Trade Free App/Web Equity Delivery'}</div>
+                    <div className="text-[9px] text-slate-700 mb-1">{proExecutionChannel === 'api' ? '₹0 API-routed brokerage' : 'Post-30-day brokerage 0.20%/side'} · 0.10% STT/side · DP 0.04% per sell day/stock (min ₹20) · 0.05% entry + 0.05% exit slippage</div>
+                    <div className="grid grid-cols-5 gap-2">
                       <div><span className="text-slate-600">Total Costs</span><div className="text-red-400 font-mono">₹{backtestResult.totalCosts.toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Brokerage</span><div className="text-red-300 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.costs.brokerage, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">STT</span><div className="text-red-300 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.costs.stt, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">DP</span><div className="text-red-300 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.costs.dpCharges, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Statutory + GST</span><div className="text-red-300 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.costs.exchangeTxn + t.costs.sebiCharges + t.costs.stampDuty + t.costs.gst, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Slippage</span><div className="text-red-300 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.costs.slippage, 0).toFixed(0)}</div></div>
                       <div><span className="text-slate-600">Avg/Trade</span><div className="text-slate-300 font-mono">₹{backtestResult.avgCostPerTrade.toFixed(0)}</div></div>
                       <div><span className="text-slate-600">Net P&L</span><div className={`font-mono font-bold ${backtestResult.trades.reduce((s,t) => s + t.pnlNet, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>₹{backtestResult.trades.reduce((s,t) => s + t.pnlNet, 0).toFixed(0)}</div></div>
                       <div><span className="text-slate-600">Gross P&L</span><div className="text-slate-400 font-mono">₹{backtestResult.trades.reduce((s,t) => s + t.pnlGross, 0).toFixed(0)}</div></div>
+                      <div><span className="text-slate-600">Cost/Gross</span><div className="text-amber-400 font-mono">{(() => { const gross = backtestResult.trades.reduce((s,t) => s + t.pnlGross, 0); return gross > 0 ? `${(backtestResult.totalCosts / gross * 100).toFixed(0)}%` : '—'; })()}</div></div>
                     </div>
                   </div>
 
@@ -5502,7 +5582,9 @@ function HomePageInner() {
           };
 
           const selectedTrade = trackedTrades.find(t => t.symbol === logSymbol);
-          const statusChip = (st: string) => {
+          const selectedValidTargets = selectedTrade ? getValidTradeTargets(selectedTrade) : { t1: null, t2: null, t3: null };
+          const statusChip = (trade: TrackedTrade) => {
+            const st = trade.status;
             const map: Record<string, { label: string; cls: string }> = {
               open:         { label: 'OPEN',    cls: 'bg-amber-900/50 text-amber-300 border-amber-700' },
               hit_t1:       { label: 'T1 HIT',  cls: 'bg-emerald-900/50 text-emerald-300 border-emerald-700' },
@@ -5513,36 +5595,41 @@ function HomePageInner() {
               manual_close: { label: 'CLOSED',  cls: 'bg-slate-700/60 text-slate-400 border-slate-600' },
               closed_early: { label: 'CLOSED',  cls: 'bg-slate-700/60 text-slate-400 border-slate-600' },
             };
-            const m = map[st] ?? { label: st.toUpperCase(), cls: 'bg-slate-700 text-slate-400 border-slate-600' };
+            const partialClosed = isTerminalTrade(trade) && (st === 'hit_t1' || st === 'hit_t2');
+            const m = partialClosed
+              ? { label: `${st === 'hit_t1' ? 'T1' : 'T2'} EXIT`, cls: 'bg-cyan-900/50 text-cyan-300 border-cyan-700' }
+              : map[st] ?? { label: st.toUpperCase(), cls: 'bg-slate-700 text-slate-400 border-slate-600' };
             return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${m.cls}`}>{m.label}</span>;
           };
 
-          const eventRowCls = (ev: string | null) => {
-            if (!ev) return 'border-b border-slate-800/60 hover:bg-slate-800/30';
-            if (ev === 'stopped')  return 'border-b border-red-900/40 bg-red-950/30 hover:bg-red-950/50';
-            if (ev === 'stop_shielded') return 'border-b border-cyan-900/40 bg-cyan-950/20 hover:bg-cyan-950/35';
-            if (ev === 'expired')  return 'border-b border-slate-700/40 bg-slate-800/30';
+          const eventRowCls = (events: TradeLogEvent[]) => {
+            if (events.length === 0) return 'border-b border-slate-800/60 hover:bg-slate-800/30';
+            if (events.some(event => event.type === 'stopped')) return 'border-b border-red-900/40 bg-red-950/30 hover:bg-red-950/50';
+            if (events.some(event => event.type === 'stop_shielded')) return 'border-b border-cyan-900/40 bg-cyan-950/20 hover:bg-cyan-950/35';
+            if (events.some(event => event.type === 'target_exit')) return 'border-b border-cyan-900/40 bg-cyan-950/20 hover:bg-cyan-950/35';
+            if (events.some(event => event.type === 'expired' || event.type === 'manual_close' || event.type === 'closed_early')) return 'border-b border-slate-700/40 bg-slate-800/30';
             return 'border-b border-emerald-900/40 bg-emerald-950/25 hover:bg-emerald-950/40'; // any hit
           };
-          const eventLabel = (ev: string | null) => {
-            if (!ev) return null;
-            const icons: Record<string, string> = { stopped: '🛑', stop_shielded: '🛡', hit_5pct: '✅', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🎯🎯🎯', expired: '⏰' };
-            return <span className="font-semibold">{icons[ev] ?? '•'}</span>;
+          const eventLabel = (eventType: TradeLogEventType) => {
+            return <span className="font-semibold">{TRADE_EVENT_ICONS[eventType]}</span>;
           };
           const pctColor = (v: number) => v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-400';
           const fmt = (v: number, d = 2) => v?.toFixed(d) ?? '—';
 
           const highCls = (h: number) => {
             if (!selectedTrade) return 'text-slate-300';
-            if (selectedTrade.target3 != null && h >= selectedTrade.target3) return 'text-green-300 font-semibold';
-            if (selectedTrade.target2 != null && h >= selectedTrade.target2) return 'text-emerald-300 font-semibold';
-            if (h >= selectedTrade.target1) return 'text-emerald-400 font-semibold';
+            if (selectedValidTargets.t3 != null && h >= selectedValidTargets.t3) return 'text-green-300 font-semibold';
+            if (selectedValidTargets.t2 != null && h >= selectedValidTargets.t2) return 'text-emerald-300 font-semibold';
+            if (selectedValidTargets.t1 != null && h >= selectedValidTargets.t1) return 'text-emerald-400 font-semibold';
             if (h > selectedTrade.entryPrice) return 'text-emerald-600';
             return 'text-slate-400';
           };
-          const lowCls = (l: number) => {
+          const lowCls = (l: number, rowIdx: number) => {
             if (!selectedTrade) return 'text-slate-300';
-            if (l <= selectedTrade.stopLoss) return 'text-red-300 font-semibold';
+            const eventState = derivedLogEvents[rowIdx];
+            if (eventState?.stopVerified) return 'text-red-300 font-semibold';
+            if (eventState?.stopShielded) return 'text-cyan-300 font-semibold';
+            if (eventState?.rawStopTouch) return 'text-amber-300 font-semibold';
             if (l < selectedTrade.entryPrice) return 'text-amber-400';
             return 'text-slate-500';
           };
@@ -5576,100 +5663,35 @@ function HomePageInner() {
             if (v >= 1) return 'text-red-600';
             return 'text-slate-500';
           };
-          const gateByDay = new Map<number, NonNullable<TrackedTrade['gateLog']>[number]>();
-          const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();
-          for (const g of selectedTrade?.gateLog ?? []) {
-            gateByDay.set(g.day, g);
-            if (g.date) gateByDate.set(g.date.slice(0, 10), g);
-          }
           const terminalDate = selectedTrade?.closedDate?.slice(0, 10) ?? null;
-          const isTerminalStatus = (s?: string) => ['stopped', 'hit_t3', 'expired', 'manual_close', 'closed_early'].includes(s ?? '');
-          // One-pass event model. The saved trade status/gate log is authoritative for terminal stops;
-          // raw daily lows alone are treated as stop touches, not exits.
-          let _rc5 = false, _rc1 = false, _rc2 = false, _rc3 = false, _terminalReached = false;
-          const rowTargetStatus = selectedTrade
-            ? logRows.map(r => {
-                const sl = selectedTrade.stopLoss ?? 0;
-                const fivePctTarget = selectedTrade.entryPrice * 1.05;
-                const gate = gateByDate.get(r.date) ?? gateByDay.get(r.day_num - 1) ?? gateByDay.get(r.day_num);
-                const rawStopTouch = sl > 0 && r.low <= sl;
-                const stopVerified = selectedTrade.status === 'stopped' && (
-                  (terminalDate != null && r.date === terminalDate) || gate?.result === 'STOPPED'
-                );
-                const stopShielded = !stopVerified && gate?.result === 'SHIELDED';
-                const canAccumulateTargets = !_terminalReached && !stopVerified;
-                if (canAccumulateTargets) {
-                  if (!_rc5 && fivePctTarget > 0 && (r.close >= fivePctTarget || r.high >= fivePctTarget)) _rc5 = true;
-                  if (!_rc1 && r.high >= selectedTrade.target1) _rc1 = true;
-                  if (!_rc2 && selectedTrade.target2 != null && r.high >= selectedTrade.target2) _rc2 = true;
-                  if (!_rc3 && selectedTrade.target3 != null && r.high >= selectedTrade.target3) _rc3 = true;
-                }
-                const authoritativeT3 = selectedTrade.status === 'hit_t3' && _rc3;
-                const expiredHere = selectedTrade.status === 'expired' && (
-                  (terminalDate != null && r.date === terminalDate) || r.day_num >= 20
-                );
-                const manualClosedHere = ['manual_close', 'closed_early'].includes(selectedTrade.status) && terminalDate != null && r.date === terminalDate;
-                if (stopVerified || authoritativeT3 || expiredHere || manualClosedHere) _terminalReached = true;
-                return {
-                  fivePct: _rc5,
-                  t1: _rc1,
-                  t2: _rc2,
-                  t3: _rc3,
-                  rawStopTouch, stopVerified, stopShielded,
-                  stopGate: gate?.result ?? null,
-                  terminal: _terminalReached,
-                };
-              })
-            : [] as { fivePct: boolean; t1: boolean; t2: boolean; t3: boolean; rawStopTouch: boolean; stopVerified: boolean; stopShielded: boolean; stopGate: string | null; terminal: boolean }[];
-
-          // Derive event for each row from rowTargetStatus — no DB dependency
-          const computedEvent = (rowIdx: number): string | null => {
-            if (!selectedTrade || rowIdx >= rowTargetStatus.length) return null;
-            const curr = rowTargetStatus[rowIdx];
-            const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { fivePct: false, t1: false, t2: false, t3: false };
-            if (curr.stopVerified) return 'stopped';
-            if (selectedTrade.status === 'hit_t3' && curr.t3 && !prev.t3) return 'hit_t3';
-            if (curr.fivePct && !prev.fivePct) return 'hit_5pct';
-            if (curr.t2 && !prev.t2) return 'hit_t2';
-            if (curr.t1 && !prev.t1) return 'hit_t1';
-            if (curr.stopShielded) return 'stop_shielded';
-            if (rowIdx === rowTargetStatus.length - 1 && selectedTrade.status === 'expired') return 'expired';
-            return null;
-          };
-          const computedEventDetail = (rowIdx: number, ev: string | null): string | null => {
-            if (!selectedTrade || !ev) return null;
-            const fmt2 = (v: number) => v.toFixed(2);
-            const pct = (price: number) => ((price - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100);
-            if (ev === 'stopped')  return `SL ₹${fmt2(selectedTrade.stopLoss)} (${pct(selectedTrade.stopLoss).toFixed(1)}%)`;
-            if (ev === 'stop_shielded') {
-              const gate = gateByDate.get(logRows[rowIdx]?.date ?? '') ?? gateByDay.get(logRows[rowIdx]?.day_num - 1) ?? gateByDay.get(logRows[rowIdx]?.day_num);
-              const blockedBy = gate?.gatesTested?.find(g => g.passed === true)?.gate ?? gate?.gatesTested?.[0]?.gate ?? 'Gate shield';
-              return `SL touch shielded (${blockedBy})`;
-            }
-            if (ev === 'hit_5pct') {
-              const row = logRows[rowIdx];
-              const closePct = pct(row?.close ?? 0);
-              const highPct = pct(row?.high ?? 0);
-              const source = closePct >= 5 ? `CMP +${closePct.toFixed(1)}%` : `High +${highPct.toFixed(1)}%`;
-              const curr = rowTargetStatus[rowIdx];
-              const prev = rowIdx > 0 ? rowTargetStatus[rowIdx - 1] : { t1: false, t2: false };
-              const sameBarTarget = curr.t2 && !prev.t2 ? ' · T2 cleared' : curr.t1 && !prev.t1 ? ' · T1 cleared' : '';
-              return `+5% target crossed (${source})${sameBarTarget}`;
-            }
-            if (ev === 'hit_t1')   return `T1 ₹${fmt2(selectedTrade.target1)} cleared`;
-            if (ev === 'hit_t2')   return `T2 ₹${fmt2(selectedTrade.target2 ?? 0)} cleared`;
-            if (ev === 'hit_t3')   return `T3 ₹${fmt2(selectedTrade.target3 ?? 0)} — fully closed`;
-            if (ev === 'expired')  return `Day ${rowIdx + 1} — 20-day expiry`;
-            return null;
-          };
+          const derivedLogEvents = selectedTrade
+            ? deriveTradeEventRows(
+                selectedTrade,
+                logRows.map(row => ({
+                  date: row.date,
+                  dayNum: row.day_num,
+                  open: row.open,
+                  high: row.high,
+                  low: row.low,
+                  close: row.close,
+                })),
+              )
+            : [];
+          const rowTargetStatus = derivedLogEvents.map(row => ({
+            ...row.state,
+            rawStopTouch: row.rawStopTouch,
+            stopVerified: row.stopVerified,
+            stopShielded: row.stopShielded,
+            stopGate: row.stopGate,
+            terminal: row.terminal,
+          }));
+          const computedEvents = (rowIdx: number): TradeLogEvent[] => derivedLogEvents[rowIdx]?.events ?? [];
 
           // Cut the table at the terminal event row — no data shown after T3/stop/expiry
           const terminalRowIdx = (() => {
-            for (let i = 0; i < rowTargetStatus.length; i++) {
-              const ev = computedEvent(i);
-              if (ev === 'stopped' || ev === 'hit_t3' || ev === 'expired') return i;
-            }
-            if (isTerminalStatus(selectedTrade?.status) && terminalDate) {
+            const eventTerminalIdx = derivedLogEvents.findIndex(row => row.events.some(event => event.terminal));
+            if (eventTerminalIdx >= 0) return eventTerminalIdx;
+            if (selectedTrade && isTerminalTrade(selectedTrade) && terminalDate) {
               const idx = logRows.findIndex(r => r.date === terminalDate);
               if (idx >= 0) return idx;
             }
@@ -5679,9 +5701,9 @@ function HomePageInner() {
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
               if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
-              if (logFilter === 'open') return t.status === 'open';
+              if (logFilter === 'open') return !isTerminalTrade(t);
               if (logFilter === 'hit') return ['hit_t1', 'hit_t2', 'hit_t3'].includes(t.status);
-              if (logFilter === 'stopped') return ['stopped', 'expired', 'manual_close', 'closed_early'].includes(t.status);
+              if (logFilter === 'stopped') return isTerminalTrade(t);
               return true;
             })
             .sort((a, b) => {
@@ -5691,8 +5713,8 @@ function HomePageInner() {
                 return logSort === 'pnl' ? pct(b) - pct(a) : pct(a) - pct(b);
               }
               if (logSort === 'status') {
-                const ord = (s: string) => s === 'open' ? 0 : ['hit_t3','hit_t2','hit_t1'].includes(s) ? 1 : 2;
-                if (ord(a.status) !== ord(b.status)) return ord(a.status) - ord(b.status);
+                const ord = (trade: TrackedTrade) => !isTerminalTrade(trade) ? 0 : ['hit_t3','hit_t2','hit_t1'].includes(trade.status) ? 1 : 2;
+                if (ord(a) !== ord(b)) return ord(a) - ord(b);
               }
               if (logSort === 'stop_dist') {
                 const dist = (t: typeof a) => {
@@ -5706,19 +5728,25 @@ function HomePageInner() {
               return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
             });
 
-          const statusEmoji = (s: string) => ({ open: '🟡', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', stopped: '🛑', expired: '⏰', manual_close: '✅', closed_early: '✅' }[s] ?? '•');
-          const statusLabel = (s: string) => ({ open: 'OPEN', hit_t1: 'T1 HIT', hit_t2: 'T2 HIT', hit_t3: 'T3 HIT', stopped: 'STOPPED', expired: 'EXPIRED', manual_close: 'CLOSED', closed_early: 'CLOSED' }[s] ?? s.toUpperCase());
+          const statusEmoji = (trade: TrackedTrade) => isTerminalTrade(trade) && (trade.status === 'hit_t1' || trade.status === 'hit_t2')
+            ? '↩'
+            : ({ open: '🟡', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', stopped: '🛑', expired: '⏰', manual_close: '✅', closed_early: '✅' }[trade.status] ?? '•');
+          const statusLabel = (trade: TrackedTrade) => isTerminalTrade(trade) && (trade.status === 'hit_t1' || trade.status === 'hit_t2')
+            ? `${trade.status === 'hit_t1' ? 'T1' : 'T2'} EXITED`
+            : ({ open: 'OPEN', hit_t1: 'T1 HIT', hit_t2: 'T2 HIT', hit_t3: 'T3 HIT', stopped: 'STOPPED', expired: 'EXPIRED', manual_close: 'CLOSED', closed_early: 'CLOSED' }[trade.status] ?? trade.status.toUpperCase());
 
           const buildShareText = (trade: typeof selectedTrade, rows: typeof logRows): string => {
             if (!trade) return '';
             const lines: string[] = [];
-            const se = statusEmoji(trade.status);
-            const sl = statusLabel(trade.status);
+            const se = statusEmoji(trade);
+            const sl = statusLabel(trade);
             lines.push(`📊 *${trade.symbol}* — Trade Log`);
             lines.push('━━━━━━━━━━━━━━━━━━━━━━━━');
             lines.push(`${se} Status: *${sl}*`);
             lines.push(`📅 Entry ₹${fmt(trade.entryPrice)} on ${trade.entryDate?.slice(0, 10) ?? '—'}`);
-            lines.push(`🛑 SL ₹${fmt(trade.stopLoss)}  |  🎯 T1 ₹${fmt(trade.target1)}  |  T2 ₹${fmt(trade.target2)}  |  T3 ₹${fmt(trade.target3 ?? 0)}`);
+            const shareTargets = getValidTradeTargets(trade);
+            const targetText = (target: number | null) => target != null ? `₹${fmt(target)}` : '—';
+            lines.push(`🛑 SL ₹${fmt(trade.stopLoss)}  |  🎯 T1 ${targetText(shareTargets.t1)}  |  T2 ${targetText(shareTargets.t2)}  |  T3 ${targetText(shareTargets.t3)}`);
             if (trade.breakoutTier) lines.push(`⭐ Breakout Tier: ${trade.breakoutTier}`);
             lines.push('');
             lines.push('📈 *Performance Summary*');
@@ -5730,22 +5758,40 @@ function HomePageInner() {
               lines.push('');
               lines.push('📋 *Daily Price Log*');
               lines.push('─────────────────────────────────────────');
-              let _sc1 = false, _sc2 = false, _sc3 = false;
-              for (const row of rows) {
-                if (!_sc1 && row.high >= trade.target1) _sc1 = true;
-                if (trade.target2 != null && !_sc2 && row.high >= trade.target2) _sc2 = true;
-                if (trade.target3 != null && !_sc3 && row.high >= trade.target3) _sc3 = true;
+              const shareEventRows = deriveTradeEventRows(
+                trade,
+                rows.map(row => ({
+                  date: row.date,
+                  dayNum: row.day_num,
+                  open: row.open,
+                  high: row.high,
+                  low: row.low,
+                  close: row.close,
+                })),
+              );
+              const orderedTargets = getValidTradeTargets(trade);
+              const validTargets = [
+                { key: 't1' as const, label: 'T1', price: orderedTargets.t1 },
+                { key: 't2' as const, label: 'T2', price: orderedTargets.t2 },
+                { key: 't3' as const, label: 'T3', price: orderedTargets.t3 },
+              ].filter((target): target is { key: 't1' | 't2' | 't3'; label: string; price: number } => target.price != null);
+              for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+                const row = rows[rowIdx];
+                const eventRow = shareEventRows[rowIdx];
+                const state = eventRow?.state ?? { fivePct: false, t1: false, t2: false, t3: false };
                 const vsE = ((row.close - trade.entryPrice) / trade.entryPrice * 100);
                 const vsSign = vsE >= 0 ? '+' : '';
-                const nextL = !_sc1 ? 'T1' : !_sc2 ? 'T2' : !_sc3 ? 'T3' : null;
-                const nextP = !_sc1 ? trade.target1 : !_sc2 ? (trade.target2 ?? null) : !_sc3 ? (trade.target3 ?? null) : null;
-                const tgText = nextL == null ? '✅ T3 ✓ All Done'
-                  : nextP != null ? `→${nextL} ${fmt((nextP - row.close) / row.close * 100, 1)}% away`
-                  : '✅ T3 ✓ All Done';
+                const nextTarget = validTargets.find(target => !state[target.key]);
+                const tgText = state.t3 ? '✅ T3 ✓ All Done'
+                  : nextTarget
+                    ? `→${nextTarget.label} ${fmt((nextTarget.price - row.close) / row.close * 100, 1)}% away`
+                    : 'Target levels unavailable';
                 const dayLine = `D${String(row.day_num).padStart(2)} │ ${row.date} │ CMP ₹${fmt(row.close, 0)} │ ${vsSign}${fmt(vsE, 1)}% vs entry │ ${tgText} │ H:${fmt(row.high, 0)} L:${fmt(row.low, 0)} │ MFE ${row.mfe_pct >= 0 ? '+' : ''}${fmt(row.mfe_pct, 1)}% MAE –${fmt(row.mae_pct, 1)}%`;
-                if (row.event_type) {
-                  const evEmoji = { stopped: '🛑', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', expired: '⏰' }[row.event_type] ?? '•';
-                  lines.push(`${dayLine}  ${evEmoji} ${row.event_detail ?? ''}`);
+                if (eventRow?.events.length) {
+                  const eventText = eventRow.events
+                    .map(event => `${TRADE_EVENT_ICONS[event.type]} ${event.detail}`)
+                    .join(' · ');
+                  lines.push(`${dayLine}  ${eventText}`);
                 } else {
                   lines.push(dayLine);
                 }
@@ -5790,9 +5836,9 @@ function HomePageInner() {
                 <div className="px-2 py-1 border-b border-slate-800 flex gap-1 flex-shrink-0">
                   {(['all', 'open', 'hit', 'stopped'] as const).map(f => {
                     const cnt = f === 'all' ? trackedTrades.length
-                      : f === 'open'    ? trackedTrades.filter(t => t.status === 'open').length
+                      : f === 'open'    ? trackedTrades.filter(t => !isTerminalTrade(t)).length
                       : f === 'hit'     ? trackedTrades.filter(t => ['hit_t1','hit_t2','hit_t3'].includes(t.status)).length
-                      : trackedTrades.filter(t => ['stopped','expired','manual_close','closed_early'].includes(t.status)).length;
+                      : trackedTrades.filter(isTerminalTrade).length;
                     return (
                       <button key={f} onClick={() => setLogFilter(f)}
                         className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide transition-colors
@@ -5831,7 +5877,7 @@ function HomePageInner() {
                           <span className="text-[11px] font-semibold text-slate-200 tracking-wide truncate">
                             {t.symbol.replace('.NS', '')}
                           </span>
-                          {statusChip(t.status)}
+                          {statusChip(t)}
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-slate-500">
                           <span>{t.entryDate?.slice(5)}</span>
@@ -5856,7 +5902,7 @@ function HomePageInner() {
                                 </div>
                               );
                             })()
-                          : t.status === 'open' && (t.mfe != null || t.mae != null) && (
+                          : !isTerminalTrade(t) && (t.mfe != null || t.mae != null) && (
                               <div className="flex gap-2 text-[9px]">
                                 {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
                                 {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
@@ -5892,7 +5938,7 @@ function HomePageInner() {
                     {selectedTrade && (
                       <div className="flex-shrink-0 px-4 py-3 border-b border-slate-800 bg-[#0d1117] flex items-center gap-4 flex-wrap">
                         <span className="text-base font-bold text-slate-100">{selectedTrade.symbol}</span>
-                        {statusChip(selectedTrade.status)}
+                        {statusChip(selectedTrade)}
                         <span className="text-xs text-slate-500">Entry <span className="text-slate-300">₹{fmt(selectedTrade.entryPrice)}</span> on {selectedTrade.entryDate?.slice(0, 10)}</span>
                         <span className="text-xs text-slate-500">SL <span className="text-red-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
                         {/* CMP — live from Yahoo Finance via /api/cmp */}
@@ -5919,9 +5965,9 @@ function HomePageInner() {
                             </>
                           );
                         })()}
-                        <span className="text-xs text-slate-500">T1 <span className="text-emerald-400">₹{fmt(selectedTrade.target1)}</span></span>
-                        <span className="text-xs text-slate-500">T2 <span className="text-emerald-300">₹{fmt(selectedTrade.target2)}</span></span>
-                        <span className="text-xs text-slate-500">T3 <span className="text-green-300">₹{fmt(selectedTrade.target3)}</span></span>
+                        <span className="text-xs text-slate-500">T1 <span className="text-emerald-400">{selectedValidTargets.t1 != null ? `₹${fmt(selectedValidTargets.t1)}` : '—'}</span></span>
+                        <span className="text-xs text-slate-500">T2 <span className="text-emerald-300">{selectedValidTargets.t2 != null ? `₹${fmt(selectedValidTargets.t2)}` : '—'}</span></span>
+                        <span className="text-xs text-slate-500">T3 <span className="text-green-300">{selectedValidTargets.t3 != null ? `₹${fmt(selectedValidTargets.t3)}` : '—'}</span></span>
                         {selectedTrade.breakoutTier && (
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border
                             ${selectedTrade.breakoutTier === 'A+' ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300'
@@ -5992,8 +6038,9 @@ function HomePageInner() {
                               const vsEntry = selectedTrade
                                 ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
                                 : null;
+                              const rowEvents = computedEvents(rowIdx);
                               return (
-                                <tr key={row.date} className={eventRowCls(computedEvent(rowIdx))}>
+                                <tr key={row.date} className={eventRowCls(rowEvents)}>
                                   <td className="px-3 py-1.5 text-center text-slate-600 font-mono text-[11px]">{row.day_num}</td>
                                   <td className="px-3 py-1.5 text-slate-400 font-mono tabular-nums text-[11px]">{row.date}</td>
 
@@ -6008,15 +6055,15 @@ function HomePageInner() {
 
                                   {/* T1 — dims until HIGH clears it, then lights up */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t1 ? 'text-sky-300 font-semibold' : 'text-sky-900'}`}>
-                                    {selectedTrade?.target1 ? fmt(selectedTrade.target1) : '—'}
+                                    {selectedValidTargets.t1 != null ? fmt(selectedValidTargets.t1) : '—'}
                                   </td>
                                   {/* T2 */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t2 ? 'text-emerald-300 font-semibold' : 'text-emerald-900'}`}>
-                                    {selectedTrade?.target2 ? fmt(selectedTrade.target2) : '—'}
+                                    {selectedValidTargets.t2 != null ? fmt(selectedValidTargets.t2) : '—'}
                                   </td>
                                   {/* T3 */}
                                   <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-[11px] transition-colors ${rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].t3 ? 'text-green-300 font-semibold' : 'text-green-900'}`}>
-                                    {selectedTrade?.target3 ? fmt(selectedTrade.target3) : '—'}
+                                    {selectedValidTargets.t3 != null ? fmt(selectedValidTargets.t3) : '—'}
                                   </td>
 
                                   {/* CMP = day's closing price, violet + color by position vs entry */}
@@ -6033,17 +6080,20 @@ function HomePageInner() {
                                     {(() => {
                                       if (!selectedTrade || rowIdx >= rowTargetStatus.length) return <span className="text-slate-600">—</span>;
                                       const { t1, t2, t3 } = rowTargetStatus[rowIdx];
-                                      if (t3) return <span className="text-emerald-400 font-bold">T3 ✓</span>;
-                                      const nP = !t1 ? selectedTrade.target1 : !t2 ? selectedTrade.target2 : selectedTrade.target3;
-                                      const nL = !t1 ? 'T1' : !t2 ? 'T2' : 'T3';
-                                      if (nP == null) return <span className="text-emerald-400 font-bold">All ✓</span>;
-                                      const gap = (nP - row.close) / row.close * 100;
-                                      const cls = !t1
+                                      const validTargets = [
+                                        { label: 'T1', price: selectedValidTargets.t1, hit: t1 },
+                                        { label: 'T2', price: selectedValidTargets.t2, hit: t2 },
+                                        { label: 'T3', price: selectedValidTargets.t3, hit: t3 },
+                                      ].filter((target): target is { label: string; price: number; hit: boolean } => target.price != null);
+                                      const nextTarget = validTargets.find(target => !target.hit);
+                                      if (!nextTarget) return <span className="text-emerald-400 font-bold">All ✓</span>;
+                                      const gap = (nextTarget.price - row.close) / row.close * 100;
+                                      const cls = nextTarget.label === 'T1'
                                         ? (gap < 2 ? 'text-amber-300 font-bold' : gap < 5 ? 'text-amber-500' : 'text-slate-500')
-                                        : !t2
+                                        : nextTarget.label === 'T2'
                                           ? (gap < 2 ? 'text-emerald-300 font-bold' : gap < 5 ? 'text-emerald-500' : 'text-slate-400')
                                           : (gap < 2 ? 'text-green-300 font-bold' : gap < 5 ? 'text-green-500' : 'text-slate-400');
-                                      return <span className={cls}>{nL} –{fmt(gap, 1)}%</span>;
+                                      return <span className={cls}>{nextTarget.label} –{fmt(gap, 1)}%</span>;
                                     })()}
                                   </td>
 
@@ -6053,18 +6103,18 @@ function HomePageInner() {
                                       {fmt(row.high)}
                                       {selectedTrade && rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && (() => {
                                         const h = row.high;
-                                        if (selectedTrade.target3 != null && h >= selectedTrade.target3)
+                                        if (selectedValidTargets.t3 != null && h >= selectedValidTargets.t3)
                                           return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-green-900/60 text-green-300 border border-green-700">T3✓</span>;
-                                        if (selectedTrade.target2 != null && h >= selectedTrade.target2)
+                                        if (selectedValidTargets.t2 != null && h >= selectedValidTargets.t2)
                                           return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700">T2✓</span>;
-                                        if (h >= selectedTrade.target1)
+                                        if (selectedValidTargets.t1 != null && h >= selectedValidTargets.t1)
                                           return <span className="ml-1 text-[9px] font-bold px-1 rounded bg-sky-900/60 text-sky-300 border border-sky-700">T1✓</span>;
                                         return null;
                                       })()}
                                     </span>
                                   </td>
                                   {/* Low — amber/red gradient + stop breach chip (first hit only) */}
-                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${lowCls(row.low)}`}>
+                                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${lowCls(row.low, rowIdx)}`}>
                                     <span className="inline-flex items-center justify-end gap-0.5">
                                       {fmt(row.low)}
                                       {rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].stopVerified &&
@@ -6086,20 +6136,24 @@ function HomePageInner() {
                                   </td>
 
                                   <td className="px-3 py-1.5 text-left">
-                                    {(() => {
-                                      const ev = computedEvent(rowIdx);
-                                      const detail = computedEventDetail(rowIdx, ev);
-                                      return (
-                                        <div className="flex items-center gap-1.5">
-                                          {eventLabel(ev)}
-                                          {detail && (
-                                            <span className={`text-[11px] font-medium ${ev === 'stopped' ? 'text-red-400' : ev === 'expired' ? 'text-slate-400' : 'text-emerald-400'}`}>
-                                              {detail}
-                                            </span>
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                      {rowEvents.map((event, eventIdx) => (
+                                        <span key={`${event.type}-${eventIdx}`} className="inline-flex items-center gap-1">
+                                          {eventLabel(event.type)}
+                                          <span className={`text-[11px] font-medium ${
+                                            event.type === 'stopped'
+                                              ? 'text-red-400'
+                                              : ['expired', 'manual_close', 'closed_early'].includes(event.type)
+                                                ? 'text-slate-400'
+                                                : event.type === 'stop_shielded' || event.type === 'target_exit'
+                                                  ? 'text-cyan-400'
+                                                  : 'text-emerald-400'
+                                          }`}>
+                                            {event.detail}
+                                          </span>
+                                        </span>
+                                      ))}
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -6123,7 +6177,7 @@ function HomePageInner() {
             {/* ═══════════════════════════════════════════ */}
             {(() => {
               const all = trackedTrades;
-              const open = all.filter(t => ['open', 'hit_t1', 'hit_t2'].includes(t.status));
+              const open = all.filter(t => !isTerminalTrade(t));
               const terminal = all.filter(isTerminalTrade);
               const closed = all.filter(isTradeResolvedForWinRate);
               const wins = closed.filter(didReachFivePctTarget);
@@ -6168,11 +6222,11 @@ function HomePageInner() {
                             data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
                             className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
                           <button
-                            disabled={scanning || trackedTrades.filter(t => ['open','hit_t1','hit_t2'].includes(t.status)).length === 0}
+                            disabled={scanning || trackedTrades.filter(t => t.status === 'stopped' || !isTerminalTrade(t)).length === 0}
                             onClick={async () => {
                               if (scanningRef.current) return;
                               // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
-                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' || t.status === 'stopped' || t.status === 'hit_t1' || t.status === 'hit_t2');
+                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'stopped' || !isTerminalTrade(t));
                               if (openTrades.length === 0) return;
                               setScanning(true); scanningRef.current = true; setProgress(0); setTotal(openTrades.length);
                               try {
@@ -6224,7 +6278,7 @@ function HomePageInner() {
                               } catch {} finally { setScanning(false); scanningRef.current = false; }
                             }}
                             className="h-5 px-3 bg-cyan-900/50 hover:bg-cyan-900/70 disabled:opacity-40 border border-cyan-500 rounded text-[9px] font-bold text-cyan-200 transition-colors">
-                            {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => ['open','hit_t1','hit_t2'].includes(t.status)).length})`}
+                            {scanning ? `🔬 ${progress}/${total}` : validateFlash > 0 ? `✓ ${validateFlash} validated` : `🔬 Validate (${trackedTrades.filter(t => t.status === 'stopped' || !isTerminalTrade(t)).length})`}
                           </button>
                           <span className="text-[9px] text-slate-600">{trackedTrades.length} tracked</span>
                           <button onClick={() => {
@@ -6523,9 +6577,8 @@ function HomePageInner() {
                           </tr></thead>
                           <tbody>
                             {[...all].sort((a, b) => {
-                              const isActive = (s: string) => ['open','hit_t1','hit_t2'].includes(s);
-                              if (isActive(a.status) && !isActive(b.status)) return -1;
-                              if (!isActive(a.status) && isActive(b.status)) return 1;
+                              if (!isTerminalTrade(a) && isTerminalTrade(b)) return -1;
+                              if (isTerminalTrade(a) && !isTerminalTrade(b)) return 1;
                               return 0;
                             }).map((t, i) => {
                               const rps = t.entryPrice - t.stopLoss;
@@ -6548,11 +6601,15 @@ function HomePageInner() {
                                 manual_close: { label: '◉ MAN', color: 'bg-slate-700/40 text-slate-300' },
                                 closed_early: { label: '↗ EXIT', color: 'bg-cyan-900/40 text-cyan-300' },
                               };
-                              const sc = statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
+                              const activePosition = !isTerminalTrade(t);
+                              const partialClosed = !activePosition && (t.status === 'hit_t1' || t.status === 'hit_t2');
+                              const sc = partialClosed
+                                ? { label: `↩ ${t.status === 'hit_t1' ? 'T1' : 'T2'} EXIT`, color: 'bg-cyan-900/40 text-cyan-300' }
+                                : statusCfg[t.status] ?? { label: t.status, color: 'bg-slate-700 text-slate-400' };
                               const stgCfg = STAGE_CONFIG[t.stage];
 
                               return (
-                                <tr key={i} className={`border-b border-slate-800/30 group ${t.status === 'open' ? 'bg-slate-800/20' : ''}`}>
+                                <tr key={i} className={`border-b border-slate-800/30 group ${activePosition ? 'bg-slate-800/20' : ''}`}>
                                   <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol}</td>
                                   <td className={`px-2 py-1.5 ${stgCfg?.color ?? 'text-slate-500'}`}>{stgCfg?.label ?? t.stage}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-300">₹{t.entryPrice.toFixed(2)}</td>
@@ -6562,7 +6619,7 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 text-right font-mono text-yellow-400">{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{rps.toFixed(2)}</td>
                                   <td className="px-2 py-1.5 text-slate-500">{t.entryDate}</td>
-                                  <td className={`px-2 py-1.5 text-right font-mono ${t.status === 'open' ? 'text-slate-300' : 'text-slate-400'}`}>{curPrice > 0 ? `₹${curPrice.toFixed(2)}` : '—'}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${activePosition ? 'text-slate-300' : 'text-slate-400'}`}>{curPrice > 0 ? `₹${curPrice.toFixed(2)}` : '—'}</td>
                                   {(() => {
                                     const rrBase = t.target2 > t.entryPrice ? t.target2 : t.target1;
                                     const plannedRR = rps > 0 && rrBase > t.entryPrice ? (rrBase - t.entryPrice) / rps : 0;
@@ -6575,9 +6632,9 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maePct > 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct > 0 ? `-${maePct.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(2)}R` : '—'}</td>
-                                  <td className={`px-2 py-1.5 text-right ${t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{t.status === 'open' && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
+                                  <td className={`px-2 py-1.5 text-right ${activePosition && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{activePosition && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
                                   {/* #3/#7: Days to expiry countdown */}
-                                  <td className="px-2 py-1.5 text-center">{t.status === 'open' ? (() => {
+                                  <td className="px-2 py-1.5 text-center">{activePosition ? (() => {
                                     const dl = 20 - (t.daysHeld ?? 0);
                                     const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / 20) * 100));
                                     return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of 20 — expires in ${dl} days`}>
@@ -6587,7 +6644,7 @@ function HomePageInner() {
                                   })() : <span className="text-slate-700">—</span>}</td>
                                   {/* #2: Outcome with tooltip */}
                                   <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
-                                    title={t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 20 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
+                                    title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 20 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
                                   {/* Gate Status */}
                                   <td className="px-2 py-1.5 text-center">{(() => {
                                     const tgLog = t.gateLog;
@@ -6601,7 +6658,7 @@ function HomePageInner() {
                                     return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-emerald-400 font-bold">{shielded}🛡</span><span className="text-cyan-500 ml-0.5">{blockedGate?.gate?.slice(0,5) || ''}</span></span>;
                                   })()}</td>
                                   {/* #6: Exit model */}
-                                  <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% BE' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? '—' : 'Market'}</td>
+                                  <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? `50% T1 + 50% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t2' ? `50% T1 + 30% T2 + 20% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? '—' : 'Market'}</td>
                                   <td className="px-2 py-1.5 text-slate-600 truncate max-w-[80px]">{t.sector || '—'}</td>
                                   <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>

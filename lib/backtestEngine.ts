@@ -10,45 +10,104 @@ function safe(v: number, f = 0): number { return Number.isFinite(v) ? v : f; }
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface TradeCosts {
-  brokerage: number;      // ₹20/order or 0.05% whichever lower (delivery)
-  stt: number;            // 0.1% on sell side (delivery)
+  brokerage: number;      // Kotak Trade Free delivery: 0.20%/side; zero via Neo Trade API
+  stt: number;            // 0.1% on both sides for equity delivery
   exchangeTxn: number;    // NSE 0.00297%
-  gst: number;            // 18% on (brokerage + exchange txn)
+  gst: number;            // 18% on brokerage, DP, exchange and SEBI charges
   sebiCharges: number;    // 0.0001% on turnover
   stampDuty: number;      // 0.015% on buy side
-  slippage: number;       // 0.05% estimated market impact
+  dpCharges: number;      // 0.04% of each sell-day value, minimum ₹20
+  slippage: number;       // estimated market impact not already embedded in fills
   totalCost: number;
   costPct: number;        // as % of trade value
+  executionChannel: KotakExecutionChannel;
 }
 
-export function computeTradeCosts(buyValue: number, sellValue: number): TradeCosts {
-  // Brokerage: ₹20 per order or 0.05% whichever is lower (both legs)
-  const buyBrokerage = Math.min(20, buyValue * 0.0005);
-  const sellBrokerage = Math.min(20, sellValue * 0.0005);
-  const brokerage = buyBrokerage + sellBrokerage;
+export type KotakExecutionChannel = 'app_web' | 'api';
 
-  // STT: 0.1% on sell side only (equity delivery)
-  const stt = sellValue * 0.001;
+export interface TradeCostOptions {
+  executionChannel?: KotakExecutionChannel;
+  // Aggregate sell value for each distinct exit date. Multiple exits in one stock
+  // on the same day should be combined because Kotak applies DP once/day/stock.
+  dpSellValues?: number[];
+  buySlippagePct?: number;
+  sellSlippagePct?: number;
+}
+
+export const KOTAK_TRADE_FREE_DELIVERY_MODEL = {
+  deliveryBrokerageRate: 0.002,
+  sttRate: 0.001,
+  exchangeTxnRate: 0.0000297,
+  sebiRate: 0.000001,
+  stampDutyBuyRate: 0.00015,
+  dpSellRate: 0.0004,
+  dpSellMinimum: 20,
+  gstRate: 0.18,
+} as const;
+
+export function computeTradeCosts(
+  buyValue: number,
+  sellValue: number,
+  options: TradeCostOptions = {},
+): TradeCosts {
+  const buyTurnover = Math.max(0, safe(buyValue));
+  const sellTurnover = Math.max(0, safe(sellValue));
+  const turnover = buyTurnover + sellTurnover;
+  const executionChannel = options.executionChannel ?? 'app_web';
+
+  // Trade Free Plan, post introductory 30-day period. Kotak advertises zero
+  // brokerage for orders routed through Neo Trade API.
+  const brokerage = executionChannel === 'api'
+    ? 0
+    : turnover * KOTAK_TRADE_FREE_DELIVERY_MODEL.deliveryBrokerageRate;
+
+  // Equity delivery STT is payable by both purchaser and seller.
+  const stt = turnover * KOTAK_TRADE_FREE_DELIVERY_MODEL.sttRate;
 
   // Exchange transaction charges: NSE 0.00297% on both legs
-  const exchangeTxn = (buyValue + sellValue) * 0.0000297;
-
-  // GST: 18% on (brokerage + exchange charges)
-  const gst = (brokerage + exchangeTxn) * 0.18;
+  const exchangeTxn = turnover * KOTAK_TRADE_FREE_DELIVERY_MODEL.exchangeTxnRate;
 
   // SEBI charges: 0.0001% on turnover
-  const sebiCharges = (buyValue + sellValue) * 0.000001;
+  const sebiCharges = turnover * KOTAK_TRADE_FREE_DELIVERY_MODEL.sebiRate;
 
   // Stamp duty: 0.015% on buy side only
-  const stampDuty = buyValue * 0.00015;
+  const stampDuty = buyTurnover * KOTAK_TRADE_FREE_DELIVERY_MODEL.stampDutyBuyRate;
 
-  // Slippage: 0.05% estimated market impact per leg
-  const slippage = (buyValue + sellValue) * 0.0005;
+  const sellDays = (options.dpSellValues?.length ? options.dpSellValues : [sellTurnover])
+    .map(v => Math.max(0, safe(v)))
+    .filter(v => v > 0);
+  const dpCharges = sellDays.reduce(
+    (sum, value) => sum + Math.max(
+      KOTAK_TRADE_FREE_DELIVERY_MODEL.dpSellMinimum,
+      value * KOTAK_TRADE_FREE_DELIVERY_MODEL.dpSellRate,
+    ),
+    0,
+  );
 
-  const totalCost = brokerage + stt + exchangeTxn + gst + sebiCharges + stampDuty + slippage;
-  const costPct = (buyValue + sellValue) > 0 ? safe(totalCost / (buyValue + sellValue) * 100) : 0;
+  // GST applies to broker/depository services and exchange/SEBI charges.
+  const gst = (brokerage + exchangeTxn + sebiCharges + dpCharges)
+    * KOTAK_TRADE_FREE_DELIVERY_MODEL.gstRate;
 
-  return { brokerage: safe(brokerage), stt: safe(stt), exchangeTxn: safe(exchangeTxn), gst: safe(gst), sebiCharges: safe(sebiCharges), stampDuty: safe(stampDuty), slippage: safe(slippage), totalCost: safe(totalCost), costPct: safe(costPct) };
+  const buySlippageRate = Math.max(0, safe(options.buySlippagePct ?? 0)) / 100;
+  const sellSlippageRate = Math.max(0, safe(options.sellSlippagePct ?? 0)) / 100;
+  const slippage = buyTurnover * buySlippageRate + sellTurnover * sellSlippageRate;
+
+  const totalCost = brokerage + stt + exchangeTxn + gst + sebiCharges + stampDuty + dpCharges + slippage;
+  const costPct = turnover > 0 ? safe(totalCost / turnover * 100) : 0;
+
+  return {
+    brokerage: safe(brokerage),
+    stt: safe(stt),
+    exchangeTxn: safe(exchangeTxn),
+    gst: safe(gst),
+    sebiCharges: safe(sebiCharges),
+    stampDuty: safe(stampDuty),
+    dpCharges: safe(dpCharges),
+    slippage: safe(slippage),
+    totalCost: safe(totalCost),
+    costPct: safe(costPct),
+    executionChannel,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -189,7 +248,12 @@ export function runBacktest(
     // Compute costs
     const buyValue = entryPrice * shares;
     const sellValue = exitPrice * shares;
-    const costs = computeTradeCosts(buyValue, sellValue);
+    // Entry and exit prices already include 0.05% slippage in this simulator.
+    const costs = computeTradeCosts(buyValue, sellValue, {
+      executionChannel: 'app_web',
+      buySlippagePct: 0,
+      sellSlippagePct: 0,
+    });
 
     const pnlGross = (exitPrice - entryPrice) * shares;
     const pnlNet = pnlGross - costs.totalCost;

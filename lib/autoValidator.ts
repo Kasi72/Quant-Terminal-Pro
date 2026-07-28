@@ -682,11 +682,11 @@ export function validateTrade(
     closedDate  = '';
   }
 
-  // ── Time expiry: > 20 days still open ─────────────────────────────────────
+  // ── Time expiry: close any remaining position after 20 trading days ────────
   const daysHeld = exitBarIdx >= 0 ? exitBarIdx + 1 : candlesSinceEntry.length;
-  if (status === 'open' && daysHeld >= 20) {
+  if (exitBarIdx < 0 && daysHeld >= 20 && ['open', 'hit_t1', 'hit_t2'].includes(status)) {
     const lastCandle = candlesSinceEntry[candlesSinceEntry.length - 1];
-    status      = 'expired';
+    if (status === 'open') status = 'expired';
     closedPrice = lastCandle?.c ?? entry;
     closedDate  = candleDate(lastCandle ?? { h: 0, l: 0, c: 0 }, entryDateBase, daysHeld);
     exitBarIdx  = candlesSinceEntry.length - 1;

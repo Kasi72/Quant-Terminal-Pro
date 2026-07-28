@@ -5,6 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  deriveTradeEventRows,
+  primaryTradeEventType,
+  summarizeTradeEvents,
+} from '../lib/tradeEvents.ts';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -59,16 +64,6 @@ function parseCandles(json) {
   return bars;
 }
 
-function eventDetail(status, pnl, target1, target2, target3, closedPrice) {
-  const p = pnl != null ? ` → ${parseFloat(pnl).toFixed(1)}%` : '';
-  if (status === 'stopped')  return `Stop hit ₹${parseFloat(closedPrice || 0).toFixed(2)}${p}`;
-  if (status === 'hit_t1')   return `T1 ₹${parseFloat(target1 || 0).toFixed(2)} hit${p}`;
-  if (status === 'hit_t2')   return `T2 ₹${parseFloat(target2 || 0).toFixed(2)} hit${p}`;
-  if (status === 'hit_t3')   return `T3 ₹${parseFloat(target3 || 0).toFixed(2)} hit${p}`;
-  if (status === 'expired')  return `Expired ₹${parseFloat(closedPrice || 0).toFixed(2)}${p}`;
-  return '';
-}
-
 async function main() {
   console.log('Loading all tracked trades…');
   const { data: rows, error } = await db.from('tracked_trades').select('*').eq('user_id', USER_ID);
@@ -102,17 +97,36 @@ async function main() {
     if (relevant.length === 0) { console.log('no bars after entry — skip'); skipped++; continue; }
 
     let cumMfe = 0, cumMae = 0;
-    const logRows = [];
-
-    for (let d = 0; d < relevant.length; d++) {
-      const bar    = relevant[d];
+    const priceRows = relevant.map((bar, d) => {
       const barMfe = ((bar.high - entryPrice) / entryPrice) * 100;
       const barMae = ((entryPrice - bar.low) / entryPrice) * 100;
       if (barMfe > cumMfe) cumMfe = barMfe;
       if (barMae > cumMae) cumMae = barMae;
-
-      const isTerminal = !!closedDate && bar.date === closedDate;
-      logRows.push({
+      return {
+        ...bar,
+        dayNum: d + 1,
+        mfePct: +cumMfe.toFixed(2),
+        maePct: +cumMae.toFixed(2),
+      };
+    });
+    const trade = {
+      ...(row.raw_json ?? {}),
+      symbol: sym,
+      entryPrice,
+      entryDate,
+      stopLoss: parseFloat(row.stop_loss ?? 0),
+      target1: parseFloat(row.target1 ?? 0),
+      target2: parseFloat(row.target2 ?? 0),
+      target3: parseFloat(row.target3 ?? 0),
+      disasterStop: parseFloat(row.disaster_stop ?? 0),
+      status: row.status,
+      closedPrice: row.exit_price == null ? undefined : parseFloat(row.exit_price),
+      closedDate: row.exit_date ?? undefined,
+    };
+    const eventRows = deriveTradeEventRows(trade, priceRows);
+    const logRows = priceRows.map((bar, d) => {
+      const events = eventRows[d]?.events ?? [];
+      return {
         user_id:      USER_ID,
         symbol:       sym,
         date:         bar.date,
@@ -120,14 +134,13 @@ async function main() {
         high:         bar.high,
         low:          bar.low,
         close:        bar.close,
-        day_num:      d + 1,
-        mfe_pct:      +cumMfe.toFixed(2),
-        mae_pct:      +cumMae.toFixed(2),
-        event_type:   isTerminal ? row.status : null,
-        event_detail: isTerminal ? eventDetail(row.status, row.pnl_pct, row.target1, row.target2, row.target3, row.exit_price) : null,
-      });
-      if (isTerminal) break; // closed trades stop at terminal bar
-    }
+        day_num:      bar.dayNum,
+        mfe_pct:      bar.mfePct,
+        mae_pct:      bar.maePct,
+        event_type:   primaryTradeEventType(events),
+        event_detail: summarizeTradeEvents(events),
+      };
+    });
 
     const { error: upsertErr } = await db.from('trade_daily_log')
       .upsert(logRows, { onConflict: 'user_id,symbol,date' });

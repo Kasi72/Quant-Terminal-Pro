@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
-import type { TrackedTrade } from '@/lib/tradeOps';
+import { isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
 import { validateTrade, applyValidation } from '@/lib/autoValidator';
+import { deriveTradeEventRows, primaryTradeEventType, summarizeTradeEvents } from '@/lib/tradeEvents';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -236,19 +237,6 @@ function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
   return { ...baseUpdate(lastBar), status, closedPrice: undefined, closedDate: undefined, pnlPct, pnlR: calcR(pnlPct) };
 }
 
-// ── Daily log helpers ─────────────────────────────────────────────────────────
-
-function buildEventDetail(t: TrackedTrade): string {
-  switch (t.status) {
-    case 'stopped':  return `Stop hit ₹${t.closedPrice?.toFixed(2)} (${t.pnlPct?.toFixed(1)}%)`;
-    case 'hit_t1':   return `T1 ₹${t.target1.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
-    case 'hit_t2':   return `T2 ₹${t.target2.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
-    case 'hit_t3':   return `T3 ₹${t.target3.toFixed(2)} hit → ${t.pnlPct?.toFixed(1)}%`;
-    case 'expired':  return `Expired ₹${t.closedPrice?.toFixed(2)} → ${t.pnlPct?.toFixed(1)}%`;
-    default:         return '';
-  }
-}
-
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -272,7 +260,7 @@ export async function GET(req: NextRequest) {
 
   if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
 
-  const trades = (rows ?? []).map(fromRow);
+  const trades = (rows ?? []).map(fromRow).filter(trade => !isTerminalTrade(trade));
   if (trades.length === 0) return NextResponse.json({ ok: true, open: 0, processed: 0, updated: 0 });
 
   // Process in parallel batches of 5 to respect Yahoo rate limits
@@ -332,14 +320,18 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily log: upsert one row per candle from entry → today (or close date) ──
-    const terminalDate = updated.closedDate ?? null;
+    const terminalDate = updated.closedDate?.slice(0, 10) ?? null;
     let cumMfe = 0, cumMae = 0;
-    let seen5 = false, seenT1 = false, seenT2 = false, seenT3 = false;
-    const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();
-    for (const g of updated.gateLog ?? []) {
-      if (g.date) gateByDate.set(g.date.slice(0, 10), g);
-    }
-    const logRows: Record<string, unknown>[] = [];
+    const priceRows: Array<{
+      date: string;
+      dayNum: number;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      mfePct: number;
+      maePct: number;
+    }> = [];
 
     for (let d = 0; d < postEntry.length; d++) {
       const bar = postEntry[d];
@@ -348,63 +340,37 @@ export async function GET(req: NextRequest) {
       if (barMfe > cumMfe) cumMfe = barMfe;
       if (barMae > cumMae) cumMae = barMae;
 
-      const gate = gateByDate.get(bar.date);
-      let eventType: string | null = null;
-      let eventDetail: string | null = null;
-      const pct = (price: number) => ((price - trade.entryPrice) / trade.entryPrice) * 100;
-      const isTerminalDate = terminalDate != null && bar.date === terminalDate;
-      const verifiedStop = updated.status === 'stopped' && (isTerminalDate || gate?.result === 'STOPPED');
-
-      if (verifiedStop) {
-        eventType = 'stopped';
-        eventDetail = buildEventDetail(updated);
-      } else if (updated.status === 'hit_t3' && !seenT3 && trade.target3 > 0 && bar.high >= trade.target3) {
-        seenT1 = true; seenT2 = true; seenT3 = true;
-        eventType = 'hit_t3';
-        eventDetail = `T3 ₹${trade.target3.toFixed(2)} hit → ${updated.pnlPct?.toFixed(1)}%`;
-      } else if (!seen5 && trade.entryPrice > 0 && (bar.close >= trade.entryPrice * 1.05 || bar.high >= trade.entryPrice * 1.05)) {
-        seen5 = true;
-        const sameBarT2 = !seenT2 && trade.target2 > 0 && bar.high >= trade.target2;
-        const sameBarT1 = !seenT1 && trade.target1 > 0 && bar.high >= trade.target1;
-        if (sameBarT2) { seenT1 = true; seenT2 = true; }
-        else if (sameBarT1) seenT1 = true;
-        const closePct = pct(bar.close);
-        const highPct = pct(bar.high);
-        eventType = 'hit_5pct';
-        eventDetail = `+5% target crossed (${closePct >= 5 ? `CMP +${closePct.toFixed(1)}%` : `High +${highPct.toFixed(1)}%`})${sameBarT2 ? ' · T2 cleared' : sameBarT1 ? ' · T1 cleared' : ''}`;
-      } else if (!seenT2 && trade.target2 > 0 && bar.high >= trade.target2) {
-        seenT1 = true; seenT2 = true;
-        eventType = 'hit_t2';
-        eventDetail = `T2 ₹${trade.target2.toFixed(2)} cleared`;
-      } else if (!seenT1 && trade.target1 > 0 && bar.high >= trade.target1) {
-        seenT1 = true;
-        eventType = 'hit_t1';
-        eventDetail = `T1 ₹${trade.target1.toFixed(2)} cleared`;
-      } else if (gate?.result === 'SHIELDED') {
-        eventType = 'stop_shielded';
-        const blockedBy = gate.gatesTested?.find(g => g.passed === true)?.gate ?? gate.gatesTested?.[0]?.gate ?? 'Gate shield';
-        eventDetail = `SL touch shielded (${blockedBy})`;
-      } else if (updated.status === 'expired' && isTerminalDate) {
-        eventType = 'expired';
-        eventDetail = buildEventDetail(updated);
-      }
-
-      logRows.push({
-        user_id: USER_ID,
-        symbol: trade.symbol,
+      priceRows.push({
         date: bar.date,
         open: Math.round(bar.open * 100) / 100,
         high: Math.round(bar.high * 100) / 100,
         low: Math.round(bar.low * 100) / 100,
         close: Math.round(bar.close * 100) / 100,
-        day_num: d + 1,
-        mfe_pct: Math.round(cumMfe * 100) / 100,
-        mae_pct: Math.round(cumMae * 100) / 100,
-        event_type: eventType,
-        event_detail: eventDetail,
+        dayNum: d + 1,
+        mfePct: Math.round(cumMfe * 100) / 100,
+        maePct: Math.round(cumMae * 100) / 100,
       });
-      if (['stopped', 'hit_t3', 'expired'].includes(eventType ?? '')) break;
+      if (terminalDate && bar.date >= terminalDate) break;
     }
+
+    const derivedEvents = deriveTradeEventRows(updated, priceRows);
+    const logRows: Record<string, unknown>[] = priceRows.map((row, index) => {
+      const events = derivedEvents[index]?.events ?? [];
+      return {
+        user_id: USER_ID,
+        symbol: trade.symbol,
+        date: row.date,
+        open: row.open,
+        high: row.high,
+        low: row.low,
+        close: row.close,
+        day_num: row.dayNum,
+        mfe_pct: row.mfePct,
+        mae_pct: row.maePct,
+        event_type: primaryTradeEventType(events),
+        event_detail: summarizeTradeEvents(events),
+      };
+    });
 
     if (logRows.length > 0) {
       const { error: logErr } = await db.from('trade_daily_log')

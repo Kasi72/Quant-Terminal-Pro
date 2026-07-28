@@ -70,7 +70,7 @@ export interface TearSheetTrade {
 export function buildTearSheetData(trades: TrackedTrade[], accountSize: number): TearSheetData {
   const decided = trades.filter(isTradeResolvedForWinRate);
   const terminal = trades.filter(isTerminalTrade);
-  const open = trades.filter(t => ['open', 'hit_t1', 'hit_t2'].includes(t.status));
+  const open = trades.filter(t => !isTerminalTrade(t));
   const wins = decided.filter(didReachFivePctTarget);
   const losses = decided.filter(t => !didReachFivePctTarget(t));
   const winRate = decided.length > 0 ? safe(wins.length / decided.length * 100) : 0;
