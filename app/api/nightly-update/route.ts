@@ -65,7 +65,7 @@ async function runWithConcurrency<T>(
 
 // ── Candle parsing ────────────────────────────────────────────────────────────
 
-interface DayBar { date: string; open: number; high: number; low: number; close: number; }
+interface DayBar { date: string; open: number; high: number; low: number; close: number; volume: number; }
 
 function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
   const r0 = ((json?.chart as Record<string, unknown>)?.result as Record<string, unknown>[])?.[0];
@@ -87,6 +87,7 @@ function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
     let h = q.high?.[i] ?? null;
     let l = q.low?.[i] ?? null;
     let c = q.close?.[i] ?? null;
+    const v = q.volume?.[i] ?? 0;
     if (
       i === timestamps.length - 1 &&
       metaDate === date &&
@@ -102,7 +103,7 @@ function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
     if (o == null || h == null || l == null || c == null) continue;
     if (!isFinite(o) || !isFinite(h) || !isFinite(l) || !isFinite(c)) continue;
     if (c <= 0 || h < l || h <= 0 || l <= 0) continue;
-    bars.push({ date, open: o, high: h, low: l, close: c });
+    bars.push({ date, open: o, high: h, low: l, close: c, volume: Number.isFinite(v) && v > 0 ? v : 0 });
   }
   return bars;
 }
@@ -186,99 +187,6 @@ function toRow(t: TrackedTrade) {
     raw_json: t,
     updated_at: new Date().toISOString(),
   };
-}
-
-// ── Trade status computation (candle-by-candle replay) ────────────────────────
-// Uses intraday HIGH for target checks, intraday LOW for stop checks —
-// more accurate than EOD close, matches real-world bracket-order behavior.
-
-function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
-  // Only process trades that are still being watched (T3/stopped/expired are terminal)
-  if (!['open', 'hit_t1', 'hit_t2'].includes(trade.status)) return trade;
-
-  const entryDate = trade.entryDate.slice(0, 10);
-  const postEntry = bars.filter(b => b.date > entryDate);
-  if (postEntry.length === 0) return trade;
-
-  const rps = trade.entryPrice > 0 && trade.stopLoss > 0
-    ? trade.entryPrice - trade.stopLoss : 0;
-
-  let mfe = trade.mfe ?? 0;
-  let mae = trade.mae ?? 0;
-  let highestPrice = trade.highestPrice ?? trade.entryPrice;
-
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  const daysFrom = (date: string) =>
-    Math.ceil((new Date(date).getTime() - new Date(entryDate).getTime()) / 86400000);
-
-  const baseUpdate = (bar: DayBar) => ({
-    ...trade,
-    currentPrice: bar.close,
-    highestPrice,
-    mfe: round2(mfe),
-    mae: round2(mae),
-    mfeR: rps > 0 ? Math.round((mfe / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
-    maeR: rps > 0 ? Math.round((mae / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
-    daysHeld: daysFrom(bar.date),
-    lastCheckDate: bar.date,
-  });
-
-  // T1 and T2 are milestones (partial exits), not terminal states.
-  // Tracking continues until T3, stop, or 20-day expiry — whichever comes first.
-  let t1Hit = false, t2Hit = false;
-
-  // Weighted P&L accounting for partial exits already crystallised
-  const calcPnl = (closePrice: number) => {
-    if (t2Hit) return round2(((trade.target1 * 0.5 + trade.target2 * 0.3 + closePrice * 0.2) - trade.entryPrice) / trade.entryPrice * 100);
-    if (t1Hit) return round2(((trade.target1 * 0.5 + closePrice * 0.5) - trade.entryPrice) / trade.entryPrice * 100);
-    return round2(((closePrice - trade.entryPrice) / trade.entryPrice) * 100);
-  };
-  const calcR = (pct: number) => rps > 0 ? round2(pct / 100 * trade.entryPrice / rps) : 0;
-
-  for (const bar of postEntry) {
-    const barMfe = ((bar.high - trade.entryPrice) / trade.entryPrice) * 100;
-    const barMae = ((trade.entryPrice - bar.low) / trade.entryPrice) * 100;
-    if (barMfe > mfe) mfe = barMfe;
-    if (barMae > mae) mae = barMae;
-    if (bar.high > highestPrice) highestPrice = bar.high;
-
-    const stopLevel = (trade.disasterStop > 0 && trade.stopLoss > 0)
-      ? Math.max(trade.disasterStop, trade.stopLoss)
-      : (trade.stopLoss > 0 ? trade.stopLoss : trade.disasterStop);
-
-    // TERMINAL: stop hit
-    if (stopLevel > 0 && bar.low <= stopLevel) {
-      const pnlPct = calcPnl(stopLevel);
-      return { ...baseUpdate(bar), status: 'stopped', closedPrice: stopLevel, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
-    }
-
-    // TERMINAL: T3 hit
-    if (trade.target3 > 0 && bar.high >= trade.target3) {
-      const wt = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
-      const pnlPct = round2(((wt - trade.entryPrice) / trade.entryPrice) * 100);
-      return { ...baseUpdate(bar), status: 'hit_t3', closedPrice: trade.target3, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
-    }
-
-    // MILESTONE: T2 hit — mark and continue scanning for T3
-    if (!t2Hit && trade.target2 > 0 && bar.high >= trade.target2) t2Hit = true;
-
-    // MILESTONE: T1 hit — mark and continue scanning for T2/T3
-    if (!t1Hit && trade.target1 > 0 && bar.high >= trade.target1) t1Hit = true;
-  }
-
-  const lastBar = postEntry[postEntry.length - 1];
-  const daysHeld = daysFrom(lastBar.date);
-
-  // TERMINAL: 20-day expiry — P&L reflects any partial exits already taken
-  if (daysHeld >= 20) {
-    const pnlPct = calcPnl(lastBar.close);
-    return { ...baseUpdate(lastBar), status: 'expired', closedPrice: lastBar.close, closedDate: lastBar.date, pnlPct, pnlR: calcR(pnlPct) };
-  }
-
-  // Still within 20 days — return current milestone, no closedDate (still tracking)
-  const status: TrackedTrade['status'] = t2Hit ? 'hit_t2' : t1Hit ? 'hit_t1' : 'open';
-  const pnlPct = calcPnl(lastBar.close);
-  return { ...baseUpdate(lastBar), status, closedPrice: undefined, closedDate: undefined, pnlPct, pnlR: calcR(pnlPct) };
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -383,6 +291,7 @@ export async function GET(req: NextRequest) {
           bar.date > entryDate &&
           (!terminalDateBeforeReplay || bar.date <= terminalDateBeforeReplay)
         );
+        const preEntry = bars.filter(bar => bar.date <= entryDate).slice(-30);
         const lastBar = postEntry[postEntry.length - 1];
         const validation = isTerminalTrade(trade)
           ? null
@@ -391,8 +300,19 @@ export async function GET(req: NextRequest) {
               h: bar.high,
               l: bar.low,
               c: bar.close,
+              v: bar.volume,
               d: bar.date,
-            })));
+            })), {
+              preEntryCandles: preEntry.map(bar => ({
+                o: bar.open,
+                h: bar.high,
+                l: bar.low,
+                c: bar.close,
+                v: bar.volume,
+                d: bar.date,
+              })),
+              maxHoldBars: trade.maxHoldBars,
+            });
         const updated = lastBar
           ? {
               ...(validation ? applyValidation(trade, validation) : trade),

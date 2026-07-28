@@ -1,4 +1,4 @@
-import type { TrackedTrade } from './tradeOps';
+import { getTradeRiskPerShare, type TrackedTrade } from './tradeOps';
 
 // ─── Equity Curve ────────────────────────────────────────────────────────────
 
@@ -20,8 +20,8 @@ export function buildEquityCurve(trades: TrackedTrade[], startingCapital = 10000
   for (let i = 0; i < closed.length; i++) {
     const t = closed[i];
     const riskAmount = equity * 0.01; // 1% risk per trade (compounding)
-    const riskPct = t.entryPrice > 0 && t.stopLoss > 0
-      ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100
+    const riskPct = t.entryPrice > 0
+      ? (getTradeRiskPerShare(t) / t.entryPrice) * 100
       : 2;
     // PnL = riskAmount × (pnlPct / riskPct) = actual rupees gained/lost
     const pnl = riskPct > 0 ? riskAmount * ((t.pnlPct ?? 0) / riskPct) : 0;

@@ -6,6 +6,7 @@ export type TradeLogEventType =
   | 'hit_t2'
   | 'hit_t3'
   | 'stop_shielded'
+  | 'review_exit_pending'
   | 'stopped'
   | 'target_exit'
   | 'expired'
@@ -50,6 +51,7 @@ export const TRADE_EVENT_ICONS: Record<TradeLogEventType, string> = {
   hit_t2: '🎯🎯',
   hit_t3: '🎯🎯🎯',
   stop_shielded: '🛡',
+  review_exit_pending: '⏳',
   stopped: '🛑',
   target_exit: '↩',
   expired: '⏰',
@@ -123,6 +125,7 @@ export function deriveTradeEventRows(
       isTerminalDate || gate?.result === 'STOPPED'
     );
     const stopShielded = !terminalReached && !stopVerified && gate?.result === 'SHIELDED';
+    const reviewExitPending = !terminalReached && gate?.result === 'EXIT_PENDING';
     const events: TradeLogEvent[] = [];
 
     // Daily OHLC cannot resolve whether the high or low occurred first. The
@@ -131,7 +134,7 @@ export function deriveTradeEventRows(
       const stopPrice = finitePositive(trade.closedPrice) ?? effectiveStop;
       events.push({
         type: 'stopped',
-        detail: `SL ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
+        detail: `${gate?.stopKind === 'review' ? 'Review exit' : gate?.stopKind === 'trail' ? 'Hard trail' : 'Hard stop'} ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
         terminal: true,
       });
       terminalReached = true;
@@ -178,12 +181,23 @@ export function deriveTradeEventRows(
         });
 
       if (stopShielded) {
-        const blockedBy = gate?.gatesTested?.find(g => g.passed)?.gate
-          ?? gate?.gatesTested?.[0]?.gate
-          ?? 'Gate shield';
+        const supportingGates = gate?.gatesTested?.filter(g => g.passed).map(g => g.gate) ?? [];
+        const blockedBy = supportingGates.length > 0
+          ? supportingGates.join(' + ')
+          : close >= effectiveStop
+            ? 'close recovered above review stop'
+            : 'confluence shield';
         events.push({
           type: 'stop_shielded',
-          detail: `SL touch shielded (${blockedBy})`,
+          detail: `Review-level touch shielded (${blockedBy})`,
+          terminal: false,
+        });
+      }
+
+      if (reviewExitPending) {
+        events.push({
+          type: 'review_exit_pending',
+          detail: `Review stop confirmed at close; exit queued for next session open`,
           terminal: false,
         });
       }
@@ -208,9 +222,12 @@ export function deriveTradeEventRows(
           const closePrice = finitePositive(trade.closedPrice) ?? row.close;
           const completedAt = trade.status === 'hit_t1' ? 'T1' : 'T2';
           const remainingSize = trade.status === 'hit_t1' ? '50%' : '20%';
+          const exitReason = gate?.result === 'STOPPED' && gate.stopKind === 'trail'
+            ? 'hard protective trail'
+            : `exit after ${completedAt}`;
           events.push({
             type: 'target_exit',
-            detail: `Final ${remainingSize} exited after ${completedAt} at ₹${closePrice.toFixed(2)} (${pctFromEntry(closePrice, entry).toFixed(1)}% vs entry)`,
+            detail: `Final ${remainingSize} ${exitReason} at ₹${closePrice.toFixed(2)} (${pctFromEntry(closePrice, entry).toFixed(1)}% vs entry)`,
             terminal: true,
           });
           terminalReached = true;
@@ -247,6 +264,7 @@ export function primaryTradeEventType(events: TradeLogEvent[]): TradeLogEventTyp
     'hit_t1',
     'hit_5pct',
     'stop_shielded',
+    'review_exit_pending',
     'target_exit',
     'expired',
     'manual_close',

@@ -9,7 +9,6 @@ const LS_EMERGENCY = 'qtp_tracked_trades_emergency'; // restored: triple-redunda
 // ─── Supabase helpers ───────────────────────────────────────────────────────
 
 function toRow(t: TrackedTrade) {
-  const a = t as any;
   return {
     user_id: USER_ID,
     symbol: t.symbol,
@@ -29,11 +28,11 @@ function toRow(t: TrackedTrade) {
     atr_state: t.atrState,
     volume_badge: t.volumeBadge,
     regime_at_entry: t.regimeAtEntry,
-    exit_price: a.exitPrice ?? null,
-    exit_date: a.exitDate ?? null,
-    pnl_pct: a.pnlPct ?? null,
-    outcome: a.outcome ?? null,
-    notes: a.notes ?? null,
+    exit_price: t.closedPrice ?? null,
+    exit_date: t.closedDate ?? null,
+    pnl_pct: t.pnlPct ?? null,
+    outcome: null,
+    notes: t.notes ?? null,
     tf_alignment: t.tfAlignment ?? null,
     rs_rank: safeNum(t.rsRank) ?? null,
     sw5_low_at_entry: safeNum(t.sw5LowAtEntry) ?? null,
@@ -72,8 +71,12 @@ function fromRow(row: any): TrackedTrade {
     atrState: row.atr_state ?? base.atrState,
     volumeBadge: row.volume_badge ?? base.volumeBadge,
     regimeAtEntry: row.regime_at_entry ?? base.regimeAtEntry,
-    closedPrice: safeNum(row.exit_price) ?? base.closedPrice,
-    closedDate: row.exit_date ?? base.closedDate,
+    // Normalized close columns are authoritative. Legacy raw_json may contain a
+    // closedDate from an old T1/T2 milestone and must not make an active trade terminal.
+    closedPrice: safeNum(row.exit_price),
+    closedDate: typeof row.exit_date === 'string' && row.exit_date.trim()
+      ? row.exit_date.slice(0, 10)
+      : undefined,
     pnlPct: safeNum(row.pnl_pct) ?? base.pnlPct,
     tfAlignment: row.tf_alignment ?? base.tfAlignment,
     rsRank: safeNum(row.rs_rank) ?? base.rsRank,

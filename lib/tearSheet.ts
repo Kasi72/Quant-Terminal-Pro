@@ -2,9 +2,12 @@
 
 import {
   didReachFivePctTarget,
+  getFivePctObjectivePnlPct,
+  getFivePctObjectiveR,
   getTradeMaePct,
+  getTradeHardStop,
   getTradeMfePct,
-  getTradeMfeR,
+  getTradeRiskPerShare,
   isTerminalTrade,
   isTradeResolvedForWinRate,
   type TrackedTrade,
@@ -74,13 +77,13 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
   const wins = decided.filter(didReachFivePctTarget);
   const losses = decided.filter(t => !didReachFivePctTarget(t));
   const winRate = decided.length > 0 ? safe(wins.length / decided.length * 100) : 0;
-  const totalWinR = wins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0);
-  const totalLossR = losses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0);
+  const totalWinR = wins.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0);
+  const totalLossR = losses.reduce((s, t) => s + Math.abs(safe(getFivePctObjectiveR(t))), 0);
   const profitFactor = totalLossR > 0 ? safe(totalWinR / totalLossR) : totalWinR > 0 ? 999 : 0;
-  const expectancy = decided.length > 0 ? safe(decided.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlPct ?? 0, getTradeMfePct(t)) : (t.pnlPct ?? 0)), 0) / decided.length) : 0;
+  const expectancy = decided.length > 0 ? safe(decided.reduce((s, t) => s + safe(getFivePctObjectivePnlPct(t)), 0) / decided.length) : 0;
 
   const realizedPnl = terminal.reduce((s, t) => {
-    const rps = t.entryPrice - t.stopLoss;
+    const rps = getTradeRiskPerShare(t);
     const riskAmt = accountSize * 0.01;
     return s + (rps > 0 ? riskAmt * safe(t.pnlR ?? 0) : 0);
   }, 0);
@@ -92,11 +95,11 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
   const expired = terminal.filter(t => t.status === 'expired');
 
   const tearTrades: TearSheetTrade[] = trades.map((t, i) => {
-    const rps = t.entryPrice - t.stopLoss;
+    const rps = getTradeRiskPerShare(t);
     const riskPct = t.entryPrice > 0 ? safe(rps / t.entryPrice * 100) : 0;
     const mfePct = getTradeMfePct(t);
     const unrealPnl = t.status === 'open' && t.currentPrice ? safe((t.currentPrice - t.entryPrice) / t.entryPrice * 100) : 0;
-    const exitModel = t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% BE' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? 'Active' : 'Market close';
+    const exitModel = t.status === 'hit_t1' ? '50% T1 + 50% BE' : t.status === 'hit_t2' ? '50% T1 + 30% T2 + 20% trail' : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% stop' : t.status === 'open' ? 'Active' : 'Market close';
     const outcome = t.status === 'open' ? 'OPEN' : t.status === 'hit_t1' ? 'T1 HIT' : t.status === 'hit_t2' ? 'T2 HIT' : t.status === 'hit_t3' ? 'T3 HIT' : t.status === 'stopped' ? 'STOPPED' : t.status === 'expired' ? 'EXPIRED' : 'CLOSED';
 
     return {
@@ -105,7 +108,7 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
       stage: t.stage.replace(/_/g, ' '),
       entryPrice: t.entryPrice,
       entryDate: t.entryDate,
-      stopLoss: t.stopLoss,
+      stopLoss: getTradeHardStop(t),
       riskPct,
       t1Price: t.target1,
       t1HitDate: (t.status === 'hit_t1' || t.status === 'hit_t2' || t.status === 'hit_t3') ? (t.closedDate ?? '—') : '—',
@@ -174,7 +177,7 @@ export async function exportTearSheetXLSX(data: TearSheetData) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
 
   // Sheet 2: Trade Log
-  const headers = ['#', 'Symbol', 'Stage', 'Entry ₹', 'Entry Date', 'SL ₹', 'Risk%', 'T1 ₹', 'T1 Hit Date', 'T1 P&L%', 'T2 ₹', 'T2 Hit Date', 'T2 P&L%', 'T3 ₹', 'T3 Hit Date', 'T3 P&L%', 'Exit ₹', 'Exit Date', 'Weighted P&L%', 'R-Mult', 'MFE%', 'MAE%', 'Days', 'Exit Model', 'Outcome', 'Conviction', 'Sector'];
+  const headers = ['#', 'Symbol', 'Stage', 'Entry ₹', 'Entry Date', 'Hard Stop ₹', 'Risk%', 'T1 ₹', 'T1 Hit Date', 'T1 P&L%', 'T2 ₹', 'T2 Hit Date', 'T2 P&L%', 'T3 ₹', 'T3 Hit Date', 'T3 P&L%', 'Exit ₹', 'Exit Date', 'Weighted P&L%', 'R-Mult', 'MFE%', 'MAE%', 'Days', 'Exit Model', 'Outcome', 'Conviction', 'Sector'];
   const rows = data.trades.map(t => [
     t.num, t.symbol, t.stage, t.entryPrice, t.entryDate, t.stopLoss, t.riskPct,
     t.t1Price, t.t1HitDate, t.t1PnlPct, t.t2Price, t.t2HitDate, t.t2PnlPct,

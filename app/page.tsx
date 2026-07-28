@@ -60,8 +60,8 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
-  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, checkTradeStatus,
-  didReachFivePctTarget, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats,
+  didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
 } from '@/lib/tradeOps';
@@ -261,9 +261,8 @@ function detectFlagOverlay(r: AnalysisResult, candles: Candle[]): { hasFlag: boo
   return null;
 }
 
-// Trade Verdict v3 — re-derived on 2,914 completed trades, 456 Nifty 500 stocks.
-// Stop: max(1.5×ATR, 5-bar swing low ×0.997) — phase-3 backtest winner (1.07L signal bars).
-// R:R at T2 = 3×ATR / stop_dist. Baseline = 2.0 when stop = 1.5×ATR exactly.
+// Trade verdict uses the archetype price engine's frozen entry, targets and review stop.
+// Worst-case risk is governed separately by the lower hard disaster stop.
 // Elite+ = R:R≥2.0 (stop = 1.5×ATR, structure tight — best possible entry).
 // Elite  = R:R 1.5–2.0 (structure stop slightly wider than 1.5×ATR).
 // Good   = R:R 1.2–1.5 (wider structure stop or slightly capped stop).
@@ -702,20 +701,12 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.plannedEntry,
     cellClass: () => 'text-slate-200' },
   { key: 'pe_tact',   label: 'Tactical Stop', width: 100, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Gate Cascade v6 — 10-Gate Precision Stop System</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Formula</span></div><div><div class="rt-desc">max(entry−1.5×ATR, 5-bar swing low×0.997) clamped [2.5%, 6.5%]. T1/T2/T3 = 1.5×/3×/5×ATR above entry. Trail-A day 8+: 5-bar swing trail. Trail-B post-T2: Chandelier = highClose−1.5×ATR.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">G-GAP</span></div><div><div class="rt-desc">Gap-down open below stop → immediate SL-M at open. Bypasses all gates (uncontrollable).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G0</span></div><div><div class="rt-desc">Wyckoff Spring: dip &lt; 0.5×ATR (ATR-relative) AND close above stop — smart-money sweep that recovers.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G1</span></div><div><div class="rt-desc">Verified Capitulation: RSI-2 &lt; 10 + close within 0.25×ATR of stop (spring zone) + buyer evidence (wick &gt;20% or close loc &gt;35%). All three required — stops APLLTD/GOODLUCK false-shield pattern.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">G2</span></div><div><div class="rt-desc">2-Day Confirm: day-1 grace unless high-vol (&gt;1.8×) OR deep bearish dip (&gt;1×ATR deep + close loc &lt;25%). Day 2+: shield if stabilizing toward stop (close≥prev AND close&gt;stop×0.97) or low-vol noise.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">G3</span></div><div><div class="rt-desc">Hammer: lower wick ≥40% of range + close loc ≥55% — strong intraday buyer rejection.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">G4</span></div><div><div class="rt-desc">OBV 5-day slope positive — rising smart-money accumulation while price dips = not distribution.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">G5</span></div><div><div class="rt-desc">Narrow-Range Sweep: range &lt; 0.75×ATR AND close above stop — surgical stop-hunt, not a breakdown.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">G6</span></div><div><div class="rt-desc">Low-Vol Sweep: volume &lt; 0.65× avg AND close above stop — thin-session sweep, not institutional selling.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">G7</span></div><div><div class="rt-desc">Isolated Red: previous candle was green AND closed above the stop level — single red dip into stop is noise.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-blue">G8</span></div><div><div class="rt-desc">Close Recovery: close recovered &gt;60% from intraday low back to stop level — buyers defended intraday.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-purple">G9</span></div><div><div class="rt-desc">Structure Intact: close ≥ 5-bar swing low×0.997 (entry-time basis; current 5-bar low used after Trail-A day 8+).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Exits</span></div><div><div class="rt-desc">50%@T1 + 30%@T2 + 20%@T3. T1 moves stop to breakeven; T2 starts Chandelier trail.</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Gate Cascade v7 — Canonical Stop Model</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-red">Hard stop</span></div><div><div class="rt-desc">The lower disaster stop is the broker SL-M. It is checked before every target and can never be shielded.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">Review stop</span></div><div><div class="rt-desc">The tactical stop is reviewed on the completed daily candle before T1. A confirmed exit fills at the next session open, avoiding retrospective fills.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G0-G9</span></div><div><div class="rt-desc">All gates are evaluated. A below-stop close needs near-stop price defence plus another independent flow, exhaustion, or locked-structure group. No single soft gate can veto an exit.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Missing data</span></div><div><div class="rt-desc">Unavailable volume, ATR, or entry structure contributes no evidence and never auto-shields.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">After T1</span></div><div><div class="rt-desc">50%@T1 + 30%@T2 + 20%@T3. T1 activates a hard breakeven stop; T2 activates a hard chandelier trail.</div></div></div>',
     fmt: r => r.priceEngine.tacticalStop > 0 ? '₹' + r.priceEngine.tacticalStop.toFixed(2) : '—',
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
@@ -734,18 +725,18 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">1.5-2.0</span></div><div><div class="rt-desc">Strong — structure stop slightly wider than 1.5×ATR. Still well above break-even expectancy. Bulk of well-structured trades land here.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">1.0-1.5</span></div><div><div class="rt-desc">Acceptable — review stop: structure may be loose. Consider sizing down.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">0.8-1.0</span></div><div><div class="rt-desc">DEAD ZONE — validated worst tier: near-zero or NEGATIVE avg P&L. Stop too wide relative to targets.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Key insight</span></div><div><div class="rt-desc">New stop formula: max(1.5×ATR, 5-bar swing low ×0.997). Baseline R:R@T2 = 2.0 (up from 1.5 with old 2×ATR stop).</div><div class="rt-hit hit-cyan">Phase-3: 1.07L signal bars · EV_R +34% vs old formula</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Risk basis</span></div><div><div class="rt-desc">Displayed tactical R:R uses the archetype review stop. Position sizing and realised R use the lower hard disaster stop so worst-case risk is not understated.</div></div></div>',
     fmt: r => r.priceEngine.rewardRisk > 0 ? r.priceEngine.rewardRisk.toFixed(2) : '—',
     numVal: r => r.priceEngine.rewardRisk,
     cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Trade Verdict v3 — Phase-3 Stop Engine</div>'
+    headerTipHtml: '<div class="rt-hdr">Trade Verdict — Frozen Entry Geometry</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. Stop = 1.5×ATR, structure tight. New BASELINE — every clean setup should hit this. T1=+1.5×ATR, T2=+3×ATR, T3=+5×ATR.</div><div class="rt-hit hit-green">ATR 1-2% band: +0.101R EV · 51% WR · Phase-3 validated</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5–2.0. Structure stop slightly wider than 1.5×ATR (swing low provides cushion). Still strong positive expectancy.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.2–1.5. Acceptable — structure wider than expected. Review the 5-bar swing zone before entry.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8–1.2. DEAD ZONE — worst avg P&L band. Stop too wide. Avoid breakout entries here.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Fair</span></div><div><div class="rt-desc">R:R &lt;0.8. ORS-only territory (high WR compensates tight target). Not applicable to breakout archetypes.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine v3</span></div><div><div class="rt-desc">Stop: max(1.5×ATR, 5-bar low ×0.997) [2.5%, 6.5%]. Targets: T1/T2/T3 fixed in ATR space. Cascade R:R = (1.0+2.0+3.33)/3 = 2.11. Phase-3 EV_R improvement: +34%.</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Engine</span></div><div><div class="rt-desc">Entry, targets, tactical review stop, hard stop, entry ATR, structure and holding horizon are frozen when the trade is created.</div></div></div>',
     fmt: r => { const rr = r.priceEngine.rewardRisk; if (rr <= 0) return '—'; return rr >= 2.0 ? 'Elite+' : rr >= 1.5 ? 'Elite' : rr >= 1.2 ? 'Good' : rr >= 0.8 ? 'Weak' : 'Fair'; },
     numVal: r => r.priceEngine.rewardRisk,
     cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400 font-semibold' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
@@ -2120,23 +2111,13 @@ function HomePageInner() {
     if (hasActionable) {
       setSortCol('stage'); setSortDir('desc');
     }
-    // Auto-validate open trades using freshly fetched candle data (local map, not stale state)
-    // Also sync stop/target from latest scan results (ensures formula changes propagate)
-    if (trackedTradesRef.current.some(t => t.status === 'open')) {
+    // Entry stop, targets, ATR, structure and holding horizon are immutable after entry.
+    if (trackedTradesRef.current.some(t => !isTerminalTrade(t))) {
       setTrackedTrades(prev => {
         let updated = [...prev];
         for (let i = 0; i < updated.length; i++) {
           const t = updated[i];
-          // Re-validate stopped/partial-exit trades: false-stop recovery + live mark-to-market
-          if (t.status !== 'open' && t.status !== 'stopped' && t.status !== 'hit_t1' && t.status !== 'hit_t2') continue;
-          // Sync stop/targets from fresh scan results only when param set matches
-          const freshResult = newResults.find(r => r.symbol === t.symbol);
-          // Only sync STOP (for trailing/formula propagation). NEVER overwrite targets —
-          // targets are locked at entry time. Overwriting causes T1/T2 to drift as ATR
-          // changes post-entry, making it impossible for the validator to match real execution.
-          if (freshResult && freshResult.priceEngine.tacticalStop > 0 && freshResult.paramSetKey === t.paramSetKey && freshResult.priceEngine.tacticalStop < t.entryPrice) {
-            updated[i] = { ...updated[i], stopLoss: freshResult.priceEngine.tacticalStop };
-          }
+          if (isTerminalTrade(t)) continue;
           const cached = freshCandleMap[t.symbol];
           if (!cached || cached.length === 0) continue;
           // Yahoo Finance NSE timestamps are IST midnight expressed in UTC (+19800s offset).
@@ -2150,6 +2131,10 @@ function HomePageInner() {
             const cDateIST = new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10);
             return cDateIST > entryDateStr;
           });
+          const preEntry = cached.filter(c => {
+            const cDateIST = new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10);
+            return cDateIST <= entryDateStr;
+          }).slice(-30);
           // Always show last known price even on holidays/weekends (before any post-entry candle)
           const latestCandle = cached[cached.length - 1];
           if (latestCandle?.c > 0) {
@@ -2157,7 +2142,10 @@ function HomePageInner() {
             updated[i] = { ...updated[i], currentPrice: latestCandle.c, cmpDate: latestCmpDate };
           }
           if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
-          const result = validateTrade(updated[i], sinceEntry);
+          const result = validateTrade(updated[i], sinceEntry, {
+            preEntryCandles: preEntry,
+            maxHoldBars: updated[i].maxHoldBars,
+          });
           const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
           // FAIL-SAFE: Detect STOPPED status change → trigger alert
@@ -2425,6 +2413,7 @@ function HomePageInner() {
             regimeAtEntry: marketRegime?.label || undefined,
             sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
             atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
+            maxHoldBars: r.priceEngine.maxHoldBars,
             breakoutTier: r.priceEngine.breakoutTier ?? 'B',
           };
         });
@@ -2596,6 +2585,7 @@ function HomePageInner() {
       regimeAtEntry: marketRegime?.label || undefined,
       sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
       atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
+      maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
@@ -3093,7 +3083,7 @@ function HomePageInner() {
           {(() => {
             const openT = trackedTrades.filter(t => t.status === 'open');
             if (openT.length === 0) return <span className="text-[10px] text-slate-600 font-mono flex items-center gap-1">Acc ₹<input type="number" value={accountSize} onChange={e => setAccountSize(Number(e.target.value) || 0)} className="w-14 bg-transparent border-b border-slate-700 focus:border-indigo-500 text-slate-400 text-[10px] font-mono text-center focus:outline-none" />({(accountSize/100000).toFixed(0)}L)</span>;
-            const totalRisk = openT.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0), 0);
+            const totalRisk = openT.reduce((s, t) => s + getTradeRiskPerShare(t), 0);
             const totalCap = openT.reduce((s, t) => s + t.entryPrice, 0);
             const riskPct = accountSize > 0 ? (totalRisk / accountSize * 100) : 0;
             return (
@@ -3131,14 +3121,13 @@ function HomePageInner() {
           <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
             className="h-7 px-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-300 transition-colors">CSV ↑</button>
           <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} disabled={scanning} />
-          {trackedTrades.some(t => t.status === 'stopped' || !isTerminalTrade(t)) && (
+          {trackedTrades.some(t => !isTerminalTrade(t)) && (
             <button disabled={scanning}
               data-tip="Fetch latest prices for tracked trades only — validates stops, targets, MFE/MAE without running a full scan"
               data-tip-color="cyan"
               onClick={async () => {
                 if (scanningRef.current) return;
-                // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
-                const openTrades = trackedTradesRef.current.filter(t => t.status === 'stopped' || !isTerminalTrade(t));
+                const openTrades = trackedTradesRef.current.filter(t => !isTerminalTrade(t));
                 if (openTrades.length === 0) return;
                 setScanning(true); scanningRef.current = true;
                 setTotal(openTrades.length); setProgress(0);
@@ -3149,21 +3138,7 @@ function HomePageInner() {
                     try {
                       const { candles } = await fetchOHLCVClient(t.symbol);
                       if (!candles || candles.length < 2) { setProgress(p => p + 1); continue; }
-                      // Sync stop/targets from fresh analysis (ensures formula changes propagate)
                       const idx = updated.findIndex(u => u.symbol === t.symbol);
-                      if (idx >= 0) {
-                        try {
-                          const freshR = analyzeStock(candles, (t.paramSetKey || 'optimized_deployable_20plus') as ParamSetKey);
-                          if (freshR.priceEngine.tacticalStop > 0 && freshR.priceEngine.tacticalStop < t.entryPrice) {
-                            updated[idx] = { ...updated[idx],
-                              stopLoss: freshR.priceEngine.tacticalStop,
-                              target1: freshR.priceEngine.target5,
-                              target2: freshR.priceEngine.target7,
-                              target3: freshR.priceEngine.target10,
-                            };
-                          }
-                        } catch { /* analysis failed — keep existing values */ }
-                      }
                       const entryDateStr2 = t.entryDate;
                       if (!entryDateStr2) { setProgress(p => p + 1); continue; }
                       // Always update CMP from latest candle regardless of whether post-entry candles exist
@@ -3174,8 +3149,12 @@ function HomePageInner() {
                         validated++;
                       }
                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr2);
+                      const preEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) <= entryDateStr2).slice(-30);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
-                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
+                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry, {
+                        preEntryCandles: preEntry,
+                        maxHoldBars: updated[idx >= 0 ? idx : 0].maxHoldBars,
+                      });
                       if (idx >= 0) {
                         let u = applyValidation(updated[idx], result);
                         const maxH = Math.max(...sinceEntry.map(c => c.h));
@@ -3429,8 +3408,8 @@ function HomePageInner() {
               { label: '5% Wins', value: String(winStats.wins), color: 'text-emerald-400' },
               { label: 'No-Hit Losses', value: String(winStats.losses), color: 'text-red-400' },
               { label: 'Open', value: String(winStats.open), color: 'text-amber-400' },
-              { label: 'Profit Factor', value: winStats.profitFactor > 0 ? winStats.profitFactor.toFixed(1) : '—', color: winStats.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-slate-400' },
-              { label: 'Expectancy', value: winStats.expectancy !== 0 ? `${winStats.expectancy > 0 ? '+' : ''}${winStats.expectancy.toFixed(2)}%` : '—', color: winStats.expectancy > 0 ? 'text-emerald-400' : 'text-red-400' },
+              { label: '5% Objective PF', value: winStats.profitFactor > 0 ? winStats.profitFactor.toFixed(1) : '—', color: winStats.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-slate-400' },
+              { label: '5% Expectancy', value: winStats.expectancy !== 0 ? `${winStats.expectancy > 0 ? '+' : ''}${winStats.expectancy.toFixed(2)}%` : '—', color: winStats.expectancy > 0 ? 'text-emerald-400' : 'text-red-400' },
               { label: 'Avg Win', value: winStats.avgWinPct !== 0 ? `+${winStats.avgWinPct.toFixed(1)}%` : '—', color: 'text-emerald-400' },
               { label: 'Avg Loss', value: winStats.avgLossPct !== 0 ? `${winStats.avgLossPct.toFixed(1)}%` : '—', color: 'text-red-400' },
               { label: 'Avg Days', value: winStats.avgDaysHeld > 0 ? `${winStats.avgDaysHeld}d` : '—', color: 'text-slate-300' },
@@ -3450,7 +3429,7 @@ function HomePageInner() {
                 <th className="px-2 py-1 text-left font-medium">Symbol</th>
                 <th className="px-2 py-1 text-center font-medium">Status</th>
                 <th className="px-2 py-1 text-right font-medium">Entry</th>
-                <th className="px-2 py-1 text-right font-medium">SL</th>
+                <th className="px-2 py-1 text-right font-medium" title="Hard broker stop used for worst-case risk and R-multiples">Hard Stop</th>
                 <th className="px-2 py-1 text-right font-medium">T1</th>
                 <th className="px-2 py-1 text-right font-medium">T2</th>
                 <th className="px-2 py-1 text-right font-medium">T3R</th>
@@ -3472,25 +3451,25 @@ function HomePageInner() {
                   if (a.status !== 'open' && b.status !== 'open') return (b.closedDate ?? '').localeCompare(a.closedDate ?? '');
                   return 0;
                 }).map((t, i, arr) => {
-                  // validSL: SL must be positive AND below entry (guards against inverted SL corruption)
-                  const validSL = t.stopLoss > 0 && t.stopLoss < t.entryPrice;
-                  const rps = validSL ? (t.entryPrice - t.stopLoss) : 0;
+                  const hardStop = getTradeHardStop(t);
+                  const validSL = hardStop > 0 && hardStop < t.entryPrice;
+                  const rps = getTradeRiskPerShare(t);
                   const riskPct = validSL && t.entryPrice > 0 ? (rps / t.entryPrice * 100) : 0;
                   // Reference price: for open trades use CMP, for closed use the actual exit price
                   const refPrice = t.status === 'open' ? (t.currentPrice ?? null) : (t.closedPrice ?? null);
                   // P&L: partial exits (hit_t1/hit_t2) use the validator's weighted pnlPct
                   // (50%@T1 + 50%@live, or 50%@T1+30%@T2+20%@live) stored after validation.
                   // All other statuses: recompute simply from the reference price.
-                  const displayPnl = (() => {
-                    if (!t.entryPrice) return null;
-                    if ((t.status === 'hit_t1' || t.status === 'hit_t2') && t.pnlPct != null) {
-                      return t.pnlPct; // weighted P&L from validator
-                    }
-                    return refPrice ? (refPrice - t.entryPrice) / t.entryPrice * 100 : null;
-                  })();
-                  const displayR = refPrice && t.entryPrice > 0 && validSL
-                    ? ((refPrice - t.entryPrice) / rps)
-                    : null;
+                   const displayPnl = t.pnlPct != null && (t.status !== 'open' || isTerminalTrade(t))
+                     ? t.pnlPct
+                     : refPrice && t.entryPrice > 0
+                       ? (refPrice - t.entryPrice) / t.entryPrice * 100
+                       : null;
+                   const displayR = t.pnlR != null && (t.status !== 'open' || isTerminalTrade(t))
+                     ? t.pnlR
+                     : refPrice && t.entryPrice > 0 && validSL
+                       ? (refPrice - t.entryPrice) / rps
+                       : null;
                   const unrealPnl = displayPnl; // alias used below for the '*' live indicator
                   const toT1Pct = t.status === 'open' && t.currentPrice && t.target1 > 0 ? ((t.target1 - t.currentPrice) / t.currentPrice * 100) : null;
                   // Sequence: W/L markers for closed trades (use computed displayPnl, not stored pnlPct)
@@ -3504,7 +3483,7 @@ function HomePageInner() {
                       </span>
                     </td>
                     <td className="px-2 py-1 text-right text-slate-300 font-mono">₹{t.entryPrice.toFixed(0)}</td>
-                    <td className={`px-2 py-1 text-right font-mono ${!validSL ? 'text-orange-500' : riskPct <= 2 ? 'text-emerald-500' : riskPct <= 3 ? 'text-amber-500' : 'text-red-500'}`} title={!validSL ? (t.stopLoss >= t.entryPrice ? '⚠ SL above entry — set a valid stop-loss' : '⚠ No stop-loss set') : `Risk: ${riskPct.toFixed(1)}%`}>{validSL ? `₹${t.stopLoss.toFixed(0)}` : '⚠ —'}</td>
+                    <td className={`px-2 py-1 text-right font-mono ${!validSL ? 'text-orange-500' : riskPct <= 2 ? 'text-emerald-500' : riskPct <= 3 ? 'text-amber-500' : 'text-red-500'}`} title={!validSL ? 'No valid hard stop below entry' : `Hard-stop risk: ${riskPct.toFixed(1)}%; review level ₹${t.stopLoss.toFixed(2)}`}>{validSL ? `₹${hardStop.toFixed(0)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t1' ? 'text-emerald-400 font-bold' : 'text-emerald-700'}`}>{t.target1 > 0 ? `₹${t.target1.toFixed(2)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t2' ? 'text-emerald-400 font-bold' : 'text-emerald-800'}`}>{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
                     <td className={`px-2 py-1 text-right font-mono ${t.status === 'hit_t3' ? 'text-yellow-300 font-bold' : 'text-yellow-900'}`}>{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
@@ -4073,7 +4052,7 @@ function HomePageInner() {
                       <th className="px-3 py-1.5 text-left font-medium">Symbol</th>
                       <th className="px-2 py-1.5 text-left font-medium">Stage</th>
                       <th className="px-2 py-1.5 text-right font-medium">Entry ₹</th>
-                      <th className="px-2 py-1.5 text-right font-medium">Stop ₹</th>
+                      <th className="px-2 py-1.5 text-right font-medium" title="Hard broker stop used for sizing">Hard Stop ₹</th>
                       <th className="px-2 py-1.5 text-right font-medium">Risk/Sh</th>
                       <th className="px-2 py-1.5 text-right font-medium">Qty</th>
                       <th className="px-2 py-1.5 text-right font-medium">Capital ₹</th>
@@ -4086,7 +4065,11 @@ function HomePageInner() {
                   </thead>
                   <tbody>
                     {filteredResults.filter(r => r.priceEngine.tradeValid).map(r => {
-                      const risk = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
+                      const reviewStop = r.priceEngine.tacticalStop;
+                      const disasterStop = r.priceEngine.disasterStop;
+                      const hardStop = disasterStop > 0 && disasterStop < reviewStop ? disasterStop : reviewStop;
+                      const risk = r.priceEngine.plannedEntry - hardStop;
+                      const hardRR = risk > 0 ? (r.priceEngine.target5 - r.priceEngine.plannedEntry) / risk : 0;
                       const regimeMult = marketRegime?.sizingMultiplier ?? 1;
                       const qty = risk > 0 ? Math.floor((accountSize * regimeMult * 0.01) / risk) : 0;
                       const capital = qty * r.priceEngine.plannedEntry;
@@ -4096,14 +4079,14 @@ function HomePageInner() {
                           <td className="px-3 py-1.5 font-mono text-slate-200 font-medium cursor-pointer hover:text-indigo-400 transition-colors" onClick={() => setSelectedSymbol(r.symbol)} title="Click to open details">{r.symbol.replace('.NS','').replace('.BO','')}</td>
                           <td className={`px-2 py-1.5 font-semibold ${STAGE_CONFIG[r.stage].color}`}>{STAGE_CONFIG[r.stage].label}</td>
                           <td className="px-2 py-1.5 text-right text-slate-200 font-mono">₹{r.priceEngine.plannedEntry.toFixed(2)}</td>
-                          <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{r.priceEngine.tacticalStop.toFixed(2)}</td>
+                          <td className="px-2 py-1.5 text-right text-red-400 font-mono" title={`Review level ₹${reviewStop.toFixed(2)}`}>₹{hardStop.toFixed(2)}</td>
                           <td className="px-2 py-1.5 text-right text-amber-400 font-mono">₹{risk.toFixed(2)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-mono font-bold">{qty}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300 font-mono">₹{(capital / 1000).toFixed(0)}K</td>
                           <td className="px-2 py-1.5 text-right text-red-400 font-mono">₹{maxRisk.toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-300 font-mono">₹{r.priceEngine.target5.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{r.priceEngine.rewardRisk.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${rrVerdictColor(r.priceEngine.rewardRisk)}`}>{rrVerdict(r.priceEngine.rewardRisk)}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${rrVerdictColor(hardRR)}`}>{hardRR.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-left text-xs font-semibold ${rrVerdictColor(hardRR)}`}>{rrVerdict(hardRR)}</td>
                           <td className={`px-2 py-1.5 text-center font-semibold ${computeConviction(r) >= 60 ? 'text-yellow-300' : 'text-slate-400'}`}>{computeConviction(r)}</td>
                         </tr>
                       );
@@ -4158,7 +4141,7 @@ function HomePageInner() {
                     <thead><tr className="border-b border-slate-700 text-slate-500">
                       <th className="px-3 py-1 text-left font-medium">Symbol</th>
                       <th className="px-2 py-1 text-right font-medium">Entry</th>
-                      <th className="px-2 py-1 text-right font-medium">SL</th>
+                      <th className="px-2 py-1 text-right font-medium" title="Close-confirmed review level; the hard broker stop is shown in the tooltip">Review</th>
                       <th className="px-2 py-1 text-right font-medium">T1</th>
                       <th className="px-2 py-1 text-left font-medium">Date</th>
                       <th className="px-2 py-1 text-left font-medium">Sector</th>
@@ -4175,13 +4158,13 @@ function HomePageInner() {
                     </tr></thead>
                     <tbody>
                       {trackedTrades.filter(t => t.status === 'open').map((t, i) => {
-                        const riskPerShare = t.entryPrice - t.stopLoss;
+                        const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
-                        const maePct = t.currentPrice && t.entryPrice > 0 ? Math.min(0, ((Math.min(t.currentPrice, t.entryPrice) - t.entryPrice) / t.entryPrice) * 100) : 0;
-                        const maeR = riskPerShare > 0 ? maePct / 100 * t.entryPrice / riskPerShare : 0;
+                        const maePct = getTradeMaePct(t);
+                        const maeR = getTradeMaeR(t);
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
-                        const daysLeft = 20 - (t.daysHeld ?? 0);
+                        const daysLeft = (t.maxHoldBars ?? 20) - (t.daysHeld ?? 0);
                         const gLog = t.gateLog;
                         return (<Fragment key={t.symbol + '-' + i}>
                         <tr className="border-b border-slate-800/40 group">
@@ -4191,7 +4174,7 @@ function HomePageInner() {
                             const stopDist = t.entryPrice > 0 ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100 : 0;
                             const avgMAE = Math.abs(brainInsights?.avgMAE ?? 0);
                             if (avgMAE > 0 && stopDist < avgMAE) return `⚠ Stop distance (${stopDist.toFixed(1)}%) < your avg MAE (${avgMAE.toFixed(1)}%) — stop is inside normal noise range`;
-                            return `Stop distance: ${stopDist.toFixed(1)}%`;
+                             return `Review stop distance: ${stopDist.toFixed(1)}%; hard stop ₹${getTradeHardStop(t).toFixed(2)}`;
                           })()}>
                             <span className={(() => {
                               const stopDist = t.entryPrice > 0 ? ((t.entryPrice - t.stopLoss) / t.entryPrice) * 100 : 0;
@@ -4209,7 +4192,7 @@ function HomePageInner() {
                           <td className="px-2 py-1.5 text-slate-600">{t.sector || '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(1)}R` : '—'}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${maePct > 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct > 0 ? `-${maePct.toFixed(1)}%` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 16 ? 'text-amber-400' : 'text-slate-500'}`} title={daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 16 ? ' ⏳' : ''}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
@@ -4220,10 +4203,16 @@ function HomePageInner() {
                               if (!gLog || gLog.length === 0) return <span className="text-[9px] text-slate-700">No tests</span>;
                               const shielded = gLog.filter(e => e.result === 'SHIELDED').length;
                               const lastEntry = gLog[gLog.length - 1];
-                              const activeGate = lastEntry?.gatesTested?.find(g => !g.passed);
-                              return <span className="text-[9px] font-mono" title={`${gLog.length} tests, ${shielded} shielded\nLast: ${activeGate?.gate || '—'}: ${activeGate?.reason || ''}`}>
-                                <span className="text-emerald-400 font-bold">{shielded}🛡</span>
-                                {activeGate && <span className="text-cyan-400 ml-0.5">{activeGate.gate.slice(0, 5)}</span>}
+                              const pending = gLog.filter(e => e.result === 'EXIT_PENDING').length;
+                              const lastSupport = lastEntry?.gatesTested?.find(g => g.passed);
+                              const lastLabel = lastEntry.result === 'STOPPED'
+                                ? (lastEntry.stopKind === 'review' ? 'REVIEW EXIT' : lastEntry.stopKind === 'trail' ? 'TRAIL STOP' : 'HARD STOP')
+                                : lastEntry.result === 'EXIT_PENDING' ? 'REVIEW PENDING'
+                                : lastSupport?.gate || 'CLOSE RECOVERY';
+                              return <span className="text-[9px] font-mono" title={`${gLog.length} tests, ${shielded} shielded, ${pending} pending\nLast: ${lastLabel}${lastSupport ? `\n${lastSupport.reason}` : ''}`}>
+                                <span className="text-emerald-400 font-bold">{shielded} shield</span>
+                                {pending > 0 && <span className="text-amber-400 ml-1">{pending} pending</span>}
+                                <span className="text-cyan-400 ml-1">{lastLabel.slice(0, 12)}</span>
                               </span>;
                             })()}
                           </td>
@@ -4238,12 +4227,12 @@ function HomePageInner() {
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                 {gLog.slice(-5).map((entry, gi) => (
                                   <div key={gi} className="text-[9px] font-mono whitespace-nowrap">
-                                    <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                      D{entry.day}{entry.result === 'SHIELDED' ? '🛡' : '🛑'}
+                                    <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : entry.result === 'EXIT_PENDING' ? 'text-amber-400' : 'text-red-400'}`}>
+                                      D{entry.day} {entry.result === 'SHIELDED' ? 'SHIELD' : entry.result === 'EXIT_PENDING' ? 'PENDING' : entry.stopKind === 'review' ? 'REVIEW' : entry.stopKind === 'trail' ? 'TRAIL' : 'HARD'}
                                     </span>
                                     {entry.gatesTested.slice(0, 3).map((g, gj) => (
-                                      <span key={gj} className={`ml-0.5 ${!g.passed ? 'text-emerald-500' : 'text-red-500'}`} title={g.reason}>
-                                        {!g.passed ? '✓' : '✗'}
+                                      <span key={gj} className={`ml-0.5 ${g.passed ? 'text-emerald-500' : 'text-slate-700'}`} title={g.reason}>
+                                        {g.passed ? '✓' : '·'}
                                       </span>
                                     ))}
                                     <span className="text-slate-600 ml-1">{entry.dipPct.toFixed(1)}%↓</span>
@@ -4283,12 +4272,12 @@ function HomePageInner() {
                       <th className="px-2 py-1 text-right font-medium">MAE-R</th>
                       <th className="px-2 py-1 text-right font-medium">Days</th>
                       <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                      <th className="px-2 py-1 text-center font-medium cursor-help" title="10-Gate Cascade (Phase-3 calibrated, v6)&#10;Stop: max(1.5×ATR, 5-bar swing low×0.997) clamped [2.5%,6.5%]&#10;G-GAP: gap-down → instant exit at open&#10;G0: Wyckoff Spring — dip &lt;0.5×ATR deep + close above stop&#10;G1: RSI-2 &lt;25 Capitulation flush&#10;G2: 2-Day Confirm — first day low-vol OR narrow bar (&lt;0.7×ATR)&#10;G3: Hammer — lower wick ≥40%, close loc ≥55%&#10;G4: OBV 5d slope rising (accumulation)&#10;G5: Narrow Sweep — range &lt;0.75×ATR + close above stop&#10;G6: Low-Vol Sweep — vol &lt;0.65×avg + close above stop&#10;G7: Isolated Red — prev candle was green&#10;G8: Close Recovery — recovered &gt;60% of stop-to-low range&#10;G9: Structure OK — close ≥ 5-bar swing low × 0.997&#10;🛡 = shielded (false stop), 🛑 = all gates passed (real stop)">Gate Status</th>
+                      <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: breakeven/chandelier are hard protective stops">Gate Status</th>
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
                       {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
-                        const riskPerShare = t.entryPrice - t.stopLoss;
+                        const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
                         const maePct = t.pnlPct && t.pnlPct < 0 ? t.pnlPct : 0;
@@ -4322,17 +4311,21 @@ function HomePageInner() {
                                 if (!cGLog || cGLog.length === 0) return <span className="text-slate-700 text-[9px]">—</span>;
                                 const shielded = cGLog.filter(e => e.result === 'SHIELDED').length;
                                 const stopped = cGLog.filter(e => e.result === 'STOPPED').length;
+                                const pending = cGLog.filter(e => e.result === 'EXIT_PENDING').length;
                                 const lastEntry = cGLog[cGLog.length - 1];
-                                const lastGate = lastEntry?.gatesTested?.[lastEntry.gatesTested.length - 1];
+                                const lastSupport = lastEntry?.gatesTested?.find(g => g.passed);
                                 if (stopped > 0) {
-                                  return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded, ${stopped} stopped\nLast gate: ${lastGate?.gate || '—'}\n${lastGate?.reason || ''}`}>
-                                    <span className="text-red-400 font-bold">🛑 ALL PASS</span>
-                                    {shielded > 0 && <span className="text-emerald-500 ml-0.5">({shielded}🛡)</span>}
+                                  const stopLabel = lastEntry.stopKind === 'review' ? 'REVIEW EXIT' : lastEntry.stopKind === 'trail' ? 'TRAIL STOP' : 'HARD STOP';
+                                  return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded, ${pending} pending, ${stopped} stopped\n${stopLabel}\n${lastSupport?.reason || ''}`}>
+                                    <span className="text-red-400 font-bold">{stopLabel}</span>
+                                    {shielded > 0 && <span className="text-emerald-500 ml-1">({shielded} shield)</span>}
                                   </span>;
                                 }
-                                const activeGate = lastEntry?.gatesTested?.find(g => !g.passed);
-                                return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded\nBlocked by: ${activeGate?.gate || '—'}\n${activeGate?.reason || ''}`}>
-                                  <span className="text-emerald-400 font-bold">🛡 {activeGate?.gate?.slice(0, 9) || 'SHIELDED'}</span>
+                                if (pending > 0) {
+                                  return <span className="text-[9px] font-mono text-amber-400" title={`${cGLog.length} tests: review exit awaits the next session open`}>REVIEW PENDING</span>;
+                                }
+                                return <span className="text-[9px] font-mono" title={`${cGLog.length} tests: ${shielded} shielded\nSupport: ${lastSupport?.gate || 'close recovered above review level'}\n${lastSupport?.reason || ''}`}>
+                                  <span className="text-emerald-400 font-bold">{lastSupport?.gate?.slice(0, 12) || 'SHIELDED'}</span>
                                 </span>;
                               })()}
                             </td>
@@ -4346,13 +4339,13 @@ function HomePageInner() {
                                 <div className="text-[10px] text-slate-500 font-semibold">🔬 Gate Log ({cGLog.length} stop test{cGLog.length > 1 ? 's' : ''} — {cGLog.filter(e => e.result === 'SHIELDED').length} shielded, {cGLog.filter(e => e.result === 'STOPPED').length} stopped)</div>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                                   {cGLog.map((entry, gi) => (
-                                    <div key={gi} className="text-[9px] font-mono whitespace-nowrap" title={entry.gatesTested.map(g => `${g.passed ? '✗' : '✓'} ${g.gate}: ${g.reason}`).join('\n')}>
-                                      <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        D{entry.day}{entry.result === 'SHIELDED' ? '🛡' : '🛑'}
+                                    <div key={gi} className="text-[9px] font-mono whitespace-nowrap" title={entry.gatesTested.map(g => `${g.passed ? '✓' : '·'} ${g.gate}: ${g.reason}`).join('\n')}>
+                                      <span className={`font-bold ${entry.result === 'SHIELDED' ? 'text-emerald-400' : entry.result === 'EXIT_PENDING' ? 'text-amber-400' : 'text-red-400'}`}>
+                                        D{entry.day} {entry.result === 'SHIELDED' ? 'SHIELD' : entry.result === 'EXIT_PENDING' ? 'PENDING' : entry.stopKind === 'review' ? 'REVIEW' : entry.stopKind === 'trail' ? 'TRAIL' : 'HARD'}
                                       </span>
                                       {entry.gatesTested.slice(0, 3).map((g, gj) => (
-                                        <span key={gj} className={`ml-0.5 ${!g.passed ? 'text-emerald-500' : 'text-red-500'}`}>
-                                          {!g.passed ? '✓' : '✗'}
+                                        <span key={gj} className={`ml-0.5 ${g.passed ? 'text-emerald-500' : 'text-slate-700'}`}>
+                                          {g.passed ? '✓' : '·'}
                                         </span>
                                       ))}
                                       <span className="text-slate-600 ml-1">{entry.dipPct.toFixed(1)}%↓</span>
@@ -4668,7 +4661,7 @@ function HomePageInner() {
                           {pe && pe.entryPrice > 0 && (
                             <div className="flex items-center gap-3 mt-1 pl-6 text-[9px] font-mono">
                               <span className="text-slate-500">In <span className="text-emerald-400 font-bold">₹{pe.entryPrice.toFixed(1)}</span></span>
-                              <span className="text-slate-500">SL <span className="text-red-400 font-bold">₹{(pe.tacticalStop ?? pe.stopLoss ?? 0).toFixed(1)}</span></span>
+                              <span className="text-slate-500">Review <span className="text-red-400 font-bold">₹{(pe.tacticalStop ?? pe.stopLoss ?? 0).toFixed(1)}</span></span>
                               {pe.target2 > 0 && <span className="text-slate-500">T2 <span className="text-cyan-400 font-bold">₹{pe.target2.toFixed(1)}</span></span>}
                               {pe.target3 > 0 && <span className="text-slate-500">T3 <span className="text-indigo-400 font-bold">₹{pe.target3.toFixed(1)}</span></span>}
                               {pe.riskPct > 0 && <span className="text-slate-600">risk {pe.riskPct.toFixed(1)}%</span>}
@@ -5101,15 +5094,6 @@ function HomePageInner() {
                     setBacktestError(null);
                     const _run = async () => {
                       const WINDOW = 250;
-                      // Phase 2 exit weights (deep_backtest 2026-07-24, n=87333 OOS, 65M simulations)
-                      const ARCH_EXIT: Record<string, {w1:number;w2:number;w3:number}> = {
-                        'ors_prime_reversal':             { w1:0.50, w2:0.05, w3:0.45 },
-                        'optimized_deployable_20plus':    { w1:0.70, w2:0.10, w3:0.20 },
-                        'optimized_highprecision_15plus': { w1:0.65, w2:0.10, w3:0.25 },
-                        'optimized_elite_10plus':         { w1:0.70, w2:0.10, w3:0.20 },
-                        'optimized_ultraselective_8plus': { w1:0.55, w2:0.10, w3:0.35 },
-                        'circuit_breaker_v2':             { w1:0.65, w2:0.10, w3:0.25 },
-                      };
                       const ARCH_KEYS: ParamSetKey[] = [
                         'ors_prime_reversal', 'optimized_deployable_20plus',
                         'optimized_highprecision_15plus', 'optimized_elite_10plus',
@@ -5150,97 +5134,86 @@ function HomePageInner() {
                               i++; advanced = true; break;
                             }
                             if (entry <= stop || entry >= t1) { i++; advanced = true; break; }
-                            const maxHold = Math.min(pe.maxHoldBars ?? 20, bars.length - i - 2);
-                            const riskPct = Math.max((entry - stop) / entry * 100, 0.1);
-                            const { w1: W1, w2: W2, w3: W3 } = ARCH_EXIT[key] ?? { w1:0.50, w2:0.30, w3:0.20 };
-                            let phase = 1, wLeft = 1.0, wPL = 0;
-                            let mfe = 0, mae = 0, exitI = i + 1, exitType: 'target' | 'stopped' | 'expired' = 'expired';
-                            const sellValuePerShareByDay = new Map<number, number>();
-                            const recordSell = (dayIdx: number, fraction: number, price: number) => {
-                              if (fraction <= 0 || price <= 0) return;
-                              sellValuePerShareByDay.set(
-                                dayIdx,
-                                (sellValuePerShareByDay.get(dayIdx) ?? 0) + fraction * price,
-                              );
+                            const maxHold = pe.maxHoldBars ?? 20;
+                            if (bars.length - (i + 2) < maxHold) { i++; advanced = true; break; }
+                            const hardStop = pe.disasterStop > 0 && pe.disasterStop < stop ? pe.disasterStop : stop;
+                            if (entry <= hardStop) { i++; advanced = true; break; }
+                            const entryDate = new Date((eBar.ts + 19800) * 1000).toISOString().slice(0, 10);
+                            const replayTrade: TrackedTrade = {
+                              symbol: sym,
+                              stage: res.stage,
+                              entryPrice: entry,
+                              entryDate,
+                              stopLoss: stop,
+                              disasterStop: hardStop,
+                              target1: t1,
+                              target2: t2,
+                              target3: t3,
+                              paramSetKey: key,
+                              sector: '',
+                              conviction: computeConviction(res),
+                              status: 'open',
+                              sw5LowAtEntry: pe.sw5LowAtEntry,
+                              atr14AtEntry: pe.atr14AtEntry,
+                              maxHoldBars: maxHold,
                             };
-                            for (let j = i + 1; j <= i + maxHold && j < bars.length; j++) {
-                              const b = bars[j]; exitI = j;
-                              const hiD = (b.h - entry) / entry * 100; if (hiD > mfe) mfe = hiD;
-                              const lowD = (entry - b.l) / entry * 100; if (lowD > mae) mae = lowD;
-                              if (phase === 1) {
-                                if (b.l <= stop) {
-                                  recordSell(j, wLeft, stop);
-                                  wPL += wLeft * (stop - entry) / entry * 100;
-                                  exitType = 'stopped';
-                                  break;
-                                }
-                                if (b.h >= t1) {
-                                  const sold = Math.min(W1, wLeft);
-                                  recordSell(j, sold, t1);
-                                  wPL += sold * (t1 - entry) / entry * 100;
-                                  wLeft -= sold;
-                                  phase = 2;
-                                }
-                              }
-                              if (phase === 2) {
-                                if (b.l <= stop) {
-                                  recordSell(j, wLeft, stop);
-                                  wPL += wLeft * (stop - entry) / entry * 100;
-                                  exitType = 'stopped';
-                                  break;
-                                }
-                                if (b.h >= t2) {
-                                  const sold = Math.min(W2, wLeft);
-                                  recordSell(j, sold, t2);
-                                  wPL += sold * (t2 - entry) / entry * 100;
-                                  wLeft -= sold;
-                                  phase = 3;
-                                }
-                              }
-                              if (phase === 3) {
-                                if (b.l <= stop) {
-                                  recordSell(j, wLeft, stop);
-                                  wPL += wLeft * (stop - entry) / entry * 100;
-                                  exitType = 'stopped';
-                                  break;
-                                }
-                                if (b.h >= t3) {
-                                  const sold = Math.min(W3, wLeft);
-                                  recordSell(j, sold, t3);
-                                  wPL += sold * (t3 - entry) / entry * 100;
-                                  wLeft -= sold;
-                                  exitType = 'target';
-                                  break;
-                                }
-                              }
-                              if (j === i + maxHold && wLeft > 0) {
-                                recordSell(j, wLeft, b.c);
-                                wPL += wLeft * (b.c - entry) / entry * 100;
-                                wLeft = 0;
-                                exitType = 'expired';
-                              }
+                            const preEntry = bars.slice(Math.max(0, i - 29), i + 2);
+                            const sinceEntry = bars.slice(i + 2, i + 2 + maxHold);
+                            const validation = validateTrade(replayTrade, sinceEntry, {
+                              preEntryCandles: preEntry,
+                              maxHoldBars: maxHold,
+                            });
+                            if (!validation.closedDate || validation.status === 'open') {
+                              i++;
+                              advanced = true;
+                              break;
                             }
-                            const exitPrice = entry * (1 + wPL / 100);
-                            const shares = Math.max(1, Math.floor(accountSize * 0.01 / (riskPct / 100 * entry)));
+
+                            const exitI = Math.min(i + 1 + validation.daysHeld, bars.length - 1);
+                            const exitType: BacktestTrade['exitType'] = validation.status === 'stopped'
+                              ? 'stopped'
+                              : validation.status === 'hit_t3'
+                                ? 'target'
+                                : 'expired';
+                            const exitPrice = entry * (1 + validation.pnlPct / 100);
+                            const hardRiskPerShare = entry - hardStop;
+                            const shares = Math.floor(accountSize * 0.01 / hardRiskPerShare);
+                            if (shares <= 0) { i++; advanced = true; break; }
+
+                            const sellValuePerShareByDay = new Map<string, number>();
+                            let soldFraction = 0;
+                            for (const targetHit of validation.targetLog ?? []) {
+                              sellValuePerShareByDay.set(
+                                targetHit.date,
+                                (sellValuePerShareByDay.get(targetHit.date) ?? 0) + targetHit.fraction * targetHit.price,
+                              );
+                              soldFraction += targetHit.fraction;
+                            }
+                            const remainingFraction = Math.max(0, 1 - soldFraction);
+                            if (remainingFraction > 0) {
+                              sellValuePerShareByDay.set(
+                                validation.closedDate,
+                                (sellValuePerShareByDay.get(validation.closedDate) ?? 0) + remainingFraction * validation.closedPrice,
+                              );
+                            }
                             const costs = computeTradeCosts(entry * shares, exitPrice * shares, {
                               executionChannel: proExecutionChannel,
                               dpSellValues: [...sellValuePerShareByDay.values()].map(v => v * shares),
-                              // Entry fill already includes 0.05%; model 0.05% market impact on exits here.
                               buySlippagePct: 0,
                               sellSlippagePct: 0.05,
                             });
-                            const riskRupees = Math.max(0.01, (entry - stop) * shares);
-                            const pnlGross = wPL * shares * entry / 100;
+                            const riskRupees = hardRiskPerShare * shares;
+                            const pnlGross = validation.pnlPct * shares * entry / 100;
                             const pnlNet = pnlGross - costs.totalCost;
                             allTrades.push({
-                              symbol: sym, entryDate: new Date((eBar.ts + 19800) * 1000).toISOString().slice(0, 10),
-                              entryPrice: entry, stopLoss: stop, target1: t1,
-                              exitPrice, exitDate: new Date((bars[exitI].ts + 19800) * 1000).toISOString().slice(0, 10),
-                              exitType, pnlPct: wPL, pnlR: wPL / riskPct,
+                              symbol: sym, entryDate,
+                              entryPrice: entry, stopLoss: hardStop, target1: t1,
+                              exitPrice, exitDate: validation.closedDate,
+                              exitType, pnlPct: validation.pnlPct, pnlR: validation.pnlR,
                               pnlNetR: pnlNet / riskRupees,
                               pnlGross, pnlNet,
-                              costs, daysHeld: exitI - (i + 1), mfe, mae, shares,
-                              paramSetKey: key, stage: res.stage, conviction: computeConviction(res), hit5: mfe >= 5, entryFillType,
+                              costs, daysHeld: validation.daysHeld, mfe: validation.mfe, mae: Math.abs(validation.mae), shares,
+                              paramSetKey: key, stage: res.stage, conviction: computeConviction(res), hit5: validation.mfe >= 5, entryFillType,
                             });
                             i = exitI + 1; advanced = true; break;
                           }
@@ -5284,7 +5257,7 @@ function HomePageInner() {
                     ))}
                   </div>
                   <div className="text-[10px] text-slate-600 mb-3 bg-slate-900/30 rounded px-2 py-1">
-                    Scientific mode: next-session trigger/gap-fill entry, skips &gt;2.5% chase gaps, stop-first daily OHLC ambiguity, Kotak Neo {proExecutionChannel === 'api' ? 'Trade API delivery' : 'Trade Free app/web delivery'} costs, net-of-cost R metrics, Wilson confidence bands, and 70/30 chronological OOS validation.
+                    Canonical mode: next-session trigger/gap-fill entry, skips &gt;2.5% chase gaps, hard-stop-first execution, close-confirmed review exits at next open, frozen entry parameters, Kotak Neo {proExecutionChannel === 'api' ? 'Trade API delivery' : 'Trade Free app/web delivery'} costs, net-of-cost R metrics, Wilson confidence bands, and 70/30 chronological OOS validation.
                   </div>
 
                   {/* Equity Curve */}
@@ -5746,7 +5719,7 @@ function HomePageInner() {
             lines.push(`📅 Entry ₹${fmt(trade.entryPrice)} on ${trade.entryDate?.slice(0, 10) ?? '—'}`);
             const shareTargets = getValidTradeTargets(trade);
             const targetText = (target: number | null) => target != null ? `₹${fmt(target)}` : '—';
-            lines.push(`🛑 SL ₹${fmt(trade.stopLoss)}  |  🎯 T1 ${targetText(shareTargets.t1)}  |  T2 ${targetText(shareTargets.t2)}  |  T3 ${targetText(shareTargets.t3)}`);
+            lines.push(`Review ₹${fmt(trade.stopLoss)}  |  Hard stop ₹${fmt(getTradeHardStop(trade))}  |  T1 ${targetText(shareTargets.t1)}  |  T2 ${targetText(shareTargets.t2)}  |  T3 ${targetText(shareTargets.t3)}`);
             if (trade.breakoutTier) lines.push(`⭐ Breakout Tier: ${trade.breakoutTier}`);
             lines.push('');
             lines.push('📈 *Performance Summary*');
@@ -5897,8 +5870,8 @@ function HomePageInner() {
                               const cls = gap < 3 ? 'text-red-400 font-bold' : gap < 6 ? 'text-amber-400' : 'text-slate-500';
                               return (
                                 <div className="flex items-center justify-between text-[9px]">
-                                  <span className="text-slate-600">SL {fmt(t.stopLoss, 1)}</span>
-                                  <span className={cls}>{fmt(gap, 1)}% to stop</span>
+                                  <span className="text-slate-600">Review {fmt(t.stopLoss, 1)}</span>
+                                  <span className={cls}>{fmt(gap, 1)}% to review</span>
                                 </div>
                               );
                             })()
@@ -5940,7 +5913,8 @@ function HomePageInner() {
                         <span className="text-base font-bold text-slate-100">{selectedTrade.symbol}</span>
                         {statusChip(selectedTrade)}
                         <span className="text-xs text-slate-500">Entry <span className="text-slate-300">₹{fmt(selectedTrade.entryPrice)}</span> on {selectedTrade.entryDate?.slice(0, 10)}</span>
-                        <span className="text-xs text-slate-500">SL <span className="text-red-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
+                        <span className="text-xs text-slate-500">Review <span className="text-amber-400">₹{fmt(selectedTrade.stopLoss)}</span></span>
+                        <span className="text-xs text-slate-500">Hard <span className="text-red-400">₹{fmt(getTradeHardStop(selectedTrade))}</span></span>
                         {/* CMP — live from Yahoo Finance via /api/cmp */}
                         {cmpLoading && (
                           <span className="text-xs text-slate-600 animate-pulse">CMP…</span>
@@ -6015,7 +5989,7 @@ function HomePageInner() {
                               <th className="px-3 py-2 text-left   font-medium border-b border-slate-800 text-slate-500">Date</th>
                               {/* Reference anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-600">Entry ₹</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-red-700">Stop ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-amber-700" title="Frozen close-confirmed review level. Hard-stop events are identified in the Event column.">Review ₹</th>
                               {/* Target levels */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-700">T1 ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-700">T2 ₹</th>
@@ -6048,8 +6022,8 @@ function HomePageInner() {
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-sky-500/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.entryPrice) : '—'}
                                   </td>
-                                  {/* Stop — static reference, red */}
-                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-red-600/70 text-[11px]">
+                                  {/* Frozen close-confirmed review level */}
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-amber-600/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.stopLoss) : '—'}
                                   </td>
 
@@ -6118,11 +6092,11 @@ function HomePageInner() {
                                     <span className="inline-flex items-center justify-end gap-0.5">
                                       {fmt(row.low)}
                                       {rowIdx < rowTargetStatus.length && rowTargetStatus[rowIdx].stopVerified &&
-                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">SL✗</span>}
+                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-red-900/60 text-red-300 border border-red-700">STOP</span>}
                                       {rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && rowTargetStatus[rowIdx].stopShielded &&
                                         <span className="ml-1 text-[9px] font-bold px-1 rounded bg-cyan-900/60 text-cyan-300 border border-cyan-700">SHIELD</span>}
                                       {rowIdx < rowTargetStatus.length && !rowTargetStatus[rowIdx].stopVerified && !rowTargetStatus[rowIdx].stopShielded && rowTargetStatus[rowIdx].rawStopTouch &&
-                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-amber-900/50 text-amber-300 border border-amber-700">SL?</span>}
+                                        <span className="ml-1 text-[9px] font-bold px-1 rounded bg-amber-900/50 text-amber-300 border border-amber-700">REVIEW</span>}
                                     </span>
                                   </td>
 
@@ -6189,14 +6163,14 @@ function HomePageInner() {
               const expired = terminal.filter(t => t.status === 'expired');
 
               const qtyOf = (t: TrackedTrade) => Math.max(1, t.qty ?? 1);
-              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, getTradeMfeR(t)), 0) / wins.length : 0;
-              const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(t.pnlR ?? 0), 0) / losses.length : 0;
+              const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0) / wins.length : 0;
+              const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(getFivePctObjectiveR(t)), 0) / losses.length : 0;
               const avgDays = closed.length > 0 ? closed.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / closed.length : 0;
               const avgDaysWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / wins.length : 0;
 
-              const mfeRTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0 && getTradeMfeR(t) > 0);
+              const mfeRTrades = closed.filter(t => getTradeRiskPerShare(t) > 0 && getTradeMfeR(t) > 0);
               const avgMfeR = mfeRTrades.length > 0 ? mfeRTrades.reduce((s, t) => s + getTradeMfeR(t), 0) / mfeRTrades.length : 0;
-              const maeRTrades = closed.filter(t => t.entryPrice - t.stopLoss > 0 && getTradeMaePct(t) > 0);
+              const maeRTrades = closed.filter(t => getTradeRiskPerShare(t) > 0 && getTradeMaePct(t) > 0);
               const avgMaeR = maeRTrades.length > 0 ? maeRTrades.reduce((s, t) => s + getTradeMaeR(t), 0) / maeRTrades.length : 0;
 
               return (
@@ -6222,11 +6196,10 @@ function HomePageInner() {
                             data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
                             className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
                           <button
-                            disabled={scanning || trackedTrades.filter(t => t.status === 'stopped' || !isTerminalTrade(t)).length === 0}
+                            disabled={scanning || trackedTrades.filter(t => !isTerminalTrade(t)).length === 0}
                             onClick={async () => {
                               if (scanningRef.current) return;
-                              // Include stopped/partial-exit trades: false-stop recovery + live mark-to-market
-                              const openTrades = trackedTradesRef.current.filter(t => t.status === 'stopped' || !isTerminalTrade(t));
+                              const openTrades = trackedTradesRef.current.filter(t => !isTerminalTrade(t));
                               if (openTrades.length === 0) return;
                               setScanning(true); scanningRef.current = true; setProgress(0); setTotal(openTrades.length);
                               try {
@@ -6241,8 +6214,12 @@ function HomePageInner() {
                                       const entryDateStr3 = t.entryDate;
                                       if (!entryDateStr3) { setProgress(p => p + 1); continue; }
                                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr3);
+                                      const preEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) <= entryDateStr3).slice(-30);
                                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
-                                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry);
+                                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry, {
+                                        preEntryCandles: preEntry,
+                                        maxHoldBars: updated[idx >= 0 ? idx : 0].maxHoldBars,
+                                      });
                                       if (idx >= 0) {
                                         let u = applyValidation(updated[idx], result);
                                         const lastCandle = candles[candles.length - 1];
@@ -6340,7 +6317,7 @@ function HomePageInner() {
                         {/* Total realized P&L in rupees */}
                         {(() => {
                           const realizedPnl = terminal.reduce((s, t) => {
-                            const rps = t.entryPrice - t.stopLoss;
+                            const rps = getTradeRiskPerShare(t);
                             const riskAmt = accountSize * 0.01;
                             return s + (rps > 0 ? riskAmt * (t.pnlR ?? 0) : 0);
                           }, 0);
@@ -6379,7 +6356,7 @@ function HomePageInner() {
                     const alerts: Array<{symbol: string; msg: string; severity: 'danger' | 'warning'}> = [];
                     for (const t of open) {
                       if (!t.currentPrice || t.entryPrice <= 0) continue;
-                      const rps = t.entryPrice - t.stopLoss;
+                      const rps = getTradeRiskPerShare(t);
                       if (rps <= 0) continue;
                       const distToStop = t.currentPrice - t.stopLoss;
                       const distPct = (distToStop / t.currentPrice) * 100;
@@ -6431,7 +6408,7 @@ function HomePageInner() {
                       {(() => {
                         const unrealPnls = open.filter(t => t.currentPrice && t.entryPrice > 0).map(t => ((t.currentPrice! - t.entryPrice) / t.entryPrice) * 100);
                         const avgUnreal = unrealPnls.length > 0 ? unrealPnls.reduce((s, v) => s + v, 0) / unrealPnls.length : 0;
-                        const totalRisk = open.reduce((s, t) => s + Math.max(t.entryPrice - t.stopLoss, 0) * qtyOf(t), 0);
+                        const totalRisk = open.reduce((s, t) => s + getTradeRiskPerShare(t) * qtyOf(t), 0);
                         return <>
                           <span className={`font-mono font-semibold ${avgUnreal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Avg P&L: {avgUnreal >= 0 ? '+' : ''}{avgUnreal.toFixed(2)}%</span>
                           <span className="text-red-400 font-mono">At risk: ₹{totalRisk.toFixed(0)}</span>
@@ -6503,8 +6480,8 @@ function HomePageInner() {
                         computeRollingStats(trackedTrades, 999, 'All Time'),
                       ].filter(s => s.total > 0).map(s => {
                         const slicedTrades = trackedTrades.filter(isTradeResolvedForWinRate).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
-                        const sMfeTrades = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0 && getTradeMfeR(tt) > 0);
-                        const sMaeTrades = slicedTrades.filter(tt => tt.entryPrice - tt.stopLoss > 0 && getTradeMaePct(tt) > 0);
+                        const sMfeTrades = slicedTrades.filter(tt => getTradeRiskPerShare(tt) > 0 && getTradeMfeR(tt) > 0);
+                        const sMaeTrades = slicedTrades.filter(tt => getTradeRiskPerShare(tt) > 0 && getTradeMaePct(tt) > 0);
                         const sMfeR = sMfeTrades.length > 0 ? sMfeTrades.reduce((sum, tt) => sum + getTradeMfeR(tt), 0) / sMfeTrades.length : 0;
                         const sMaeR = sMaeTrades.length > 0 ? sMaeTrades.reduce((sum, tt) => sum + getTradeMaeR(tt), 0) / sMaeTrades.length : 0;
                         return (
@@ -6551,7 +6528,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-left font-medium">Symbol</th>
                             <th className="px-2 py-1 text-left font-medium">Stage</th>
                             <th className="px-2 py-1 text-right font-medium">Entry</th>
-                            <th className="px-2 py-1 text-right font-medium">SL</th>
+                            <th className="px-2 py-1 text-right font-medium" title="Frozen close-confirmed review level; hard-stop risk is reflected in Risk/sh">Review</th>
                             <th className="px-2 py-1 text-right font-medium">T1</th>
                             <th className="px-2 py-1 text-right font-medium">T2</th>
                             <th className="px-2 py-1 text-right font-medium">T3</th>
@@ -6568,7 +6545,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">Days</th>
                             <th className="px-2 py-1 text-center font-medium">Expiry</th>
                             <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                            <th className="px-2 py-1 text-center font-medium cursor-help" title="10-Gate Cascade (Phase-3 calibrated, v6)&#10;Stop: max(1.5×ATR, 5-bar swing low×0.997) clamped [2.5%,6.5%]&#10;G-GAP: gap-down → instant exit at open&#10;G0: Wyckoff Spring — dip &lt;0.5×ATR deep + close above stop&#10;G1: RSI-2 &lt;25 Capitulation flush&#10;G2: 2-Day Confirm — first day low-vol OR narrow bar (&lt;0.7×ATR)&#10;G3: Hammer — lower wick ≥40%, close loc ≥55%&#10;G4: OBV 5d slope rising (accumulation)&#10;G5: Narrow Sweep — range &lt;0.75×ATR + close above stop&#10;G6: Low-Vol Sweep — vol &lt;0.65×avg + close above stop&#10;G7: Isolated Red — prev candle was green&#10;G8: Close Recovery — recovered &gt;60% of stop-to-low range&#10;G9: Structure OK — close ≥ 5-bar swing low × 0.997&#10;🛡 = shielded (false stop), 🛑 = all gates passed (real stop)">Gate Status</th>
+                            <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: breakeven/chandelier are hard protective stops">Gate Status</th>
                             <th className="px-2 py-1 text-left font-medium">Exit Model</th>
                             <th className="px-2 py-1 text-left font-medium">Sector</th>
                             <th className="px-2 py-1 text-right font-medium">Conv</th>
@@ -6581,27 +6558,37 @@ function HomePageInner() {
                               if (isTerminalTrade(a) && !isTerminalTrade(b)) return 1;
                               return 0;
                             }).map((t, i) => {
-                              const rps = t.entryPrice - t.stopLoss;
+                              const rps = getTradeRiskPerShare(t);
                               const mfePct = getTradeMfePct(t);
                               const mfeR = getTradeMfeR(t);
                               const curPrice = t.closedPrice ?? t.currentPrice ?? 0;
-                              const curPnl = curPrice > 0 && t.entryPrice > 0 ? ((curPrice - t.entryPrice) / t.entryPrice) * 100 : (t.pnlPct ?? 0);
-                              const curR = rps > 0 && curPrice > 0 ? (curPrice - t.entryPrice) / rps : (t.pnlR ?? 0);
+                              const activePosition = !isTerminalTrade(t);
+                              const hasWeightedResult = t.pnlPct != null && (t.status !== 'open' || !activePosition);
+                              const curPnl = hasWeightedResult
+                                ? t.pnlPct ?? 0
+                                : curPrice > 0 && t.entryPrice > 0
+                                  ? ((curPrice - t.entryPrice) / t.entryPrice) * 100
+                                  : 0;
+                              const curR = t.pnlR != null && (t.status !== 'open' || !activePosition)
+                                ? t.pnlR
+                                : rps > 0 && curPrice > 0
+                                  ? (curPrice - t.entryPrice) / rps
+                                  : 0;
                               const maePct = getTradeMaePct(t);
                               const maeR = getTradeMaeR(t);
-                              const daysLeft = 20 - (t.daysHeld ?? 0);
+                              const holdHorizon = t.maxHoldBars ?? 20;
+                              const daysLeft = holdHorizon - (t.daysHeld ?? 0);
 
                               const statusCfg: Record<string, { label: string; color: string }> = {
                                 open: { label: 'OPEN', color: 'bg-blue-900/40 text-blue-300' },
                                 hit_t1: { label: '✓ T1', color: 'bg-emerald-900/40 text-emerald-300' },
                                 hit_t2: { label: '✓ T2', color: 'bg-emerald-900/40 text-emerald-200' },
                                 hit_t3: { label: '✓ T3', color: 'bg-yellow-900/40 text-yellow-300' },
-                                stopped: { label: '✗ SL', color: 'bg-red-900/40 text-red-300' },
+                                stopped: { label: 'STOP', color: 'bg-red-900/40 text-red-300' },
                                 expired: { label: '⏳ EXP', color: 'bg-amber-900/40 text-amber-300' },
                                 manual_close: { label: '◉ MAN', color: 'bg-slate-700/40 text-slate-300' },
                                 closed_early: { label: '↗ EXIT', color: 'bg-cyan-900/40 text-cyan-300' },
                               };
-                              const activePosition = !isTerminalTrade(t);
                               const partialClosed = !activePosition && (t.status === 'hit_t1' || t.status === 'hit_t2');
                               const sc = partialClosed
                                 ? { label: `↩ ${t.status === 'hit_t1' ? 'T1' : 'T2'} EXIT`, color: 'bg-cyan-900/40 text-cyan-300' }
@@ -6613,7 +6600,7 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol}</td>
                                   <td className={`px-2 py-1.5 ${stgCfg?.color ?? 'text-slate-500'}`}>{stgCfg?.label ?? t.stage}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-300">₹{t.entryPrice.toFixed(2)}</td>
-                                  <td className="px-2 py-1.5 text-right font-mono text-red-400">₹{t.stopLoss.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-amber-400" title={`Hard broker stop ₹${getTradeHardStop(t).toFixed(2)}`}>₹{t.stopLoss.toFixed(2)}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-emerald-400">₹{t.target1.toFixed(2)}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-emerald-500">{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-yellow-400">{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
@@ -6624,7 +6611,7 @@ function HomePageInner() {
                                     const rrBase = t.target2 > t.entryPrice ? t.target2 : t.target1;
                                     const plannedRR = rps > 0 && rrBase > t.entryPrice ? (rrBase - t.entryPrice) / rps : 0;
                                     const rrColor = plannedRR >= 2.0 ? 'text-cyan-300 font-semibold' : plannedRR >= 1.5 ? 'text-emerald-400 font-semibold' : plannedRR >= 1.2 ? 'text-emerald-400' : plannedRR > 0 ? 'text-amber-400' : 'text-slate-600';
-                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title={`Planned R:R at T2 = T2 gain / stop risk. Baseline: 2.0 (Phase-3 stop engine — max(1.5×ATR, 5-bar low×0.997))`}>{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
+                                    return <td className={`px-2 py-1.5 text-right font-mono ${rrColor}`} title="Planned T2 reward divided by frozen hard-stop risk, matching realised R-multiples.">{plannedRR > 0 ? `${plannedRR.toFixed(2)}R` : '—'}</td>;
                                   })()}
                                   <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{curPrice > 0 ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${curR > 0 ? 'text-emerald-300' : curR < 0 ? 'text-red-300' : 'text-slate-500'}`}>{curPrice > 0 ? `${curR >= 0 ? '+' : ''}${curR.toFixed(2)}R` : '—'}</td>
@@ -6635,30 +6622,36 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right ${activePosition && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{activePosition && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
                                   {/* #3/#7: Days to expiry countdown */}
                                   <td className="px-2 py-1.5 text-center">{activePosition ? (() => {
-                                    const dl = 20 - (t.daysHeld ?? 0);
-                                    const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / 20) * 100));
-                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of 20 — expires in ${dl} days`}>
+                                    const horizon = t.maxHoldBars ?? 20;
+                                    const dl = horizon - (t.daysHeld ?? 0);
+                                    const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / horizon) * 100));
+                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of ${horizon} — expires in ${Math.max(0, dl)} trading bars`}>
                                       <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className={`h-full rounded-full ${pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width:`${pct}%`}} /></div>
-                                      <span className={`text-[9px] font-mono ${dl <= 2 ? 'text-red-400' : dl <= 5 ? 'text-amber-400' : 'text-slate-500'}`}>{dl}d</span>
+                                      <span className={`text-[9px] font-mono ${dl <= 2 ? 'text-red-400' : dl <= 5 ? 'text-amber-400' : 'text-slate-500'}`}>{Math.max(0, dl)}b</span>
                                     </div>;
                                   })() : <span className="text-slate-700">—</span>}</td>
                                   {/* #2: Outcome with tooltip */}
                                   <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
-                                    title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked, SL moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2, SL at T1' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3 — fully closed' : t.status === 'stopped' ? 'Stop loss triggered — full loss' : t.status === 'expired' ? 'Expired after 20 days — closed at market' : 'Trade is open — monitoring'}>{sc.label}</span></td>
+                                    title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; hard protective stop moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span></td>
                                   {/* Gate Status */}
                                   <td className="px-2 py-1.5 text-center">{(() => {
                                     const tgLog = t.gateLog;
                                     if (!tgLog || tgLog.length === 0) return <span className="text-[9px] text-slate-700">—</span>;
                                     const shielded = tgLog.filter(e => e.result === 'SHIELDED').length;
                                     const stopped = tgLog.filter(e => e.result === 'STOPPED').length;
+                                    const pending = tgLog.filter(e => e.result === 'EXIT_PENDING').length;
                                     const lastEntry = tgLog[tgLog.length - 1];
-                                    const blockedGate = lastEntry?.gatesTested?.find(g => !g.passed);
-                                    const tipText = tgLog.map(e => `D${e.day}: ${e.result} ${e.dipPct.toFixed(1)}%↓ — ${e.gatesTested.map(g => `${g.passed?'✗':'✓'}${g.gate}`).join(', ')}`).join('\n');
-                                    if (stopped > 0) return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-red-400 font-bold">🛑ALL</span>{shielded > 0 && <span className="text-emerald-500"> {shielded}🛡</span>}</span>;
-                                    return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-emerald-400 font-bold">{shielded}🛡</span><span className="text-cyan-500 ml-0.5">{blockedGate?.gate?.slice(0,5) || ''}</span></span>;
+                                    const supportingGate = lastEntry?.gatesTested?.find(g => g.passed);
+                                    const tipText = tgLog.map(e => `D${e.day}: ${e.result} ${e.dipPct.toFixed(1)}% below — ${e.gatesTested.map(g => `${g.passed ? 'PASS' : 'no'} ${g.gate}`).join(', ')}`).join('\n');
+                                    if (stopped > 0) {
+                                      const stopLabel = lastEntry.stopKind === 'review' ? 'REVIEW' : lastEntry.stopKind === 'trail' ? 'TRAIL' : 'HARD';
+                                      return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-red-400 font-bold">{stopLabel}</span>{shielded > 0 && <span className="text-emerald-500 ml-1">{shielded} shield</span>}</span>;
+                                    }
+                                    if (pending > 0) return <span className="text-[9px] font-mono text-amber-400 cursor-help" title={tipText}>PENDING</span>;
+                                    return <span className="text-[9px] font-mono cursor-help" title={tipText}><span className="text-emerald-400 font-bold">{shielded} shield</span><span className="text-cyan-500 ml-1">{supportingGate?.gate?.slice(0, 10) || 'RECOVERED'}</span></span>;
                                   })()}</td>
                                   {/* #6: Exit model */}
-                                  <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? `50% T1 + 50% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t2' ? `50% T1 + 30% T2 + 20% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% SL' : t.status === 'open' ? '—' : 'Market'}</td>
+                                  <td className="px-2 py-1.5 text-[9px] text-slate-500">{t.status === 'hit_t1' ? `50% T1 + 50% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t2' ? `50% T1 + 30% T2 + 20% ${partialClosed ? 'Exit' : 'Live'}` : t.status === 'hit_t3' ? '50% T1 + 30% T2 + 20% T3' : t.status === 'stopped' ? '100% Stop' : t.status === 'open' ? '—' : 'Market'}</td>
                                   <td className="px-2 py-1.5 text-slate-600 truncate max-w-[80px]">{t.sector || '—'}</td>
                                   <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
                                   <td className="px-2 py-1.5 text-slate-600">{t.closedDate ?? '—'}</td>
@@ -6973,7 +6966,7 @@ function HomePageInner() {
                       if (matching.length < 2) return null;
                       const wins = matching.filter(didReachFivePctTarget);
                       const wr = (wins.length / matching.length) * 100;
-                      const avgPnl = matching.reduce((s, t) => s + (didReachFivePctTarget(t) ? Math.max(t.pnlPct ?? 0, getTradeMfePct(t)) : (t.pnlPct ?? 0)), 0) / matching.length;
+                      const avgPnl = matching.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0) / matching.length;
                       return { name: def.name, icon: def.icon, n: matching.length, wins: wins.length, wr, avgPnl };
                     }).filter((x): x is { name: string; icon: string; n: number; wins: number; wr: number; avgPnl: number } => x !== null)
                       .sort((a, b) => b.wr - a.wr);
@@ -7057,12 +7050,12 @@ function HomePageInner() {
                   {/* SECTION 6: ENGINE REFERENCE                */}
                   {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 grid grid-cols-2 gap-x-4 gap-y-0.5 border border-slate-700/30">
-                    <div><b className="text-slate-500">Engine:</b> Level 3 bar-by-bar sequential (stop checked before target)</div>
+                    <div><b className="text-slate-500">Engine:</b> Canonical bar replay; hard stop before targets, tactical review at close</div>
                     <div><b className="text-slate-500">Auto-Runs:</b> After every scan on all open tracked trades</div>
                     <div><b className="text-slate-500">MFE:</b> Highest R-multiple above entry — profit left on the table</div>
                     <div><b className="text-slate-500">MAE:</b> Deepest R-multiple below entry — how close to stop</div>
-                    <div><b className="text-slate-500">Expiry:</b> 20 trading days without target or stop → auto-expired</div>
-                    <div><b className="text-slate-500">Entry Skip:</b> Validates from day AFTER entry (no same-day false stops)</div>
+                    <div><b className="text-slate-500">Expiry:</b> Frozen archetype holding horizon captured at entry</div>
+                    <div><b className="text-slate-500">Entry:</b> Entry candle excluded; first post-entry session is fully validated</div>
                   </div>
                 </>
               );
@@ -7569,7 +7562,7 @@ function HomePageInner() {
                             {s.avgMAE > 0 && <div className="text-red-600" title="Average adverse excursion across decided trades">MAE -{s.avgMAE.toFixed(1)}%</div>}
                             {(() => {
                               const closed = trackedTrades.filter(isTradeResolvedForWinRate).slice(-(s.period === 'Last 10' ? 10 : s.period === 'Last 20' ? 20 : 999));
-                              const riskTrades = closed.filter(tt => tt.entryPrice - tt.stopLoss > 0);
+                              const riskTrades = closed.filter(tt => getTradeRiskPerShare(tt) > 0);
                               if (riskTrades.length === 0) return null;
                               const mfeTrades = riskTrades.filter(tt => getTradeMfeR(tt) > 0);
                               const maeTrades = riskTrades.filter(tt => getTradeMaePct(tt) > 0);
@@ -8068,10 +8061,28 @@ function HomePageInner() {
                     { label: 'Stage', fn: (r: AnalysisResult) => STAGE_CONFIG[r.stage].label, color: (r: AnalysisResult) => STAGE_CONFIG[r.stage].color },
                     { label: 'Conviction', fn: (r: AnalysisResult) => String(computeConviction(r)), color: (r: AnalysisResult) => computeConviction(r) >= 70 ? 'text-yellow-300' : 'text-slate-300' },
                     { label: 'Entry ₹', fn: (r: AnalysisResult) => r.priceEngine.plannedEntry.toFixed(2), color: () => 'text-slate-200' },
-                    { label: 'Stop ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-red-400' },
+                    { label: 'Review ₹', fn: (r: AnalysisResult) => r.priceEngine.tacticalStop.toFixed(2), color: () => 'text-amber-400' },
+                    { label: 'Hard Stop ₹', fn: (r: AnalysisResult) => {
+                      const pe = r.priceEngine;
+                      return (pe.disasterStop > 0 && pe.disasterStop < pe.tacticalStop ? pe.disasterStop : pe.tacticalStop).toFixed(2);
+                    }, color: () => 'text-red-400' },
                     { label: 'T1 ₹', fn: (r: AnalysisResult) => r.priceEngine.target5.toFixed(2), color: () => 'text-emerald-400' },
-                    { label: 'R:R', fn: (r: AnalysisResult) => r.priceEngine.rewardRisk.toFixed(2), color: (r: AnalysisResult) => rrVerdictColor(r.priceEngine.rewardRisk) },
-                    { label: 'Risk%', fn: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct.toFixed(1) + '%', color: (r: AnalysisResult) => r.priceEngine.tacticalRiskPct <= 2 ? 'text-emerald-400' : 'text-amber-400' },
+                    { label: 'Hard R:R', fn: (r: AnalysisResult) => {
+                      const pe = r.priceEngine;
+                      const hard = pe.disasterStop > 0 && pe.disasterStop < pe.tacticalStop ? pe.disasterStop : pe.tacticalStop;
+                      const risk = pe.plannedEntry - hard;
+                      return (risk > 0 ? (pe.target5 - pe.plannedEntry) / risk : 0).toFixed(2);
+                    }, color: (r: AnalysisResult) => {
+                      const pe = r.priceEngine;
+                      const hard = pe.disasterStop > 0 && pe.disasterStop < pe.tacticalStop ? pe.disasterStop : pe.tacticalStop;
+                      const risk = pe.plannedEntry - hard;
+                      return rrVerdictColor(risk > 0 ? (pe.target5 - pe.plannedEntry) / risk : 0);
+                    } },
+                    { label: 'Hard Risk%', fn: (r: AnalysisResult) => {
+                      const pe = r.priceEngine;
+                      const hard = pe.disasterStop > 0 && pe.disasterStop < pe.tacticalStop ? pe.disasterStop : pe.tacticalStop;
+                      return (pe.plannedEntry > 0 ? (pe.plannedEntry - hard) / pe.plannedEntry * 100 : 0).toFixed(1) + '%';
+                    }, color: () => 'text-red-400' },
                     { label: 'RS Rank', fn: (r: AnalysisResult) => String(rsData.get(r.symbol)?.rsRank ?? '—'), color: (r: AnalysisResult) => (rsData.get(r.symbol)?.rsRank ?? 0) >= 70 ? 'text-emerald-400' : 'text-slate-400' },
                     { label: 'Candle', fn: (r: AnalysisResult) => r.stats?.candlePatternFull ?? '—', color: (r: AnalysisResult) => r.stats?.candlePatternType === 'bullish' ? 'text-emerald-400' : 'text-slate-400' },
                     { label: 'Sector', fn: (r: AnalysisResult) => getSectorTag(r.symbol) || '—', color: () => 'text-slate-500' },
@@ -8093,7 +8104,7 @@ function HomePageInner() {
         {!selectedResult && selectedSymbol && activeTab === 'tradedesk' && (() => {
           const trade = trackedTrades.find(t => t.symbol === selectedSymbol);
           if (!trade) return null;
-          const rps = trade.entryPrice - trade.stopLoss;
+          const rps = getTradeRiskPerShare(trade);
           const curPnl = trade.currentPrice && trade.entryPrice > 0 ? ((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100 : null;
           const mfePct = trade.highestPrice && trade.entryPrice > 0 ? ((trade.highestPrice - trade.entryPrice) / trade.entryPrice) * 100 : null;
           const statusCfg: Record<string,{label:string;color:string}> = {
@@ -8124,7 +8135,8 @@ function HomePageInner() {
                     <div className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider mb-2">Trade Levels</div>
                     {[
                       { label: 'Entry', val: `₹${trade.entryPrice.toFixed(2)}`, color: 'text-slate-200' },
-                      { label: 'Stop Loss', val: `₹${trade.stopLoss.toFixed(2)}`, color: 'text-red-400' },
+                      { label: 'Review Level', val: `₹${trade.stopLoss.toFixed(2)}`, color: 'text-amber-400' },
+                      { label: 'Hard Stop', val: `₹${getTradeHardStop(trade).toFixed(2)}`, color: 'text-red-400' },
                       { label: 'Risk/Share', val: `₹${rps.toFixed(2)} (${(rps/trade.entryPrice*100).toFixed(1)}%)`, color: 'text-amber-400' },
                       { label: 'Target 1', val: `₹${trade.target1.toFixed(2)}`, color: 'text-emerald-400' },
                       { label: 'Target 2', val: trade.target2 ? `₹${trade.target2.toFixed(2)}` : '—', color: 'text-emerald-300' },
@@ -8283,7 +8295,7 @@ function HomePageInner() {
                           setShowTradeSheet(selectedResult.symbol === showTradeSheet ? null : selectedResult.symbol);
                         }}
                           className="w-full px-2 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-xs font-medium text-blue-300 transition-colors">
-                          {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No entry/SL' : '📋 Trade Sheet'}
+                          {showTradeSheet === selectedResult.symbol ? '✓ Copied!' : showTradeSheet === 'no_data' ? '⚠ No valid entry/stop' : '📋 Trade Sheet'}
                         </button>
                         {/* Inline trade sheet (shown on click) */}
                         {showTradeSheet === selectedResult.symbol && sheetText && (
@@ -8319,7 +8331,10 @@ function HomePageInner() {
                     const stage = STAGE_CONFIG[selectedResult.stage].label;
                     const pe = selectedResult.priceEngine;
                     const conv = computeConviction(selectedResult);
-                    const verdict = rrVerdict(pe.rewardRisk);
+                    const hardStop = pe.disasterStop > 0 && pe.disasterStop < pe.tacticalStop ? pe.disasterStop : pe.tacticalStop;
+                    const hardRisk = pe.plannedEntry - hardStop;
+                    const hardRR = hardRisk > 0 ? (pe.target5 - pe.plannedEntry) / hardRisk : 0;
+                    const verdict = rrVerdict(hardRR);
                     const sector = getSectorTag(selectedResult.symbol);
                     const signalDate = selectedResult.lastDate || new Date().toISOString().slice(0, 10);
                     const atr14 = selectedResult.priceEngine.atr14AtEntry || 0;
@@ -8328,12 +8343,14 @@ function HomePageInner() {
                     const t1Pct = pe.plannedEntry > 0 ? ((pe.target5 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
                     const t2Pct = pe.plannedEntry > 0 ? ((pe.target7 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
                     const t3Pct = pe.plannedEntry > 0 ? ((pe.target10 - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
-                    const slPct = pe.plannedEntry > 0 ? ((pe.tacticalStop - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+                    const reviewPct = pe.plannedEntry > 0 ? ((pe.tacticalStop - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
+                    const hardStopPct = pe.plannedEntry > 0 ? ((hardStop - pe.plannedEntry) / pe.plannedEntry * 100) : 0;
 
                     const text = `*${sym}* — *${stage}*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 *Entry* ₹${pe.plannedEntry.toFixed(2)}
-⛔ *SL* ₹${pe.tacticalStop.toFixed(2)} (${slPct.toFixed(1)}%)
+⚠ *Review level* ₹${pe.tacticalStop.toFixed(2)} (${reviewPct.toFixed(1)}%; close-confirmed)
+⛔ *Hard stop* ₹${hardStop.toFixed(2)} (${hardStopPct.toFixed(1)}%; broker SL-M)
 
 🎯 *Targets*
    T1: ₹${pe.target5.toFixed(2)} (+${t1Pct.toFixed(1)}%)
@@ -8447,16 +8464,17 @@ function HomePageInner() {
                     {([
                       ['Entry',         '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2)],
                       ['Breakout Level','₹' + selectedResult.priceEngine.breakoutLevel.toFixed(2)],
-                      ['Tactical Stop', '₹' + selectedResult.priceEngine.tacticalStop.toFixed(2) + ' (−' + selectedResult.priceEngine.tacticalRiskPct.toFixed(2) + '%)'],
-                      ['T1 (50%)', '₹' + selectedResult.priceEngine.target5.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; const pct = r.plannedEntry > 0 ? ((r.target5 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target5 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
-                      ['T2 (30%)', '₹' + selectedResult.priceEngine.target7.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; const pct = r.plannedEntry > 0 ? ((r.target7 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target7 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
-                      ['T3 (20%)', '₹' + selectedResult.priceEngine.target10.toFixed(2) + (() => { const r = selectedResult.priceEngine; const rps = r.plannedEntry - r.tacticalStop; const pct = r.plannedEntry > 0 ? ((r.target10 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target10 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['Review Level', '₹' + selectedResult.priceEngine.tacticalStop.toFixed(2) + ' (close-confirmed)'],
+                      ['Hard Stop', '₹' + (() => { const r = selectedResult.priceEngine; return (r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop).toFixed(2); })() + ' (broker SL-M)'],
+                      ['T1 (50%)', '₹' + selectedResult.priceEngine.target5.toFixed(2) + (() => { const r = selectedResult.priceEngine; const hs = r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop; const rps = r.plannedEntry - hs; const pct = r.plannedEntry > 0 ? ((r.target5 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target5 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['T2 (30%)', '₹' + selectedResult.priceEngine.target7.toFixed(2) + (() => { const r = selectedResult.priceEngine; const hs = r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop; const rps = r.plannedEntry - hs; const pct = r.plannedEntry > 0 ? ((r.target7 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target7 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
+                      ['T3 (20%)', '₹' + selectedResult.priceEngine.target10.toFixed(2) + (() => { const r = selectedResult.priceEngine; const hs = r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop; const rps = r.plannedEntry - hs; const pct = r.plannedEntry > 0 ? ((r.target10 - r.plannedEntry) / r.plannedEntry * 100).toFixed(1) : '0'; return rps > 0 ? ` (${pct}% · ${((r.target10 - r.plannedEntry) / rps).toFixed(1)}R)` : ''; })()],
                       ['T3R (3×risk)',  '₹' + selectedResult.priceEngine.target3R.toFixed(2)],
-                      ['Reward:Risk',   selectedResult.priceEngine.rewardRisk.toFixed(2) + ':1'],
-                      ['BE Trigger',    '₹' + (selectedResult.priceEngine.plannedEntry * 1.02).toFixed(2) + ' (+2%) → move SL to BE'],
-                      ['BE Stop',       '₹' + (selectedResult.priceEngine.plannedEntry * 1.005).toFixed(2) + ' (+0.5% entry)'],
-                      ['Trail @T1',     '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2) + ' (breakeven)'],
-                      ['Trail @T2',     '₹' + (selectedResult.priceEngine.target7 > 0 ? (Math.round((selectedResult.priceEngine.target7 - 1.5 * ((Number.isFinite(selectedResult.atrPct14) ? selectedResult.atrPct14 : 0) / 100 * selectedResult.lastClose)) * 20) / 20).toFixed(2) : '—')],
+                      ['Hard Reward:Risk', (() => { const r = selectedResult.priceEngine; const hs = r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop; const risk = r.plannedEntry - hs; return (risk > 0 ? (r.target5 - r.plannedEntry) / risk : 0).toFixed(2) + ':1'; })()],
+                      ['BE Trigger',    'T1 fill → hard stop to entry'],
+                      ['BE Stop',       '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2)],
+                      ['Trail @T1',     '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2) + ' (hard breakeven)'],
+                      ['Trail @T2',     'Prior highest close − 1.5× prior ATR; hard floor at T1'],
                       ['Gap',          selectedResult.priceEngine.gapPct.toFixed(2) + '% → ' + selectedResult.priceEngine.entryStatus],
                     ] as [string, string][]).map(([label, val]) => (
                       <div key={label} className="flex justify-between gap-2">

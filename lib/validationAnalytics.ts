@@ -1,5 +1,6 @@
 import {
   didReachFivePctTarget,
+  getFivePctObjectiveR,
   getTradeMaeR,
   getTradeMfeR,
   isTerminalTrade,
@@ -25,7 +26,7 @@ export function computeMfeMaeScatter(trades: TrackedTrade[]): MfeMaePoint[] {
   return trades
     .filter(t => isTradeResolvedForWinRate(t) && t.entryPrice > 0 && t.stopLoss > 0)
     .map(t => {
-      const pnlR = safe(t.pnlR ?? 0);
+      const pnlR = safe(getFivePctObjectiveR(t));
       return {
         symbol: t.symbol,
         maeR: safe(getTradeMaeR(t)),
@@ -110,8 +111,8 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   const wins = closed.filter(didReachFivePctTarget);
   const losses = closed.filter(t => !didReachFivePctTarget(t));
   const wr = closed.length > 0 ? wins.length / closed.length * 100 : 0;
-  const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / wins.length : 0;
-  const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / losses.length : 0;
+  const avgWinR = wins.length > 0 ? wins.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / wins.length : 0;
+  const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(safe(getFivePctObjectiveR(t))), 0) / losses.length : 0;
   const expectancy = closed.length > 0 ? safe((wins.length / closed.length) * avgWinR - (losses.length / closed.length) * avgLossR) : 0;
 
   // Simulate tighter stop (0.7R) — use stored maeR if available, else fall back to pnlR proxy
@@ -121,7 +122,7 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
     return Math.abs(t.pnlR ?? 0) <= 0.7;
   });
   const tighterWR = tighterSurvive.length > 0 ? tighterSurvive.filter(didReachFivePctTarget).length / tighterSurvive.length * 100 : 0;
-  const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / tighterSurvive.length : 0;
+  const tighterExp = tighterSurvive.length > 0 ? tighterSurvive.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / tighterSurvive.length : 0;
 
   // Simulate wider stop (1.5R) — trades that were stopped with |maeR| <= 1.5 survive
   const widerSurvive = closed.filter(t => {
@@ -130,7 +131,7 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
     return Math.abs(t.pnlR ?? 0) <= 1.5;
   });
   const widerWR = widerSurvive.length > 0 ? widerSurvive.filter(didReachFivePctTarget).length / widerSurvive.length * 100 : 0;
-  const widerExp = widerSurvive.length > 0 ? widerSurvive.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / widerSurvive.length : 0;
+  const widerExp = widerSurvive.length > 0 ? widerSurvive.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / widerSurvive.length : 0;
 
   // MFE reach analysis
   const mfeReachPct: OptimizationResult['mfeReachPct'] = [];
@@ -149,7 +150,7 @@ export function computeOptimization(trades: TrackedTrade[]): OptimizationResult 
   const avgMfeR = winsWithMfe.length > 0
     ? winsWithMfe.reduce((s, t) => s + getTradeMfeR(t), 0) / winsWithMfe.length : 1;
   const avgWinRForCapture = winsWithMfe.length > 0
-    ? winsWithMfe.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / winsWithMfe.length : 0;
+    ? winsWithMfe.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / winsWithMfe.length : 0;
   const profitCapturePct = avgMfeR > 0 ? safe(avgWinRForCapture / avgMfeR * 100) : 0;
 
   return {
@@ -182,7 +183,7 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
 
   return periods.map(p => {
     const wins = p.trades.filter(didReachFivePctTarget);
-    const avgR = p.trades.length > 0 ? p.trades.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / p.trades.length : 0;
+    const avgR = p.trades.length > 0 ? p.trades.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / p.trades.length : 0;
     return {
       regime: p.label, trades: p.trades.length,
       winRate: p.trades.length > 0 ? safe(wins.length / p.trades.length * 100) : 0,
@@ -191,8 +192,8 @@ export function computeRegimePerformance(trades: TrackedTrade[]): RegimePerf[] {
         const pWins = p.trades.filter(didReachFivePctTarget);
         const pLosses = p.trades.filter(t => !didReachFivePctTarget(t));
         const wr2 = p.trades.length > 0 ? pWins.length / p.trades.length : 0;
-        const awr = pWins.length > 0 ? pWins.reduce((s, t) => s + safe(Math.max(t.pnlR ?? 0, getTradeMfeR(t))), 0) / pWins.length : 0;
-        const alr = pLosses.length > 0 ? pLosses.reduce((s, t) => s + Math.abs(safe(t.pnlR ?? 0)), 0) / pLosses.length : 0;
+        const awr = pWins.length > 0 ? pWins.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / pWins.length : 0;
+        const alr = pLosses.length > 0 ? pLosses.reduce((s, t) => s + Math.abs(safe(getFivePctObjectiveR(t))), 0) / pLosses.length : 0;
         return safe(wr2 * awr - (1 - wr2) * alr);
       })(),
     };
@@ -217,8 +218,8 @@ export function computeSectorPerformance(trades: TrackedTrade[]): SectorPerf[] {
   for (const [sector, st] of sectors) {
     if (st.length < 1) continue;
     const wins = st.filter(didReachFivePctTarget);
-    const avgR = st.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / st.length;
-    const best = st.reduce((b, t) => Math.max(t.pnlR ?? 0, getTradeMfeR(t)) > Math.max(b.pnlR ?? 0, getTradeMfeR(b)) ? t : b, st[0]);
+    const avgR = st.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / st.length;
+    const best = st.reduce((b, t) => getFivePctObjectiveR(t) > getFivePctObjectiveR(b) ? t : b, st[0]);
     results.push({ sector, trades: st.length, winRate: safe(wins.length / st.length * 100), avgR: safe(avgR), bestSymbol: best.symbol });
   }
   return results.sort((a, b) => (b.avgR - a.avgR) || a.sector.localeCompare(b.sector));
@@ -234,7 +235,7 @@ export function computeConvictionCorrelation(trades: TrackedTrade[]): { points: 
   const closed = trades.filter(t => isTradeResolvedForWinRate(t) && t.conviction != null);
   const points = closed.map(t => ({
     conviction: t.conviction ?? 0,
-    pnlR: safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)),
+    pnlR: safe(getFivePctObjectiveR(t)),
     symbol: t.symbol,
     winner: didReachFivePctTarget(t),
   }));
@@ -263,7 +264,7 @@ export function computeEdgeDecay(trades: TrackedTrade[], windowSize = 5): { poin
   for (let i = windowSize; i <= closed.length; i++) {
     const window = closed.slice(i - windowSize, i);
     const wins = window.filter(didReachFivePctTarget).length;
-    const avgR = window.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / windowSize;
+    const avgR = window.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / windowSize;
     points.push({ windowEnd: i, winRate: safe(wins / windowSize * 100), avgR: safe(avgR) });
   }
 
@@ -302,7 +303,7 @@ export function computeDayOfWeek(trades: TrackedTrade[]): DayPerf[] {
     results.push({
       day: days[d], trades: bt.length,
       winRate: safe(wins.length / bt.length * 100),
-      avgR: safe(bt.reduce((s, t) => s + safe(didReachFivePctTarget(t) ? Math.max(t.pnlR ?? 0, getTradeMfeR(t)) : (t.pnlR ?? 0)), 0) / bt.length),
+      avgR: safe(bt.reduce((s, t) => s + safe(getFivePctObjectiveR(t)), 0) / bt.length),
     });
   }
   return results;

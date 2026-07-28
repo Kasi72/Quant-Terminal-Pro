@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export interface UCHitter {
   symbol:     string;
@@ -62,7 +62,7 @@ async function unzipFirst(buf: Uint8Array): Promise<string | null> {
   }
   if (method === 8) {
     try {
-      // DecompressionStream is available in Node 18+ (Vercel runtime)
+      // DecompressionStream is available in the Node 18+ Vercel runtime.
       const ds     = new DecompressionStream('deflate-raw');
       const writer = ds.writable.getWriter();
       const reader = ds.readable.getReader();
