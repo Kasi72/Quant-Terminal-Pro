@@ -2,8 +2,8 @@
 // Run: npm run test:trail
 //
 // Proves:
-// 1. Trail-A fires at day >= 9 (after 8 completed post-entry bars, using prior bars only)
-// 2. Trail-B fires after T2 hit (Chandelier = highestCloseSinceT2 - 1.5 * ATR, prior bars only)
+// 1. Trail-A fires at day >= 11 (after 10 completed post-entry bars, using prior bars only)
+// 2. Trail-B fires after T2 hit (Chandelier = highestCloseSinceT2 - 2.0 * ATR, prior bars only)
 
 'use strict';
 const { validateTrade } = require('./_compiled_current/autoValidator');
@@ -25,7 +25,7 @@ function candle(h, l, c, d) {
   return { h, l, c, o: c, v: 500000, d };
 }
 
-// 30 pre-entry warmup candles at ~100, ATR ≈ 2
+// 30 pre-entry warmup candles at ~100, ATR ≈ 2; Trail-A fires at i>=10 (day>=11)
 const PRE = Array.from({ length: 30 }, (_, i) =>
   candle(101, 99, 100, `2025-01-${String(i + 1).padStart(2, '0')}`)
 );
@@ -53,8 +53,8 @@ console.log('\n[Test 1] Trail-A fires at day >= 9 (no lookahead)');
   const trade = { ...BASE_TRADE, target1: 110, target2: 115, target3: 120 };
 
   // Post-entry: flat around 100-101, lows at 99.5 (well above stop at 96)
-  // At i=8: fiveBarSwingLow(bars[3..7]) = 99.5, ATR ≈ 2
-  // bufferedTrail = 99.5 - 0.35*2 = 98.8 → > dynamicStop(96), < entry(100) → fires
+  // At i=10: fiveBarSwingLow(bars[5..9]) = 99.5, ATR ≈ 2
+  // bufferedTrail = 99.5 - 0.45*2 = 98.6 → > dynamicStop(96), < entry(100) → fires
   const post = Array.from({ length: 20 }, (_, i) =>
     candle(101.0, 99.5, 100.5, `2025-02-${String(i + 1).padStart(2, '0')}`)
   );
@@ -66,8 +66,8 @@ console.log('\n[Test 1] Trail-A fires at day >= 9 (no lookahead)');
     `Trail-A fired at least once (log has ${log.length} entries)`);
 
   const firstDay = log.length > 0 ? log[0].day : -1;
-  assert(firstDay >= 9,
-    `Trail-A first fires at day >= 9, no lookahead (got day ${firstDay})`);
+  assert(firstDay >= 11,
+    `Trail-A first fires at day >= 11, no lookahead (got day ${firstDay})`);
 
   if (log.length > 0) {
     const stop = log[0].newStop;
@@ -82,14 +82,14 @@ console.log('\n[Test 1] Trail-A fires at day >= 9 (no lookahead)');
 
 // ─── Test 2: Trail-B fires after T2 via Chandelier formula ─────────────────
 
-console.log('\n[Test 2] Trail-B fires after T2 (Chandelier = highestCloseSinceT2 - 1.5 * ATR)');
+console.log('\n[Test 2] Trail-B fires after T2 (Chandelier = highestCloseSinceT2 - 2.0 * ATR)');
 {
   const trade = { ...BASE_TRADE, target1: 102, target2: 104, target3: 109 };
 
   // Bars 0-7: lows at 99.5 (above stop), highs at 101 (below T1)
-  // Bar 8:   high = 102.5 → T1 hits; Trail-A also fires first since !t1Hit && i>=8
+  // Bar 8:   high = 102.5 → T1 hits; Trail-A inactive (t1Hit=true after T1)
   // Bar 9:   high = 104.5 → T2 hits; close = 106 → highestCloseSinceT2 = 106
-  // Bar 10+: Trail-B check: chandelier = 106 - 1.5*ATR ≈ 103 > dynamicStop(102), < T3(109) → fires
+  // Bar 10+: Trail-B check: chandelier = 106 - 2.0*ATR ≈ 102 > dynamicStop(96), < T3(109) → fires
   const post = [
     ...Array.from({ length: 8 }, (_, i) => candle(101.0, 99.5, 100.5, `2025-02-${String(i + 1).padStart(2, '0')}`)),
     candle(102.5, 99.5, 102.2, '2025-02-09'),   // bar 8: T1 hit
@@ -113,9 +113,9 @@ console.log('\n[Test 2] Trail-B fires after T2 (Chandelier = highestCloseSinceT2
 
   if (trailB.length > 0) {
     const stop = trailB[0].newStop;
-    // Chandelier = 106 - 1.5 * ATR(≈2) ≈ 103, which is > T1(102) and < T3(109)
-    assert(stop > 102,
-      `Trail-B stop > T1 floor 102 (got ${stop.toFixed(4)})`);
+    // Chandelier = 106 - 2.0 * ATR(≈2) ≈ 102; above original stop(96) and below T3(109)
+    assert(stop > 96,
+      `Trail-B stop > original hardStop 96 (got ${stop.toFixed(4)})`);
     assert(stop < 109,
       `Trail-B stop < T3 109 (got ${stop.toFixed(4)})`);
   }

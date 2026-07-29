@@ -255,18 +255,19 @@ export function validateTrade(
       break;
     }
 
-    // Trail-A starts after eight completed post-entry bars and uses only prior bars.
-    if (!t1Hit && i >= 8) {
+    // Trail-A starts after ten completed post-entry bars and uses only prior bars.
+    // 10 bars (vs 8) gives trades more room to develop before tightening the stop.
+    if (!t1Hit && i >= 10) {
       const swingLow = fiveBarSwingLow(history, histIdx - 1);
       const trailAtr = computeATR14(history, histIdx - 1);
-      const bufferedTrail = swingLow - 0.35 * trailAtr;
+      const bufferedTrail = swingLow - 0.45 * trailAtr;
       if (bufferedTrail > dynamicStop && bufferedTrail < entry) {
         const oldStop = dynamicStop;
         dynamicStop = bufferedTrail;
         trailLog.push({
           day: i + 1,
           newStop: dynamicStop,
-          reason: `Day-${i + 1} review trail: ₹${oldStop.toFixed(2)} → ₹${dynamicStop.toFixed(2)} (prior swing ₹${swingLow.toFixed(2)} − 0.35×ATR)`,
+          reason: `Day-${i + 1} review trail: ₹${oldStop.toFixed(2)} → ₹${dynamicStop.toFixed(2)} (prior swing ₹${swingLow.toFixed(2)} − 0.45×ATR)`,
         });
       }
     }
@@ -277,14 +278,14 @@ export function validateTrade(
       const rawAtr = computeATR14(history, histIdx - 1);
       const atr14Floor = trade.atr14AtEntry && trade.atr14AtEntry > 0 ? trade.atr14AtEntry : 0;
       const atr = rawAtr > 0 ? Math.max(rawAtr, atr14Floor * 0.5) : atr14Floor;
-      const chandelier = highestCloseSinceT2 - 1.5 * atr;
+      const chandelier = highestCloseSinceT2 - 2.0 * atr;
       if (chandelier > dynamicStop && chandelier < trade.target3) {
         const oldStop = dynamicStop;
         dynamicStop = chandelier;
         trailLog.push({
           day: i + 1,
           newStop: dynamicStop,
-          reason: `Chandelier: high close ₹${highestCloseSinceT2.toFixed(2)} − 1.5×ATR ₹${atr.toFixed(2)} = ₹${dynamicStop.toFixed(2)} (was ₹${oldStop.toFixed(2)})`,
+          reason: `Chandelier: high close ₹${highestCloseSinceT2.toFixed(2)} − 2.0×ATR ₹${atr.toFixed(2)} = ₹${dynamicStop.toFixed(2)} (was ₹${oldStop.toFixed(2)})`,
         });
       }
     }
@@ -335,7 +336,7 @@ export function validateTrade(
       const obvSlope = obv5Slope(history, histIdx);
       const dipBelowStop = (dynamicStop - lo) / dynamicStop * 100;
       const closeDistanceAtr = atr14 > 0 ? Math.max(0, dynamicStop - close) / atr14 : Infinity;
-      const nearStop = close >= dynamicStop || closeDistanceAtr <= 0.25;
+      const nearStop = close >= dynamicStop || closeDistanceAtr <= 0.30;
       const closedAboveStop = close >= dynamicStop;
 
       const ch1 = prev ? close - prev.c : 0;
@@ -351,7 +352,9 @@ export function validateTrade(
       const isHammer = lwPct >= 40 && closeLoc >= 55 && nearStop;
       const hasVolume = avgV > 0 && vol > 0;
       const isAccumulation = hasVolume && obvSlope > 0;
-      const isNarrowSweep = atr14 > 0 && range < 0.75 * atr14 && closedAboveStop;
+      // Ultra-tight bars (< 0.5×ATR) that close within 0.15×ATR of stop are algo stop-hunts.
+      const isDoji = atr14 > 0 && range < 0.5 * atr14 && closeDistanceAtr <= 0.15;
+      const isNarrowSweep = atr14 > 0 && range < 0.75 * atr14 && (closedAboveStop || isDoji);
       const isLowVolSweep = hasVolume && volRatio < 0.65 && nearStop;
       const isolatedRed = !!prev && (prev.o ?? prev.c) <= prev.c && prev.c > dynamicStop && nearStop;
       const stopToLowRange = Math.max(0, dynamicStop - lo);
