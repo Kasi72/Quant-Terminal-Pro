@@ -27,10 +27,16 @@ export const DEFAULT_TG_CONFIG: TelegramConfig = {
 
 export function loadTelegramConfig(): TelegramConfig {
   try {
-    const raw = localStorage.getItem('qtp_telegram');
+    const newRaw = localStorage.getItem('qtp_telegram');
+    const raw = newRaw ?? localStorage.getItem('qtp_tg_config'); // legacy key fallback
     if (!raw) return DEFAULT_TG_CONFIG;
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_TG_CONFIG, ...parsed, alerts: { ...DEFAULT_TG_CONFIG.alerts, ...(parsed.alerts ?? {}) } };
+    const merged = { ...DEFAULT_TG_CONFIG, ...parsed, alerts: { ...DEFAULT_TG_CONFIG.alerts, ...(parsed.alerts ?? {}) } };
+    if (!newRaw) {
+      // Migrate old key → new key so next load reads from the correct location
+      try { localStorage.setItem('qtp_telegram', JSON.stringify(merged)); } catch {}
+    }
+    return merged;
   } catch { return DEFAULT_TG_CONFIG; }
 }
 

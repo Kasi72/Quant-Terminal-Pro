@@ -11,6 +11,7 @@
     "compile:watch": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts --watch",
     "backtest:hitrate": "npm run compile:engine && node scripts/fivePctHitRateBacktest.js",
     "test:stop-engine": "npm run compile:engine && node scripts/stopEngineRegression.js",
+    "test:trail": "npm run compile:engine && node scripts/trailRegressionTest.js",
     "check-params": "node scripts/checkParams.js",
     "update-params": "node scripts/checkParams.js --update"
   },

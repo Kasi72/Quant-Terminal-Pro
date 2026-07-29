@@ -175,9 +175,19 @@ function getFivePctObjectiveR(t) {
         ? (exports.FIVE_PCT_WIN_THRESHOLD / 100 * t.entryPrice) / riskPerShare
         : 0;
 }
+const ACTIVE_STATUSES = new Set(['open', 'hit_t1', 'hit_t2']);
+const TERMINAL_STATUSES = new Set(['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early']);
 function isTerminalTrade(t) {
     const hasCloseDate = typeof t.closedDate === 'string' && t.closedDate.trim().length > 0;
-    return hasCloseDate || !['open', 'hit_t1', 'hit_t2'].includes(t.status);
+    if (hasCloseDate)
+        return true;
+    if (TERMINAL_STATUSES.has(t.status))
+        return true;
+    if (ACTIVE_STATUSES.has(t.status))
+        return false;
+    // Unknown status — quarantine: treat as terminal to prevent silent reprocessing
+    console.warn(`[isTerminalTrade] unknown status "${t.status}" on trade ${t.symbol ?? '?'} — quarantined`);
+    return true;
 }
 function isTradeResolvedForWinRate(t) {
     return didReachFivePctTarget(t) || isTerminalTrade(t);

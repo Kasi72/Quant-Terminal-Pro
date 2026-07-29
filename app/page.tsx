@@ -20,7 +20,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
                 const preserveKeys = [
                   'qtp_tracked_trades', 'qtp_tracked_trades_backup', 'qtp_tracked_trades_emergency',
                   'qtp_watchlist', 'qtp_sessions', 'qtp_signal_history', 'qtp_favorites',
-                  'qtp_reviews', 'qtp_theme', 'qtp_paramSetKey', 'qtp_paramset', 'qtp_telegram',
+                  'qtp_reviews', 'qtp_theme', 'qtp_paramSetKey', 'qtp_paramset', 'qtp_telegram', 'qtp_tg_config',
                 ];
                 const saved: Record<string, string | null> = {};
                 for (const key of preserveKeys) saved[key] = localStorage.getItem(key);
