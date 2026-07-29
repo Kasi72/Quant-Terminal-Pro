@@ -14,15 +14,70 @@ function safeString(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback;
 }
 
+const TRADE_STATUSES = new Set([
+  'open', 'hit_t1', 'hit_t2', 'hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early',
+]);
+
+const PARAM_SET_KEYS = new Set([
+  'optimized_deployable_20plus',
+  'optimized_highprecision_15plus',
+  'optimized_elite_10plus',
+  'optimized_ultraselective_8plus',
+  'sniper_95plus',
+  'ors_prime_reversal',
+  'circuit_breaker_v2',
+]);
+
+function isDateOnly(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function finiteNumber(value: unknown, min: number, max: number): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
+function optionalFiniteNumber(value: unknown, min: number, max: number): boolean {
+  return value == null || finiteNumber(value, min, max);
+}
+
 export function isPlausibleTrade(value: unknown): value is TrackedTrade {
   if (!value || typeof value !== 'object') return false;
   const t = value as Partial<TrackedTrade>;
-  return typeof t.symbol === 'string'
-    && /^[A-Z0-9._&-]{1,30}$/.test(t.symbol)
-    && typeof t.entryDate === 'string'
-    && safeNum(t.entryPrice, 0)! > 0
-    && safeNum(t.stopLoss, 0)! >= 0
-    && typeof t.status === 'string';
+  if (typeof t.symbol !== 'string' || !/^[A-Z0-9._&-]{1,30}$/.test(t.symbol)) return false;
+  if (!isDateOnly(t.entryDate)) return false;
+  if (t.closedDate != null && t.closedDate !== '' && !isDateOnly(String(t.closedDate).slice(0, 10))) return false;
+  if (!finiteNumber(t.entryPrice, 0.01, 10_000_000)) return false;
+  if (!finiteNumber(t.stopLoss, 0, 10_000_000)) return false;
+  if (t.stopLoss > 0 && t.stopLoss >= t.entryPrice) return false;
+  if (!TRADE_STATUSES.has(String(t.status))) return false;
+  if (t.paramSetKey != null && t.paramSetKey !== '' && !PARAM_SET_KEYS.has(String(t.paramSetKey))) return false;
+
+  const target1 = safeNum(t.target1, 0) ?? 0;
+  const target2 = safeNum(t.target2, 0) ?? 0;
+  const target3 = safeNum(t.target3, 0) ?? 0;
+  if (![target1, target2, target3].every(v => Number.isFinite(v) && v >= 0 && v <= 20_000_000)) return false;
+  if (target1 > 0 && target1 <= t.entryPrice) return false;
+  if (target2 > 0 && target1 > 0 && target2 < target1) return false;
+  if (target3 > 0 && target2 > 0 && target3 < target2) return false;
+
+  const disasterStop = safeNum(t.disasterStop, 0) ?? 0;
+  if (!Number.isFinite(disasterStop) || disasterStop < 0 || disasterStop > 10_000_000) return false;
+  if (disasterStop > 0 && disasterStop >= t.entryPrice) return false;
+
+  return optionalFiniteNumber(t.currentPrice, 0, 20_000_000)
+    && optionalFiniteNumber(t.highestPrice, 0, 20_000_000)
+    && optionalFiniteNumber(t.closedPrice, 0, 20_000_000)
+    && optionalFiniteNumber(t.pnlPct, -100, 10_000)
+    && optionalFiniteNumber(t.pnlR, -100, 10_000)
+    && optionalFiniteNumber(t.mfe, -100, 10_000)
+    && optionalFiniteNumber(t.mae, -100, 10_000)
+    && optionalFiniteNumber(t.mfeR, -100, 10_000)
+    && optionalFiniteNumber(t.maeR, -100, 10_000)
+    && optionalFiniteNumber(t.qty, 0, 100_000_000)
+    && optionalFiniteNumber(t.daysHeld, 0, 10_000)
+    && optionalFiniteNumber(t.conviction, 0, 100);
 }
 
 export function tradeToRow(t: TrackedTrade): TrackedTradeRow {

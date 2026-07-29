@@ -16,6 +16,11 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-token',
+};
+
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 function isAuthorized(req: Request): boolean {
@@ -72,8 +77,9 @@ async function fetchBSEBhavcopy(): Promise<{ rows: Record<string, string>[]; dat
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (!isAuthorized(req)) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
   }
 
   try {

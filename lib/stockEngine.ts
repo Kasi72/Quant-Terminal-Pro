@@ -2607,7 +2607,7 @@ function archetypeTech(candles: Candle[], endIdx: number): Record<string, number
 
 // Path 2 multi-factor VCP tier classifier
 // GA-optimal geometry (near52w=10, tight=15) + 4 secondary quality gates.
-// All 6 archetypes call this after archetypePriceEngine so breakoutTier is live.
+// All production archetypes call this after archetypePriceEngine so breakoutTier is live.
 function computeBreakoutTier(
   candles: Candle[],
   endIdx: number,

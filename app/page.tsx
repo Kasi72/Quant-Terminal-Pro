@@ -20,7 +20,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
                 const preserveKeys = [
                   'qtp_tracked_trades', 'qtp_tracked_trades_backup', 'qtp_tracked_trades_emergency',
                   'qtp_watchlist', 'qtp_sessions', 'qtp_signal_history', 'qtp_favorites',
-                  'qtp_reviews', 'qtp_theme', 'qtp_paramSetKey', 'qtp_paramset', 'qtp_tg_config',
+                  'qtp_reviews', 'qtp_theme', 'qtp_paramSetKey', 'qtp_paramset', 'qtp_telegram',
                 ];
                 const saved: Record<string, string | null> = {};
                 for (const key of preserveKeys) saved[key] = localStorage.getItem(key);
@@ -653,7 +653,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">1-3%</span></div><div><div class="rt-desc">Below-average magnitude — WR can be decent (54-66%) but moves are small (+1.2 to +1.7% avg 20d), monster rate only 9-30%.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">6-8% caution</span></div><div><div class="rt-desc">Transitional zone — thin data shows degradation (44.1% WR, -2.67% avg5d at 6-7%). Treat with caution.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-red">&gt;10% DANGER</span></div><div><div class="rt-desc">Catastrophic — 27.4% WR, -19.69% avg 20d return. Almost always distressed/crashing stocks, not healthy momentum. AVOID.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Used by</span></div><div><div class="rt-desc">Stop formula: ZoneLow - 0.5×ATR14 [4%, 6.5%]. Targets: T1 = 2.15×ATR14 [4%, 12%]. All 5 param sets reference ATR-14.</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Used by</span></div><div><div class="rt-desc">Stop formula: ZoneLow - 0.5×ATR14 [4%, 6.5%]. Targets: T1 = 2.15×ATR14 [4%, 12%]. Core breakout param sets reference ATR-14.</div></div></div>',
     fmt: r => r.atrPct14 > 0 ? r.atrPct14.toFixed(1) + '%' : '—',
     numVal: r => r.atrPct14,
     cellClass: r => r.atrPct14 > 10 ? 'text-red-500 font-bold font-mono' : r.atrPct14 >= 6 ? 'text-orange-400 font-mono' : r.atrPct14 >= 4 ? 'text-green-300 font-bold font-mono' : r.atrPct14 >= 3 ? 'text-emerald-400 font-mono' : r.atrPct14 >= 1 ? 'text-slate-400 font-mono' : 'text-slate-700 font-mono' },
@@ -2867,13 +2867,13 @@ function HomePageInner() {
           className={`ml-2 border-2 rounded-md text-[13px] font-semibold px-3 py-1.5 focus:outline-none cursor-pointer shadow-md transition-all ${scanAll ? 'bg-cyan-950 border-cyan-400 text-cyan-100 focus:border-cyan-300' : 'bg-slate-950 border-indigo-500 text-indigo-100 focus:border-indigo-300'}`}
           style={{colorScheme:'dark'}}
         >
-          <option value="ALL4">★ All 6 Param Sets (Multi-Scan)</option>
+          <option value="ALL4">★ All {PARAM_SET_OPTIONS.length} Param Sets (Multi-Scan)</option>
           {PARAM_SET_OPTIONS.map(o => (
             <option key={o.key} value={o.key}>{o.name} [{o.tag}]</option>
           ))}
         </select>
         {/* Feature #3: Lookback — disabled in multi-scan mode */}
-        <div className="flex items-center gap-1 text-xs" data-tip={scanAll ? 'Lookback N/A in 6-Set mode' : undefined} data-tip-color={scanAll ? 'slate' : undefined}>
+        <div className="flex items-center gap-1 text-xs" data-tip={scanAll ? `Lookback N/A in ${PARAM_SET_OPTIONS.length}-Set mode` : undefined} data-tip-color={scanAll ? 'slate' : undefined}>
           <span className={scanAll ? 'text-slate-700' : 'text-slate-600'}>Lookback:</span>
           <select value={lookback} onChange={e => setLookback(Number(e.target.value))}
             disabled={scanAll}
@@ -3601,7 +3601,7 @@ function HomePageInner() {
                   )}
                   <span className="text-slate-500">{s.totalScanned} stocks</span>
                   <span className="text-emerald-500 font-semibold">{s.actionableCount} BUY</span>
-                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? '6-Set' : s.paramSet === 'ors_prime_reversal' ? 'ORS↩' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
+                  <span className="text-slate-600">{s.paramSet === 'ALL4' ? `${PARAM_SET_OPTIONS.length}-Set` : s.paramSet === 'ors_prime_reversal' ? 'ORS↩' : s.paramSet.replace('optimized_', '').slice(0, 8)}</span>
                   {/* Compare with previous session */}
                   {i < sessions.length - 1 && (
                     <button onClick={() => { setSessionDiff(compareSessions(sessions[i + 1], s)); }}
@@ -4163,7 +4163,15 @@ function HomePageInner() {
                 <div className="px-3 py-2 bg-slate-800/50">
                   <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Open Positions ({trackedTrades.filter(t => t.status === 'open').length})</span>
                   {trackedTrades.length > 0 && (
-                    <button onClick={() => { if (confirm('Remove ALL tracked trades? This cannot be undone.')) { deleteAllTradesFromCloud(); setTrackedTrades([]); } }}
+                    <button onClick={async () => {
+                      if (!confirm('Remove ALL tracked trades? This cannot be undone.')) return;
+                      try {
+                        await deleteAllTradesFromCloud();
+                        setTrackedTrades([]);
+                      } catch (error) {
+                        alert(`Cloud delete failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+                      }
+                    }}
                       className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                   )}
                 </div>
@@ -5125,11 +5133,7 @@ function HomePageInner() {
                     setBacktestError(null);
                     const _run = async () => {
                       const WINDOW = 250;
-                      const ARCH_KEYS: ParamSetKey[] = [
-                        'ors_prime_reversal', 'optimized_deployable_20plus',
-                        'optimized_highprecision_15plus', 'optimized_elite_10plus',
-                        'optimized_ultraselective_8plus', 'circuit_breaker_v2',
-                      ];
+                      const ARCH_KEYS: ParamSetKey[] = PARAM_SET_OPTIONS.map(o => o.key);
                       const allTrades: BacktestTrade[] = [];
                       const symbolList = Object.keys(candleCache);
                       for (let si = 0; si < symbolList.length; si++) {
@@ -6305,17 +6309,19 @@ function HomePageInner() {
                               if (!file) return;
                               if (file.size > 2_000_000) { alert('Trade backup file is too large'); return; }
                               const reader = new FileReader();
-                              reader.onload = (ev) => {
+                              reader.onload = async (ev) => {
                                 try {
                                   const parsed = JSON.parse(ev.target?.result as string);
                                   if (Array.isArray(parsed) && parsed.length <= 500 && parsed.every(isPlausibleTrade)) {
                                     const restored = parsed as TrackedTrade[];
                                     if (confirm(`Restore ${restored.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
-                                      deleteAllTradesFromCloud(); // purge old cloud rows before seeding
+                                      await deleteAllTradesFromCloud(); // purge old cloud rows before seeding
                                       setTrackedTrades(restored);
                                     }
                                   } else { alert('Invalid trade backup file'); }
-                                } catch { alert('Failed to parse backup file'); }
+                                } catch (error) {
+                                  alert(`Trade restore failed: ${error instanceof Error ? error.message : 'failed to parse backup file'}`);
+                                }
                               };
                               reader.readAsText(file);
                             };
@@ -6550,7 +6556,15 @@ function HomePageInner() {
                     <div className="flex items-center mb-2">
                       <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2"><span className="w-1 h-4 bg-emerald-500 rounded-full"></span>Trade Log ({all.length} trades)</span>
                       {all.length > 0 && (
-                        <button onClick={() => { if (confirm('Remove ALL tracked trades?')) { deleteAllTradesFromCloud(); setTrackedTrades([]); } }}
+                        <button onClick={async () => {
+                          if (!confirm('Remove ALL tracked trades?')) return;
+                          try {
+                            await deleteAllTradesFromCloud();
+                            setTrackedTrades([]);
+                          } catch (error) {
+                            alert(`Cloud delete failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+                          }
+                        }}
                           className="text-xs text-red-600 hover:text-red-400 ml-auto transition-colors">Clear All</button>
                       )}
                     </div>
@@ -8693,7 +8707,7 @@ function HomePageInner() {
           )
         )}
         {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
-        <span className="ml-auto hidden sm:block">{scanAll ? '★ All 5 Sets' : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v9.0</span>
+        <span className="ml-auto hidden sm:block">{scanAll ? `★ All ${PARAM_SET_OPTIONS.length} Sets` : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v9.0</span>
       </footer>
     </main>
   );

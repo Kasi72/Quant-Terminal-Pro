@@ -55,14 +55,15 @@ function saveToLocal(trades: TrackedTrade[]) {
 
 let _syncing = false;
 let _pendingTrades: TrackedTrade[] | null = null;
+let _activeSync: Promise<void> | null = null;
 
 // Upsert all trades to Supabase + mirror to localStorage (fire-and-forget)
 export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
   saveToLocal(trades);
   _pendingTrades = trades;
-  if (_syncing) return;
+  if (_syncing) return _activeSync ?? Promise.resolve();
   _syncing = true;
-  try {
+  _activeSync = (async () => {
     while (_pendingTrades) {
       const batch = _pendingTrades;
       _pendingTrades = null;
@@ -76,11 +77,19 @@ export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
         console.error('[tradeSync] upsert failed:', body.error ?? res.statusText);
       }
     }
+  })();
+  try {
+    await _activeSync;
   } catch (e) {
     console.error('[tradeSync] syncTradesToCloud error:', e);
   } finally {
     _syncing = false;
+    _activeSync = null;
   }
+}
+
+async function waitForSyncIdle(): Promise<void> {
+  while (_activeSync) await _activeSync;
 }
 
 // Delete one trade from cloud
@@ -98,16 +107,19 @@ export async function deleteTradeFromCloud(symbol: string): Promise<void> {
 
 // Delete all trades from cloud AND wipe localStorage so next load doesn't re-seed
 export async function deleteAllTradesFromCloud(): Promise<void> {
-  // Wipe localStorage immediately — prevents stale local data from re-seeding cloud on next load
+  // Serialize behind any in-flight upsert; otherwise an older PUT can recreate
+  // rows after this DELETE has completed.
+  await waitForSyncIdle();
+  const res = await fetch('/api/trades', { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({} as { error?: string }));
+    throw new Error(body.error ?? res.statusText);
+  }
+
+  // Wipe localStorage only after the cloud delete is confirmed. If the network
+  // fails, keep the local copy as the user's recoverable source of truth.
   const empty = '[]';
   try { localStorage.setItem(LS_KEY, empty); } catch {}
   try { localStorage.setItem(LS_BACKUP, empty); } catch {}
   try { localStorage.setItem(LS_EMERGENCY, empty); } catch {}
-  try {
-    const res = await fetch('/api/trades', { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({} as { error?: string }));
-      console.error('[tradeSync] delete all failed:', body.error ?? res.statusText);
-    }
-  } catch {}
 }

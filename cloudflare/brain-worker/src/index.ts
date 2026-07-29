@@ -101,18 +101,15 @@ function rowToFeatures(r: EventRow): EventFeatures {
   };
 }
 
-// Workers runtime extends SubtleCrypto with a synchronous timing-safe compare.
-interface SubtleCryptoWithTSE extends SubtleCrypto {
-  timingSafeEqual(a: ArrayBufferView, b: ArrayBufferView): boolean;
-}
-
 function tokenMatches(provided: string | null, expected: string): boolean {
   if (!provided) return false;
   const enc = new TextEncoder();
   const a = enc.encode(provided);
   const b = enc.encode(expected);
   if (a.byteLength !== b.byteLength) return false;
-  return (crypto.subtle as SubtleCryptoWithTSE).timingSafeEqual(a, b);
+  let diff = 0;
+  for (let i = 0; i < a.byteLength; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
 }
 
 const CORS: Record<string, string> = {
@@ -142,6 +139,14 @@ function json(data: unknown, status = 200, req?: Request, env?: Env): Response {
     status,
     headers: { 'content-type': 'application/json', ...corsHeaders(req, env) },
   });
+}
+
+async function readJsonWithLimit<T>(req: Request, maxBytes: number): Promise<T> {
+  const declaredLength = Number(req.headers.get('content-length') ?? 0);
+  if (declaredLength > maxBytes) throw new Error('payload too large');
+  const raw = await req.text();
+  if (new TextEncoder().encode(raw).byteLength > maxBytes) throw new Error('payload too large');
+  return JSON.parse(raw) as T;
 }
 
 async function supabaseGet(env: Env, path: string): Promise<unknown> {
@@ -210,7 +215,9 @@ async function fetchYahooOHLCV(symbol: string, fromDate: string, toDate: string)
     const result = j.chart?.result?.[0];
     if (!result?.timestamp) return [];
     const quote = result.indicators?.quote?.[0];
-    const closes = result.indicators?.adjclose?.[0]?.adjclose ?? quote?.close ?? [];
+    // Keep OHLC in one price basis. Mixing adjusted close with raw high/low can
+    // corrupt outcome labels around corporate actions.
+    const closes = quote?.close ?? [];
     const highs = quote?.high ?? closes;
     const lows = quote?.low ?? closes;
     return result.timestamp
@@ -358,11 +365,13 @@ export default {
         return json(await ingest(env), 200, req, env);
       }
       if (req.method === 'POST' && pathname === '/similar') {
-        const declaredLength = Number(req.headers.get('content-length') ?? 0);
-        if (declaredLength > MAX_REQUEST_BYTES) {
-          return json({ error: 'payload too large' }, 413, req, env);
+        let body: { features?: EventFeatures; shape?: number[] | null; topK?: number };
+        try {
+          body = await readJsonWithLimit(req, MAX_REQUEST_BYTES);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'invalid json';
+          return json({ error: message === 'payload too large' ? message : 'invalid json' }, message === 'payload too large' ? 413 : 400, req, env);
         }
-        const body = await req.json() as { features?: EventFeatures; shape?: number[] | null; topK?: number };
         if (!body.features) return json({ error: 'features required' }, 400, req, env);
         return json(await similar(env, body.features, body.topK ?? 10, body.shape), 200, req, env);
       }
