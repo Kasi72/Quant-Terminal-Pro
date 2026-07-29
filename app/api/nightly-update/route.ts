@@ -123,6 +123,43 @@ function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
   return bars;
 }
 
+// ── Nifty 50 regime map ───────────────────────────────────────────────────────
+
+function normalizeRegime(raw: string | null | undefined): 'bull' | 'flat' | 'bear' | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase();
+  if (s.includes('bull')) return 'bull';
+  if (s.includes('bear')) return 'bear';
+  if (s === 'flat') return 'flat';
+  return null;
+}
+
+async function buildNiftyRegimeMap(): Promise<Map<string, 'bull' | 'flat' | 'bear'>> {
+  const map = new Map<string, 'bull' | 'flat' | 'bear'>();
+  try {
+    const hosts = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
+    let json: Record<string, unknown> | null = null;
+    for (const host of hosts) {
+      try {
+        const res = await fetch(
+          `https://${host}/v8/finance/chart/%5ENSEI?interval=1d&range=2y&includePrePost=false`,
+          { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) },
+        );
+        if (res.ok) { json = await res.json() as Record<string, unknown>; break; }
+      } catch { /* try next */ }
+    }
+    if (!json) return map;
+    const bars = parseYahooCandles(json);
+    const WIN = 50;
+    for (let i = WIN - 1; i < bars.length; i++) {
+      const sma = bars.slice(i - WIN + 1, i + 1).reduce((s, b) => s + b.close, 0) / WIN;
+      const c = bars[i].close;
+      map.set(bars[i].date, c > sma * 1.01 ? 'bull' : c < sma * 0.99 ? 'bear' : 'flat');
+    }
+  } catch { /* non-fatal */ }
+  return map;
+}
+
 // ── Supabase row helpers (mirrored from tradeSync.ts) ─────────────────────────
 
 function safeNum(v: unknown): number | undefined {
@@ -202,6 +239,175 @@ function toRow(t: TrackedTrade) {
     raw_json: t,
     updated_at: new Date().toISOString(),
   };
+}
+
+// ── PBFB outcome backfill ─────────────────────────────────────────────────────
+//
+// Cross-references pbfb_uc_events against tracked_trades to populate the four
+// outcome columns (hit_t1, hit_t2, stopped_out, outcome_pct_20d) that the
+// Brain V2 intelligence panel needs for MI ranking, feature-bucketed hit rates,
+// Kelly fraction, and cluster labeling.
+//
+// Market regime is populated from:
+//   1. regime_at_entry on the matched trade (most accurate)
+//   2. Nifty 50 50-day SMA position for that date (fallback for missed events)
+
+interface PbfbOutcomeUpdate {
+  symbol:          string;
+  event_date:      string;
+  hit_t1:          boolean | null;
+  hit_t2:          boolean | null;
+  stopped_out:     boolean | null;
+  outcome_pct_20d: number | null;
+  market_regime:   'bull' | 'flat' | 'bear' | null;
+}
+
+function outcomeFromStatus(
+  status: string,
+  pnlPct: number | null,
+  hasExitDate: boolean,
+): { hit_t1: boolean; hit_t2: boolean; stopped_out: boolean } | null {
+  // Only label definitively closed trades
+  switch (status) {
+    case 'hit_t3':
+      return { hit_t1: true,  hit_t2: true,  stopped_out: false };
+    case 'hit_t2':
+      return hasExitDate
+        ? { hit_t1: true,  hit_t2: true,  stopped_out: false }
+        : null; // still active at T2 — outcome unknown
+    case 'hit_t1':
+      return hasExitDate
+        ? { hit_t1: true,  hit_t2: false, stopped_out: false }
+        : null; // still active at T1 — outcome unknown
+    case 'stopped':
+      return { hit_t1: false, hit_t2: false, stopped_out: true  };
+    case 'expired':
+      return { hit_t1: false, hit_t2: false, stopped_out: false };
+    case 'manual_close':
+    case 'closed_early':
+      // Use P&L as proxy: T1 is typically ≥5% gain
+      return { hit_t1: (pnlPct ?? 0) >= 5, hit_t2: (pnlPct ?? 0) >= 10, stopped_out: false };
+    default:
+      return null; // open or unknown — skip
+  }
+}
+
+async function backfillPbfbOutcomes(
+  db: ReturnType<typeof getServiceClient>,
+): Promise<{ labeled: number; regimeOnly: number; skipped: number }> {
+  const stats = { labeled: 0, regimeOnly: 0, skipped: 0 };
+
+  // Only backfill events old enough to have a known outcome (≥21 days)
+  const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 10);
+
+  const { data: rawEvents, error: evErr } = await db
+    .from('pbfb_uc_events')
+    .select('symbol, event_date')
+    .is('hit_t1', null)
+    .lte('event_date', cutoff)
+    .limit(500);
+
+  if (evErr || !rawEvents?.length) return stats;
+
+  // Deduplicate by (symbol, event_date) — multiple n_before rows exist per event
+  const seen = new Set<string>();
+  const events: { symbol: string; event_date: string }[] = [];
+  for (const e of rawEvents as { symbol: string; event_date: string }[]) {
+    const key = `${e.symbol}::${e.event_date}`;
+    if (!seen.has(key)) { seen.add(key); events.push(e); }
+  }
+
+  const symbols = [...new Set(events.map(e => e.symbol))];
+
+  // Fetch Nifty regime map and terminal trades in parallel
+  const [regimeMap, { data: trades }] = await Promise.all([
+    buildNiftyRegimeMap(),
+    db.from('tracked_trades')
+      .select('symbol, entry_date, status, pnl_pct, regime_at_entry, exit_date')
+      .in('symbol', symbols),
+  ]);
+
+  // Build symbol → trades[] lookup
+  type TRef = {
+    entryMs:     number;
+    status:      string;
+    pnlPct:      number | null;
+    regime:      string | null;
+    hasExitDate: boolean;
+  };
+  const bySymbol = new Map<string, TRef[]>();
+  for (const t of (trades ?? []) as Record<string, unknown>[]) {
+    const entryMs = t.entry_date ? new Date(t.entry_date as string).getTime() : NaN;
+    if (!Number.isFinite(entryMs)) continue;
+    const sym = t.symbol as string;
+    if (!bySymbol.has(sym)) bySymbol.set(sym, []);
+    bySymbol.get(sym)!.push({
+      entryMs,
+      status:      t.status      as string,
+      pnlPct:      t.pnl_pct    as number | null ?? null,
+      regime:      t.regime_at_entry as string | null ?? null,
+      hasExitDate: !!t.exit_date,
+    });
+  }
+
+  const updates: PbfbOutcomeUpdate[] = [];
+
+  for (const event of events) {
+    const eventMs = new Date(event.event_date).getTime();
+    if (!Number.isFinite(eventMs)) continue;
+
+    // Find closest terminal-candidate trade within ±15 days
+    const candidates = bySymbol.get(event.symbol) ?? [];
+    let best: TRef | null = null;
+    let bestDiff = Infinity;
+    for (const c of candidates) {
+      const diff = Math.abs(c.entryMs - eventMs) / 86400000;
+      if (diff <= 15 && diff < bestDiff) { bestDiff = diff; best = c; }
+    }
+
+    // Resolve market regime (trade-recorded > Nifty fallback)
+    const tradeRegime = normalizeRegime(best?.regime ?? null);
+    const niftyRegime  = regimeMap.get(event.event_date) ?? null;
+    const marketRegime = tradeRegime ?? niftyRegime;
+
+    const outcomes = best ? outcomeFromStatus(best.status, best.pnlPct, best.hasExitDate) : null;
+
+    if (!outcomes && !marketRegime) { stats.skipped++; continue; }
+
+    updates.push({
+      symbol:          event.symbol,
+      event_date:      event.event_date,
+      hit_t1:          outcomes?.hit_t1          ?? null,
+      hit_t2:          outcomes?.hit_t2          ?? null,
+      stopped_out:     outcomes?.stopped_out     ?? null,
+      outcome_pct_20d: outcomes ? (best?.pnlPct ?? null) : null,
+      market_regime:   marketRegime,
+    });
+  }
+
+  // Batch update — each row updates all rows for that (symbol, event_date) pair
+  for (const u of updates) {
+    const patch: Record<string, unknown> = { market_regime: u.market_regime };
+    if (u.hit_t1 !== null) {
+      patch.hit_t1          = u.hit_t1;
+      patch.hit_t2          = u.hit_t2;
+      patch.stopped_out     = u.stopped_out;
+      patch.outcome_pct_20d = u.outcome_pct_20d;
+    }
+
+    const { error } = await db
+      .from('pbfb_uc_events')
+      .update(patch)
+      .eq('symbol', u.symbol)
+      .eq('event_date', u.event_date);
+
+    if (!error) {
+      if (u.hit_t1 !== null) stats.labeled++;
+      else stats.regimeOnly++;
+    }
+  }
+
+  return stats;
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -292,6 +498,9 @@ export async function GET(req: NextRequest) {
       hit_t2: 0,
       hit_t3: 0,
       expired: 0,
+      pbfbLabeled: 0,
+      pbfbRegimeOnly: 0,
+      pbfbSkipped: 0,
       errors: [] as string[],
     };
 
@@ -434,6 +643,18 @@ export async function GET(req: NextRequest) {
     };
 
     await runWithConcurrency(trades, 3, processTrade_);
+
+    // Phase 2 — PBFB outcome backfill (runs after trades, non-blocking on errors)
+    try {
+      const pbfb = await backfillPbfbOutcomes(db);
+      summary.pbfbLabeled    = pbfb.labeled;
+      summary.pbfbRegimeOnly = pbfb.regimeOnly;
+      summary.pbfbSkipped    = pbfb.skipped;
+    } catch (pbfbErr) {
+      const msg = pbfbErr instanceof Error ? pbfbErr.message : String(pbfbErr);
+      summary.errors.push(`pbfb-backfill: ${msg}`);
+    }
+
     summary.ok = summary.errors.length === 0;
     const status = summary.ok ? 'completed' : 'partial';
     await finishRun(status, {
