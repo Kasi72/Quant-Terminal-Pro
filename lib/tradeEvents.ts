@@ -5,13 +5,19 @@ export type TradeLogEventType =
   | 'hit_t1'
   | 'hit_t2'
   | 'hit_t3'
-  | 'stop_shielded'
-  | 'review_exit_pending'
-  | 'stopped'
+  | 'wick_shield'          // low swept review stop; close recovered above it
+  | 'below_stop_rescue'    // close below review stop; confluence gates rescued
+  | 'review_exit_pending'  // close confirmed below review stop; exit queued next open
+  | 'review_exit'          // next-open execution of the pending review exit (terminal)
+  | 'hard_stop'            // hard disaster stop hit intraday — before T1 (terminal)
+  | 'trail_stop'           // protective trail / breakeven / chandelier — after T1 (terminal)
   | 'target_exit'
   | 'expired'
   | 'manual_close'
-  | 'closed_early';
+  | 'closed_early'
+  // legacy aliases — kept so consuming code doesn't break; new logic emits the specific types above
+  | 'stop_shielded'
+  | 'stopped';
 
 export interface TradeLogEvent {
   type: TradeLogEventType;
@@ -50,13 +56,19 @@ export const TRADE_EVENT_ICONS: Record<TradeLogEventType, string> = {
   hit_t1: '🎯',
   hit_t2: '🎯🎯',
   hit_t3: '🎯🎯🎯',
-  stop_shielded: '🛡',
+  wick_shield: '🛡',
+  below_stop_rescue: '🔰',
   review_exit_pending: '⏳',
-  stopped: '🛑',
+  review_exit: '🔔',
+  hard_stop: '🛑',
+  trail_stop: '⛓',
   target_exit: '↩',
   expired: '⏰',
   manual_close: '✅',
   closed_early: '✅',
+  // legacy
+  stop_shielded: '🛡',
+  stopped: '🛑',
 };
 
 function finitePositive(value: unknown): number | null {
@@ -132,9 +144,19 @@ export function deriveTradeEventRows(
     // validator uses conservative stop-first treatment for a verified stop.
     if (stopVerified) {
       const stopPrice = finitePositive(trade.closedPrice) ?? effectiveStop;
+      const gateName = gate?.gatesTested?.[0]?.gate ?? '';
+      // review_open = next-session open fill after a pending review exit
+      // 'Protective Trail' gate name = trail/breakeven/chandelier stop after T1
+      // everything else = hard disaster stop
+      const isReviewExit = gate?.triggerType === 'review_open';
+      const isTrailStop = !isReviewExit && gateName.includes('Protective Trail');
+      const eventType: TradeLogEventType = isReviewExit ? 'review_exit'
+        : isTrailStop ? 'trail_stop'
+        : 'hard_stop';
+      const label = isReviewExit ? 'Review exit' : isTrailStop ? 'Trail stop' : 'Hard stop';
       events.push({
-        type: 'stopped',
-        detail: `${gate?.stopKind === 'review' ? 'Review exit' : gate?.stopKind === 'trail' ? 'Hard trail' : 'Hard stop'} ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
+        type: eventType,
+        detail: `${label} ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
         terminal: true,
       });
       terminalReached = true;
@@ -181,15 +203,18 @@ export function deriveTradeEventRows(
         });
 
       if (stopShielded) {
+        const isWickShield = close >= effectiveStop;
         const supportingGates = gate?.gatesTested?.filter(g => g.passed).map(g => g.gate) ?? [];
         const blockedBy = supportingGates.length > 0
           ? supportingGates.join(' + ')
-          : close >= effectiveStop
+          : isWickShield
             ? 'close recovered above review stop'
             : 'confluence shield';
         events.push({
-          type: 'stop_shielded',
-          detail: `Review-level touch shielded (${blockedBy})`,
+          type: isWickShield ? 'wick_shield' : 'below_stop_rescue',
+          detail: isWickShield
+            ? `Wick Shield — low swept stop, close recovered (${blockedBy})`
+            : `Below-Stop Rescue — close below stop, gates saved (${blockedBy})`,
           terminal: false,
         });
       }
@@ -222,7 +247,7 @@ export function deriveTradeEventRows(
           const closePrice = finitePositive(trade.closedPrice) ?? row.close;
           const completedAt = trade.status === 'hit_t1' ? 'T1' : 'T2';
           const remainingSize = trade.status === 'hit_t1' ? '50%' : '20%';
-          const exitReason = gate?.result === 'STOPPED' && gate.stopKind === 'trail'
+          const exitReason = gate?.result === 'STOPPED' && (gate.gatesTested?.[0]?.gate ?? '').includes('Protective Trail')
             ? 'hard protective trail'
             : `exit after ${completedAt}`;
           events.push({
@@ -263,12 +288,18 @@ export function primaryTradeEventType(events: TradeLogEvent[]): TradeLogEventTyp
     'hit_t2',
     'hit_t1',
     'hit_5pct',
-    'stop_shielded',
+    'review_exit',
+    'hard_stop',
+    'trail_stop',
+    'wick_shield',
+    'below_stop_rescue',
     'review_exit_pending',
     'target_exit',
     'expired',
     'manual_close',
     'closed_early',
+    // legacy fallbacks
+    'stop_shielded',
     'stopped',
   ];
   return priority.find(type => events.some(event => event.type === type)) ?? null;
