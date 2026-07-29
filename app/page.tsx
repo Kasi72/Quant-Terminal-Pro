@@ -97,6 +97,7 @@ import {
 } from '@/lib/validationAnalytics';
 import { computeAllPivots, checkTargetPivotConflict, type AllPivots } from '@/lib/pivotCalculator';
 import { buildTearSheetData, exportTearSheetPDF, exportTearSheetXLSX } from '@/lib/tearSheet';
+import { downloadSpreadsheetWorkbook } from '@/lib/spreadsheetExport';
 import { aggregateBacktest, computeTradeCosts, type BacktestResult, type BacktestTrade, type KotakExecutionChannel } from '@/lib/backtestEngine';
 import { deriveTradeEventRows, getValidTradeTargets, TRADE_EVENT_ICONS, type TradeLogEvent, type TradeLogEventType } from '@/lib/tradeEvents';
 import { generateNarrative, type SignalNarrative } from '@/lib/narrativeEngine';
@@ -422,13 +423,15 @@ function exportGroupCSV(rows: AnalysisResult[], cols: ColDef[], filename: string
 }
 
 async function exportGroupXLSX(rows: AnalysisResult[], cols: ColDef[], filename: string) {
-  let XLSX: typeof import('xlsx');
-  try { XLSX = await import('xlsx'); } catch { alert('Failed to load XLSX library'); return; }
-  const data = rows.map(r => Object.fromEntries(cols.map(c => [c.label, safeColFmt(c, r)])));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Results');
-  XLSX.writeFile(wb, filename);
+  downloadSpreadsheetWorkbook(filename, [
+    {
+      name: 'Results',
+      rows: [
+        cols.map(c => c.label),
+        ...rows.map(r => cols.map(c => safeColFmt(c, r))),
+      ],
+    },
+  ]);
 }
 
 async function exportGroupPDF(rows: AnalysisResult[], cols: ColDef[], title: string, filename: string) {
@@ -2826,7 +2829,7 @@ function HomePageInner() {
   }, [filteredResults]);
 
   const exportXLSX = useCallback(async () => {
-    await exportGroupXLSX(filteredResults, COLUMNS, 'quant_terminal_pro.xlsx');
+    await exportGroupXLSX(filteredResults, COLUMNS, 'quant_terminal_pro.xls');
   }, [filteredResults]);
 
   const pasteSymbols = useMemo(() => parseSymbols(pasteText), [pasteText]);
@@ -3254,7 +3257,7 @@ function HomePageInner() {
           <button onClick={exportCSV} disabled={filteredResults.length === 0} data-tip="Export filtered results as CSV spreadsheet" data-tip-color="blue"
             className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">CSV</button>
           <button onClick={exportXLSX} disabled={filteredResults.length === 0} data-tip="Export filtered results as Excel workbook" data-tip-color="blue"
-            className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">XLSX</button>
+            className="h-7 px-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded text-[11px] font-medium text-slate-400 transition-colors">XLS</button>
           {filteredResults.some(r => r.priceEngine.tradeValid) && (
             <button onClick={() => {
               const csv = exportZerodhaBasket(filteredResults, accountSize);
@@ -3883,7 +3886,7 @@ function HomePageInner() {
               className={`px-2 py-0.5 rounded-l text-[11px] font-medium border transition-colors ${stageFilter === 'ALL' ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
               All ({stageCounts['ALL'] ?? 0})</button>
             <button onClick={() => exportGroupCSV(results, COLUMNS, `QTP_all.csv`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">CSV</button>
-            <button onClick={() => exportGroupXLSX(results, COLUMNS, `QTP_all.xlsx`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLSX</button>
+            <button onClick={() => exportGroupXLSX(results, COLUMNS, `QTP_all.xls`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLS</button>
             <button onClick={() => exportGroupPDF(results, COLUMNS, `All Results`, `QTP_all.pdf`)} className="px-1 py-0.5 border border-slate-700 rounded-r text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">PDF</button>
           </div>
 
@@ -3907,7 +3910,7 @@ function HomePageInner() {
                   className={`px-2 py-0.5 rounded-l text-[11px] font-semibold border transition-colors ${active ? '' : 'border-slate-700 hover:border-slate-500'}`}>
                   {cfg.label} ({count})</button>
                 <button onClick={() => exportGroupCSV(stageRows, COLUMNS, `QTP_${shortName}.csv`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">CSV</button>
-                <button onClick={() => exportGroupXLSX(stageRows, COLUMNS, `QTP_${shortName}.xlsx`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLSX</button>
+                <button onClick={() => exportGroupXLSX(stageRows, COLUMNS, `QTP_${shortName}.xls`)} className="px-1 py-0.5 border border-slate-700 text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">XLS</button>
                 <button onClick={() => exportGroupPDF(stageRows, COLUMNS, `${cfg.label}`, `QTP_${shortName}.pdf`)} className="px-1 py-0.5 border border-slate-700 rounded-r text-[10px] text-slate-500 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors">PDF</button>
               </div>
             );
@@ -6206,7 +6209,7 @@ function HomePageInner() {
                           <button onClick={() => { const d = buildTearSheetData(trackedTrades, accountSize); exportTearSheetXLSX(d); }}
                             disabled={trackedTrades.length === 0}
                             data-tip="Export trade tear sheet as Excel — multi-sheet workbook" data-tip-color="green"
-                            className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLSX</button>
+                            className="h-5 px-2 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 rounded text-[9px] font-semibold text-emerald-300 disabled:opacity-40 transition-colors">📊 Tear Sheet XLS</button>
                           <button
                             disabled={scanning || trackedTrades.filter(t => !isTerminalTrade(t)).length === 0}
                             onClick={async () => {

@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
+const MAX_BODY_BYTES = 2_000_000;
+const MAX_EVENTS_PER_RUN = 10_000;
+
 interface EventPayload {
   symbol:          string;
   eventDate:       string | null;
@@ -63,17 +66,46 @@ export async function POST(req: NextRequest) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
 
-  // Require internal token to prevent unauthenticated writes via service role key
+  // The route writes with the service-role key, so it must never be callable by
+  // an unauthenticated request. Browser users authenticate via screener cookie;
+  // automation may use PBFB_INTERNAL_TOKEN.
   const internalToken = process.env.PBFB_INTERNAL_TOKEN;
-  if (internalToken) {
-    const provided = req.headers.get('x-internal-token') ?? '';
-    const ok = await timingSafeEqual(provided, internalToken);
-    if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const screenerPassword = process.env.SCREENER_PASSWORD;
+  if (!internalToken && !screenerPassword) {
+    return NextResponse.json({ error: 'PBFB write auth not configured' }, { status: 500 });
   }
 
-  const body = await req.json() as SavePayload;
+  const providedInternal = req.headers.get('x-internal-token') ?? '';
+  const cookieAuth = req.cookies.get('screener_auth')?.value ?? '';
+  const okByInternal = !!internalToken && !!providedInternal
+    && await timingSafeEqual(providedInternal, internalToken);
+  const okByCookie = !!screenerPassword && !!cookieAuth
+    && await timingSafeEqual(cookieAuth, screenerPassword);
+  if (!okByInternal && !okByCookie) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const declaredLength = Number(req.headers.get('content-length') ?? 0);
+  if (declaredLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
+  let body: SavePayload;
+  try {
+    const raw = await req.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+    body = JSON.parse(raw) as SavePayload;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+  }
+
   if (!body.runDate || !Array.isArray(body.events) || body.events.length === 0) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+  if (body.events.length > MAX_EVENTS_PER_RUN) {
+    return NextResponse.json({ error: 'Too many events in one run' }, { status: 413 });
   }
 
   const sb = createClient(url, key);

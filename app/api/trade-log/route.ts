@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceClient } from '@/lib/supabase';
+import { getServiceClient } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
@@ -8,7 +8,7 @@ const USER_ID = 'drkkr';
 
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get('symbol');
-  if (!symbol || symbol.length > 30) {
+  if (!symbol || symbol.length > 30 || !/^[A-Z0-9._-]+$/i.test(symbol)) {
     return NextResponse.json({ error: 'missing or invalid symbol' }, { status: 400 });
   }
 

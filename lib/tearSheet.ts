@@ -1,4 +1,4 @@
-// ─── Trade Tear Sheet Generator (PDF + XLSX) ────────────────────────────────
+// ─── Trade Tear Sheet Generator (PDF + Excel) ───────────────────────────────
 
 import {
   didReachFivePctTarget,
@@ -12,6 +12,7 @@ import {
   isTradeResolvedForWinRate,
   type TrackedTrade,
 } from './tradeOps';
+import { downloadSpreadsheetWorkbook } from './spreadsheetExport';
 
 function safe(v: number, f = 0): number { return Number.isFinite(v) ? v : f; }
 
@@ -148,15 +149,9 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
   };
 }
 
-// ─── XLSX Export ─────────────────────────────────────────────────────────────
+// ─── Excel Export ────────────────────────────────────────────────────────────
 
 export async function exportTearSheetXLSX(data: TearSheetData) {
-  let XLSX: typeof import('xlsx');
-  try { XLSX = await import('xlsx'); } catch { alert('Failed to load XLSX library'); return; }
-
-  const wb = XLSX.utils.book_new();
-
-  // Sheet 1: Summary
   const summary = [
     ['DR KKR QUANT TERMINAL PRO — TRADE TEAR SHEET'],
     [`Generated: ${data.generatedDate}`, `Account: ₹${data.accountSize.toLocaleString('en-IN')}`, `Risk/Trade: ${data.riskPerTrade}%`],
@@ -174,9 +169,7 @@ export async function exportTearSheetXLSX(data: TearSheetData) {
     ['Stopped', data.stopped, `${data.stoppedPnlPct.toFixed(1)}%`],
     ['Expired', data.expired, `${data.expiredPnlPct.toFixed(1)}%`],
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
 
-  // Sheet 2: Trade Log
   const headers = ['#', 'Symbol', 'Stage', 'Entry ₹', 'Entry Date', 'Hard Stop ₹', 'Risk%', 'T1 ₹', 'T1 Hit Date', 'T1 P&L%', 'T2 ₹', 'T2 Hit Date', 'T2 P&L%', 'T3 ₹', 'T3 Hit Date', 'T3 P&L%', 'Exit ₹', 'Exit Date', 'Weighted P&L%', 'R-Mult', 'MFE%', 'MAE%', 'Days', 'Exit Model', 'Outcome', 'Conviction', 'Sector'];
   const rows = data.trades.map(t => [
     t.num, t.symbol, t.stage, t.entryPrice, t.entryDate, t.stopLoss, t.riskPct,
@@ -185,10 +178,11 @@ export async function exportTearSheetXLSX(data: TearSheetData) {
     t.weightedPnlPct, t.rMult, t.mfePct, t.maePct, t.daysHeld,
     t.exitModel, t.outcome, t.conviction, t.sector,
   ]);
-  const tradeSheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  XLSX.utils.book_append_sheet(wb, tradeSheet, 'Trade Log');
 
-  XLSX.writeFile(wb, `DrKKR_TearSheet_${data.generatedDate}.xlsx`);
+  downloadSpreadsheetWorkbook(`DrKKR_TearSheet_${data.generatedDate}.xls`, [
+    { name: 'Summary', rows: summary },
+    { name: 'Trade Log', rows: [headers, ...rows] },
+  ]);
 }
 
 // ─── PDF Export ──────────────────────────────────────────────────────────────

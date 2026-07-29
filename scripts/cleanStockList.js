@@ -1,10 +1,39 @@
-const XLSX = require('xlsx');
-const https = require('https');
 const fs = require('fs');
+const path = require('path');
 
-const wb = XLSX.readFile('C:/Users/drkkr/Downloads/28th june (1).xls');
-const ws = wb.Sheets[wb.SheetNames[0]];
-const data = XLSX.utils.sheet_to_json(ws, {header:1});
+const inputPath = process.argv[2] || 'C:/Users/drkkr/Downloads/28th june (1).csv';
+if (!/\.(csv|tsv)$/i.test(inputPath)) {
+  console.error('cleanStockList now accepts CSV/TSV only. Save the Excel sheet as CSV, then run:');
+  console.error('  node scripts/cleanStockList.js "C:/path/to/source.csv"');
+  process.exit(1);
+}
+
+function parseDelimited(text, delimiter) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (quoted) {
+      if (ch === '"' && next === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === delimiter) { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (ch !== '\r') cell += ch;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows.filter(r => r.some(v => String(v).trim()));
+}
+
+const raw = fs.readFileSync(inputPath, 'utf8');
+const data = parseDelimited(raw, path.extname(inputPath).toLowerCase() === '.tsv' ? '\t' : ',');
 
 // Extract all stock symbols from column 1 (skip headers)
 const allSymbols = data.slice(2).map(r => r?.[1]).filter(v => v && typeof v === 'string' && v.trim().length > 1).map(v => v.trim().toUpperCase());

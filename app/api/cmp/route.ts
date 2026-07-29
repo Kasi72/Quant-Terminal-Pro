@@ -11,7 +11,7 @@ const YF_HEADERS = {
 
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get('symbol');
-  if (!symbol || symbol.length > 40) {
+  if (!symbol || symbol.length > 40 || !/^[A-Z0-9._-]+$/i.test(symbol)) {
     return NextResponse.json({ error: 'missing or invalid symbol' }, { status: 400 });
   }
 
@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
   for (const host of hosts) {
     try {
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
-      const res = await fetch(url, { headers: YF_HEADERS, cache: 'no-store' });
+      const res = await fetch(url, {
+        headers: YF_HEADERS,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(6_000),
+      });
       if (!res.ok) continue;
       const data = await res.json();
       meta = data?.chart?.result?.[0]?.meta ?? null;
