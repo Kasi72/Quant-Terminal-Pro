@@ -26,6 +26,7 @@ interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   WORKER_TOKEN: string;
+  ALLOWED_ORIGINS?: string;
 }
 
 interface EventFeatures {
@@ -120,10 +121,26 @@ const CORS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'content-type, x-worker-token',
 };
 
-function json(data: unknown, status = 200): Response {
+const MAX_REQUEST_BYTES = 64_000;
+
+function corsHeaders(req?: Request, env?: Env): Record<string, string> {
+  const origin = req?.headers.get('origin') ?? '';
+  const allowed = (env?.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (allowed.length === 0) return CORS;
+  return {
+    ...CORS,
+    'Access-Control-Allow-Origin': allowed.includes(origin) ? origin : allowed[0],
+    Vary: 'Origin',
+  };
+}
+
+function json(data: unknown, status = 200, req?: Request, env?: Env): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json', ...CORS },
+    headers: { 'content-type': 'application/json', ...corsHeaders(req, env) },
   });
 }
 
@@ -133,6 +150,7 @@ async function supabaseGet(env: Env, path: string): Promise<unknown> {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
       authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
     },
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
   return res.json();
@@ -148,6 +166,7 @@ async function supabasePatch(env: Env, path: string, body: unknown): Promise<voi
       prefer: 'return=minimal',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`Supabase PATCH ${res.status}: ${await res.text()}`);
 }
@@ -166,21 +185,42 @@ interface UnlabeledRow {
   close_price: number | null;
 }
 
-async function fetchYahooOHLCV(symbol: string, fromDate: string, toDate: string): Promise<{ date: string; close: number }[]> {
+async function fetchYahooOHLCV(symbol: string, fromDate: string, toDate: string): Promise<{ date: string; high: number; low: number; close: number }[]> {
   const nseSymbol = `${symbol}.NS`;
   const p1 = Math.floor(new Date(fromDate).getTime() / 1000);
   const p2 = Math.floor(new Date(toDate).getTime() / 1000);
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?period1=${p1}&period2=${p2}&interval=1d`;
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(10000),
+    });
     if (!res.ok) return [];
-    const j = await res.json() as { chart?: { result?: Array<{ timestamp?: number[]; indicators?: { adjclose?: Array<{ adjclose?: number[] }> } }> } };
+    const j = await res.json() as {
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{ high?: Array<number | null>; low?: Array<number | null>; close?: Array<number | null> }>;
+            adjclose?: Array<{ adjclose?: number[] }>;
+          };
+        }>;
+      };
+    };
     const result = j.chart?.result?.[0];
     if (!result?.timestamp) return [];
-    const closes = result.indicators?.adjclose?.[0]?.adjclose ?? [];
+    const quote = result.indicators?.quote?.[0];
+    const closes = result.indicators?.adjclose?.[0]?.adjclose ?? quote?.close ?? [];
+    const highs = quote?.high ?? closes;
+    const lows = quote?.low ?? closes;
     return result.timestamp
-      .map((ts, i) => ({ date: new Date(ts * 1000).toISOString().slice(0, 10), close: closes[i] ?? 0 }))
-      .filter(r => r.close > 0);
+      .map((ts, i) => ({
+        date: new Date(ts * 1000).toISOString().slice(0, 10),
+        high: highs[i] ?? closes[i] ?? 0,
+        low: lows[i] ?? closes[i] ?? 0,
+        close: closes[i] ?? 0,
+      }))
+      .filter(r => r.close > 0 && r.high > 0 && r.low > 0);
   } catch { return []; }
 }
 
@@ -209,9 +249,9 @@ async function labelOutcomes(env: Env): Promise<{ labeled: number }> {
     const base = row.close_price;
     let hit_t1 = false, hit_t2 = false, stopped_out = false;
     for (const p of fwd) {
-      if (p.close >= base * HIT_T1_MULT) hit_t1 = true;
-      if (p.close >= base * HIT_T2_MULT) hit_t2 = true;
-      if (!hit_t1 && p.close <= base * STOP_MULT) stopped_out = true;
+      if (p.high >= base * HIT_T1_MULT) hit_t1 = true;
+      if (p.high >= base * HIT_T2_MULT) hit_t2 = true;
+      if (!hit_t1 && p.low <= base * STOP_MULT) stopped_out = true;
     }
     const outcome_pct_20d = +((fwd[fwd.length - 1].close - base) / base * 100).toFixed(2);
 
@@ -306,31 +346,35 @@ async function narrate(env: Env): Promise<{ narration: string }> {
 // ── Router ───────────────────────────────────────────────────────────────────
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req, env) });
 
     if (!tokenMatches(req.headers.get('x-worker-token'), env.WORKER_TOKEN)) {
-      return json({ error: 'unauthorized' }, 401);
+      return json({ error: 'unauthorized' }, 401, req, env);
     }
 
     const { pathname } = new URL(req.url);
     try {
       if (req.method === 'POST' && pathname === '/ingest') {
-        return json(await ingest(env));
+        return json(await ingest(env), 200, req, env);
       }
       if (req.method === 'POST' && pathname === '/similar') {
+        const declaredLength = Number(req.headers.get('content-length') ?? 0);
+        if (declaredLength > MAX_REQUEST_BYTES) {
+          return json({ error: 'payload too large' }, 413, req, env);
+        }
         const body = await req.json() as { features?: EventFeatures; shape?: number[] | null; topK?: number };
-        if (!body.features) return json({ error: 'features required' }, 400);
-        return json(await similar(env, body.features, body.topK ?? 10, body.shape));
+        if (!body.features) return json({ error: 'features required' }, 400, req, env);
+        return json(await similar(env, body.features, body.topK ?? 10, body.shape), 200, req, env);
       }
       if (req.method === 'GET' && pathname === '/narrate') {
-        return json(await narrate(env));
+        return json(await narrate(env), 200, req, env);
       }
       if (req.method === 'POST' && pathname === '/label-outcomes') {
-        return json(await labelOutcomes(env));
+        return json(await labelOutcomes(env), 200, req, env);
       }
-      return json({ error: 'not found' }, 404);
+      return json({ error: 'not found' }, 404, req, env);
     } catch (e) {
-      return json({ error: e instanceof Error ? e.message : 'internal error' }, 500);
+      return json({ error: e instanceof Error ? e.message : 'internal error' }, 500, req, env);
     }
   },
 

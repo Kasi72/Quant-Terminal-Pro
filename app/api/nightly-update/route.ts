@@ -63,6 +63,21 @@ async function runWithConcurrency<T>(
   await Promise.all(runners);
 }
 
+async function selectAll<T>(
+  pageFactory: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+  pageSize = 1000,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await pageFactory(from, to);
+    if (error) return { data: out, error };
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < pageSize) return { data: out, error: null };
+  }
+}
+
 // ── Candle parsing ────────────────────────────────────────────────────────────
 
 interface DayBar { date: string; open: number; high: number; low: number; close: number; volume: number; }
@@ -227,8 +242,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const [{ data: rows, error: loadErr }, { data: existingLogs, error: logsErr }] = await Promise.all([
-      db.from('tracked_trades').select('*').eq('user_id', USER_ID),
-      db.from('trade_daily_log').select('symbol,date').eq('user_id', USER_ID),
+      selectAll<Record<string, unknown>>((from, to) => Promise.resolve(db
+        .from('tracked_trades')
+        .select('*')
+        .eq('user_id', USER_ID)
+        .order('created_at', { ascending: true })
+        .range(from, to))),
+      selectAll<{ symbol: string; date: string }>((from, to) => Promise.resolve(db
+        .from('trade_daily_log')
+        .select('symbol,date')
+        .eq('user_id', USER_ID)
+        .order('date', { ascending: true })
+        .range(from, to))),
     ]);
 
     if (loadErr) throw new Error(`trade load failed: ${loadErr.message}`);

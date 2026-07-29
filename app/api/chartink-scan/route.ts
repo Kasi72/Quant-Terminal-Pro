@@ -32,6 +32,9 @@ function extractCookies(h: string | null): string {
 
 export async function GET(req: NextRequest) {
   const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '5');
+  if (!Number.isFinite(minPct) || minPct < 0 || minPct > 25) {
+    return NextResponse.json({ error: 'minPct must be a finite number between 0 and 25' }, { status: 400 });
+  }
 
   // ── Step 1: visit Chartink screener page to get CSRF token + session cookie ──
   let csrfToken = '';

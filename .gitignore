@@ -43,6 +43,8 @@ next-env.d.ts
 scripts/_compiled/
 
 # research run artifacts — keep new ones out of the repo root
+scripts/results/
+scripts/_stop_audit_data.json
 scripts/*.log
 scripts/*.err.log
 *.bak

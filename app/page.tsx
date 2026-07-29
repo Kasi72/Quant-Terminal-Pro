@@ -90,6 +90,7 @@ import {
   type ScanFavorite, type TradeReview, type MonthlyReport,
 } from '@/lib/performanceEngine';
 import { validateTrade, applyValidation, computeRollingStats } from '@/lib/autoValidator';
+import { isPlausibleTrade } from '@/lib/tradeCodec';
 import {
   computeMfeMaeScatter, computeExpectancyCurve, computeRDistribution,
   computeOptimization, computeSectorPerformance, computeConvictionCorrelation,
@@ -2616,11 +2617,26 @@ function HomePageInner() {
     let tip = document.getElementById('qtp-tooltip');
     if (!tip) { tip = document.createElement('div'); tip.id = 'qtp-tooltip'; document.body.appendChild(tip); }
     const colorClasses = ['tip-green','tip-amber','tip-purple','tip-blue','tip-cyan','tip-red','tip-pink','tip-yellow','tip-orange'];
+    function sanitizeTipHtml(raw: string): string {
+      const template = document.createElement('template');
+      template.innerHTML = raw;
+      template.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(node => node.remove());
+      template.content.querySelectorAll('*').forEach(node => {
+        for (const attr of Array.from(node.attributes)) {
+          const name = attr.name.toLowerCase();
+          const value = attr.value;
+          if (name === 'class' && /^[a-zA-Z0-9_\-:\s/]+$/.test(value)) continue;
+          if (name === 'title') continue;
+          node.removeAttribute(attr.name);
+        }
+      });
+      return template.innerHTML;
+    }
     function show(e: MouseEvent) {
       const el = (e.target as HTMLElement).closest('[data-tip],[data-tip-html]') as HTMLElement | null;
       if (!el || !tip) return;
       const html = el.getAttribute('data-tip-html');
-      if (html) { tip.innerHTML = html; tip.className = 'rich-tip'; }
+      if (html) { tip.innerHTML = sanitizeTipHtml(html); tip.className = 'rich-tip'; }
       else {
         tip.textContent = el.getAttribute('data-tip') ?? '';
         tip.className = '';
@@ -6287,14 +6303,16 @@ function HomePageInner() {
                             input.onchange = (e) => {
                               const file = (e.target as HTMLInputElement).files?.[0];
                               if (!file) return;
+                              if (file.size > 2_000_000) { alert('Trade backup file is too large'); return; }
                               const reader = new FileReader();
                               reader.onload = (ev) => {
                                 try {
                                   const parsed = JSON.parse(ev.target?.result as string);
-                                  if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].entryPrice) {
-                                    if (confirm(`Restore ${parsed.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
+                                  if (Array.isArray(parsed) && parsed.length <= 500 && parsed.every(isPlausibleTrade)) {
+                                    const restored = parsed as TrackedTrade[];
+                                    if (confirm(`Restore ${restored.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
                                       deleteAllTradesFromCloud(); // purge old cloud rows before seeding
-                                      setTrackedTrades(parsed);
+                                      setTrackedTrades(restored);
                                     }
                                   } else { alert('Invalid trade backup file'); }
                                 } catch { alert('Failed to parse backup file'); }

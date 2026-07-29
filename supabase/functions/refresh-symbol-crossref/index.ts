@@ -18,6 +18,13 @@ const supabase = createClient(
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+function isAuthorized(req: Request): boolean {
+  const secret = Deno.env.get('FUNCTION_INTERNAL_TOKEN') ?? Deno.env.get('CRON_SECRET');
+  if (!secret) return false;
+  return req.headers.get('x-internal-token') === secret
+    || req.headers.get('authorization') === `Bearer ${secret}`;
+}
+
 function parseCSV(csv: string): Record<string, string>[] {
   const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
@@ -64,7 +71,11 @@ async function fetchBSEBhavcopy(): Promise<{ rows: Record<string, string>[]; dat
   return null;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (!isAuthorized(req)) {
+    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // 1. NSE equity master: isin → symbol/name
     const nseCsv = await fetchText('https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv', 'https://www.nseindia.com/');

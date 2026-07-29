@@ -226,6 +226,9 @@ export async function GET(req: NextRequest) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 });
   }
+  if (!Number.isFinite(minPct) || minPct < 0 || minPct > 25) {
+    return NextResponse.json({ error: 'minPct must be a finite number between 0 and 25' }, { status: 400 });
+  }
 
   // Quick weekend check (NSE is closed Saturday & Sunday)
   const dow = new Date(date + 'T12:00:00Z').getUTCDay();

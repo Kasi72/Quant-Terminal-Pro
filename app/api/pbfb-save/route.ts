@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { isAuthorizedScreenerRequest } from '@/lib/screenerSession';
 
 export const runtime = 'edge';
 
@@ -70,17 +71,14 @@ export async function POST(req: NextRequest) {
   // an unauthenticated request. Browser users authenticate via screener cookie;
   // automation may use PBFB_INTERNAL_TOKEN.
   const internalToken = process.env.PBFB_INTERNAL_TOKEN;
-  const screenerPassword = process.env.SCREENER_PASSWORD;
-  if (!internalToken && !screenerPassword) {
+  if (!internalToken && !process.env.SCREENER_PASSWORD) {
     return NextResponse.json({ error: 'PBFB write auth not configured' }, { status: 500 });
   }
 
   const providedInternal = req.headers.get('x-internal-token') ?? '';
-  const cookieAuth = req.cookies.get('screener_auth')?.value ?? '';
   const okByInternal = !!internalToken && !!providedInternal
     && await timingSafeEqual(providedInternal, internalToken);
-  const okByCookie = !!screenerPassword && !!cookieAuth
-    && await timingSafeEqual(cookieAuth, screenerPassword);
+  const okByCookie = await isAuthorizedScreenerRequest(req);
   if (!okByInternal && !okByCookie) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

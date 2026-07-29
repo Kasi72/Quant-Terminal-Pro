@@ -123,6 +123,13 @@ export async function GET() {
       .limit(200),
   ]);
 
+  if (evR.error) {
+    return NextResponse.json({ error: `PBFB event query failed: ${evR.error.message}` }, { status: 500 });
+  }
+  if (runsR.error) {
+    return NextResponse.json({ error: `PBFB run query failed: ${runsR.error.message}` }, { status: 500 });
+  }
+
   const raw = evR.data ?? [];
   const runs = runsR.data ?? [];
   const events = raw as Record<string, unknown>[];

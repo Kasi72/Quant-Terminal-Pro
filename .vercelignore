@@ -9,6 +9,7 @@ yarn-error.log*
 tsconfig.tsbuildinfo
 
 # Local research/backtest artifacts are not needed by the deployed Next app.
+scripts/
 scripts/results/
 scripts/*.log
 scripts/*.err.log

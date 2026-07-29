@@ -1,101 +1,20 @@
-import { getClient } from './supabase';
 import type { TrackedTrade } from './tradeOps';
+import { isPlausibleTrade } from './tradeCodec';
 
-const USER_ID = 'drkkr';
 const LS_KEY = 'qtp_tracked_trades';
 const LS_BACKUP = 'qtp_tracked_trades_backup';
 const LS_EMERGENCY = 'qtp_tracked_trades_emergency'; // restored: triple-redundancy
-
-// ─── Supabase helpers ───────────────────────────────────────────────────────
-
-function toRow(t: TrackedTrade) {
-  return {
-    user_id: USER_ID,
-    symbol: t.symbol,
-    stage: t.stage,
-    entry_price: t.entryPrice,
-    entry_date: t.entryDate,
-    stop_loss: t.stopLoss,
-    target1: t.target1,
-    target2: t.target2,
-    target3: t.target3,
-    disaster_stop: t.disasterStop,
-    param_set_key: t.paramSetKey,
-    sector: t.sector,
-    conviction: t.conviction,
-    status: t.status,
-    candle_pattern: t.candlePattern,
-    atr_state: t.atrState,
-    volume_badge: t.volumeBadge,
-    regime_at_entry: t.regimeAtEntry,
-    exit_price: t.closedPrice ?? null,
-    exit_date: t.closedDate ?? null,
-    pnl_pct: t.pnlPct ?? null,
-    outcome: null,
-    notes: t.notes ?? null,
-    tf_alignment: t.tfAlignment ?? null,
-    rs_rank: safeNum(t.rsRank) ?? null,
-    sw5_low_at_entry: safeNum(t.sw5LowAtEntry) ?? null,
-    atr14_at_entry: safeNum(t.atr14AtEntry) ?? null,
-    raw_json: t,
-    updated_at: new Date().toISOString(),
-  };
-}
-
-function safeNum(v: unknown, fallback?: number): number | undefined {
-  if (v == null) return fallback;
-  const n = Number(v);
-  return isNaN(n) ? fallback : n;
-}
-
-function fromRow(row: any): TrackedTrade {
-  // Spread raw_json as base, then overlay ALL authoritative DB columns on top.
-  // raw_json may be stale (older schema) — DB columns are always current.
-  const base = (row.raw_json ?? {}) as Partial<TrackedTrade>;
-  return {
-    ...base,
-    symbol: row.symbol ?? base.symbol,
-    status: row.status ?? base.status,
-    stage: row.stage ?? base.stage,
-    entryPrice: safeNum(row.entry_price) ?? base.entryPrice ?? 0,
-    stopLoss: safeNum(row.stop_loss) ?? base.stopLoss ?? 0,
-    target1: safeNum(row.target1) ?? base.target1,
-    target2: safeNum(row.target2) ?? base.target2,
-    target3: safeNum(row.target3) ?? base.target3,
-    disasterStop: safeNum(row.disaster_stop) ?? base.disasterStop,
-    entryDate: row.entry_date ?? base.entryDate,
-    paramSetKey: row.param_set_key ?? base.paramSetKey,
-    sector: row.sector ?? base.sector,
-    conviction: safeNum(row.conviction) ?? base.conviction,
-    candlePattern: row.candle_pattern ?? base.candlePattern,
-    atrState: row.atr_state ?? base.atrState,
-    volumeBadge: row.volume_badge ?? base.volumeBadge,
-    regimeAtEntry: row.regime_at_entry ?? base.regimeAtEntry,
-    // Normalized close columns are authoritative. Legacy raw_json may contain a
-    // closedDate from an old T1/T2 milestone and must not make an active trade terminal.
-    closedPrice: safeNum(row.exit_price),
-    closedDate: typeof row.exit_date === 'string' && row.exit_date.trim()
-      ? row.exit_date.slice(0, 10)
-      : undefined,
-    pnlPct: safeNum(row.pnl_pct) ?? base.pnlPct,
-    tfAlignment: row.tf_alignment ?? base.tfAlignment,
-    rsRank: safeNum(row.rs_rank) ?? base.rsRank,
-    sw5LowAtEntry: safeNum(row.sw5_low_at_entry) ?? base.sw5LowAtEntry,
-    atr14AtEntry: safeNum(row.atr14_at_entry) ?? base.atr14AtEntry,
-  } as TrackedTrade;
-}
 
 // ─── Load ───────────────────────────────────────────────────────────────────
 
 export async function loadTradesFromCloud(): Promise<TrackedTrade[] | null> {
   try {
-    const { data, error } = await getClient()
-      .from('tracked_trades')
-      .select('*')
-      .eq('user_id', USER_ID)
-      .order('created_at', { ascending: true });
-    if (error) return null; // null = error (distinct from [] = intentionally empty)
-    return (data ?? []).map(fromRow);
+    const res = await fetch('/api/trades', { cache: 'no-store' });
+    if (!res.ok) return null; // null = error (distinct from [] = intentionally empty)
+    const body = await res.json() as { trades?: unknown[] };
+    return Array.isArray(body.trades)
+      ? body.trades.filter(isPlausibleTrade)
+      : null;
   } catch {
     return null;
   }
@@ -135,21 +54,28 @@ function saveToLocal(trades: TrackedTrade[]) {
 }
 
 let _syncing = false;
+let _pendingTrades: TrackedTrade[] | null = null;
 
 // Upsert all trades to Supabase + mirror to localStorage (fire-and-forget)
 export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
+  saveToLocal(trades);
+  _pendingTrades = trades;
   if (_syncing) return;
   _syncing = true;
   try {
-    saveToLocal(trades);
-    // No DB upsert for empty array — individual deletes via deleteTradeFromCloud handle removal.
-    // Returning early here only skips the no-op upsert, not local persistence above.
-    if (trades.length === 0) return;
-    const rows = trades.map(toRow);
-    const { error } = await getClient()
-      .from('tracked_trades')
-      .upsert(rows, { onConflict: 'user_id,symbol', ignoreDuplicates: false });
-    if (error) console.error('[tradeSync] upsert failed:', error.message);
+    while (_pendingTrades) {
+      const batch = _pendingTrades;
+      _pendingTrades = null;
+      const res = await fetch('/api/trades', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trades: batch }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }));
+        console.error('[tradeSync] upsert failed:', body.error ?? res.statusText);
+      }
+    }
   } catch (e) {
     console.error('[tradeSync] syncTradesToCloud error:', e);
   } finally {
@@ -160,12 +86,11 @@ export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
 // Delete one trade from cloud
 export async function deleteTradeFromCloud(symbol: string): Promise<void> {
   try {
-    const { error } = await getClient()
-      .from('tracked_trades')
-      .delete()
-      .eq('user_id', USER_ID)
-      .eq('symbol', symbol);
-    if (error) console.error('[tradeSync] delete failed:', symbol, error.message);
+    const res = await fetch(`/api/trades?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string }));
+      console.error('[tradeSync] delete failed:', symbol, body.error ?? res.statusText);
+    }
   } catch (e) {
     console.error('[tradeSync] deleteTradeFromCloud error:', symbol, e);
   }
@@ -179,9 +104,10 @@ export async function deleteAllTradesFromCloud(): Promise<void> {
   try { localStorage.setItem(LS_BACKUP, empty); } catch {}
   try { localStorage.setItem(LS_EMERGENCY, empty); } catch {}
   try {
-    await getClient()
-      .from('tracked_trades')
-      .delete()
-      .eq('user_id', USER_ID);
+    const res = await fetch('/api/trades', { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string }));
+      console.error('[tradeSync] delete all failed:', body.error ?? res.statusText);
+    }
   } catch {}
 }
