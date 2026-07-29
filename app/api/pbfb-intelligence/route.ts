@@ -112,7 +112,7 @@ export async function GET() {
 
   const [evR, runsR] = await Promise.all([
     sb.from('pbfb_uc_events')
-      .select('best_stage,best_param_set,classification,event_date,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,near_breakout_tier,archetype_type,zone_shape,hit_t1,hit_t2,stopped_out,outcome_pct_20d,market_regime')
+      .select('best_stage,best_param_set,classification,event_date,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,near_breakout_tier,archetype_type,zone_shape,hit_t1,hit_t2,stopped_out,outcome_pct_20d,market_regime,pre10_vol_avg,pre10_range_avg')
       .eq('n_before', 1)
       .gte('event_date', cutoff180)
       .limit(2000)
@@ -161,6 +161,34 @@ export async function GET() {
     zoneLen:      wavg(actionable.map(e => fv(e, 'zone_len')),       aWs),
     zoneTightness: wavg(actionable.map(e => fv(e, 'zone_tightness')), aWs),
   };
+
+  // ── Winner centroid (T2+ events, outcome-weighted) ────────────────────────
+  const winners = events.filter(e => e.hit_t2 === true);
+  const winnerCount = winners.length;
+  let winnerCentroid: (typeof centroid & { pre10VolAvg: number; pre10RangeAvg: number }) | null = null;
+  let winnerCentroidReady = false;
+  if (winnerCount >= 5) {
+    const wWs = winners.map(e => {
+      const decay = decayW(e.event_date as string | null, nowMs);
+      const pct = e.outcome_pct_20d as number | null;
+      const outcomeW = pct != null && pct > 15 ? 3 : pct != null && pct > 5 ? 2 : 1;
+      return decay * outcomeW;
+    });
+    winnerCentroid = {
+      closeLoc:      wavg(winners.map(e => fv(e, 'close_loc')),       wWs),
+      bodyPct:       wavg(winners.map(e => fv(e, 'body_pct')),        wWs),
+      upperWickPct:  wavg(winners.map(e => fv(e, 'upper_wick_pct')),  wWs),
+      volRatio20:    wavg(winners.map(e => fv(e, 'vol_ratio_20')),    wWs),
+      volPre5:       wavg(winners.map(e => fv(e, 'vol_vs_pre5')),     wWs),
+      rangeATR:      wavg(winners.map(e => fv(e, 'range_atr')),       wWs),
+      rsi2:          wavg(winners.map(e => fv(e, 'rsi2')),            wWs),
+      zoneLen:       wavg(winners.map(e => fv(e, 'zone_len')),        wWs),
+      zoneTightness: wavg(winners.map(e => fv(e, 'zone_tightness')),  wWs),
+      pre10VolAvg:   wavg(winners.map(e => fv(e, 'pre10_vol_avg')),   wWs),
+      pre10RangeAvg: wavg(winners.map(e => fv(e, 'pre10_range_avg')), wWs),
+    };
+    winnerCentroidReady = true;
+  }
 
   // ── Global weighted means & std dev (all events, for z-scores) ────────────
   const gMeans = [
@@ -273,7 +301,9 @@ export async function GET() {
       { featureKey: 'body_pct',       label: 'Body %',         mi: mutualInfo(labeled.map(e => fv(e, 'body_pct')),       hitLbls) },
       { featureKey: 'range_atr',      label: 'Range / ATR',    mi: mutualInfo(labeled.map(e => fv(e, 'range_atr')),      hitLbls) },
       { featureKey: 'rsi2',           label: 'RSI-2',          mi: mutualInfo(labeled.map(e => fv(e, 'rsi2')),           hitLbls) },
-      { featureKey: 'upper_wick_pct', label: 'Upper Wick',     mi: mutualInfo(labeled.map(e => fv(e, 'upper_wick_pct')), hitLbls) },
+      { featureKey: 'upper_wick_pct',  label: 'Upper Wick',     mi: mutualInfo(labeled.map(e => fv(e, 'upper_wick_pct')),  hitLbls) },
+      { featureKey: 'pre10_vol_avg',   label: 'Pre-10 Vol',     mi: mutualInfo(labeled.map(e => fv(e, 'pre10_vol_avg')),   hitLbls) },
+      { featureKey: 'pre10_range_avg', label: 'Pre-10 Range',   mi: mutualInfo(labeled.map(e => fv(e, 'pre10_range_avg')), hitLbls) },
     ].sort((a, b2) => b2.mi - a.mi);
   }
 
@@ -344,7 +374,8 @@ export async function GET() {
     eventCount: n, actionableCount: actionable.length, runCount: runs.length,
     lastRunDate: runs[0]?.run_date ?? '',
     overallDetectionRate: n > 0 ? actionable.length / n : 0,
-    centroid, featureStdDev, stageHitCounts, paramSetStats, featureLifts, archetypeCounts, breakoutTierCounts,
+    centroid, winnerCentroid, winnerCount, winnerCentroidReady,
+    featureStdDev, stageHitCounts, paramSetStats, featureLifts, archetypeCounts, breakoutTierCounts,
     // Sprint 3
     labeledCount: labeled.length, labeledHitRate, avgRMultiple, kellyFraction,
     featureBuckets, miRanking, clusterProfiles, clusterCentroids, regimeStats, ksDrift,

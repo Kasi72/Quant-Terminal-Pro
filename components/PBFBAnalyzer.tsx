@@ -76,6 +76,7 @@ interface FeatureCentroid {
   closeLoc: number; bodyPct: number; upperWickPct: number;
   volRatio20: number; volPre5: number; rangeATR: number;
   rsi2: number; zoneLen: number; zoneTightness: number;
+  pre10VolAvg?: number; pre10RangeAvg?: number;
 }
 interface BrainData {
   eventCount: number; actionableCount: number; runCount: number;
@@ -97,6 +98,9 @@ interface BrainData {
   clusterCentroids?: FeatureCentroid[];
   regimeStats?:     Record<string, { count: number; labeledCount: number; hitRate: number | null }>;
   ksDrift?:         { feature: string; stat: number; significant: boolean }[] | null;
+  winnerCentroid?:      FeatureCentroid | null;
+  winnerCount?:         number;
+  winnerCentroidReady?: boolean;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -785,21 +789,40 @@ export default function PBFBAnalyzer() {
   // B2: FAS scores memoized — computed once when results or brainData change
   const fasMap = useMemo<Record<string, number | null>>(() => {
     if (!brainData || brainData.eventCount < 10) return {};
-    const c = brainData.centroid;
+
+    // Use winner centroid (T2+ events) when ≥5 winners; fall back to general centroid
+    const c = (brainData.winnerCentroidReady && brainData.winnerCentroid)
+      ? brainData.winnerCentroid
+      : brainData.centroid;
+
+    // MI-weighted similarity: top-3 ranked features get 2× weight
+    const miWeights: Record<string, number> = {};
+    if (brainData.miRanking && brainData.miRanking.length > 0)
+      brainData.miRanking.slice(0, 3).forEach(r => { miWeights[r.featureKey] = 2; });
+    function fw(featureKey: string): number { return miWeights[featureKey] ?? 1; }
+
     const map: Record<string, number | null> = {};
     for (const r of results) {
       const key = `${r.symbol}::${r.date}::${r.nBefore}`;
       if (!r.bestResult) { map[key] = null; continue; }
       const br = r.bestResult;
-      const diffs: number[] = [];
-      if (c.closeLoc > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.closeLoc        - c.closeLoc)     / 50));
-      if (c.bodyPct > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.bodyPct         - c.bodyPct)      / 40));
-      if (c.upperWickPct > 0) diffs.push(Math.max(0, 1 - Math.abs(br.upperWickPct    - c.upperWickPct) / 30));
-      if (c.volRatio20 > 0)   diffs.push(Math.max(0, 1 - Math.abs(br.exactVolRatio20 - c.volRatio20)   / 3));
-      if (c.volPre5 > 0)      diffs.push(Math.max(0, 1 - Math.abs(br.exactVolVsPre5  - c.volPre5)      / 4));
-      if (c.rangeATR > 0)     diffs.push(Math.max(0, 1 - Math.abs(br.exactRangeATR14 - c.rangeATR)     / 2));
-      if (c.rsi2 > 0)         diffs.push(Math.max(0, 1 - Math.abs(br.rsi2            - c.rsi2)         / 40));
-      map[key] = diffs.length > 0 ? Math.round(diffs.reduce((a, b) => a + b) / diffs.length * 100) : null;
+      const diffs: [number, number][] = []; // [similarity 0-1, feature weight]
+      if (c.closeLoc > 0)     diffs.push([Math.max(0, 1 - Math.abs(br.closeLoc        - c.closeLoc)     / 50), fw('close_loc')]);
+      if (c.bodyPct > 0)      diffs.push([Math.max(0, 1 - Math.abs(br.bodyPct         - c.bodyPct)      / 40), fw('body_pct')]);
+      if (c.upperWickPct > 0) diffs.push([Math.max(0, 1 - Math.abs(br.upperWickPct    - c.upperWickPct) / 30), fw('upper_wick_pct')]);
+      if (c.volRatio20 > 0)   diffs.push([Math.max(0, 1 - Math.abs(br.exactVolRatio20 - c.volRatio20)   / 3),  fw('vol_ratio_20')]);
+      if (c.volPre5 > 0)      diffs.push([Math.max(0, 1 - Math.abs(br.exactVolVsPre5  - c.volPre5)      / 4),  fw('vol_vs_pre5')]);
+      if (c.rangeATR > 0)     diffs.push([Math.max(0, 1 - Math.abs(br.exactRangeATR14 - c.rangeATR)     / 2),  fw('range_atr')]);
+      if (c.rsi2 > 0)         diffs.push([Math.max(0, 1 - Math.abs(br.rsi2            - c.rsi2)         / 40), fw('rsi2')]);
+      // Pre-breakout context (only when winner centroid has these)
+      if (c.pre10VolAvg && c.pre10VolAvg > 0)
+        diffs.push([Math.max(0, 1 - Math.abs(br.pre10AvgVolRatio  - c.pre10VolAvg)   / 3),  fw('pre10_vol_avg')]);
+      if (c.pre10RangeAvg && c.pre10RangeAvg > 0)
+        diffs.push([Math.max(0, 1 - Math.abs(br.pre10AvgRangeATR  - c.pre10RangeAvg) / 1),  fw('pre10_range_avg')]);
+
+      if (diffs.length === 0) { map[key] = null; continue; }
+      const totalW = diffs.reduce((s, [, wt]) => s + wt, 0);
+      map[key] = Math.round(diffs.reduce((s, [sim, wt]) => s + sim * wt, 0) / totalW * 100);
     }
     return map;
   }, [results, brainData]);
@@ -1623,6 +1646,9 @@ export default function PBFBAnalyzer() {
                   <span className="text-[11px] font-bold text-purple-300">🧠 Brain V2 Intelligence</span>
                   <span className="text-[10px] text-slate-500">
                     {brainData.eventCount} events · {brainData.runCount} runs
+                    {(brainData.winnerCount ?? 0) > 0 && (
+                      <span className="ml-1 text-emerald-400">· {brainData.winnerCount} T2+ winners</span>
+                    )}
                   </span>
                   {brainData.lastRunDate && (
                     <span className="px-1.5 py-0.5 bg-purple-900/30 border border-purple-800/50 rounded text-[9px] text-purple-400 font-mono">
@@ -1778,7 +1804,7 @@ export default function PBFBAnalyzer() {
                     </div>
                   ))}
                   <div className="mt-2 text-[8px] text-slate-700 leading-relaxed">
-                    ± shows 1σ population spread. Compare your current events' 🧠 FAS score to see how close they match.
+                    ± shows 1σ population spread. 🧠 DNA scores compare against {brainData?.winnerCentroidReady ? `the winner centroid (${brainData.winnerCount} T2+ events, MI-weighted)` : 'the general actionable centroid'} — higher = closer match to your historical big moves.
                   </div>
                 </div>
               </div>
@@ -1983,7 +2009,11 @@ export default function PBFBAnalyzer() {
                     <Th k="movePct" label="Move %" />
                     <Th k="volMult" label="Vol ×" />
                     <Th k="bestStage" label="Best Stage" />
-                    <th className="px-2 py-1.5 text-center text-[10px] font-semibold text-purple-400 uppercase tracking-wider" title="Feature Alignment Score — how closely this event's candle profile matches the historical actionable centroid (Brain V2)">🧠 DNA</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-semibold text-purple-400 uppercase tracking-wider"
+                      title={brainData?.winnerCentroidReady
+                        ? `Pattern DNA — similarity to ${brainData.winnerCount} T2+ winner events (winner centroid, MI-weighted, 9 features)`
+                        : 'Pattern DNA — similarity to historical actionable events centroid (Brain V2)'}>
+                      🧠 DNA</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Param Set</th>
                     {PARAM_SET_KEYS.map(k => (
                       <th key={k} className="px-2 py-1.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
