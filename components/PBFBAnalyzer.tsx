@@ -773,16 +773,41 @@ export default function PBFBAnalyzer() {
         zoneShape:        r.bestResult?.zone?.zoneShape    ?? null,
       })),
     };
+    const body = JSON.stringify(payload);
+    const doFetch = () => fetch('/api/pbfb-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
     try {
-      const res = await fetch('/api/pbfb-save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let res = await doFetch();
+      if (!res.ok && res.status >= 500) {
+        // One retry after 1.5s for transient errors (ECONNRESET, 503, etc.)
+        await new Promise(r => setTimeout(r, 1500));
+        res = await doFetch();
+      }
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('[pbfb-save] HTTP', res.status, errText);
+      }
       setSaveState(res.ok ? 'saved' : 'error');
       if (res.ok) loadBrainData();
-    } catch {
-      setSaveState('error');
+    } catch (err) {
+      console.error('[pbfb-save] fetch threw:', err);
+      // One retry after 1.5s for network-level errors (ECONNRESET, etc.)
+      try {
+        await new Promise(r => setTimeout(r, 1500));
+        const res = await doFetch();
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          console.error('[pbfb-save] retry HTTP', res.status, errText);
+        }
+        setSaveState(res.ok ? 'saved' : 'error');
+        if (res.ok) loadBrainData();
+      } catch (err2) {
+        console.error('[pbfb-save] retry threw:', err2);
+        setSaveState('error');
+      }
     }
   }
 

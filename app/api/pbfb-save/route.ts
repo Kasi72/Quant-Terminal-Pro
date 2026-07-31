@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many events in one run' }, { status: 413 });
   }
 
-  const sb = createClient(url, key);
+  const sb = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   // Log the daily run
   const { data: run, error: runErr } = await sb
@@ -121,7 +123,10 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single();
 
-  if (runErr) return NextResponse.json({ error: runErr.message }, { status: 500 });
+  if (runErr) {
+    console.error('[pbfb-save] pbfb_daily_runs insert failed:', runErr.message);
+    return NextResponse.json({ error: runErr.message }, { status: 500 });
+  }
 
   const rows = body.events.map(e => ({
     run_date:        body.runDate,
@@ -163,7 +168,7 @@ export async function POST(req: NextRequest) {
     const { error } = await sb.from('pbfb_uc_events')
       .upsert(chunk, { onConflict: 'symbol,event_date,n_before' });
     if (!error) stored += chunk.length;
-    else if (!firstError) firstError = error.message;
+    else if (!firstError) { firstError = error.message; console.error('[pbfb-save] upsert chunk error:', error.message); }
   }
 
   if (stored === 0 && firstError) {
