@@ -120,10 +120,13 @@ function filterRows(
     const volume     = iVol >= 0 ? Math.abs(parseInt(cols[iVol] ?? '0', 10)) : 0;
     if (!symbol || isNaN(prevClose) || isNaN(closePrice) || prevClose <= 0) continue;
     const movePct = (closePrice - prevClose) / prevClose * 100;
-    // Corporate action filter — any single-day move >25% without a UC lock is almost certainly a bonus/split
+    // Corporate action filter — any single-day move >25% is usually a bonus/split
     if (movePct > 25) continue;
     const isUCLock = !isNaN(highPrice) && highPrice > 0 && (highPrice - closePrice) / highPrice < 0.002;
-    if (movePct >= minPct || (isUCLock && movePct > 0)) {
+    // Keep the bhavcopy fallback aligned with the Chartink close-to-close
+    // objective. high≈close is useful evidence, but without exchange price-band
+    // data it is not proof of an upper-circuit lock by itself.
+    if (movePct > minPct) {
       results.push({ symbol, movePct, isUCLock, closePrice, prevClose, volume });
     }
   }
@@ -221,7 +224,7 @@ async function tryReportsApi(dateStr: string, minPct: number, cookies: string): 
 
 export async function GET(req: NextRequest) {
   const date   = req.nextUrl.searchParams.get('date');
-  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '5');
+  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '4.9');
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 });

@@ -598,7 +598,7 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
 export default function PBFBAnalyzer() {
   const [symbolText, setSymbolText]   = useState('');
   const [maxNBefore, setMaxNBefore]   = useState(3);
-  const [minMovePct, setMinMovePct]   = useState(5);    // 5% = NSE min upper circuit
+  const [minMovePct, setMinMovePct]   = useState(4.9);  // >4.9% catches rounded 5% circuit prints
   const [minVolMult, setMinVolMult]   = useState(3);
   const [loading, setLoading]         = useState(false);
   const [progress, setProgress]       = useState({ done: 0, total: 0, phase: '' });
@@ -622,7 +622,7 @@ export default function PBFBAnalyzer() {
     const d = new Date(); d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
   });
-  const [ucMinPct, setUcMinPct]       = useState(5);
+  const [ucMinPct, setUcMinPct]       = useState(4.9);
   const [ucFetching, setUcFetching]   = useState(false);
   const [ucError, setUcError]         = useState('');
   const [ucHitters, setUcHitters]     = useState<UCHitter[]>([]);
@@ -882,9 +882,10 @@ export default function PBFBAnalyzer() {
       const prev = candles[i - 1], cur = candles[i];
       if (prev.c <= 0 || cur.h <= 0) continue;
       const movePct = ((cur.c - prev.c) / prev.c) * 100;
-      if (movePct < minMovePct || movePct > 25) continue;  // >25% = corporate action
+      if (movePct <= minMovePct || movePct > 25) continue;  // >25% = corporate action
 
-      // UC lock: high ≈ close (within 0.2%), meaning no seller got through
+      // Lock evidence: high ≈ close (within 0.2%). This is not proof of an
+      // exchange circuit by itself, but is useful once the >4.9% move gate passes.
       const isUCLock = (cur.h - cur.c) / cur.h < 0.002;
 
       let v20 = 0, n = 0;
@@ -947,7 +948,7 @@ export default function PBFBAnalyzer() {
     setEvents(deduped);
 
     if (deduped.length === 0) {
-      setError(`No monster-move events found (≥${minMovePct}% + ≥${minVolMult}× vol, or UC lock) in the selected stocks. Note: moves >25% are excluded as likely corporate actions.`);
+      setError(`No monster-move events found (>${minMovePct.toFixed(1)}% + ≥${minVolMult}× vol) in the selected stocks. Note: moves >25% are excluded as likely corporate actions.`);
       setLoading(false);
       return;
     }
@@ -1259,10 +1260,10 @@ export default function PBFBAnalyzer() {
               <div className="space-y-1">
                 <div className="text-[9px] text-slate-500 uppercase font-semibold tracking-wider">Min move %</div>
                 <div className="flex items-center gap-2">
-                  <input type="range" min={3} max={15} value={ucMinPct} step={1}
+                  <input type="range" min={3} max={15} value={ucMinPct} step={0.1}
                     onChange={e => setUcMinPct(Number(e.target.value))}
                     className="w-20 h-1.5 rounded cursor-pointer" />
-                  <span className="text-[11px] font-mono font-bold text-amber-400 w-8">≥{ucMinPct}%</span>
+                  <span className="text-[11px] font-mono font-bold text-amber-400 w-11">&gt;{ucMinPct.toFixed(1)}%</span>
                 </div>
               </div>
 
@@ -1285,7 +1286,7 @@ export default function PBFBAnalyzer() {
                   {ucHitters.length} stocks · {ucFetchedDate}
                   {ucSource === 'bhavcopy' && (
                     <>
-                      {' '}— {ucHitters.filter(h => h.isUCLock).length} UC locks,
+                      {' '}— {ucHitters.filter(h => h.isUCLock).length} lock-like closes,
                       {' '}{ucHitters.filter(h => !h.isUCLock).length} large moves
                     </>
                   )}
@@ -1336,7 +1337,7 @@ export default function PBFBAnalyzer() {
 
             {!ucFetching && ucHitters.length === 0 && ucFetchedDate && !ucError && (
               <div className="text-[10px] text-slate-600 py-2">
-                No stocks found with ≥{ucMinPct}% move
+                No stocks found with &gt;{ucMinPct.toFixed(1)}% move
                 {ucSource === 'bhavcopy' ? ` on ${ucFetchedDate}` : ' in latest session'}.
                 Try a lower threshold{ucSource === 'bhavcopy' ? ' or a different date' : ''}.
               </div>
@@ -1344,8 +1345,8 @@ export default function PBFBAnalyzer() {
 
             <div className="text-[9px] text-slate-600 border-t border-slate-700/30 pt-2 leading-relaxed">
               {ucSource === 'chartink'
-                ? 'Chartink runs a live cash-segment scan: stocks where close rose ≥ min% vs previous close. Requires Chartink to be reachable. UC lock detection happens when PBFB fetches full OHLCV for each stock.'
-                : 'NSE bhavcopy: EQ series only. UC locks (high ≈ close within 0.2%) detected from bhavcopy data. Corporate actions (>25% moves) filtered out. Tries 4 URL formats + NSE API fallback.'}
+                ? 'Chartink runs a live cash-segment scan: stocks where close rose > min% vs previous close. Requires Chartink to be reachable. UC lock evidence is added later when PBFB fetches full OHLCV for each stock.'
+                : 'NSE bhavcopy: EQ series only. Close-to-close move must be > min%; high ≈ close within 0.2% is shown as lock evidence, not used alone as proof. Corporate actions (>25% moves) filtered out.'}
             </div>
           </div>
         )}
@@ -1418,18 +1419,18 @@ export default function PBFBAnalyzer() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] text-slate-400">Min close-to-close %</span>
-                  <span className="text-[11px] font-mono font-bold text-emerald-400">≥{minMovePct}%</span>
+                  <span className="text-[11px] font-mono font-bold text-emerald-400">&gt;{minMovePct.toFixed(1)}%</span>
                 </div>
-                <input type="range" min={3} max={20} value={minMovePct} step={1}
+                <input type="range" min={3} max={20} value={minMovePct} step={0.1}
                   onChange={e => setMinMovePct(Number(e.target.value))}
                   className="w-full h-1.5 rounded cursor-pointer" />
                 <div className="flex justify-between text-[9px] text-slate-700 mt-0.5">
-                  <span>3% (5% UC)</span><span>20%</span>
+                  <span>3% (&gt;4.9% UC)</span><span>20%</span>
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-slate-400">Min volume × <span className="text-slate-600">(relaxed for UC locks)</span></span>
+                  <span className="text-[10px] text-slate-400">Min volume × <span className="text-slate-600">(relaxed for lock-like closes)</span></span>
                   <span className="text-[11px] font-mono font-bold text-emerald-400">≥{minVolMult}×</span>
                 </div>
                 <input type="range" min={1.5} max={6} value={minVolMult} step={0.5}
@@ -1438,7 +1439,7 @@ export default function PBFBAnalyzer() {
                 <div className="flex justify-between text-[9px] text-slate-700 mt-0.5"><span>1.5×</span><span>6×</span></div>
               </div>
               <div className="text-[9px] text-slate-600 border-t border-slate-700/50 pt-1.5 leading-relaxed">
-                Upper circuit locks (h≈c) detected automatically — volume filter relaxed since no sellers means fewer trades.
+                Lock-like closes (h≈c) are flagged after the close-to-close move gate passes; volume filter is relaxed for those rows.
                 &gt;25% moves filtered (corporate actions).
               </div>
             </div>
@@ -1446,7 +1447,7 @@ export default function PBFBAnalyzer() {
             <div className="col-span-2 bg-slate-900/30 rounded p-2 border border-slate-700/30">
               <div className="text-[9px] text-slate-500 leading-relaxed">
                 <span className="text-slate-400 font-semibold">How it works:</span>{' '}
-                Finds every genuine monster-move day (≥{minMovePct}% or UC lock).
+                Finds every genuine monster-move day (&gt;{minMovePct.toFixed(1)}% close-to-close).
                 Rewinds N candles before each one. Runs all 6 param sets on that truncated history.
                 <span className="text-cyan-500"> Click any result row</span> to see the full pre-event candle profile — close location, body/wick, zone status, and every condition that passed or failed.
               </div>
@@ -1533,7 +1534,7 @@ export default function PBFBAnalyzer() {
               { label: 'On Radar (stage)',     val: summary.onRadar,    sub: `${pct(summary.onRadar, summary.total)}%`,    color: '#818cf8' },
               { label: 'Zone seen, not ready', val: summary.zoneOnly,   sub: `${pct(summary.zoneOnly, summary.total)}%`,   color: '#fbbf24' },
               { label: 'Missed entirely',      val: summary.missed,     sub: `${pct(summary.missed, summary.total)}%`,     color: '#f87171' },
-              { label: 'Total events',         val: summary.total,      sub: `≥${minMovePct}% or UC lock`,                 color: '#94a3b8' },
+              { label: 'Total events',         val: summary.total,      sub: `>${minMovePct.toFixed(1)}% close-close`,     color: '#94a3b8' },
             ] as const).map((card, i) => (
               <div key={i} className="bg-slate-800/60 rounded-lg p-2.5 text-center">
                 <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 leading-tight">{card.label}</div>
