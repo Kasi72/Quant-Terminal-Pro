@@ -5804,6 +5804,65 @@ function HomePageInner() {
               return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
             });
 
+          const tradeLogAllStats = computeWinRateStats(trackedTrades);
+          const tradeLogVisibleStats = computeWinRateStats(filteredSortedTrades);
+          const tradeLogWrTone = (wr: number, decided: number) => {
+            if (decided === 0) return 'text-slate-500';
+            if (wr >= 65) return 'text-emerald-300';
+            if (wr >= 55) return 'text-emerald-400';
+            if (wr >= 45) return 'text-amber-400';
+            return 'text-red-400';
+          };
+          const tradeLogPfTone = (pf: number, decided: number) => {
+            if (decided === 0) return 'text-slate-500';
+            if (pf >= 1.5) return 'text-emerald-300';
+            if (pf >= 1.2) return 'text-emerald-400';
+            if (pf >= 1.0) return 'text-amber-400';
+            return 'text-red-400';
+          };
+          const tradeLogStatCard = (
+            title: string,
+            stats: typeof tradeLogAllStats,
+            totalVisible?: number,
+          ) => (
+            <div className="min-w-[220px] flex-1 rounded border border-slate-800 bg-slate-950/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{title}</span>
+                <span className="text-[10px] font-mono text-slate-600">
+                  {totalVisible ?? stats.total} trades
+                </span>
+              </div>
+              <div className="mt-1 flex items-end justify-between gap-3">
+                <div>
+                  <div className={`text-lg font-black leading-none ${tradeLogWrTone(stats.winRate, stats.decided)}`}>
+                    {stats.decided > 0 ? `${stats.winRate.toFixed(0)}%` : '—'}
+                  </div>
+                  <div className="text-[9px] text-slate-600 mt-0.5">5% WR</div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-right">
+                  <div>
+                    <div className="text-[11px] font-bold text-emerald-400">{stats.wins}</div>
+                    <div className="text-[8px] uppercase tracking-wider text-slate-600">Win</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-red-400">{stats.losses}</div>
+                    <div className="text-[8px] uppercase tracking-wider text-slate-600">Loss</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-sky-400">{stats.open}</div>
+                    <div className="text-[8px] uppercase tracking-wider text-slate-600">Open</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-[12px] font-bold ${tradeLogPfTone(stats.profitFactor, stats.decided)}`}>
+                    {stats.decided > 0 ? stats.profitFactor.toFixed(2) : '—'}
+                  </div>
+                  <div className="text-[8px] uppercase tracking-wider text-slate-600">PF</div>
+                </div>
+              </div>
+            </div>
+          );
+
           const statusEmoji = (trade: TrackedTrade) => isTerminalTrade(trade) && (trade.status === 'hit_t1' || trade.status === 'hit_t2')
             ? '↩'
             : ({ open: '🟡', hit_t1: '🎯', hit_t2: '🎯🎯', hit_t3: '🏆', stopped: '🛑', expired: '⏰', manual_close: '✅', closed_early: '✅' }[trade.status] ?? '•');
@@ -5892,13 +5951,28 @@ function HomePageInner() {
           };
 
           return (
-            <div className="flex-1 flex overflow-hidden min-h-0">
-              {/* ── Left: master trade list ── */}
-              <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-[#0c1018] flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="flex-shrink-0 border-b border-slate-800 bg-[#090d14] px-3 py-2">
+                <div className="flex flex-wrap items-stretch gap-2">
+                  {tradeLogStatCard('All Trade Log', tradeLogAllStats)}
+                  {tradeLogStatCard(logSearch || logFilter !== 'all' ? 'Visible List' : 'Current View', tradeLogVisibleStats, filteredSortedTrades.length)}
+                  <div className="min-w-[260px] flex-[1.2] rounded border border-slate-800 bg-slate-950/30 px-3 py-2">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Resolution Rule</div>
+                    <div className="mt-1 text-[11px] text-slate-400 leading-snug">
+                      A win is counted when the trade has touched +5% MFE. Losses are terminal trades that never touched +5%; open trades stay neutral until resolved.
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 flex overflow-hidden min-h-0">
+                {/* ── Left: master trade list ── */}
+                <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-[#0c1018] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
                   <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Tracked</span>
-                  <span className="text-[10px] text-slate-500">{filteredSortedTrades.length}/{trackedTrades.length}</span>
+                  <span className={`text-[10px] font-bold ${tradeLogWrTone(tradeLogVisibleStats.winRate, tradeLogVisibleStats.decided)}`}>
+                    {tradeLogVisibleStats.decided > 0 ? `${tradeLogVisibleStats.winRate.toFixed(0)}% WR` : `${filteredSortedTrades.length}/${trackedTrades.length}`}
+                  </span>
                 </div>
                 {/* Search */}
                 <div className="px-2 py-1.5 border-b border-slate-800 flex-shrink-0">
@@ -6259,6 +6333,7 @@ function HomePageInner() {
                     )}
                   </>
                 )}
+                </div>
               </div>
             </div>
           );
