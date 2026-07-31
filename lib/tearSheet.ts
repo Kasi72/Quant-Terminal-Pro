@@ -122,7 +122,7 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
       t3PnlPct: t.target3 > 0 && t.entryPrice > 0 ? safe((t.target3 - t.entryPrice) / t.entryPrice * 100) : 0,
       exitPrice: t.closedPrice ?? t.currentPrice ?? 0,
       exitDate: t.closedDate ?? '—',
-      weightedPnlPct: safe(t.pnlPct ?? unrealPnl),
+      weightedPnlPct: safe(t.status === 'open' ? unrealPnl : (t.pnlPct ?? unrealPnl)),
       rMult: safe(t.pnlR ?? 0),
       mfePct,
       maePct: -getTradeMaePct(t),
@@ -141,11 +141,11 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
     wins: wins.length, losses: losses.length, winRate, profitFactor, expectancy,
     realizedPnlRupees: safe(realizedPnl), realizedPnlPct: accountSize > 0 ? safe(realizedPnl / accountSize * 100) : 0,
     trades: tearTrades,
-    t1Hits: t1Hits.length, t1PnlPct: safe(t1Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0)),
-    t2Hits: t2Hits.length, t2PnlPct: safe(t2Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0)),
-    t3Hits: t3Hits.length, t3PnlPct: safe(t3Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0)),
-    stopped: stopped.length, stoppedPnlPct: safe(stopped.reduce((s, t) => s + (t.pnlPct ?? 0), 0)),
-    expired: expired.length, expiredPnlPct: safe(expired.reduce((s, t) => s + (t.pnlPct ?? 0), 0)),
+    t1Hits: t1Hits.length, t1PnlPct: t1Hits.length > 0 ? safe(t1Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / t1Hits.length) : 0,
+    t2Hits: t2Hits.length, t2PnlPct: t2Hits.length > 0 ? safe(t2Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / t2Hits.length) : 0,
+    t3Hits: t3Hits.length, t3PnlPct: t3Hits.length > 0 ? safe(t3Hits.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / t3Hits.length) : 0,
+    stopped: stopped.length, stoppedPnlPct: stopped.length > 0 ? safe(stopped.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / stopped.length) : 0,
+    expired: expired.length, expiredPnlPct: expired.length > 0 ? safe(expired.reduce((s, t) => s + (t.pnlPct ?? 0), 0) / expired.length) : 0,
   };
 }
 
@@ -163,11 +163,11 @@ export async function exportTearSheetXLSX(data: TearSheetData) {
     ['Realized P&L', `₹${data.realizedPnlRupees.toFixed(0)}`, 'As % of Account', `${data.realizedPnlPct.toFixed(2)}%`],
     [],
     ['OUTCOME BREAKDOWN'],
-    ['T1 Hits', data.t1Hits, `${data.t1PnlPct.toFixed(1)}%`],
-    ['T2 Hits', data.t2Hits, `${data.t2PnlPct.toFixed(1)}%`],
-    ['T3 Hits', data.t3Hits, `${data.t3PnlPct.toFixed(1)}%`],
-    ['Stopped', data.stopped, `${data.stoppedPnlPct.toFixed(1)}%`],
-    ['Expired', data.expired, `${data.expiredPnlPct.toFixed(1)}%`],
+    ['T1 Hits', data.t1Hits, `Avg P&L: ${data.t1PnlPct.toFixed(1)}%`],
+    ['T2 Hits', data.t2Hits, `Avg P&L: ${data.t2PnlPct.toFixed(1)}%`],
+    ['T3 Hits', data.t3Hits, `Avg P&L: ${data.t3PnlPct.toFixed(1)}%`],
+    ['Stopped', data.stopped, `Avg P&L: ${data.stoppedPnlPct.toFixed(1)}%`],
+    ['Expired', data.expired, `Avg P&L: ${data.expiredPnlPct.toFixed(1)}%`],
   ];
 
   const headers = ['#', 'Symbol', 'Stage', 'Entry ₹', 'Entry Date', 'Hard Stop ₹', 'Risk%', 'T1 ₹', 'T1 Hit Date', 'T1 P&L%', 'T2 ₹', 'T2 Hit Date', 'T2 P&L%', 'T3 ₹', 'T3 Hit Date', 'T3 P&L%', 'Exit ₹', 'Exit Date', 'Weighted P&L%', 'R-Mult', 'MFE%', 'MAE%', 'Days', 'Exit Model', 'Outcome', 'Conviction', 'Sector'];
@@ -215,7 +215,7 @@ export async function exportTearSheetPDF(data: TearSheetData) {
   // Outcome row
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(8);
-  doc.text(`T1: ${data.t1Hits} (${data.t1PnlPct.toFixed(1)}%) | T2: ${data.t2Hits} (${data.t2PnlPct.toFixed(1)}%) | T3: ${data.t3Hits} (${data.t3PnlPct.toFixed(1)}%) | Stopped: ${data.stopped} (${data.stoppedPnlPct.toFixed(1)}%) | Expired: ${data.expired}`, 14, y + 6);
+  doc.text(`T1: ${data.t1Hits} (avg ${data.t1PnlPct.toFixed(1)}%) | T2: ${data.t2Hits} (avg ${data.t2PnlPct.toFixed(1)}%) | T3: ${data.t3Hits} (avg ${data.t3PnlPct.toFixed(1)}%) | Stopped: ${data.stopped} (avg ${data.stoppedPnlPct.toFixed(1)}%) | Expired: ${data.expired}`, 14, y + 6);
 
   // Trade log table
   autoTable(doc, {

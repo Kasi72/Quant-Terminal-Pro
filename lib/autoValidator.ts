@@ -290,6 +290,10 @@ export function validateTrade(
       }
     }
 
+    // Capture intraday MFE on this bar BEFORE checking stops — the high occurs
+    // before the stop trigger intraday, and the break below would skip line 322.
+    if (hi > mfePrice) mfePrice = hi;
+
     // Hard broker stop is always authoritative. After T1, the raised breakeven /
     // chandelier stop also becomes a hard protective stop.
     const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : hardStop;
@@ -319,7 +323,6 @@ export function validateTrade(
       break;
     }
 
-    if (hi > mfePrice) mfePrice = hi;
     if (lo < maePrice) maePrice = lo;
 
     // Before T1, the tactical stop is reviewed on the completed candle. T1 is a

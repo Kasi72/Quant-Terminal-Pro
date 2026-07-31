@@ -2202,10 +2202,10 @@ function HomePageInner() {
           });
           const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
-          // Sync highestPrice and mfe from raw candle peaks — validateTrade caps replay
-          // at maxHoldBars so bars beyond the horizon won't update mfe via the result.
-          // Using raw highs ensures the true peak is always reflected (matches Validate button).
-          const rawPeak = Math.max(...sinceEntry.map(c => c.h));
+          // Sync highestPrice/mfe from raw candle highs, capped to maxHoldBars so
+          // post-expiry bars don't inflate MFE beyond the active trading horizon.
+          const _sBars = sinceEntry.slice(0, updated[i].maxHoldBars ?? sinceEntry.length);
+          const rawPeak = _sBars.length > 0 ? Math.max(..._sBars.map(c => c.h)) : 0;
           if (rawPeak > (updated[i].highestPrice ?? 0)) {
             updated[i] = { ...updated[i], highestPrice: rawPeak };
           }
@@ -3239,7 +3239,8 @@ function HomePageInner() {
                       });
                       if (idx >= 0) {
                         let u = applyValidation(updated[idx], result);
-                        const maxH = Math.max(...sinceEntry.map(c => c.h));
+                        const _tBars = sinceEntry.slice(0, u.maxHoldBars ?? sinceEntry.length);
+                        const maxH = _tBars.length > 0 ? Math.max(..._tBars.map(c => c.h)) : 0;
                         if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
                         updated[idx] = u;
                       }
@@ -4249,12 +4250,14 @@ function HomePageInner() {
                     <tbody>
                       {trackedTrades.filter(t => t.status === 'open').map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
-                        const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
-                        const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
+                        const mfePct = getTradeMfePct(t);
+                        const mfeR = getTradeMfeR(t);
                         const maePct = getTradeMaePct(t);
                         const maeR = getTradeMaeR(t);
                         const curPnl = t.currentPrice && t.entryPrice > 0 ? ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
                         const daysLeft = (t.maxHoldBars ?? 20) - (t.daysHeld ?? 0);
+                        const _tlToday = new Date().toISOString().slice(0, 10);
+                        const tlDaysStale = !!t.lastCheckDate && t.lastCheckDate < _tlToday;
                         const gLog = t.gateLog;
                         return (<Fragment key={t.symbol + '-' + i}>
                         <tr className="border-b border-slate-800/40 group">
@@ -4284,7 +4287,7 @@ function HomePageInner() {
                           <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(1)}R` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${maePct > 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct > 0 ? `-${maePct.toFixed(1)}%` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
-                          <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 16 ? 'text-amber-400' : 'text-slate-500'}`} title={daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 16 ? ' ⏳' : ''}</td>
+                          <td className={`px-2 py-1.5 text-right ${(t.daysHeld ?? 0) >= 16 ? 'text-amber-400' : 'text-slate-500'}`} title={tlDaysStale ? `⚠ stale since ${t.lastCheckDate} — auto-expires in ~${daysLeft} days (may be fewer)` : daysLeft > 0 ? `Auto-expires in ${daysLeft} days` : 'Expiring soon!'}>{t.daysHeld ?? '—'}{(t.daysHeld ?? 0) >= 16 ? ' ⏳' : ''}{tlDaysStale ? ' ⚠' : ''}</td>
                           <td className={`px-2 py-1.5 text-right font-mono ${t.currentPrice ? 'text-slate-300' : 'text-slate-600'}`}>{t.currentPrice ? `₹${t.currentPrice.toFixed(0)}` : '—'}</td>
                           <td className={`px-2 py-1.5 text-right font-mono font-semibold ${curPnl > 0 ? 'text-emerald-400' : curPnl < 0 ? 'text-red-400' : 'text-slate-500'}`}>{t.currentPrice ? `${curPnl >= 0 ? '+' : ''}${curPnl.toFixed(1)}%` : '—'}</td>
                           <td className="px-2 py-1.5 text-center"><span className="bg-blue-900/40 text-blue-300 text-[10px] px-1.5 py-0.5 rounded font-medium">OPEN</span></td>
@@ -4368,9 +4371,9 @@ function HomePageInner() {
                     <tbody>
                       {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
-                        const mfePct = t.highestPrice && t.entryPrice > 0 ? ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100 : 0;
-                        const mfeR = t.highestPrice && riskPerShare > 0 ? (t.highestPrice - t.entryPrice) / riskPerShare : 0;
-                        const maePct = t.pnlPct && t.pnlPct < 0 ? t.pnlPct : 0;
+                        const mfePct = getTradeMfePct(t);
+                        const mfeR = getTradeMfeR(t);
+                        const maePct = getTradeMaePct(t);
                         const maeR = riskPerShare > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / riskPerShare : 0;
                         const statusCfg: Record<string, { label: string; color: string }> = {
                           hit_t1: { label: '✓ T1 Hit', color: 'bg-emerald-900/40 text-emerald-300' },
@@ -6332,9 +6335,9 @@ function HomePageInner() {
                                         const latestCmpDate3 = new Date((lastCandle.ts + 19800) * 1000).toISOString().slice(0, 10);
                                         u = { ...u, currentPrice: lastCandle.c, cmpDate: latestCmpDate3 };
                                       }
-                                      // Sync mfe from raw candle peak — validateTrade caps at maxHoldBars but
-                                      // the true MFE is the highest price ever reached since entry
-                                      const rawPeak = Math.max(...sinceEntry.map(c => c.h));
+                                      // Sync mfe from raw candle highs within replay horizon only.
+                                      const _vBars = sinceEntry.slice(0, u.maxHoldBars ?? sinceEntry.length);
+                                      const rawPeak = _vBars.length > 0 ? Math.max(..._vBars.map(c => c.h)) : 0;
                                       if (rawPeak > (u.highestPrice ?? 0)) u = { ...u, highestPrice: rawPeak };
                                       const rawMfePct = ((rawPeak - updated[idx].entryPrice) / updated[idx].entryPrice) * 100;
                                       if (rawMfePct > (u.mfe ?? 0)) u = { ...u, mfe: Math.round(rawMfePct * 100) / 100 };
@@ -6354,6 +6357,7 @@ function HomePageInner() {
                                   }
                                 }
                                 setTrackedTrades(updated);
+                                setBrainInsights(computeBrainInsights(updated, getNSECalendarContext(fiiSellStreak) as any));
                                 setValidateFlash(validated);
                                 setTimeout(() => setValidateFlash(0), 3000);
                                 if (tgConfig.enabled && tgConfig.alerts.validationSummary && validated > 0) {
@@ -6698,6 +6702,8 @@ function HomePageInner() {
                               const maeR = getTradeMaeR(t);
                               const holdHorizon = t.maxHoldBars ?? 20;
                               const daysLeft = holdHorizon - (t.daysHeld ?? 0);
+                              const _vToday = new Date().toISOString().slice(0, 10);
+                              const daysHeldStale = activePosition && !!t.lastCheckDate && t.lastCheckDate < _vToday;
 
                               const statusCfg: Record<string, { label: string; color: string }> = {
                                 open: { label: 'OPEN', color: 'bg-blue-900/40 text-blue-300' },
@@ -6739,13 +6745,13 @@ function HomePageInner() {
                                   <td className={`px-2 py-1.5 text-right font-mono ${mfeR > 0 ? 'text-emerald-300' : 'text-slate-600'}`}>{mfeR > 0 ? `+${mfeR.toFixed(2)}R` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maePct > 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct > 0 ? `-${maePct.toFixed(2)}%` : '—'}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(2)}R` : '—'}</td>
-                                  <td className={`px-2 py-1.5 text-right ${activePosition && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`}>{t.daysHeld ?? '—'}{activePosition && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}</td>
+                                  <td className={`px-2 py-1.5 text-right ${activePosition && (t.daysHeld ?? 0) >= 8 ? 'text-amber-400' : 'text-slate-500'}`} title={daysHeldStale ? `⚠ daysHeld stale — last validated ${t.lastCheckDate}` : undefined}>{t.daysHeld ?? '—'}{activePosition && (t.daysHeld ?? 0) >= 8 ? ` ⏳${daysLeft}d` : ''}{daysHeldStale ? ' ⚠' : ''}</td>
                                   {/* #3/#7: Days to expiry countdown */}
                                   <td className="px-2 py-1.5 text-center">{activePosition ? (() => {
                                     const horizon = t.maxHoldBars ?? 20;
                                     const dl = horizon - (t.daysHeld ?? 0);
                                     const pct = Math.max(0, Math.min(100, ((t.daysHeld ?? 0) / horizon) * 100));
-                                    return <div className="flex items-center gap-1" title={`Day ${t.daysHeld ?? 0} of ${horizon} — expires in ${Math.max(0, dl)} trading bars`}>
+                                    return <div className="flex items-center gap-1" title={daysHeldStale ? `Day ${t.daysHeld ?? 0} of ${horizon} — ⚠ stale since ${t.lastCheckDate}; actual bars held may be higher` : `Day ${t.daysHeld ?? 0} of ${horizon} — expires in ${Math.max(0, dl)} trading bars`}>
                                       <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className={`h-full rounded-full ${pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width:`${pct}%`}} /></div>
                                       <span className={`text-[9px] font-mono ${dl <= 2 ? 'text-red-400' : dl <= 5 ? 'text-amber-400' : 'text-slate-500'}`}>{Math.max(0, dl)}b</span>
                                     </div>;
