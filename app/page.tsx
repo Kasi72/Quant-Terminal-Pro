@@ -6223,7 +6223,7 @@ function HomePageInner() {
                               <th className="px-3 py-2 text-left   font-medium border-b border-slate-800 text-slate-500">Date</th>
                               {/* Reference anchors */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-600">Entry ₹</th>
-                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-amber-700" title="Frozen close-confirmed review level. Hard-stop events are identified in the Event column.">Review ₹</th>
+                              <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-amber-700" title="Effective stop for this day: initial review level until Trail-A or T2 ratchets it higher. Emerald = stop has moved up from entry level. Hard-stop events are in the Event column.">Stop ₹</th>
                               {/* Target levels */}
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-sky-700">T1 ₹</th>
                               <th className="px-3 py-2 text-right font-medium border-b border-slate-800 text-emerald-700">T2 ₹</th>
@@ -6256,9 +6256,23 @@ function HomePageInner() {
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-sky-500/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.entryPrice) : '—'}
                                   </td>
-                                  {/* Frozen close-confirmed review level */}
-                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-amber-600/70 text-[11px]">
-                                    {selectedTrade ? fmt(selectedTrade.stopLoss) : '—'}
+                                  {/* Effective stop for this day — initial review level, then trail-ratcheted */}
+                                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[11px]">
+                                    {selectedTrade ? (() => {
+                                      const tl = selectedTrade.trailLog;
+                                      const dayNum = row.day_num;
+                                      const effectiveEntry = tl ? [...tl].reverse().find((e: {day: number; newStop: number; reason: string}) => e.day <= dayNum) : null;
+                                      const effectiveStop = effectiveEntry?.newStop ?? selectedTrade.stopLoss;
+                                      const hasRatcheted = effectiveStop > selectedTrade.stopLoss;
+                                      return (
+                                        <span
+                                          className={hasRatcheted ? 'text-emerald-400 font-semibold' : 'text-amber-600/70'}
+                                          title={effectiveEntry ? effectiveEntry.reason : 'Initial review stop'}
+                                        >
+                                          {fmt(effectiveStop)}
+                                        </span>
+                                      );
+                                    })() : '—'}
                                   </td>
 
                                   {/* T1 — dims until HIGH clears it, then lights up */}
@@ -6859,7 +6873,14 @@ function HomePageInner() {
                                   <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol}</td>
                                   <td className={`px-2 py-1.5 ${stgCfg?.color ?? 'text-slate-500'}`}>{stgCfg?.label ?? t.stage}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-300">₹{t.entryPrice.toFixed(2)}</td>
-                                  <td className="px-2 py-1.5 text-right font-mono text-amber-400" title={`Hard broker stop ₹${getTradeHardStop(t).toFixed(2)}`}>₹{t.stopLoss.toFixed(2)}</td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-amber-400" title={`Hard broker stop ₹${getTradeHardStop(t).toFixed(2)}`}>{(() => {
+                                    const lastTrail = t.trailLog?.at(-1);
+                                    const effectiveStop = lastTrail?.newStop ?? t.stopLoss;
+                                    if (lastTrail && effectiveStop > t.stopLoss) {
+                                      return <span className="text-emerald-400" title={`Live: ₹${effectiveStop.toFixed(2)} | Entry: ₹${t.stopLoss.toFixed(2)} | ${lastTrail.reason}`}>₹{effectiveStop.toFixed(2)} ▲</span>;
+                                    }
+                                    return <>₹{t.stopLoss.toFixed(2)}</>;
+                                  })()}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-emerald-400">₹{t.target1.toFixed(2)}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-emerald-500">{t.target2 > 0 ? `₹${t.target2.toFixed(0)}` : '—'}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-yellow-400">{t.target3 > 0 ? `₹${t.target3.toFixed(0)}` : '—'}</td>
