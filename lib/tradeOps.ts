@@ -151,6 +151,7 @@ export interface TrackedTrade {
   qty?: number;
   daysHeld?: number;
   notes?: string;
+  targetLog?: Array<{ target: 'T1' | 'T2' | 'T3'; day: number; date: string; price: number; fraction: number }>;
   trailLog?: Array<{ day: number; newStop: number; reason: string }>;
   gateLog?: Array<{
     day: number;
@@ -300,6 +301,12 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const totalLossPct = Math.abs(losses.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0));
   const totalWinR = wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0);
   const totalLossR = Math.abs(losses.reduce((s, t) => s + getFivePctObjectiveR(t), 0));
+  // Actual avg win: use real blended exit P&L for terminal wins, peak MFE for open wins.
+  // profitFactor/expectancy stay model-based (5% objective) for consistency with Brain V2.
+  const totalActualWinPct = wins.reduce((s, t) => {
+    if (isTerminalTrade(t) && t.pnlPct != null) return s + t.pnlPct;
+    return s + getTradeMfePct(t);
+  }, 0);
 
   let bestTrade: { symbol: string; pnlPct: number } | null = null;
   let worstTrade: { symbol: string; pnlPct: number } | null = null;
@@ -336,7 +343,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     manualClose: trades.filter(t => t.status === 'manual_close').length,
     closedEarly: trades.filter(t => t.status === 'closed_early').length,
     winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
-    avgWinPct: wins.length > 0 ? totalWinPct / wins.length : 0,
+    avgWinPct: wins.length > 0 ? totalActualWinPct / wins.length : 0,
     avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,
     avgWinR: wins.length > 0 ? totalWinR / wins.length : 0,
     avgLossR: losses.length > 0 ? -totalLossR / losses.length : 0,

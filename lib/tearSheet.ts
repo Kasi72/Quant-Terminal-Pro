@@ -112,13 +112,16 @@ export function buildTearSheetData(trades: TrackedTrade[], accountSize: number):
       stopLoss: getTradeHardStop(t),
       riskPct,
       t1Price: t.target1,
-      t1HitDate: (t.status === 'hit_t1' || t.status === 'hit_t2' || t.status === 'hit_t3') ? (t.closedDate ?? '—') : '—',
+      t1HitDate: t.targetLog?.find(e => e.target === 'T1')?.date
+        ?? ((t.status === 'hit_t1' || t.status === 'hit_t2' || t.status === 'hit_t3') ? (t.closedDate ?? '—') : '—'),
       t1PnlPct: t.target1 > 0 && t.entryPrice > 0 ? safe((t.target1 - t.entryPrice) / t.entryPrice * 100) : 0,
       t2Price: t.target2,
-      t2HitDate: (t.status === 'hit_t2' || t.status === 'hit_t3') ? (t.closedDate ?? '—') : '—',
+      t2HitDate: t.targetLog?.find(e => e.target === 'T2')?.date
+        ?? ((t.status === 'hit_t2' || t.status === 'hit_t3') ? (t.closedDate ?? '—') : '—'),
       t2PnlPct: t.target2 > 0 && t.entryPrice > 0 ? safe((t.target2 - t.entryPrice) / t.entryPrice * 100) : 0,
       t3Price: t.target3,
-      t3HitDate: t.status === 'hit_t3' ? (t.closedDate ?? '—') : '—',
+      t3HitDate: t.targetLog?.find(e => e.target === 'T3')?.date
+        ?? (t.status === 'hit_t3' ? (t.closedDate ?? '—') : '—'),
       t3PnlPct: t.target3 > 0 && t.entryPrice > 0 ? safe((t.target3 - t.entryPrice) / t.entryPrice * 100) : 0,
       exitPrice: t.closedPrice ?? t.currentPrice ?? 0,
       exitDate: t.closedDate ?? '—',

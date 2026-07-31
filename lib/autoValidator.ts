@@ -555,6 +555,7 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
       lastCheckDate: new Date().toISOString().slice(0, 10),
       gateLog:       result.gateLog,
       trailLog:      result.trailLog,
+      targetLog:     result.targetLog ?? trade.targetLog,
     };
   }
   const terminal = result.closedDate.trim().length > 0;
@@ -575,6 +576,7 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     lastCheckDate: new Date().toISOString().slice(0, 10),
     gateLog:       result.gateLog,
     trailLog:      result.trailLog,
+    targetLog:     result.targetLog ?? trade.targetLog,
   };
 }
 
