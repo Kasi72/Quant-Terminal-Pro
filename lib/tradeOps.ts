@@ -14,8 +14,8 @@ export interface TradeSheet {
   target2: number;
   target3: number;
   trailRule: string;
-  breakEvenTrigger: number;   // T1 fill activates the hard breakeven stop
-  breakEvenStop: number;      // stop moves to the exact entry price once T1 fills
+  breakEvenTrigger: number;   // T1 fill books half; T2 activates the stronger hard trail
+  breakEvenStop: number;      // compatibility field: entry reference, not an immediate post-T1 hard stop
   totalCost: number;
   maxRisk: number;
   riskPct: number;
@@ -59,7 +59,7 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
     target3: Math.round(safeT3 * 100) / 100,
     breakEvenTrigger: Math.round(beTrigger * 100) / 100,
     breakEvenStop:   Math.round(entry * 100) / 100,
-    trailRule: `Review stop exits next session open after a confirmed close. Move hard stop to breakeven ₹${entry.toFixed(2)} when T1 ₹${safeT1.toFixed(2)} hits. Sell 50% at T1, 30% at T2, 20% at T3.`,
+    trailRule: `Review stop exits next session open after a confirmed close. Sell 50% at T1 ₹${safeT1.toFixed(2)}; keep the remaining 50% protected by the review/trail floor until T2, then use the hard chandelier trail.`,
     totalCost: Math.round(qty * entry),
     maxRisk: Math.round(qty * riskPerShare),
     riskPct,

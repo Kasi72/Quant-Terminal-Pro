@@ -149,7 +149,8 @@ function fiveBarSwingLow(candles: Candle[], idx: number): number {
 //  1. disasterStop is the hard broker stop. It is always stop-first and bypasses gates.
 //  2. stopLoss is an end-of-day review level before T1. A wick through it is not an
 //     executable stop. A confirmed review exit fills at the next session's open.
-//  3. After T1, breakeven and chandelier levels are executable hard trailing stops.
+//  3. T1 books half the position. The remaining 50% stays protected by the
+//     frozen review/trail floor until T2; T2 activates the hard chandelier trail.
 //  4. G0-G9 are evaluated together. A close below the review level is shielded only
 //     by confluence: price defence plus another independent evidence group, while
 //     price remains near the stop and known entry structure is intact.
@@ -294,8 +295,11 @@ export function validateTrade(
     // before the stop trigger intraday, and the break below would skip line 322.
     if (hi > mfePrice) mfePrice = hi;
 
-    // Hard broker stop is always authoritative. After T1, the raised breakeven /
-    // chandelier stop also becomes a hard protective stop.
+    // Hard broker stop is always authoritative. After T1, the surviving review /
+    // structure floor is executable for the remaining half. T1 itself does not
+    // force an immediate breakeven stop; the ARKADE 2026-06-22 replay showed that
+    // doing so converts normal post-T1 pullbacks into false exits. T2 activates
+    // the stronger target-floor/chandelier trail.
     const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : hardStop;
     const gapThroughHardStop = executableStop > 0 && open <= executableStop;
     const hardStopTouched = executableStop > 0 && lo <= executableStop;
@@ -426,10 +430,11 @@ export function validateTrade(
       status      = 'hit_t1';
       closedPrice = effectiveT1;
       closedDate  = cDate;
-      if (entry > dynamicStop) {
-        dynamicStop = entry;
-      trailLog.push({ day: i + 1, newStop: dynamicStop, reason: `T1 hit ₹${effectiveT1.toFixed(2)} — hard stop moved to breakeven ₹${entry.toFixed(2)}` });
-      }
+      trailLog.push({
+        day: i + 1,
+        newStop: dynamicStop,
+        reason: `T1 hit ₹${effectiveT1.toFixed(2)} — 50% booked; remaining 50% stays protected at review/trail floor ₹${dynamicStop.toFixed(2)} until T2`,
+      });
       targetLog.push({ target: 'T1', day: i + 1, date: cDate, price: effectiveT1, fraction: 0.5 });
       // The hard disaster stop was checked first. The review stop is close-based,
       // so this resting target fill is valid even when the candle wicked below it.
@@ -490,7 +495,7 @@ export function validateTrade(
 
   // ── Weighted P&L ─────────────────────────────────────────────────────────
   // Partial exit model (50%@T1, 30%@T2, 20%@T3):
-  //   hit_t1 (partial + breakeven trail): 50%@T1 + 50%@entry
+  //   hit_t1 (partial + review/trail floor): 50%@T1 + 50%@closedPrice
   //   hit_t2 (T1+T2+Chandelier):         50%@T1 + 30%@T2 + 20%@closedPrice
   //   hit_t3 (full):                      50%@T1 + 30%@T2 + 20%@T3
   //   stopped/expired:                    100%@exit

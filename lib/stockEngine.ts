@@ -1723,12 +1723,13 @@ function buildTradeEngine(
   // Chuck LeBeau: "The Chandelier Exit hangs a trailing stop from the
   // highest high since entry, like a chandelier from the ceiling."
   //
-  // After T1: Breakeven (entry price) — lock in zero risk
+  // After T1: 50% is booked; validator keeps the runner on the review/trail floor
+  // until T2 so normal post-T1 pullbacks do not become false exits.
   // After T2: Chandelier 2×ATR below T2 (approximation of highest high)
   // After T3: Chandelier 3×ATR below T3
 
   const failedBreakoutLevel = tick(zone.zoneHigh);
-  const timeStop3d  = tick(plannedEntry);                     // post-T1: breakeven
+  const timeStop3d  = tick(tacticalStop);                     // post-T1 reference: review/trail floor until T2
   const timeStop5d  = tick(Math.max(plannedEntry, Math.min(target7  - 2.0 * atr14, target7  - 0.01))); // post-T2: Chandelier 2×ATR, floor at entry
   const timeStop10d = tick(Math.max(plannedEntry, Math.min(target10 - 3.0 * atr14, target10 - 0.01))); // post-T3: Chandelier 3×ATR, floor at entry
 

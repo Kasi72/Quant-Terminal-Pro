@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "compile": "npm run compile:engine",
-    "compile:engine": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts lib/autoValidator.ts lib/tradeOps.ts lib/tradeEvents.ts",
+    "compile:engine": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts lib/autoValidator.ts lib/tradeOps.ts lib/tradeEvents.ts lib/symbolCrossref.ts",
     "compile:watch": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts --watch",
     "backtest:hitrate": "npm run compile:engine && node scripts/fivePctHitRateBacktest.js",
     "test:stop-engine": "npm run compile:engine && node scripts/stopEngineRegression.js",

@@ -10,7 +10,7 @@ export type TradeLogEventType =
   | 'review_exit_pending'  // close confirmed below review stop; exit queued next open
   | 'review_exit'          // next-open execution of the pending review exit (terminal)
   | 'hard_stop'            // hard disaster stop hit intraday — before T1 (terminal)
-  | 'trail_stop'           // protective trail / breakeven / chandelier — after T1 (terminal)
+  | 'trail_stop'           // protective trail / T2 chandelier stop (terminal)
   | 'target_exit'
   | 'expired'
   | 'manual_close'
@@ -146,7 +146,7 @@ export function deriveTradeEventRows(
       const stopPrice = finitePositive(trade.closedPrice) ?? effectiveStop;
       const gateName = gate?.gatesTested?.[0]?.gate ?? '';
       // review_open = next-session open fill after a pending review exit
-      // 'Protective Trail' gate name = trail/breakeven/chandelier stop after T1
+      // 'Protective Trail' gate name = hard runner trail after T1/T2
       // everything else = hard disaster stop
       const isReviewExit = gate?.triggerType === 'review_open';
       const isTrailStop = !isReviewExit && gateName.includes('Protective Trail');

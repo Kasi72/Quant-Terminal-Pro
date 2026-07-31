@@ -721,7 +721,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">Review stop</span></div><div><div class="rt-desc">The tactical stop is reviewed on the completed daily candle before T1. A confirmed exit fills at the next session open, avoiding retrospective fills.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">G0-G9</span></div><div><div class="rt-desc">All gates are evaluated. A below-stop close needs near-stop price defence plus another independent flow, exhaustion, or locked-structure group. No single soft gate can veto an exit.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Missing data</span></div><div><div class="rt-desc">Unavailable volume, ATR, or entry structure contributes no evidence and never auto-shields.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">After T1</span></div><div><div class="rt-desc">50%@T1 + 30%@T2 + 20%@T3. T1 activates a hard breakeven stop; T2 activates a hard chandelier trail.</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">After T1</span></div><div><div class="rt-desc">50%@T1 + 30%@T2 + 20%@T3. T1 books half while the runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail.</div></div></div>',
     fmt: r => r.priceEngine.tacticalStop > 0 ? '₹' + r.priceEngine.tacticalStop.toFixed(2) : '—',
     numVal: r => r.priceEngine.tacticalStop,
     cellClass: () => 'text-red-400 font-semibold' },
@@ -4365,7 +4365,7 @@ function HomePageInner() {
                       <th className="px-2 py-1 text-right font-medium">MAE-R</th>
                       <th className="px-2 py-1 text-right font-medium">Days</th>
                       <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                      <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: breakeven/chandelier are hard protective stops">Gate Status</th>
+                      <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail">Gate Status</th>
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
@@ -6669,7 +6669,7 @@ function HomePageInner() {
                             <th className="px-2 py-1 text-right font-medium">Days</th>
                             <th className="px-2 py-1 text-center font-medium">Expiry</th>
                             <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                            <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: breakeven/chandelier are hard protective stops">Gate Status</th>
+                            <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail">Gate Status</th>
                             <th className="px-2 py-1 text-left font-medium">Exit Model</th>
                             <th className="px-2 py-1 text-left font-medium">Sector</th>
                             <th className="px-2 py-1 text-right font-medium">Conv</th>
@@ -6763,7 +6763,7 @@ function HomePageInner() {
                                         <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
                                       )}
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
-                                        title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; hard protective stop moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span>
+                                        title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; remaining runner stays protected by the review/trail floor until T2' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span>
                                     </div>
                                   </td>
                                   {/* Gate Status */}
@@ -8606,7 +8606,7 @@ function HomePageInner() {
                       ['Hard Reward:Risk', (() => { const r = selectedResult.priceEngine; const hs = r.disasterStop > 0 && r.disasterStop < r.tacticalStop ? r.disasterStop : r.tacticalStop; const risk = r.plannedEntry - hs; return (risk > 0 ? (r.target5 - r.plannedEntry) / risk : 0).toFixed(2) + ':1'; })()],
                       ['BE Trigger',    'T1 fill → hard stop to entry'],
                       ['BE Stop',       '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2)],
-                      ['Trail @T1',     '₹' + selectedResult.priceEngine.plannedEntry.toFixed(2) + ' (hard breakeven)'],
+                      ['After T1',      '50% booked; runner protected by review/trail floor until T2'],
                       ['Trail @T2',     'Prior highest close − 1.5× prior ATR; hard floor at T1'],
                       ['Gap',          selectedResult.priceEngine.gapPct.toFixed(2) + '% → ' + selectedResult.priceEngine.entryStatus],
                     ] as [string, string][]).map(([label, val]) => (

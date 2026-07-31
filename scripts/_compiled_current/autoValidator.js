@@ -102,7 +102,8 @@ function fiveBarSwingLow(candles, idx) {
 //  1. disasterStop is the hard broker stop. It is always stop-first and bypasses gates.
 //  2. stopLoss is an end-of-day review level before T1. A wick through it is not an
 //     executable stop. A confirmed review exit fills at the next session's open.
-//  3. After T1, breakeven and chandelier levels are executable hard trailing stops.
+//  3. T1 books half the position. The remaining 50% stays protected by the
+//     frozen review/trail floor until T2; T2 activates the hard chandelier trail.
 //  4. G0-G9 are evaluated together. A close below the review level is shielded only
 //     by confluence: price defence plus another independent evidence group, while
 //     price remains near the stop and known entry structure is intact.
@@ -195,18 +196,19 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             exitBarIdx = i;
             break;
         }
-        // Trail-A starts after eight completed post-entry bars and uses only prior bars.
-        if (!t1Hit && i >= 8) {
+        // Trail-A starts after ten completed post-entry bars and uses only prior bars.
+        // 10 bars (vs 8) gives trades more room to develop before tightening the stop.
+        if (!t1Hit && i >= 10) {
             const swingLow = fiveBarSwingLow(history, histIdx - 1);
             const trailAtr = computeATR14(history, histIdx - 1);
-            const bufferedTrail = swingLow - 0.35 * trailAtr;
+            const bufferedTrail = swingLow - 0.45 * trailAtr;
             if (bufferedTrail > dynamicStop && bufferedTrail < entry) {
                 const oldStop = dynamicStop;
                 dynamicStop = bufferedTrail;
                 trailLog.push({
                     day: i + 1,
                     newStop: dynamicStop,
-                    reason: `Day-${i + 1} review trail: ₹${oldStop.toFixed(2)} → ₹${dynamicStop.toFixed(2)} (prior swing ₹${swingLow.toFixed(2)} − 0.35×ATR)`,
+                    reason: `Day-${i + 1} review trail: ₹${oldStop.toFixed(2)} → ₹${dynamicStop.toFixed(2)} (prior swing ₹${swingLow.toFixed(2)} − 0.45×ATR)`,
                 });
             }
         }
@@ -216,19 +218,26 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const rawAtr = computeATR14(history, histIdx - 1);
             const atr14Floor = trade.atr14AtEntry && trade.atr14AtEntry > 0 ? trade.atr14AtEntry : 0;
             const atr = rawAtr > 0 ? Math.max(rawAtr, atr14Floor * 0.5) : atr14Floor;
-            const chandelier = highestCloseSinceT2 - 1.5 * atr;
+            const chandelier = highestCloseSinceT2 - 2.0 * atr;
             if (chandelier > dynamicStop && chandelier < trade.target3) {
                 const oldStop = dynamicStop;
                 dynamicStop = chandelier;
                 trailLog.push({
                     day: i + 1,
                     newStop: dynamicStop,
-                    reason: `Chandelier: high close ₹${highestCloseSinceT2.toFixed(2)} − 1.5×ATR ₹${atr.toFixed(2)} = ₹${dynamicStop.toFixed(2)} (was ₹${oldStop.toFixed(2)})`,
+                    reason: `Chandelier: high close ₹${highestCloseSinceT2.toFixed(2)} − 2.0×ATR ₹${atr.toFixed(2)} = ₹${dynamicStop.toFixed(2)} (was ₹${oldStop.toFixed(2)})`,
                 });
             }
         }
-        // Hard broker stop is always authoritative. After T1, the raised breakeven /
-        // chandelier stop also becomes a hard protective stop.
+        // Capture intraday MFE on this bar BEFORE checking stops — the high occurs
+        // before the stop trigger intraday, and the break below would skip line 322.
+        if (hi > mfePrice)
+            mfePrice = hi;
+        // Hard broker stop is always authoritative. After T1, the surviving review /
+        // structure floor is executable for the remaining half. T1 itself does not
+        // force an immediate breakeven stop; the ARKADE 2026-06-22 replay showed that
+        // doing so converts normal post-T1 pullbacks into false exits. T2 activates
+        // the stronger target-floor/chandelier trail.
         const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : hardStop;
         const gapThroughHardStop = executableStop > 0 && open <= executableStop;
         const hardStopTouched = executableStop > 0 && lo <= executableStop;
@@ -256,8 +265,6 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             exitBarIdx = i;
             break;
         }
-        if (hi > mfePrice)
-            mfePrice = hi;
         if (lo < maePrice)
             maePrice = lo;
         // Before T1, the tactical stop is reviewed on the completed candle. T1 is a
@@ -274,7 +281,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const obvSlope = obv5Slope(history, histIdx);
             const dipBelowStop = (dynamicStop - lo) / dynamicStop * 100;
             const closeDistanceAtr = atr14 > 0 ? Math.max(0, dynamicStop - close) / atr14 : Infinity;
-            const nearStop = close >= dynamicStop || closeDistanceAtr <= 0.25;
+            const nearStop = close >= dynamicStop || closeDistanceAtr <= 0.30;
             const closedAboveStop = close >= dynamicStop;
             const ch1 = prev ? close - prev.c : 0;
             const ch2 = prev2 && prev ? prev.c - prev2.c : 0;
@@ -288,7 +295,9 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const isHammer = lwPct >= 40 && closeLoc >= 55 && nearStop;
             const hasVolume = avgV > 0 && vol > 0;
             const isAccumulation = hasVolume && obvSlope > 0;
-            const isNarrowSweep = atr14 > 0 && range < 0.75 * atr14 && closedAboveStop;
+            // Ultra-tight bars (< 0.5×ATR) that close within 0.15×ATR of stop are algo stop-hunts.
+            const isDoji = atr14 > 0 && range < 0.5 * atr14 && closeDistanceAtr <= 0.15;
+            const isNarrowSweep = atr14 > 0 && range < 0.75 * atr14 && (closedAboveStop || isDoji);
             const isLowVolSweep = hasVolume && volRatio < 0.65 && nearStop;
             const isolatedRed = !!prev && (prev.o ?? prev.c) <= prev.c && prev.c > dynamicStop && nearStop;
             const stopToLowRange = Math.max(0, dynamicStop - lo);
@@ -350,10 +359,11 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             status = 'hit_t1';
             closedPrice = effectiveT1;
             closedDate = cDate;
-            if (entry > dynamicStop) {
-                dynamicStop = entry;
-                trailLog.push({ day: i + 1, newStop: dynamicStop, reason: `T1 hit ₹${effectiveT1.toFixed(2)} — hard stop moved to breakeven ₹${entry.toFixed(2)}` });
-            }
+            trailLog.push({
+                day: i + 1,
+                newStop: dynamicStop,
+                reason: `T1 hit ₹${effectiveT1.toFixed(2)} — 50% booked; remaining 50% stays protected at review/trail floor ₹${dynamicStop.toFixed(2)} until T2`,
+            });
             targetLog.push({ target: 'T1', day: i + 1, date: cDate, price: effectiveT1, fraction: 0.5 });
             // The hard disaster stop was checked first. The review stop is close-based,
             // so this resting target fill is valid even when the candle wicked below it.
@@ -413,7 +423,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
     }
     // ── Weighted P&L ─────────────────────────────────────────────────────────
     // Partial exit model (50%@T1, 30%@T2, 20%@T3):
-    //   hit_t1 (partial + breakeven trail): 50%@T1 + 50%@entry
+    //   hit_t1 (partial + review/trail floor): 50%@T1 + 50%@closedPrice
     //   hit_t2 (T1+T2+Chandelier):         50%@T1 + 30%@T2 + 20%@closedPrice
     //   hit_t3 (full):                      50%@T1 + 30%@T2 + 20%@T3
     //   stopped/expired:                    100%@exit
@@ -476,6 +486,7 @@ function applyValidation(trade, result) {
             lastCheckDate: new Date().toISOString().slice(0, 10),
             gateLog: result.gateLog,
             trailLog: result.trailLog,
+            targetLog: result.targetLog ?? trade.targetLog,
         };
     }
     const terminal = result.closedDate.trim().length > 0;
@@ -492,10 +503,11 @@ function applyValidation(trade, result) {
         mfeR: result.mfeR,
         maeR: result.maeR,
         currentPrice: result.closedPrice,
-        highestPrice: trade.entryPrice * (1 + result.mfe / 100),
+        highestPrice: Math.max(trade.highestPrice ?? 0, trade.entryPrice * (1 + result.mfe / 100)),
         lastCheckDate: new Date().toISOString().slice(0, 10),
         gateLog: result.gateLog,
         trailLog: result.trailLog,
+        targetLog: result.targetLog ?? trade.targetLog,
     };
 }
 function computeRollingStats(trades, lastN, label) {

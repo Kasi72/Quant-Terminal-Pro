@@ -51,7 +51,7 @@ function generateTradeSheet(r, accountSize, riskPct = 1) {
         target3: Math.round(safeT3 * 100) / 100,
         breakEvenTrigger: Math.round(beTrigger * 100) / 100,
         breakEvenStop: Math.round(entry * 100) / 100,
-        trailRule: `Review stop exits next session open after a confirmed close. Move hard stop to breakeven ₹${entry.toFixed(2)} when T1 ₹${safeT1.toFixed(2)} hits. Sell 50% at T1, 30% at T2, 20% at T3.`,
+        trailRule: `Review stop exits next session open after a confirmed close. Sell 50% at T1 ₹${safeT1.toFixed(2)}; keep the remaining 50% protected by the review/trail floor until T2, then use the hard chandelier trail.`,
         totalCost: Math.round(qty * entry),
         maxRisk: Math.round(qty * riskPerShare),
         riskPct,
@@ -113,7 +113,7 @@ function getTradeRiskPerShare(t) {
     return hardStop > 0 ? Math.max(0, t.entryPrice - hardStop) : 0;
 }
 function getTradeMfePct(t) {
-    if (Number.isFinite(t.mfe))
+    if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0)
         return t.mfe ?? 0;
     if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
         return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
@@ -200,6 +200,13 @@ function computeWinRateStats(trades) {
     const totalLossPct = Math.abs(losses.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0));
     const totalWinR = wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0);
     const totalLossR = Math.abs(losses.reduce((s, t) => s + getFivePctObjectiveR(t), 0));
+    // Actual avg win: use real blended exit P&L for terminal wins, peak MFE for open wins.
+    // profitFactor/expectancy stay model-based (5% objective) for consistency with Brain V2.
+    const totalActualWinPct = wins.reduce((s, t) => {
+        if (isTerminalTrade(t) && t.pnlPct != null)
+            return s + t.pnlPct;
+        return s + getTradeMfePct(t);
+    }, 0);
     let bestTrade = null;
     let worstTrade = null;
     for (const t of closed) {
@@ -242,7 +249,7 @@ function computeWinRateStats(trades) {
         manualClose: trades.filter(t => t.status === 'manual_close').length,
         closedEarly: trades.filter(t => t.status === 'closed_early').length,
         winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
-        avgWinPct: wins.length > 0 ? totalWinPct / wins.length : 0,
+        avgWinPct: wins.length > 0 ? totalActualWinPct / wins.length : 0,
         avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,
         avgWinR: wins.length > 0 ? totalWinR / wins.length : 0,
         avgLossR: losses.length > 0 ? -totalLossR / losses.length : 0,

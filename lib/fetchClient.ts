@@ -1,4 +1,5 @@
 import type { Candle } from './compute';
+import { canonicalNseSymbol } from './symbolCrossref';
 
 function parseRaw(json: Record<string, unknown>): Candle[] {
   const chartResult = (json?.chart as Record<string, unknown>)?.result as Record<string, unknown>[];
@@ -33,7 +34,7 @@ function parseRaw(json: Record<string, unknown>): Candle[] {
 // Calls our own API proxy (/api/fetch-ohlcv) which fetches Yahoo Finance server-side
 // This avoids both CORS (browser → YF) and datacenter IP blocking (Vercel → YF with browser headers)
 export async function fetchOHLCVClient(rawSymbol: string): Promise<{ candles: Candle[]; resolvedSymbol: string }> {
-  const sym = rawSymbol.trim().toUpperCase();
+  const sym = canonicalNseSymbol(rawSymbol);
 
   const res = await fetch(`/api/fetch-ohlcv?symbol=${encodeURIComponent(sym)}`, {
     signal: AbortSignal.timeout(15000),

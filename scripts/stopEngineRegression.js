@@ -5,6 +5,11 @@ const {
   computeWinRateStats,
   getFivePctObjectivePnlPct,
 } = require('./_compiled_current/tradeOps.js');
+const {
+  canonicalNseSymbol,
+  canonicalNseSymbolBase,
+  getSymbolAlias,
+} = require('./_compiled_current/symbolCrossref.js');
 
 function candle(d, o, h, l, c, v = 100000) {
   return { d, o, h, l, c, v };
@@ -52,6 +57,14 @@ function run(name, fn) {
 }
 
 const pre = warmup();
+
+run('NSE symbol aliases canonicalize stale names before fetch/dedupe', () => {
+  assert.equal(canonicalNseSymbol('GUJGASLTD.NS'), 'GUJENERGY.NS');
+  assert.equal(canonicalNseSymbol('SASTASUNDR'), 'HEALTHX');
+  assert.equal(canonicalNseSymbolBase('TATAMOTORS.NS'), 'TMPV');
+  assert.equal(canonicalNseSymbol('ZOMATO.BO'), 'ETERNAL.BO');
+  assert.equal(getSymbolAlias('GUJGASLTD')?.to, 'GUJENERGY');
+});
 
 run('hard disaster stop is stop-first when T1 is also inside the daily range', () => {
   const result = validateTrade(
@@ -108,20 +121,50 @@ run('missing entry structure cannot auto-shield a below-stop close', () => {
   assert.match(structureGate.reason, /unavailable/i);
 });
 
-run('post-T1 breakeven is a hard protective exit with weighted P&L', () => {
+run('post-T1 pullback below entry but above review stop does not close the runner', () => {
   const result = validateTrade(
-    trade(),
+    trade({ target2: 108, target3: 112 }),
     [
       candle('2026-06-02', 100, 106, 96, 104, 120000),
-      candle('2026-06-03', 102, 103, 99, 100, 100000),
+      candle('2026-06-03', 102, 103, 96.5, 99, 100000),
+      candle('2026-06-04', 100, 113, 99, 112, 130000),
     ],
     { preEntryCandles: pre },
   );
-  assert.equal(result.status, 'hit_t1');
-  assert.equal(result.closedPrice, 100);
-  assert.equal(result.closedDate, '2026-06-03');
-  assert.equal(result.pnlPct, 2.5);
-  assert.equal(result.gateLog.at(-1).stopKind, 'trail');
+  assert.equal(result.status, 'hit_t3');
+  assert.equal(result.closedPrice, 112);
+  assert.equal(result.closedDate, '2026-06-04');
+  assert.deepEqual(result.targetLog.map(e => e.target), ['T1', 'T2', 'T3']);
+  assert.equal(result.gateLog, undefined);
+});
+
+run('ARKADE-style day-2 pullback survives T1 and reaches later targets', () => {
+  const arkade = trade({
+    symbol: 'ARKADE.NS',
+    entryPrice: 121.4,
+    entryDate: '2026-06-22',
+    stopLoss: 118.35,
+    disasterStop: 103.55,
+    target1: 123.1,
+    target2: 134.1,
+    target3: 141.35,
+    sw5LowAtEntry: 118.35,
+    atr14AtEntry: 4,
+  });
+  const result = validateTrade(
+    arkade,
+    [
+      candle('2026-06-23', 121.4, 124.99, 120.0, 122.25, 625391),
+      candle('2026-06-24', 122.29, 123.88, 119.35, 120.21, 221538),
+      candle('2026-06-25', 121.5, 123.9, 119.68, 123.12, 370847),
+      candle('2026-06-29', 123.12, 126.99, 122.03, 123.4, 421334),
+      candle('2026-07-06', 135.0, 144.5, 134.0, 141.78, 427290),
+    ],
+    { preEntryCandles: pre },
+  );
+  assert.equal(result.status, 'hit_t3');
+  assert.equal(result.closedPrice, 141.35);
+  assert.deepEqual(result.targetLog.map(e => e.target), ['T1', 'T2', 'T3']);
 });
 
 run('expiry uses the frozen holding horizon rather than all supplied future bars', () => {
@@ -185,22 +228,26 @@ run('active T1/T2 milestones do not persist a false terminal exit', () => {
 });
 
 run('chandelier stop uses only prior completed candles', () => {
-  const baseBars = [
+  const commonBars = [
     candle('2026-06-02', 100, 111, 98, 110, 120000),
-    candle('2026-06-03', 110, 150, 105.5, 149, 160000),
+    candle('2026-06-03', 110, 121, 109, 120, 160000),
+  ];
+  const baseBars = [
+    ...commonBars,
+    candle('2026-06-04', 120, 160, 113, 150, 160000),
   ];
   const variantBars = [
-    baseBars[0],
-    candle('2026-06-03', 110, 120, 105.5, 119, 160000),
+    ...commonBars,
+    candle('2026-06-04', 120, 125, 113, 115, 160000),
   ];
   const config = trade({ target3: 200 });
   const first = validateTrade(config, baseBars, { preEntryCandles: pre });
   const second = validateTrade(config, variantBars, { preEntryCandles: pre });
   assert.equal(first.status, 'hit_t2');
-  assert.equal(first.closedDate, '2026-06-03');
+  assert.equal(first.closedDate, '2026-06-04');
   assert.equal(first.gateLog.at(-1).stopKind, 'trail');
   assert.equal(first.closedPrice, second.closedPrice);
-  assert.ok(first.closedPrice > 105);
+  assert.equal(first.closedPrice, 113);
 });
 
 run('Trade Log records +5%, T1, T2, and T3 when the daily high clears all levels', () => {
@@ -251,7 +298,7 @@ run('Trade Log suppresses same-bar targets when the canonical hard stop wins', (
     low: 89,
     close: 108,
   }]);
-  assert.deepEqual(rows[0].events.map(event => event.type), ['stopped']);
+  assert.deepEqual(rows[0].events.map(event => event.type), ['hard_stop']);
   assert.match(rows[0].events[0].detail, /Hard stop/);
 });
 
@@ -275,7 +322,7 @@ run('5% objective analytics value winners at +5%, not at future MFE', () => {
   });
   const stats = computeWinRateStats([winner, loser]);
   assert.equal(getFivePctObjectivePnlPct(winner), 5);
-  assert.equal(stats.avgWinPct, 5);
+  assert.equal(stats.bestTrade.pnlPct, 5);
   assert.equal(stats.profitFactor, 1);
   assert.equal(stats.expectancy, 0);
 });
