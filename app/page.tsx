@@ -6256,7 +6256,7 @@ function HomePageInner() {
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-sky-500/70 text-[11px]">
                                     {selectedTrade ? fmt(selectedTrade.entryPrice) : '—'}
                                   </td>
-                                  {/* Effective stop for this day — initial review level, then trail-ratcheted */}
+                                  {/* Effective stop for this day — initial review level, then trail-ratcheted; red on exit day, orange on REVIEW breach */}
                                   <td className="px-3 py-1.5 text-right font-mono tabular-nums text-[11px]">
                                     {selectedTrade ? (() => {
                                       const tl = selectedTrade.trailLog;
@@ -6264,6 +6264,33 @@ function HomePageInner() {
                                       const effectiveEntry = tl ? [...tl].reverse().find((e: {day: number; newStop: number; reason: string}) => e.day <= dayNum) : null;
                                       const effectiveStop = effectiveEntry?.newStop ?? selectedTrade.stopLoss;
                                       const hasRatcheted = effectiveStop > selectedTrade.stopLoss;
+                                      const rowStatus = rowIdx < rowTargetStatus.length ? rowTargetStatus[rowIdx] : null;
+                                      // Exit day: stop definitively hit — show actual exit price from event detail
+                                      if (rowStatus?.stopVerified) {
+                                        const stopEvt = rowEvents.find((e: TradeLogEvent) => ['review_exit', 'trail_stop', 'hard_stop'].includes(e.type));
+                                        const priceMatch = stopEvt?.detail?.match(/₹([\d.]+)/);
+                                        const exitPrice = priceMatch ? parseFloat(priceMatch[1]) : null;
+                                        return (
+                                          <span
+                                            className="text-red-400 font-semibold"
+                                            title={stopEvt?.detail ?? `Stopped at ₹${(exitPrice ?? effectiveStop).toFixed(2)}`}
+                                          >
+                                            {exitPrice != null ? `₹${exitPrice.toFixed(2)} ✗` : `${fmt(effectiveStop)} ✗`}
+                                          </span>
+                                        );
+                                      }
+                                      // REVIEW badge: stop breached at close, exit queued for next open
+                                      if (rowStatus?.rawStopTouch && !rowStatus?.stopVerified && !rowStatus?.stopShielded) {
+                                        return (
+                                          <span
+                                            className="text-orange-400 font-semibold"
+                                            title={`Stop ₹${effectiveStop.toFixed(2)} breached at close — exit queued next open`}
+                                          >
+                                            {fmt(effectiveStop)} ⚠
+                                          </span>
+                                        );
+                                      }
+                                      // Normal day (including SHIELD — stop touched intraday but gate cascade saved it)
                                       return (
                                         <span
                                           className={hasRatcheted ? 'text-emerald-400 font-semibold' : 'text-amber-600/70'}
