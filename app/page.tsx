@@ -2202,6 +2202,17 @@ function HomePageInner() {
           });
           const prevStatus = updated[i].status;
           updated[i] = applyValidation(updated[i], result);
+          // Sync highestPrice and mfe from raw candle peaks — validateTrade caps replay
+          // at maxHoldBars so bars beyond the horizon won't update mfe via the result.
+          // Using raw highs ensures the true peak is always reflected (matches Validate button).
+          const rawPeak = Math.max(...sinceEntry.map(c => c.h));
+          if (rawPeak > (updated[i].highestPrice ?? 0)) {
+            updated[i] = { ...updated[i], highestPrice: rawPeak };
+          }
+          const rawMfePct = ((rawPeak - updated[i].entryPrice) / updated[i].entryPrice) * 100;
+          if (rawMfePct > (updated[i].mfe ?? 0)) {
+            updated[i] = { ...updated[i], mfe: Math.round(rawMfePct * 100) / 100 };
+          }
           // FAIL-SAFE: Detect STOPPED status change → trigger alert
           if (prevStatus === 'open' && updated[i].status === 'stopped') {
             const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -5925,19 +5936,32 @@ function HomePageInner() {
                           <span className="text-[11px] font-semibold text-slate-200 tracking-wide truncate">
                             {t.symbol.replace('.NS', '')}
                           </span>
-                          {statusChip(t)}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {didReachFivePctTarget(t) && t.status === 'open' && (
+                              <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                            )}
+                            {statusChip(t)}
+                          </div>
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-slate-500">
                           <span>{t.entryDate?.slice(5)}</span>
-                          {t.pnlPct != null
-                            ? <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>
-                            : t.currentPrice && t.entryPrice
-                              ? <span className={pctColor((t.currentPrice - t.entryPrice) / t.entryPrice * 100)}>
-                                  {((t.currentPrice - t.entryPrice) / t.entryPrice * 100) > 0 ? '+' : ''}
-                                  {fmt((t.currentPrice - t.entryPrice) / t.entryPrice * 100, 1)}%
-                                </span>
-                              : <span className="text-slate-600">—</span>
-                          }
+                          {(() => {
+                            const mfePct = getTradeMfePct(t);
+                            const curRet = t.currentPrice && t.entryPrice
+                              ? (t.currentPrice - t.entryPrice) / t.entryPrice * 100
+                              : null;
+                            // Open trade that crossed 5%: show peak MFE to highlight the milestone
+                            if (!isTerminalTrade(t) && mfePct >= 5 && curRet != null && mfePct > curRet) {
+                              return <span className="text-emerald-400 font-semibold">Pk +{fmt(mfePct, 1)}%</span>;
+                            }
+                            if (t.pnlPct != null) {
+                              return <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>;
+                            }
+                            if (curRet != null) {
+                              return <span className={pctColor(curRet)}>{curRet > 0 ? '+' : ''}{fmt(curRet, 1)}%</span>;
+                            }
+                            return <span className="text-slate-600">—</span>;
+                          })()}
                         </div>
                         {logSort === 'stop_dist' && t.currentPrice && t.stopLoss && t.stopLoss > 0
                           ? (() => {
@@ -5952,8 +5976,8 @@ function HomePageInner() {
                             })()
                           : !isTerminalTrade(t) && (t.mfe != null || t.mae != null) && (
                               <div className="flex gap-2 text-[9px]">
-                                {t.mfe != null && <span className="text-emerald-700">▲{fmt(t.mfe, 1)}%</span>}
-                                {t.mae != null && <span className="text-red-800">▼{fmt(t.mae, 1)}%</span>}
+                                {t.mfe != null && <span className={t.mfe >= 5 ? 'text-emerald-400 font-bold' : 'text-emerald-600'}>▲{fmt(t.mfe, 1)}%</span>}
+                                {t.mae != null && <span className="text-red-600">▼{fmt(Math.abs(t.mae), 1)}%</span>}
                               </div>
                             )
                         }
