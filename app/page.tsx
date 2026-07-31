@@ -1477,6 +1477,20 @@ function HomePageInner() {
     try { return Math.max(0, parseInt(localStorage.getItem('qtp_fii_streak') || '0') || 0); } catch { return 0; }
   });
   const [brainScores, setBrainScores] = useState<Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}>>({});
+  // Debug: verify brain score keys vs result symbols after each scan
+  useEffect(() => {
+    const brainKeys = Object.keys(brainScores);
+    if (brainKeys.length > 0 && results.length > 0) {
+      const buyRows = results.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+      console.log('[BRAIN DEBUG] brainKeys:', brainKeys.length, 'buyRows:', buyRows.length);
+      if (buyRows.length > 0) {
+        const sampleKey = brainKeys[0];
+        const sampleSym = buyRows[0].symbol;
+        console.log('[BRAIN DEBUG] key:', JSON.stringify(sampleKey), '| row.symbol:', JSON.stringify(sampleSym), '| match:', !!brainScores[sampleSym]);
+      }
+    }
+  }, [brainScores, results]);
+
   const [scanning, setScanning] = useState(false);
   const scanningRef = useRef(false);
   const [progress, setProgress] = useState(0);
@@ -2057,11 +2071,13 @@ function HomePageInner() {
     }
     setPcaMap(newPcaMap);
     // Adaptive Brain — compute insights + per-signal adjusted scores
+    console.log('[BRAIN] starting computation, trackedTrades:', trackedTradesRef.current.length, 'newResults:', newResults.length);
     try {
       const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as any);
       setBrainInsights(bi);
       const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}> = {};
       const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+      console.log('[BRAIN] buySignals:', buySignals.length, buySignals.map(r => r.symbol + ':' + r.stage));
       for (const r of buySignals) {
         const cl = freshClenowMap[r.symbol];
         // P0 follow-up: AnalysisResult has no top-level conviction/atrState/
@@ -2107,10 +2123,12 @@ function HomePageInner() {
           if (newBrainScores[r.symbol]) newBrainScores[r.symbol].priority = r.priority;
         }
       }
+      console.log('[BRAIN] setting scores, keys:', Object.keys(newBrainScores));
       setBrainScores(newBrainScores);
       setBrainError('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Brain computation failed';
+      console.error('[BRAIN] caught error:', msg, err);
       setBrainError(msg);
       setBrainScores({});
     }
@@ -2126,6 +2144,23 @@ function HomePageInner() {
     if (hasActionable) {
       setSortCol('stage'); setSortDir('desc');
     }
+    // Fetch candles for any open tracked trade whose symbol wasn't part of this scan.
+    // Without this, trades (e.g. SAPPHIRE, MPSLTD) never update if the user scans a
+    // different list — they stay stuck at OPEN even after hitting T1/T2/5%.
+    const missingTradeSymbols = trackedTradesRef.current
+      .filter(t => !isTerminalTrade(t) && !freshCandleMap[t.symbol])
+      .map(t => t.symbol);
+    if (missingTradeSymbols.length > 0) {
+      const missingFetches = await Promise.allSettled(
+        missingTradeSymbols.map(sym => fetchOHLCVClient(sym))
+      );
+      missingFetches.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.candles?.length > 0) {
+          freshCandleMap[missingTradeSymbols[idx]] = res.value.candles.slice(-400);
+        }
+      });
+    }
+
     // Entry stop, targets, ATR, structure and holding horizon are immutable after entry.
     if (trackedTradesRef.current.some(t => !isTerminalTrade(t))) {
       setTrackedTrades(prev => {
@@ -2157,6 +2192,10 @@ function HomePageInner() {
             updated[i] = { ...updated[i], currentPrice: latestCandle.c, cmpDate: latestCmpDate };
           }
           if (sinceEntry.length === 0) continue; // no post-entry candles yet (holiday/weekend/same-day)
+          // validateTrade returns all-zero defaultResult when hardStop<=0, which applyValidation
+          // would use to clobber accumulated mfe/daysHeld. Skip the replay — currentPrice already
+          // updated above; the trade stays OPEN until the user records a valid stop.
+          if (getTradeHardStop(updated[i]) <= 0) continue;
           const result = validateTrade(updated[i], sinceEntry, {
             preEntryCandles: preEntry,
             maxHoldBars: updated[i].maxHoldBars,
@@ -2588,7 +2627,7 @@ function HomePageInner() {
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
       entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop < r.priceEngine.plannedEntry ? r.priceEngine.tacticalStop : 0,
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
-      target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop,
+      target3: r.priceEngine.target10, disasterStop: r.priceEngine.disasterStop > 0 && r.priceEngine.disasterStop < r.priceEngine.plannedEntry ? r.priceEngine.disasterStop : 0,
       paramSetKey: r.paramSetKey, sector: getSectorTag(r.symbol),
       conviction: computeConviction(r), edgeScore: computeEdgeScore(r), status: 'open',
       candlePattern: r.stats?.candlePattern || undefined,
@@ -3182,6 +3221,7 @@ function HomePageInner() {
                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr2);
                       const preEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) <= entryDateStr2).slice(-30);
                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
+                      if (getTradeHardStop(updated[idx >= 0 ? idx : 0]) <= 0) { setProgress(p => p + 1); continue; }
                       const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry, {
                         preEntryCandles: preEntry,
                         maxHoldBars: updated[idx >= 0 ? idx : 0].maxHoldBars,
@@ -5709,7 +5749,7 @@ function HomePageInner() {
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
               if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
-              if (logFilter === 'open') return !isTerminalTrade(t);
+              if (logFilter === 'open') return t.status === 'open';
               if (logFilter === 'hit') return ['hit_t1', 'hit_t2', 'hit_t3'].includes(t.status);
               if (logFilter === 'stopped') return isTerminalTrade(t);
               return true;
@@ -5844,7 +5884,7 @@ function HomePageInner() {
                 <div className="px-2 py-1 border-b border-slate-800 flex gap-1 flex-shrink-0">
                   {(['all', 'open', 'hit', 'stopped'] as const).map(f => {
                     const cnt = f === 'all' ? trackedTrades.length
-                      : f === 'open'    ? trackedTrades.filter(t => !isTerminalTrade(t)).length
+                      : f === 'open'    ? trackedTrades.filter(t => t.status === 'open').length
                       : f === 'hit'     ? trackedTrades.filter(t => ['hit_t1','hit_t2','hit_t3'].includes(t.status)).length
                       : trackedTrades.filter(isTerminalTrade).length;
                     return (
