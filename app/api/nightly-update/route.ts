@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabaseServer';
-import { isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
+import { isLegacyT1BreakevenTrailExit, isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
 import { validateTrade, applyValidation } from '@/lib/autoValidator';
 import { deriveTradeEventRows, primaryTradeEventType, summarizeTradeEvents } from '@/lib/tradeEvents';
 
@@ -520,14 +520,15 @@ export async function GET(req: NextRequest) {
         }
 
         const entryDate = trade.entryDate.slice(0, 10);
-        const terminalDateBeforeReplay = trade.closedDate?.slice(0, 10);
+        const repairingLegacyT1Trail = isLegacyT1BreakevenTrailExit(trade);
+        const terminalDateBeforeReplay = repairingLegacyT1Trail ? null : trade.closedDate?.slice(0, 10);
         const postEntry = bars.filter(bar =>
           bar.date > entryDate &&
           (!terminalDateBeforeReplay || bar.date <= terminalDateBeforeReplay)
         );
         const preEntry = bars.filter(bar => bar.date <= entryDate).slice(-30);
         const lastBar = postEntry[postEntry.length - 1];
-        const validation = isTerminalTrade(trade)
+        const validation = isTerminalTrade(trade) && !repairingLegacyT1Trail
           ? null
           : validateTrade(trade, postEntry.map(bar => ({
               o: bar.open,

@@ -278,7 +278,26 @@ export function getFivePctObjectiveR(t: TrackedTrade): number {
 const ACTIVE_STATUSES   = new Set(['open', 'hit_t1', 'hit_t2']);
 const TERMINAL_STATUSES = new Set(['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early']);
 
+export function isLegacyT1BreakevenTrailExit(t: TrackedTrade): boolean {
+  if (t.status !== 'hit_t1') return false;
+  if (typeof t.closedDate !== 'string' || t.closedDate.trim().length === 0) return false;
+
+  const entry = Number(t.entryPrice);
+  const closed = Number(t.closedPrice);
+  if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(closed) || closed <= 0) return false;
+
+  const closedNearEntry = Math.abs(closed - entry) / entry <= 0.0025;
+  if (!closedNearEntry) return false;
+
+  return (t.gateLog ?? []).some(gate => {
+    const gateName = gate.gatesTested?.[0]?.gate ?? '';
+    return gate.result === 'STOPPED'
+      && (gate.stopKind === 'trail' || /protective trail/i.test(gateName));
+  });
+}
+
 export function isTerminalTrade(t: TrackedTrade): boolean {
+  if (isLegacyT1BreakevenTrailExit(t)) return false;
   const hasCloseDate = typeof t.closedDate === 'string' && t.closedDate.trim().length > 0;
   if (hasCloseDate) return true;
   if (TERMINAL_STATUSES.has(t.status)) return true;

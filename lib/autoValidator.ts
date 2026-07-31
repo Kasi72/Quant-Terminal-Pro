@@ -3,6 +3,7 @@ import {
   getTradeRiskPerShare,
   getTradeMaePct,
   getTradeMfePct,
+  isLegacyT1BreakevenTrailExit,
   isTradeResolvedForWinRate,
   type TrackedTrade,
 } from './tradeOps';
@@ -548,8 +549,13 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     trade.status === 'hit_t2';
   if (!needsUpdate) return trade;
   if (result.status === 'open') {
+    const repairingLegacyT1Trail = isLegacyT1BreakevenTrailExit(trade);
     return {
       ...trade,
+      closedPrice:   repairingLegacyT1Trail ? undefined : trade.closedPrice,
+      closedDate:    repairingLegacyT1Trail ? undefined : trade.closedDate,
+      pnlPct:        repairingLegacyT1Trail ? undefined : trade.pnlPct,
+      pnlR:          repairingLegacyT1Trail ? undefined : trade.pnlR,
       currentPrice:  (result.closedPrice && result.closedPrice > 0) ? result.closedPrice : (trade.currentPrice ?? trade.entryPrice),
       highestPrice:  Math.max(trade.highestPrice ?? 0, trade.entryPrice * (1 + result.mfe / 100)),
       daysHeld:      result.daysHeld,

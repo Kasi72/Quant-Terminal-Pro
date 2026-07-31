@@ -1,4 +1,4 @@
-import type { TrackedTrade } from './tradeOps';
+import { isTerminalTrade, type TrackedTrade } from './tradeOps';
 
 export type TradeLogEventType =
   | 'hit_5pct'
@@ -109,7 +109,7 @@ export function deriveTradeEventRows(
   const stopLoss = finitePositive(trade.stopLoss) ?? 0;
   const fivePctTarget = entry * 1.05;
   const targets = getValidTradeTargets(trade);
-  const terminalDate = normalizeDate(trade.closedDate);
+  const terminalDate = isTerminalTrade(trade) ? normalizeDate(trade.closedDate) : null;
 
   const gateByDay = new Map<number, NonNullable<TrackedTrade['gateLog']>[number]>();
   const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();

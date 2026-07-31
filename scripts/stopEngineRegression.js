@@ -4,6 +4,7 @@ const { deriveTradeEventRows } = require('./_compiled_current/tradeEvents.js');
 const {
   computeWinRateStats,
   getFivePctObjectivePnlPct,
+  isTerminalTrade,
 } = require('./_compiled_current/tradeOps.js');
 const {
   canonicalNseSymbol,
@@ -225,6 +226,62 @@ run('active T1/T2 milestones do not persist a false terminal exit', () => {
   assert.equal(updated.closedDate, undefined);
   assert.equal(updated.closedPrice, undefined);
   assert.equal(updated.currentPrice, 104);
+});
+
+run('legacy T1 breakeven protective-trail exits are repairable, not terminal', () => {
+  const legacy = trade({
+    status: 'hit_t1',
+    closedPrice: 100.05,
+    closedDate: '2026-06-03',
+    pnlPct: 0.03,
+    pnlR: 0,
+    gateLog: [{
+      day: 2,
+      date: '2026-06-03',
+      close: 99,
+      low: 99,
+      stopLevel: 100,
+      dipPct: 0,
+      triggerType: 'intraday_low',
+      gatesTested: [{ gate: 'HARD Protective Trail', passed: true, reason: 'legacy breakeven stop-first fill' }],
+      result: 'STOPPED',
+      stopKind: 'trail',
+    }],
+  });
+  assert.equal(isTerminalTrade(legacy), false);
+
+  const result = validateTrade(
+    legacy,
+    [
+      candle('2026-06-02', 100, 106, 96, 104),
+      candle('2026-06-03', 104, 104, 99, 101),
+      candle('2026-06-04', 101, 108, 100, 107),
+    ],
+    { preEntryCandles: pre },
+  );
+  const updated = applyValidation(legacy, result);
+  assert.equal(updated.status, 'hit_t1');
+  assert.equal(updated.closedDate, undefined);
+  assert.equal(updated.closedPrice, undefined);
+  assert.equal(updated.pnlPct, result.pnlPct);
+
+  const rows = deriveTradeEventRows(updated, [{
+    date: '2026-06-02',
+    dayNum: 1,
+    open: 100,
+    high: 106,
+    low: 96,
+    close: 104,
+  }, {
+    date: '2026-06-03',
+    dayNum: 2,
+    open: 104,
+    high: 104,
+    low: 99,
+    close: 101,
+  }]);
+  const details = rows.flatMap(row => row.events.map(event => event.detail)).join(' ');
+  assert.doesNotMatch(details, /hard protective trail/i);
 });
 
 run('chandelier stop uses only prior completed candles', () => {

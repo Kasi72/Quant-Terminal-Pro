@@ -5,6 +5,7 @@ exports.getValidTradeTargets = getValidTradeTargets;
 exports.deriveTradeEventRows = deriveTradeEventRows;
 exports.primaryTradeEventType = primaryTradeEventType;
 exports.summarizeTradeEvents = summarizeTradeEvents;
+const tradeOps_1 = require("./tradeOps");
 exports.TRADE_EVENT_ICONS = {
     hit_5pct: '✅',
     hit_t1: '🎯',
@@ -51,7 +52,7 @@ function deriveTradeEventRows(trade, rows) {
     const stopLoss = finitePositive(trade.stopLoss) ?? 0;
     const fivePctTarget = entry * 1.05;
     const targets = getValidTradeTargets(trade);
-    const terminalDate = normalizeDate(trade.closedDate);
+    const terminalDate = (0, tradeOps_1.isTerminalTrade)(trade) ? normalizeDate(trade.closedDate) : null;
     const gateByDay = new Map();
     const gateByDate = new Map();
     for (const gate of trade.gateLog ?? []) {

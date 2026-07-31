@@ -12,6 +12,7 @@ exports.getTradeMaeR = getTradeMaeR;
 exports.didReachFivePctTarget = didReachFivePctTarget;
 exports.getFivePctObjectivePnlPct = getFivePctObjectivePnlPct;
 exports.getFivePctObjectiveR = getFivePctObjectiveR;
+exports.isLegacyT1BreakevenTrailExit = isLegacyT1BreakevenTrailExit;
 exports.isTerminalTrade = isTerminalTrade;
 exports.isTradeResolvedForWinRate = isTradeResolvedForWinRate;
 exports.computeWinRateStats = computeWinRateStats;
@@ -177,7 +178,27 @@ function getFivePctObjectiveR(t) {
 }
 const ACTIVE_STATUSES = new Set(['open', 'hit_t1', 'hit_t2']);
 const TERMINAL_STATUSES = new Set(['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early']);
+function isLegacyT1BreakevenTrailExit(t) {
+    if (t.status !== 'hit_t1')
+        return false;
+    if (typeof t.closedDate !== 'string' || t.closedDate.trim().length === 0)
+        return false;
+    const entry = Number(t.entryPrice);
+    const closed = Number(t.closedPrice);
+    if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(closed) || closed <= 0)
+        return false;
+    const closedNearEntry = Math.abs(closed - entry) / entry <= 0.0025;
+    if (!closedNearEntry)
+        return false;
+    return (t.gateLog ?? []).some(gate => {
+        const gateName = gate.gatesTested?.[0]?.gate ?? '';
+        return gate.result === 'STOPPED'
+            && (gate.stopKind === 'trail' || /protective trail/i.test(gateName));
+    });
+}
 function isTerminalTrade(t) {
+    if (isLegacyT1BreakevenTrailExit(t))
+        return false;
     const hasCloseDate = typeof t.closedDate === 'string' && t.closedDate.trim().length > 0;
     if (hasCloseDate)
         return true;
