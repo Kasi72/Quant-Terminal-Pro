@@ -568,7 +568,7 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
     mfeR:          result.mfeR,
     maeR:          result.maeR,
     currentPrice:  result.closedPrice,
-    highestPrice:  trade.entryPrice * (1 + result.mfe / 100),
+    highestPrice:  Math.max(trade.highestPrice ?? 0, trade.entryPrice * (1 + result.mfe / 100)),
     lastCheckDate: new Date().toISOString().slice(0, 10),
     gateLog:       result.gateLog,
     trailLog:      result.trailLog,

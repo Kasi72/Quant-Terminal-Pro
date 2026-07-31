@@ -6310,27 +6310,36 @@ function HomePageInner() {
                                     const { candles } = await fetchOHLCVClient(t.symbol);
                                     if (candles.length > 0) {
                                       const idx = updated.findIndex(u => u.symbol === t.symbol);
+                                      if (idx < 0) { setProgress(p => p + 1); continue; }
+                                      // Guard: skip validateTrade when hardStop invalid — it returns defaultResult (mfe=0)
+                                      // which applyValidation would overwrite stored mfe with zero (data regression)
+                                      if (getTradeHardStop(updated[idx]) <= 0) {
+                                        updated[idx] = { ...updated[idx], lastCheckDate: new Date().toISOString().slice(0, 10) };
+                                        setProgress(p => p + 1); continue;
+                                      }
                                       const entryDateStr3 = t.entryDate;
                                       if (!entryDateStr3) { setProgress(p => p + 1); continue; }
                                       const sinceEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) > entryDateStr3);
                                       const preEntry = candles.filter(c => new Date((c.ts + 19800) * 1000).toISOString().slice(0, 10) <= entryDateStr3).slice(-30);
                                       if (sinceEntry.length === 0) { setProgress(p => p + 1); continue; }
-                                      const result = validateTrade(updated[idx >= 0 ? idx : 0], sinceEntry, {
+                                      const result = validateTrade(updated[idx], sinceEntry, {
                                         preEntryCandles: preEntry,
-                                        maxHoldBars: updated[idx >= 0 ? idx : 0].maxHoldBars,
+                                        maxHoldBars: updated[idx].maxHoldBars,
                                       });
-                                      if (idx >= 0) {
-                                        let u = applyValidation(updated[idx], result);
-                                        const lastCandle = candles[candles.length - 1];
-                                        if (lastCandle && lastCandle.c > 0) {
-                                          const latestCmpDate3 = new Date((lastCandle.ts + 19800) * 1000).toISOString().slice(0, 10);
-                                          u = { ...u, currentPrice: lastCandle.c, cmpDate: latestCmpDate3 };
-                                        }
-                                        const maxH = Math.max(...sinceEntry.map(c => c.h));
-                                        if (maxH > (u.highestPrice ?? 0)) u = { ...u, highestPrice: maxH };
-                                        updated[idx] = u;
-                                        validated++;
+                                      let u = applyValidation(updated[idx], result);
+                                      const lastCandle = candles[candles.length - 1];
+                                      if (lastCandle && lastCandle.c > 0) {
+                                        const latestCmpDate3 = new Date((lastCandle.ts + 19800) * 1000).toISOString().slice(0, 10);
+                                        u = { ...u, currentPrice: lastCandle.c, cmpDate: latestCmpDate3 };
                                       }
+                                      // Sync mfe from raw candle peak — validateTrade caps at maxHoldBars but
+                                      // the true MFE is the highest price ever reached since entry
+                                      const rawPeak = Math.max(...sinceEntry.map(c => c.h));
+                                      if (rawPeak > (u.highestPrice ?? 0)) u = { ...u, highestPrice: rawPeak };
+                                      const rawMfePct = ((rawPeak - updated[idx].entryPrice) / updated[idx].entryPrice) * 100;
+                                      if (rawMfePct > (u.mfe ?? 0)) u = { ...u, mfe: Math.round(rawMfePct * 100) / 100 };
+                                      updated[idx] = u;
+                                      validated++;
                                     }
                                   } catch {}
                                   setProgress(p => p + 1);
@@ -6459,12 +6468,12 @@ function HomePageInner() {
                     const alerts: Array<{symbol: string; msg: string; severity: 'danger' | 'warning'}> = [];
                     for (const t of open) {
                       if (!t.currentPrice || t.entryPrice <= 0) continue;
-                      const rps = getTradeRiskPerShare(t);
-                      if (rps <= 0) continue;
-                      const distToStop = t.currentPrice - t.stopLoss;
+                      const hardStop = getTradeHardStop(t);
+                      if (hardStop <= 0) continue;
+                      const distToStop = t.currentPrice - hardStop;
                       const distPct = (distToStop / t.currentPrice) * 100;
-                      if (distPct <= 1.0) alerts.push({ symbol: t.symbol, msg: `within ${distPct.toFixed(1)}% of stop (₹${t.stopLoss.toFixed(0)})`, severity: 'danger' });
-                      else if (distPct <= 2.0) alerts.push({ symbol: t.symbol, msg: `${distPct.toFixed(1)}% above stop — approaching danger zone`, severity: 'warning' });
+                      if (distPct >= 0 && distPct <= 1.0) alerts.push({ symbol: t.symbol, msg: `within ${distPct.toFixed(1)}% of hard stop (₹${hardStop.toFixed(0)})`, severity: 'danger' });
+                      else if (distPct > 0 && distPct <= 2.0) alerts.push({ symbol: t.symbol, msg: `${distPct.toFixed(1)}% above hard stop — approaching danger zone`, severity: 'warning' });
 
                       // #3: Near T1 alert
                       if (t.target1 > 0 && t.currentPrice > 0) {
@@ -6742,8 +6751,15 @@ function HomePageInner() {
                                     </div>;
                                   })() : <span className="text-slate-700">—</span>}</td>
                                   {/* #2: Outcome with tooltip */}
-                                  <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
-                                    title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; hard protective stop moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span></td>
+                                  <td className="px-2 py-1.5 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {activePosition && mfePct >= 5 && (
+                                        <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                                      )}
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
+                                        title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; hard protective stop moved to breakeven' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span>
+                                    </div>
+                                  </td>
                                   {/* Gate Status */}
                                   <td className="px-2 py-1.5 text-center">{(() => {
                                     const tgLog = t.gateLog;

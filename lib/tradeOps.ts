@@ -210,7 +210,7 @@ export function getTradeRiskPerShare(t: Pick<TrackedTrade, 'entryPrice' | 'stopL
 }
 
 export function getTradeMfePct(t: TrackedTrade): number {
-  if (Number.isFinite(t.mfe)) return t.mfe ?? 0;
+  if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0) return t.mfe ?? 0;
   if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
     return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
   }
