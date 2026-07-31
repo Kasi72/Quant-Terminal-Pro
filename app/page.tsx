@@ -5759,6 +5759,17 @@ function HomePageInner() {
             }
             return rowTargetStatus.length - 1;
           })();
+          const visibleLogRows = logRows.slice(0, terminalRowIdx + 1);
+          const selectedPeakMfePct = selectedTrade
+            ? visibleLogRows.length > 0
+              ? Math.max(...visibleLogRows.map(row => row.mfe_pct ?? 0), getTradeMfePct(selectedTrade))
+              : getTradeMfePct(selectedTrade)
+            : null;
+          const selectedWorstMaePct = selectedTrade
+            ? visibleLogRows.length > 0
+              ? Math.max(...visibleLogRows.map(row => Math.abs(row.mae_pct ?? 0)), getTradeMaePct(selectedTrade))
+              : getTradeMaePct(selectedTrade)
+            : null;
 
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
@@ -5771,7 +5782,10 @@ function HomePageInner() {
             .sort((a, b) => {
               if (logSort === 'date_asc') return (a.entryDate ?? '').localeCompare(b.entryDate ?? '');
               if (logSort === 'pnl' || logSort === 'loss_desc') {
-                const pct = (t: typeof a) => t.pnlPct ?? (t.currentPrice && t.entryPrice ? (t.currentPrice - t.entryPrice) / t.entryPrice * 100 : -999);
+                const pct = (t: typeof a) => {
+                  const price = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
+                  return t.pnlPct ?? (price && t.entryPrice ? (price - t.entryPrice) / t.entryPrice * 100 : -999);
+                };
                 return logSort === 'pnl' ? pct(b) - pct(a) : pct(a) - pct(b);
               }
               if (logSort === 'status') {
@@ -5812,8 +5826,10 @@ function HomePageInner() {
             if (trade.breakoutTier) lines.push(`⭐ Breakout Tier: ${trade.breakoutTier}`);
             lines.push('');
             lines.push('📈 *Performance Summary*');
-            if (trade.mfe != null)    lines.push(`🟢 Peak MFE  : +${fmt(trade.mfe, 1)}%`);
-            if (trade.mae != null)    lines.push(`🔴 Worst MAE : -${fmt(trade.mae, 1)}%`);
+            const sharePeakMfe = rows.length > 0 ? Math.max(...rows.map(row => row.mfe_pct ?? 0), getTradeMfePct(trade)) : getTradeMfePct(trade);
+            const shareWorstMae = rows.length > 0 ? Math.max(...rows.map(row => Math.abs(row.mae_pct ?? 0)), getTradeMaePct(trade)) : getTradeMaePct(trade);
+            if (sharePeakMfe > 0)  lines.push(`🟢 Peak MFE  : +${fmt(sharePeakMfe, 1)}%`);
+            if (shareWorstMae > 0) lines.push(`🔴 Worst MAE : -${fmt(shareWorstMae, 1)}%`);
             if (trade.daysHeld != null) lines.push(`⏱️ Days Held  : ${trade.daysHeld}`);
             if (trade.pnlPct != null) lines.push(`💰 Final P&L  : ${trade.pnlPct >= 0 ? '+' : ''}${fmt(trade.pnlPct, 2)}%`);
             if (rows.length > 0) {
@@ -5867,7 +5883,7 @@ function HomePageInner() {
 
           const handleShare = async () => {
             if (!selectedTrade) return;
-            const text = buildShareText(selectedTrade, logRows);
+            const text = buildShareText(selectedTrade, visibleLogRows);
             try {
               await navigator.clipboard.writeText(text);
               setLogShareCopied(true);
@@ -5917,8 +5933,8 @@ function HomePageInner() {
                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-400 focus:outline-none focus:border-sky-600">
                     <option value="date_desc">Newest first</option>
                     <option value="date_asc">Oldest first</option>
-                    <option value="pnl">Profit % high → low</option>
-                    <option value="loss_desc">Loss % high → low</option>
+                    <option value="pnl">Current/last % high → low</option>
+                    <option value="loss_desc">Current/last % low → high</option>
                     <option value="status">Open → Hit → Closed</option>
                     <option value="stop_dist">Close to stop ↑</option>
                   </select>
@@ -5950,18 +5966,21 @@ function HomePageInner() {
                           <span>{t.entryDate?.slice(5)}</span>
                           {(() => {
                             const mfePct = getTradeMfePct(t);
-                            const curRet = t.currentPrice && t.entryPrice
-                              ? (t.currentPrice - t.entryPrice) / t.entryPrice * 100
+                            const liveSelectedPrice = t.symbol === logSymbol ? cmpData?.price : null;
+                            const displayPrice = liveSelectedPrice ?? t.currentPrice;
+                            const curRet = displayPrice && t.entryPrice
+                              ? (displayPrice - t.entryPrice) / t.entryPrice * 100
                               : null;
+                            const retLabel = liveSelectedPrice ? 'Now' : 'Last';
                             // Open trade that crossed 5%: show peak MFE to highlight the milestone
                             if (!isTerminalTrade(t) && mfePct >= 5 && curRet != null && mfePct > curRet) {
                               return <span className="text-emerald-400 font-semibold">Pk +{fmt(mfePct, 1)}%</span>;
                             }
                             if (t.pnlPct != null) {
-                              return <span className={pctColor(t.pnlPct)}>{t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>;
+                              return <span className={pctColor(t.pnlPct)}>P&L {t.pnlPct > 0 ? '+' : ''}{fmt(t.pnlPct, 1)}%</span>;
                             }
                             if (curRet != null) {
-                              return <span className={pctColor(curRet)}>{curRet > 0 ? '+' : ''}{fmt(curRet, 1)}%</span>;
+                              return <span className={pctColor(curRet)}>{retLabel} {curRet > 0 ? '+' : ''}{fmt(curRet, 1)}%</span>;
                             }
                             return <span className="text-slate-600">—</span>;
                           })()}
@@ -5979,8 +5998,8 @@ function HomePageInner() {
                             })()
                           : !isTerminalTrade(t) && (t.mfe != null || t.mae != null) && (
                               <div className="flex gap-2 text-[9px]">
-                                {t.mfe != null && <span className={t.mfe >= 5 ? 'text-emerald-400 font-bold' : 'text-emerald-600'}>▲{fmt(t.mfe, 1)}%</span>}
-                                {t.mae != null && <span className="text-red-600">▼{fmt(Math.abs(t.mae), 1)}%</span>}
+                                {t.mfe != null && <span className={t.mfe >= 5 ? 'text-emerald-400 font-bold' : 'text-emerald-600'}>Pk ▲{fmt(t.mfe, 1)}%</span>}
+                                {t.mae != null && <span className="text-red-600">Worst ▼{fmt(Math.abs(t.mae), 1)}%</span>}
                               </div>
                             )
                         }
@@ -6052,11 +6071,11 @@ function HomePageInner() {
                             {selectedTrade.breakoutTier}
                           </span>
                         )}
-                        {selectedTrade.mfe != null && (
-                          <span className="text-xs text-emerald-600">Peak MFE <span className="text-emerald-400 font-semibold">+{fmt(selectedTrade.mfe, 1)}%</span></span>
+                        {selectedPeakMfePct != null && selectedPeakMfePct > 0 && (
+                          <span className="text-xs text-emerald-600">Peak MFE <span className="text-emerald-400 font-semibold">+{fmt(selectedPeakMfePct, 1)}%</span></span>
                         )}
-                        {selectedTrade.mae != null && (
-                          <span className="text-xs text-red-700">Worst MAE <span className="text-red-400 font-semibold">-{fmt(selectedTrade.mae, 1)}%</span></span>
+                        {selectedWorstMaePct != null && selectedWorstMaePct > 0 && (
+                          <span className="text-xs text-red-700">Worst MAE <span className="text-red-400 font-semibold">-{fmt(selectedWorstMaePct, 1)}%</span></span>
                         )}
                         {selectedTrade.daysHeld != null && (
                           <span className="text-xs text-slate-500">Days <span className="text-slate-300">{selectedTrade.daysHeld}</span></span>
@@ -6110,7 +6129,7 @@ function HomePageInner() {
                             </tr>
                           </thead>
                           <tbody>
-                            {logRows.slice(0, terminalRowIdx + 1).map((row, rowIdx) => {
+                            {visibleLogRows.map((row, rowIdx) => {
                               const vsEntry = selectedTrade
                                 ? (row.close - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100
                                 : null;
