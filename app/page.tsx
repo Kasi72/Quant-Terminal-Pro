@@ -4806,54 +4806,93 @@ function HomePageInner() {
               type MatrixRow  = { stage: string; cells: MatrixCell[] };
               const matrix: MatrixRow[] | null = getSetupQualityMatrix(brainPrior);
               if (!matrix) return null;
+
+              // Only show columns that have ≥1 data point across all rows
+              const activeCols = matrix[0].cells
+                .map((_, i) => i)
+                .filter(i => matrix.some(row => row.cells[i].data !== null));
+              if (activeCols.length === 0) return null;
+
+              const byStage = (brainPrior as Record<string,unknown>)?.byStage as
+                Record<string,{n:number;wr:number;avgPnl:number;medPnl:number}> | undefined;
+
               const stageLabel: Record<string,string> = { ULTRA_STRONG_BUY: 'Ultra Strong', STRONG_BUY: 'Strong Buy', BUY: 'Buy' };
               const stageColor: Record<string,string> = { ULTRA_STRONG_BUY: '#39FF14', STRONG_BUY: '#22d3ee', BUY: '#facc15' };
+              // Thresholds calibrated for 5%-objective strategy (wins capped near 5%)
               const pnlColor = (v: number | undefined) => {
                 if (v === undefined) return '#475569';
-                if (v >= 3.8) return '#39FF14';
-                if (v >= 2.8) return '#22d3ee';
-                if (v >= 1.8) return '#facc15';
-                if (v >= 0.5) return '#fb923c';
+                if (v >= 2.0)  return '#39FF14';
+                if (v >= 1.0)  return '#22d3ee';
+                if (v >= 0.0)  return '#facc15';
+                if (v >= -2.0) return '#fb923c';
                 return '#ef4444';
               };
+              const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+              const CellContent = ({ d, isSparse }: { d: NonNullable<MatrixCell['data']>; isSparse: boolean }) => (
+                <div title={isSparse ? `n=${d.n} — low sample, treat as indicative` : `avg ${fmt(d.avgPnl)} · med ${fmt(d.medPnl)} · ${d.wr}% WR · n=${d.n}`}
+                     style={isSparse ? {opacity: 0.5} : {}}>
+                  <div className="font-mono font-bold text-[11px]" style={{color: pnlColor(d.avgPnl)}}>
+                    {isSparse ? '~' : ''}{fmt(d.avgPnl)}
+                  </div>
+                  <div className="text-[9px]" style={{color: '#475569'}}>
+                    med {fmt(d.medPnl)}
+                  </div>
+                  <div className="text-[9px] text-slate-700">{d.wr}%WR · n={d.n}</div>
+                </div>
+              );
+
               return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
-                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Setup Quality Matrix — Prior Avg P&L by Stage × Param Set</div>
+                  <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Setup Quality Matrix — Avg P&L by Stage × Param Set</div>
+                  <div className="text-[10px] text-slate-600 mb-2">Prior backtest · {brainPrior?.total ?? '—'} trades · empty = no historical data for that combo</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr>
-                          <th className="text-left text-slate-600 font-medium pb-2 pr-3">Stage</th>
-                          {matrix[0].cells.map(c => (
-                            <th key={c.param} className="text-center text-slate-500 font-medium pb-2 px-2 text-[10px]">{c.label}</th>
+                          <th className="text-left text-slate-600 font-medium pb-2 pr-4 text-[10px]">Stage</th>
+                          {activeCols.map(i => (
+                            <th key={matrix[0].cells[i].param} className="text-center text-slate-500 font-medium pb-2 px-2 text-[10px]">
+                              {matrix[0].cells[i].label}
+                            </th>
                           ))}
+                          {byStage && <th className="text-center text-slate-500 font-medium pb-2 px-2 text-[10px] border-l border-slate-700/50">All Params</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {matrix.map(row => (
-                          <tr key={row.stage} className="border-t border-slate-800/50">
-                            <td className="py-1.5 pr-3 font-semibold" style={{color: stageColor[row.stage]}}>{stageLabel[row.stage] ?? row.stage}</td>
-                            {row.cells.map(cell => {
-                              const sparse = cell.data && cell.data.n < 5;
-                              return (
-                                <td key={cell.param} className="py-1.5 px-2 text-center" style={sparse ? {opacity: 0.45} : {}}>
-                                  {cell.data ? (
-                                    <div title={sparse ? `Only ${cell.data.n} trades — unreliable estimate` : undefined}>
-                                      <div className="font-mono font-bold text-[11px]" style={{color: pnlColor(cell.data.avgPnl)}}>
-                                        {sparse ? '≈' : ''}{cell.data.avgPnl >= 0 ? '+' : ''}{cell.data.avgPnl.toFixed(1)}%
-                                      </div>
-                                      <div className="text-[9px] text-slate-600">{cell.data.wr}%WR n={cell.data.n}</div>
-                                    </div>
-                                  ) : <span className="text-slate-700 text-[10px]">—</span>}
+                        {matrix.map(row => {
+                          const tot = byStage?.[row.stage];
+                          return (
+                            <tr key={row.stage} className="border-t border-slate-800/50">
+                              <td className="py-2 pr-4 font-semibold text-[11px]" style={{color: stageColor[row.stage]}}>
+                                {stageLabel[row.stage] ?? row.stage}
+                              </td>
+                              {activeCols.map(i => {
+                                const cell = row.cells[i];
+                                return (
+                                  <td key={cell.param} className="py-2 px-2 text-center">
+                                    {cell.data
+                                      ? <CellContent d={cell.data} isSparse={cell.data.n < 10} />
+                                      : <span className="text-slate-800 text-[10px]">—</span>}
+                                  </td>
+                                );
+                              })}
+                              {byStage && (
+                                <td className="py-2 px-2 text-center border-l border-slate-700/50">
+                                  {tot
+                                    ? <CellContent d={{...tot, medPnl: tot.medPnl ?? 0, pct25: 0, pct75: 0}} isSparse={tot.n < 20} />
+                                    : <span className="text-slate-800 text-[10px]">—</span>}
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-700">Based on {brainPrior?.total ?? '—'}-trade bundled prior. Sparse cells are dimmed; row/signal fallbacks are marked with ~. Green ≥+3.8% · Cyan ≥+2.8% · Yellow ≥+1.8% · Orange ≥+0.5% · Red below</div>
+                  <div className="mt-2 text-[10px] text-slate-700">
+                    ~ = n&lt;10, treat as indicative · Green ≥+2% · Cyan ≥+1% · Yellow ≥0% · Orange ≥−2% · Red below
+                  </div>
                 </div>
               );
             })()}
