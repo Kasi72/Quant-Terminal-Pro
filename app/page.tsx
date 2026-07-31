@@ -7724,7 +7724,20 @@ function HomePageInner() {
                           </div>
                           <div className="px-3 py-2 border-r border-slate-700/30">
                             <div className="text-slate-500">Stop</div>
-                            <div className="text-red-400 font-mono font-semibold">₹{r.priceEngine.tacticalStop.toFixed(2)}</div>
+                            {(() => {
+                              const tr = trackedTrades.find(t => t.symbol === r.symbol && !isTerminalTrade(t));
+                              const dynStop = tr?.trailLog?.at(-1)?.newStop;
+                              const baseStop = r.priceEngine.tacticalStop;
+                              if (dynStop && dynStop > baseStop) {
+                                return (
+                                  <div title={`Live stop: ₹${dynStop.toFixed(2)} | Entry stop: ₹${baseStop.toFixed(2)} | ${tr?.trailLog?.at(-1)?.reason ?? ''}`}>
+                                    <div className="text-emerald-400 font-mono font-semibold">₹{dynStop.toFixed(2)} ▲</div>
+                                    <div className="text-slate-600 font-mono text-[9px] line-through">₹{baseStop.toFixed(2)}</div>
+                                  </div>
+                                );
+                              }
+                              return <div className="text-red-400 font-mono font-semibold">₹{baseStop.toFixed(2)}</div>;
+                            })()}
                           </div>
                           <div className="px-3 py-2 border-r border-slate-700/30">
                             <div className="text-slate-500">T1 ({r.priceEngine.t1R.toFixed(1)}R)</div>
@@ -8264,7 +8277,20 @@ function HomePageInner() {
                                     className={`text-[10px] px-1 py-0.5 rounded transition-colors ${compareList.includes(row.symbol) ? 'bg-indigo-900/40 text-indigo-300' : 'opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-indigo-900/40 text-slate-600 hover:text-indigo-300'}`}
                                     title="Add to compare (max 3)">⇔</button>
                                 </div>
-                              ) : col.fmt(row)}
+                              ) : col.key === 'pe_tact' ? (() => {
+                                const tr = trackedTrades.find(t => t.symbol === row.symbol && !isTerminalTrade(t));
+                                const dynStop = tr?.trailLog?.at(-1)?.newStop;
+                                const baseStop = row.priceEngine.tacticalStop;
+                                if (dynStop && dynStop > baseStop) {
+                                  return (
+                                    <div className="flex flex-col items-end leading-tight" title={`Live stop: ₹${dynStop.toFixed(2)} | Entry stop: ₹${baseStop.toFixed(2)} | ${tr?.trailLog?.at(-1)?.reason ?? ''}`}>
+                                      <span className="text-emerald-400 font-mono font-semibold text-[11px]">₹{dynStop.toFixed(2)} ▲</span>
+                                      <span className="text-slate-600 font-mono text-[9px] line-through">₹{baseStop.toFixed(2)}</span>
+                                    </div>
+                                  );
+                                }
+                                return <span className="font-mono text-red-400">{baseStop > 0 ? '₹' + baseStop.toFixed(2) : '—'}</span>;
+                              })() : col.fmt(row)}
                               {col.key === 'symbol' && (
                                 <button onClick={(e) => { e.stopPropagation(); const ta = document.createElement('textarea'); ta.value = row.symbol.replace('.NS','').replace('.BO',''); ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }}
                                   className="ml-0.5 text-slate-700 hover:text-slate-400 text-[9px] opacity-0 group-hover:opacity-100 transition-opacity" title="Copy symbol">⧉</button>
