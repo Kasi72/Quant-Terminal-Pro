@@ -1,10 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceClient } from '@/lib/supabaseServer';
 import { isAuthorizedScreenerRequest } from '@/lib/screenerSession';
 
-export const runtime = 'edge';
-
-const MAX_BODY_BYTES = 2_000_000;
+// Node.js serverless runtime: 4.5 MB body limit vs 1 MB edge limit
+const MAX_BODY_BYTES = 4_000_000;
 const MAX_EVENTS_PER_RUN = 10_000;
 
 interface EventPayload {
@@ -63,9 +62,6 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
 
   // The route writes with the service-role key, so it must never be callable by
   // an unauthenticated request. Browser users authenticate via screener cookie;
@@ -106,9 +102,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many events in one run' }, { status: 413 });
   }
 
-  const sb = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  let sb: ReturnType<typeof getServiceClient>;
+  try { sb = getServiceClient(); }
+  catch { return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 }); }
 
   // Log the daily run
   const { data: run, error: runErr } = await sb
