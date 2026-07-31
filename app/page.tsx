@@ -6279,6 +6279,21 @@ function HomePageInner() {
                                           </span>
                                         );
                                       }
+                                      // Terminal non-stop exit (T1/T2 exit, closed early, expired, T3) — show actual close price
+                                      if (rowStatus?.terminal) {
+                                        const terminalEvt = rowEvents.find((e: TradeLogEvent) => e.terminal);
+                                        const priceMatch = terminalEvt?.detail?.match(/₹([\d.]+)/);
+                                        const exitPrice = priceMatch ? parseFloat(priceMatch[1]) : row.close;
+                                        const pctVsEntry = (exitPrice - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+                                        return (
+                                          <span
+                                            className={pctVsEntry >= 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}
+                                            title={terminalEvt?.detail ?? `Final exit ₹${exitPrice.toFixed(2)}`}
+                                          >
+                                            ₹{exitPrice.toFixed(2)} →
+                                          </span>
+                                        );
+                                      }
                                       // REVIEW badge: stop breached at close, exit queued for next open
                                       if (rowStatus?.rawStopTouch && !rowStatus?.stopVerified && !rowStatus?.stopShielded) {
                                         return (
