@@ -6892,7 +6892,7 @@ function HomePageInner() {
                                   {/* #2: Outcome with tooltip */}
                                   <td className="px-2 py-1.5 text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                      {activePosition && mfePct >= 5 && (
+                                      {mfePct >= 5 && (
                                         <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
                                       )}
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
