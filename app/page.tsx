@@ -881,6 +881,27 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Sizing</span></div><div><div class="rt-desc">90+: A+ (1.5% risk) · 75+: Good (1%) · 60+: Avg (0.75%) · 45+: Weak (0.5%) · &lt;45: Skip</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
+  { key: 'ucScore', label: '🔮 UC', width: 72, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score (0-100)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score. Computed from 1,000 Upper Circuit events at D-1 (day before UC). Higher = more likely to be in UC setup zone.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate in Brain data. Trophy badge shown when all conditions met.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights</span></div><div><div class="rt-desc">CloseLoc(40pts, d=0.55 strongest) + RSI2(25pts, d=0.43) + Vol20(20pts, d=0.27) + RangeATR(10pts, d=0.23) + Body(5pts). UC stocks run HOT — RSI2>70 is predictive, not overbought-bearish.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 50-69: moderate · 35-49: weak · &lt;35: not in UC zone</div><div class="rt-hit hit-green">Best combos: Vol>3x + CL>75 + Body>50 = 71.4% actionable (n=7) · RSI2>70 + Vol>3x = 54.8% (n=31)</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Source</span></div><div><div class="rt-desc">Brain V2 goldmine analysis 2026-08-02 · 1,000 UC events · Cohen\'s d discriminants · n_before=1 day</div></div></div>',
+    fmt: r => {
+      const s = (r as any).ucScore as number | undefined;
+      const g = (r as any).ucGoldmine as boolean | undefined;
+      if (s == null) return '—';
+      return g ? `${s} 🏆` : String(s);
+    },
+    numVal: r => (r as any).ucScore ?? 0,
+    cellClass: r => {
+      const s = (r as any).ucScore as number | undefined;
+      if (s == null) return 'text-slate-600';
+      const g = (r as any).ucGoldmine as boolean | undefined;
+      if (g) return 'text-yellow-300 font-bold';
+      return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
+    } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Clenow Momentum Score (125d)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Formula</span></div><div><div class="rt-desc">Annualized exp. regression slope × R² (trend smoothness). Higher = stronger AND smoother momentum.</div></div></div>'
@@ -1320,10 +1341,10 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'advanced' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','ucScore','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','clSN','ors_reversal','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
-  momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
+  momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','ucScore','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
   statistics: new Set(['symbol','stage','statsScore','guppy','ttmSqz','ttmMom','rsi14','cci34','volZ','bbPctl','hurst','dd52WH','pct52WL','brkTier','sharpe','insBar']),
   advanced: new Set(['symbol','stage','adv_utbot','adv_score','adv_fer','adv_cusum','adv_mwc','adv_tram','adv_cleanmom','adv_regime','adv_vram','adv_pic']),
   all: new Set(/* all keys — handled below */),
