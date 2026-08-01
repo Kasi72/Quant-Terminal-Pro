@@ -513,12 +513,14 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
     'optimized_deployable_20plus',
     'sniper_95plus',
 ]);
+// targetPct=0 → ATR-based T1/T2/T3 (2026-08-01: removed fixed 5% override; 5% is a UI
+// milestone display only, not the actual trade target). SL sweep (2026-08-01): PS 4.0× optimal.
 const ARCHETYPE_EXIT_DEFAULTS = {
-    optimized_deployable_20plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
-    optimized_highprecision_15plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
-    optimized_elite_10plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
-    optimized_ultraselective_8plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
-    sniper_95plus: { targetPct: 5, slAtrMult: 3.5, maxHoldBars: 20 },
+    optimized_deployable_20plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+    optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+    optimized_elite_10plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+    optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+    sniper_95plus: { targetPct: 0, slAtrMult: 4.0, maxHoldBars: 20 },
 };
 function archetypeKeyFromHint(archetypeHint) {
     if (archetypeHint === 'VF')

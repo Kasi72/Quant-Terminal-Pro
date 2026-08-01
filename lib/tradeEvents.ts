@@ -2,6 +2,8 @@ import { isTerminalTrade, type TrackedTrade } from './tradeOps';
 
 export type TradeLogEventType =
   | 'hit_5pct'
+  | 'hit_7pct'
+  | 'hit_10pct'
   | 'hit_t1'
   | 'hit_t2'
   | 'hit_t3'
@@ -36,6 +38,8 @@ export interface TradeEventPriceRow {
 
 export interface TradeMilestoneState {
   fivePct: boolean;
+  sevenPct: boolean;
+  tenPct: boolean;
   t1: boolean;
   t2: boolean;
   t3: boolean;
@@ -53,6 +57,8 @@ export interface DerivedTradeEventRow {
 
 export const TRADE_EVENT_ICONS: Record<TradeLogEventType, string> = {
   hit_5pct: '✅',
+  hit_7pct: '✅✅',
+  hit_10pct: '✅✅✅',
   hit_t1: '🎯',
   hit_t2: '🎯🎯',
   hit_t3: '🎯🎯🎯',
@@ -108,6 +114,8 @@ export function deriveTradeEventRows(
   const entry = finitePositive(trade.entryPrice) ?? 0;
   const stopLoss = finitePositive(trade.stopLoss) ?? 0;
   const fivePctTarget = entry * 1.05;
+  const sevenPctTarget = entry * 1.07;
+  const tenPctTarget = entry * 1.10;
   const targets = getValidTradeTargets(trade);
   const terminalDate = isTerminalTrade(trade) ? normalizeDate(trade.closedDate) : null;
 
@@ -120,6 +128,8 @@ export function deriveTradeEventRows(
   }
 
   let seenFivePct = false;
+  let seenSevenPct = false;
+  let seenTenPct = false;
   let seenT1 = false;
   let seenT2 = false;
   let seenT3 = false;
@@ -175,6 +185,28 @@ export function deriveTradeEventRows(
           detail: `+5% ₹${fivePctTarget.toFixed(2)} crossed (${source})`,
         });
         seenFivePct = true;
+      }
+      if (!seenSevenPct && sevenPctTarget > 0 && high >= sevenPctTarget) {
+        const source = close >= sevenPctTarget
+          ? `CMP +${pctFromEntry(close, entry).toFixed(1)}%`
+          : `High +${pctFromEntry(high, entry).toFixed(1)}%`;
+        crossed.push({
+          type: 'hit_7pct',
+          price: sevenPctTarget,
+          detail: `+7% ₹${sevenPctTarget.toFixed(2)} crossed (${source})`,
+        });
+        seenSevenPct = true;
+      }
+      if (!seenTenPct && tenPctTarget > 0 && high >= tenPctTarget) {
+        const source = close >= tenPctTarget
+          ? `CMP +${pctFromEntry(close, entry).toFixed(1)}%`
+          : `High +${pctFromEntry(high, entry).toFixed(1)}%`;
+        crossed.push({
+          type: 'hit_10pct',
+          price: tenPctTarget,
+          detail: `+10% ₹${tenPctTarget.toFixed(2)} crossed (${source})`,
+        });
+        seenTenPct = true;
       }
       if (!seenT1 && targets.t1 != null && high >= targets.t1) {
         crossed.push({ type: 'hit_t1', price: targets.t1, detail: `T1 ₹${targets.t1.toFixed(2)} cleared` });
@@ -270,7 +302,7 @@ export function deriveTradeEventRows(
 
     return {
       events,
-      state: { fivePct: seenFivePct, t1: seenT1, t2: seenT2, t3: seenT3 },
+      state: { fivePct: seenFivePct, sevenPct: seenSevenPct, tenPct: seenTenPct, t1: seenT1, t2: seenT2, t3: seenT3 },
       rawStopTouch,
       stopVerified,
       stopShielded,
@@ -287,6 +319,8 @@ export function primaryTradeEventType(events: TradeLogEvent[]): TradeLogEventTyp
     'hit_t3',
     'hit_t2',
     'hit_t1',
+    'hit_10pct',
+    'hit_7pct',
     'hit_5pct',
     'review_exit',
     'hard_stop',

@@ -5748,6 +5748,8 @@ function HomePageInner() {
           const closeCls = (c: number) => {
             if (!selectedTrade) return 'text-slate-200';
             const diff = (c - selectedTrade.entryPrice) / selectedTrade.entryPrice * 100;
+            if (diff >= 10) return 'text-emerald-100 font-bold';
+            if (diff >= 7) return 'text-emerald-200 font-bold';
             if (diff >= 5) return 'text-emerald-300 font-bold';
             if (diff >= 2) return 'text-emerald-400 font-semibold';
             if (diff > 0) return 'text-emerald-600';
@@ -5755,6 +5757,8 @@ function HomePageInner() {
             return 'text-red-400 font-semibold';
           };
           const vsEntryCls = (v: number) => {
+            if (v >= 10) return 'text-emerald-100 font-bold';
+            if (v >= 7) return 'text-emerald-200 font-bold';
             if (v >= 5) return 'text-emerald-300 font-bold';
             if (v >= 2) return 'text-emerald-400 font-semibold';
             if (v > 0) return 'text-emerald-600';
@@ -5762,6 +5766,7 @@ function HomePageInner() {
             return 'text-red-400 font-semibold';
           };
           const mfeCls = (v: number) => {
+            if (v >= 10) return 'text-emerald-100 font-bold';
             if (v >= 8) return 'text-emerald-200 font-bold';
             if (v >= 5) return 'text-emerald-300 font-semibold';
             if (v >= 3) return 'text-emerald-400';
@@ -5965,7 +5970,7 @@ function HomePageInner() {
               for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
                 const row = rows[rowIdx];
                 const eventRow = shareEventRows[rowIdx];
-                const state = eventRow?.state ?? { fivePct: false, t1: false, t2: false, t3: false };
+                const state = eventRow?.state ?? { fivePct: false, sevenPct: false, tenPct: false, t1: false, t2: false, t3: false };
                 const vsE = ((row.close - trade.entryPrice) / trade.entryPrice * 100);
                 const vsSign = vsE >= 0 ? '+' : '';
                 const nextTarget = validTargets.find(target => !state[target.key]);
