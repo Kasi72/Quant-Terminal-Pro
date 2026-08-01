@@ -2691,10 +2691,14 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   const defaultAtrMult = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
   const atrMult   = tunedExit(tuneKey, 'slAtrMult', defaultAtrMult);
   const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
-  const capPct    = atrPct < 1.5 ? 6.0
-                  : atrPct < 2.5 ? 4.0
-                  : atrPct < 3.5 ? (isCB ? 8.0 : 5.5)   // CB VOLATILE: 8% cap (optimizer)
-                  : isOrsOrVf   ? 4.0
+  // ORS cap=8%: sweep 2026-08-01, n=456 OOS → SL 33.6%→19.5%, WR 66%→80%
+  // VF  cap=9%: sweep 2026-08-01, n=45 rrok → SL 44.8%→20.0%, WR 55%→80% (with atrPct≥3.6 gate)
+  const capPct    = archetypeHint === 'ORS' ? 8.0
+                  : archetypeHint === 'VF'  ? 9.0
+                  : atrPct < 1.5            ? 6.0
+                  : atrPct < 2.5            ? 4.0
+                  : atrPct < 3.5            ? (isCB ? 8.0 : 5.5)
+                  : isOrsOrVf               ? 4.0
                   : 12.5;
   const isMP       = archetypeHint === 'MP';
   // hyper_mae 2026-07-23 bootstrap-CI: MP winners need room in NORMAL/VOLATILE bands.
@@ -2752,7 +2756,9 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
     target3R: tick(entry + 3 * riskAbs),
     rewardRisk,
     maxHoldBars,
-    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.0,
+    // VF atrPct<3.6 gate: low-ATR signals fail R:R at 9% cap (sweep 2026-08-01, n=22 dropped → SL drops to 20%)
+    tradeValid: stop > 0 && stop < entry && rewardRisk >= 1.0
+      && (archetypeHint !== 'VF' || atrPct >= 3.6),
     sw5LowAtEntry: sw5Low,
     atr14AtEntry: atr14,
   };
