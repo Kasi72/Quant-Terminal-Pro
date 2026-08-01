@@ -2240,15 +2240,18 @@ function archetypePriceEngine(entry, atr14, sw5Low = 0, archetypeHint = '') {
     const defaultAtrMult = isHigh ? (isCB ? 2.5 : 2.0) : 3.0;
     const atrMult = tunedExit(tuneKey, 'slAtrMult', defaultAtrMult);
     const isOrsOrVf = archetypeHint === 'ORS' || archetypeHint === 'VF';
-    // ORS cap=8%: sweep 2026-08-01, n=456 OOS → SL 33.6%→19.5%, WR 66%→80%
-    // VF  cap=9%: sweep 2026-08-01, n=45 rrok → SL 44.8%→20.0%, WR 55%→80% (with atrPct≥3.6 gate)
+    // ORS cap=8%:  sweep 2026-08-01, n=456 OOS → SL 33.6%→19.5%, WR 66%→80%
+    // VF  cap=9%:  sweep 2026-08-01, n=45 rrok → SL 44.8%→20.0%, WR 55%→80% (with atrPct≥3.6 gate)
+    // PS  cap=20%: sweep 2026-08-02, n=692 OOS → SL 25.0%→6.8%, WR 62%→66%, P&L +0.10%→+0.70%
+    //              Nrr=692 at cap=20% (all pass R:R; atrPct 4-5% range, T3=5×ATR), cap=25% Nrr=0
     const capPct = archetypeHint === 'ORS' ? 8.0
         : archetypeHint === 'VF' ? 9.0
-            : atrPct < 1.5 ? 6.0
-                : atrPct < 2.5 ? 4.0
-                    : atrPct < 3.5 ? (isCB ? 8.0 : 5.5)
-                        : isOrsOrVf ? 4.0
-                            : 12.5;
+            : archetypeHint === 'PS' ? 20.0
+                : atrPct < 1.5 ? 6.0
+                    : atrPct < 2.5 ? 4.0
+                        : atrPct < 3.5 ? (isCB ? 8.0 : 5.5)
+                            : isOrsOrVf ? 4.0
+                                : 12.5;
     const isMP = archetypeHint === 'MP';
     // hyper_mae 2026-07-23 bootstrap-CI: MP winners need room in NORMAL/VOLATILE bands.
     // NORMAL (1.5-2.5%): optimal=3.0%; VOLATILE (2.5-3.5%): optimal=3.5%; HIGH already has 12.5% cap.
