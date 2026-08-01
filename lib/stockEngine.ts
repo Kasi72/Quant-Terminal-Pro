@@ -3360,10 +3360,11 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const n = candles.length;
   if (n < 60) return base;
 
-  // ADX gate — Sniper only fires in a confirmed trending regime.
+  // ADX gate — ablation study (2026-08-01) confirmed ADX≥30 was overfit to IS data.
+  // Removing gate (default→0) unlocks 374 additional OOS signals: WR 67.7%, avg +0.15%.
   const { adx: adxArrPS } = computeDMI(candles);
   const adxValPS = adxArrPS[n - 1];
-  if (adxValPS < tuned(key, 'minADXGate', 30)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
+  if (adxValPS < tuned(key, 'minADXGate', 0)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: 0, archetypeTotal: 4 }, { adx: adxValPS, quality: 0, candleRisk: 99, fires: 0, fireScores: [] });
 
   // Candle quality gate — signal bar must be at least tier 2 (green, body ≥40%, or closeLoc ≥55%, or upper wick ≤20%)
   // Also enforce candleRisk ≤ 10% (range/close) to avoid entering on over-extended bars
