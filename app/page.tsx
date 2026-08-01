@@ -616,21 +616,25 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.breakoutTier === 'A+' ? 3 : r.priceEngine.breakoutTier === 'A' ? 2 : 1,
     cellClass: r => r.priceEngine.breakoutTier === 'A+' ? 'text-emerald-400 font-bold bg-green-900/30 px-1 rounded' : r.priceEngine.breakoutTier === 'A' ? 'text-blue-400 font-semibold' : 'text-slate-600' },
   { key: 'clDep', label: 'VF', width: 50, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">VF — Verified Filters (Deployable cluster)</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">X/Y minimum-viable deployment conditions met. Covers volume footprint, structure basics, and range quality needed before any signal is actionable.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Full</span></div><div><div class="rt-desc">All conditions met — signal passes baseline deployment gate. Sky = confirmed.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">Partial</span></div><div><div class="rt-desc">Some conditions missing — signal may be watchlist-only, not immediately tradeable.</div></div></div>',
     fmt: r => r.clusterBreakdown?.deployable ? `${r.clusterBreakdown.deployable.met}/${r.clusterBreakdown.deployable.total}` : '—',
     numVal: r => r.clusterBreakdown?.deployable?.met ?? 0,
-    cellClass: r => { const c = r.clusterBreakdown?.deployable; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+    cellClass: r => { const c = r.clusterBreakdown?.deployable; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-sky-300 font-bold' : c.met >= c.total - 2 ? 'text-sky-500' : c.met >= c.total * 0.5 ? 'text-sky-800' : 'text-slate-600'; } },
   { key: 'clHP', label: 'CC', width: 50, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">CC — Confluence Confirmation (High-Precision cluster)</div><div class="rt-row"><div><span class="rt-badge bg-emerald">What</span></div><div><div class="rt-desc">X/Y stricter confluence conditions met. Volume–price–structure alignment at a higher bar than VF. High CC = elevated conviction.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Full</span></div><div><div class="rt-desc">All high-precision conditions confirmed — strong institutional alignment. Emerald = confirmed.</div></div></div>',
     fmt: r => r.clusterBreakdown?.highPrecision ? `${r.clusterBreakdown.highPrecision.met}/${r.clusterBreakdown.highPrecision.total}` : '—',
     numVal: r => r.clusterBreakdown?.highPrecision?.met ?? 0,
-    cellClass: r => { const c = r.clusterBreakdown?.highPrecision; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+    cellClass: r => { const c = r.clusterBreakdown?.highPrecision; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-emerald-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-500' : c.met >= c.total * 0.5 ? 'text-emerald-800' : 'text-slate-600'; } },
   { key: 'clElt', label: 'MP', width: 50, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">MP — Momentum Profile (Elite cluster)</div><div class="rt-row"><div><span class="rt-badge bg-yellow">What</span></div><div><div class="rt-desc">X/Y elite momentum + pattern conditions met. Requires OBV slope, vol dry-up, EMA stack, and candle quality to all align simultaneously.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Full</span></div><div><div class="rt-desc">All elite conditions met — momentum archetype is fully formed. Amber = confirmed.</div></div></div>',
     fmt: r => r.clusterBreakdown?.elite ? `${r.clusterBreakdown.elite.met}/${r.clusterBreakdown.elite.total}` : '—',
     numVal: r => r.clusterBreakdown?.elite?.met ?? 0,
-    cellClass: r => { const c = r.clusterBreakdown?.elite; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+    cellClass: r => { const c = r.clusterBreakdown?.elite; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-amber-300 font-bold' : c.met >= c.total - 2 ? 'text-amber-500' : c.met >= c.total * 0.5 ? 'text-amber-800' : 'text-slate-600'; } },
   { key: 'clUS', label: 'ES', width: 50, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">ES — Entry Setup (Ultra-Selective cluster)</div><div class="rt-row"><div><span class="rt-badge bg-purple">What</span></div><div><div class="rt-desc">X/Y ultra-selective entry conditions met. The tightest discretionary criteria: zone proximity, range quality, body strength, and close location all checked simultaneously.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Full</span></div><div><div class="rt-desc">All ultra-selective criteria confirmed — rare, highest-quality entry window. Violet = confirmed.</div></div></div>',
     fmt: r => r.clusterBreakdown?.ultraSelective ? `${r.clusterBreakdown.ultraSelective.met}/${r.clusterBreakdown.ultraSelective.total}` : '—',
     numVal: r => r.clusterBreakdown?.ultraSelective?.met ?? 0,
-    cellClass: r => { const c = r.clusterBreakdown?.ultraSelective; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-yellow-300 font-bold' : c.met >= c.total - 2 ? 'text-emerald-400' : c.met >= c.total * 0.7 ? 'text-slate-300' : 'text-slate-600'; } },
+    cellClass: r => { const c = r.clusterBreakdown?.ultraSelective; if (!c || c.total === 0) return 'text-slate-700'; return c.met === c.total ? 'text-violet-300 font-bold' : c.met >= c.total - 2 ? 'text-violet-500' : c.met >= c.total * 0.5 ? 'text-violet-800' : 'text-slate-600'; } },
   { key: 'clSN', label: 'PS', width: 50, align: 'center',
     headerTipHtml: '<div class="rt-hdr">⚡ Perfect Storm (R5)</div><div class="rt-row"><div><span class="rt-badge bg-neon">75%</span></div><div><div class="rt-desc">OOS Hit5=75% n=12 PF=2.94 (R5 gate: ATR≥3% AND body≥35%). At breadth&gt;70%: 87.5% OOS n=8 PF=6.03 — highest quality signal in study.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Setup</span></div><div><div class="rt-desc">Dead-calm low-ATR-pctl stocks that explode. ATR Pctl≤40, Zero high-vol days pre-breakout, Vol vs Pre5 ≥3.5×.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">R5 Gate</span></div><div><div class="rt-desc">PREMIUM = ATR14%≥3 AND body≥35%. Vol≥2× kills this signal — do NOT add vol filter.</div><div class="rt-hit hit-green">BULL POOL signal — fire only when breadth&gt;50%</div></div></div>',
     fmt: r => r.clusterBreakdown?.sniper ? `${r.clusterBreakdown.sniper.met}/${r.clusterBreakdown.sniper.total}` : '—',
@@ -793,34 +797,41 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.priceEngine.gapATR > 0 ? r.priceEngine.gapATR.toFixed(1) : '—',
     numVal: r => r.priceEngine.gapATR,
     cellClass: r => r.priceEngine.gapATR > 2 ? 'text-red-400 font-mono' : r.priceEngine.gapATR > 1 ? 'text-amber-400 font-mono' : 'text-slate-400 font-mono' },
-  { key: 'volRatio20', label: 'Vol/20d',       width: 75,  align: 'right',
+  { key: 'volRatio20', label: 'Vol/20d', width: 75, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Vol/20d — Volume vs 20-Day Average</div><div class="rt-row"><div><span class="rt-badge bg-neon">≥5×</span></div><div><div class="rt-desc">Institutional surge — volume is 5× the 20-day average. Highest-conviction breakout participation.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">≥3×</span></div><div><div class="rt-desc">Strong expansion. Clear breakout participation.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">≥1.5×</span></div><div><div class="rt-desc">Above-average. Acceptable for pre-breakout watch. Expect ≥3× on breakout day itself.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-red">&lt;1×</span></div><div><div class="rt-desc">Below average — low participation. Breakouts on thin volume fail more often.</div></div></div>',
     fmt: r => r.volRatio20.toFixed(2) + '×',
     numVal: r => r.volRatio20,
-    cellClass: () => 'text-slate-300' },
+    cellClass: r => r.volRatio20 >= 5 ? 'text-green-300 font-bold font-mono' : r.volRatio20 >= 3 ? 'text-emerald-400 font-mono' : r.volRatio20 >= 1.5 ? 'text-amber-400 font-mono' : r.volRatio20 >= 1 ? 'text-slate-400 font-mono' : 'text-red-500/70 font-mono' },
   { key: 'atrPct14Pctl120', label: 'ATR%Pctl', width: 82, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">ATR%Pctl — ATR-14 Percentile (120-bar window)</div><div class="rt-row"><div><span class="rt-badge bg-emerald">&lt;20% — Deep Compression</span></div><div><div class="rt-desc">ATR in bottom 20th pctile. Ultra-quiet coiled spring — backtested +1.92% avg 20d return.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-red">20–35% — Worst Zone</span></div><div><div class="rt-desc">Transitional / building zone. Historically −0.60% avg 20d. Avoid entries here.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">35–85% — Sweet Spot</span></div><div><div class="rt-desc">Active compression with expansion room. +0.86–1.71% avg 20d.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">&gt;85% — Explosive</span></div><div><div class="rt-desc">ATR near 120-bar highs. +4.51% avg 20d — best when accompanied by volume surge.</div></div></div>',
     fmt: r => r.atrPct14Pctl120.toFixed(1) + '%',
     numVal: r => r.atrPct14Pctl120,
-    cellClass: () => 'text-slate-400' },
-  { key: 'zone_atr',  label: 'Zone ATR',       width: 78,  align: 'right',
+    cellClass: r => { const p = r.atrPct14Pctl120; return p >= 85 ? 'text-yellow-300 font-bold font-mono' : p >= 35 ? 'text-slate-400 font-mono' : p >= 20 ? 'text-orange-500 font-mono' : 'text-emerald-400 font-bold font-mono'; } },
+  { key: 'zone_atr', label: 'Zone ATR', width: 78, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Zone ATR — Distance to Key Zone (in ATR units)</div><div class="rt-row"><div><span class="rt-badge bg-neon">≤0.75 ATR</span></div><div><div class="rt-desc">Within ¾ of one ATR from supply/resistance zone. Ideal proximity — tight risk, maximum zone leverage.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">0.75–1.5 ATR</span></div><div><div class="rt-desc">Near zone but not ideal. Watchlist-ready; wait for tighter setup.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">&gt;2 ATR or —</span></div><div><div class="rt-desc">Far from zone or no zone identified. Signal exists but lacks zone-support context.</div></div></div>',
     fmt: r => r.zone ? r.zone.zoneATRRatio.toFixed(2) : '—',
     numVal: r => r.zone?.zoneATRRatio ?? 0,
-    cellClass: () => 'text-slate-400' },
-  { key: 'closeLoc',  label: 'CloseLoc%',      width: 80,  align: 'right',
+    cellClass: r => { if (!r.zone) return 'text-slate-600 font-mono'; const z = r.zone.zoneATRRatio; return z <= 0.75 ? 'text-emerald-300 font-bold font-mono' : z <= 1.5 ? 'text-amber-400 font-mono' : 'text-slate-500 font-mono'; } },
+  { key: 'closeLoc', label: 'CloseLoc%', width: 80, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">CloseLoc% — Close Location in Day\'s Range</div><div class="rt-row"><div><span class="rt-badge bg-neon">≥90%</span></div><div><div class="rt-desc">Closed near the day\'s high. Bulls absorbed all selling — maximum conviction.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">75–90%</span></div><div><div class="rt-desc">Top quarter close. Strong; bullish for next-day follow-through.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">50–75%</span></div><div><div class="rt-desc">Upper half but not top-tier. Acceptable; watch wick size.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-red">&lt;50%</span></div><div><div class="rt-desc">Lower half close — selling prevailed. Weak for a breakout candidate.</div></div></div>',
     fmt: r => r.closeLoc.toFixed(0) + '%',
     numVal: r => r.closeLoc,
-    cellClass: () => 'text-slate-300' },
-  { key: 'upperWickPct', label: 'Wick%',       width: 68,  align: 'right',
+    cellClass: r => { const c = r.closeLoc; return c >= 90 ? 'text-emerald-300 font-bold font-mono' : c >= 75 ? 'text-emerald-500 font-mono' : c >= 50 ? 'text-amber-400 font-mono' : 'text-red-400 font-mono'; } },
+  { key: 'upperWickPct', label: 'Wick%', width: 68, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Wick% — Upper Wick as % of Total Range</div><div class="rt-row"><div><span class="rt-badge bg-emerald">≤10%</span></div><div><div class="rt-desc">Minimal wick — bulls absorbed all top selling. Clean close = high conviction. Required for HIGH_CONVICTION volume badge.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">10–20%</span></div><div><div class="rt-desc">Light wick. Acceptable for most setups.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-orange">20–35%</span></div><div><div class="rt-desc">Moderate rejection at high. Not disqualifying but watch follow-through.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-red">&gt;35%</span></div><div><div class="rt-desc">Heavy upper wick — significant intraday rejection. Suggests distribution. Avoid on breakout day.</div></div></div>',
     fmt: r => r.upperWickPct.toFixed(0) + '%',
     numVal: r => r.upperWickPct,
-    cellClass: () => 'text-slate-400' },
+    cellClass: r => { const w = r.upperWickPct; return w <= 10 ? 'text-emerald-300 font-bold font-mono' : w <= 20 ? 'text-amber-400 font-mono' : w <= 35 ? 'text-orange-400 font-mono' : 'text-red-400 font-mono'; } },
   { key: 'ultraPrecisionScore', label: 'Prec.Score', width: 82, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">Prec.Score — Ultra-Precision Composite (0–100)</div><div class="rt-row"><div><span class="rt-badge bg-yellow">≥70 — Elite</span></div><div><div class="rt-desc">v4 validated: 100% OOS hit-5% rate (17/17 trades, Wilson LB 81.57%). All five precision gates passed simultaneously. Rarest, highest-conviction setup.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">50–69</span></div><div><div class="rt-desc">Strong — most gates passed. Actionable with normal position sizing.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">&lt;50</span></div><div><div class="rt-desc">Below threshold. Signal may still be valid via other criteria but lacks full precision alignment.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-cyan">Components</span></div><div><div class="rt-desc">Zone proximity · ATR range · Close location · Body size · Volume expansion — five weighted factors.</div></div></div>',
     fmt: r => r.ultraPrecisionScore.toFixed(0),
     numVal: r => r.ultraPrecisionScore,
-    cellClass: r => r.ultraPrecisionScore >= 70 ? 'text-yellow-300' : r.ultraPrecisionScore >= 50 ? 'text-emerald-400' : 'text-slate-400' },
+    cellClass: r => r.ultraPrecisionScore >= 70 ? 'text-yellow-300 font-bold font-mono bg-yellow-900/20 px-1 rounded' : r.ultraPrecisionScore >= 50 ? 'text-emerald-400 font-mono' : 'text-slate-500 font-mono' },
   { key: 'volatilityExpansionRatio', label: 'VolExp×', width: 75, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">VolExp× — Volatility Expansion Ratio</div><div class="rt-row"><div><span class="rt-badge bg-neon">≥2.5×</span></div><div><div class="rt-desc">Today\'s ATR is 2.5× the 10-day baseline. Major range expansion — explosive breakout in progress.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">1.5–2.5×</span></div><div><div class="rt-desc">Strong expansion. Breakout momentum confirmed by widening range.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">1–1.5×</span></div><div><div class="rt-desc">Mild expansion. Watch for follow-through volume.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">&lt;1×</span></div><div><div class="rt-desc">No expansion — range contracting. Compression phase, not breakout phase.</div></div></div>',
     fmt: r => r.volatilityExpansionRatio.toFixed(2) + '×',
     numVal: r => r.volatilityExpansionRatio,
-    cellClass: () => 'text-slate-300' },
+    cellClass: r => { const v = r.volatilityExpansionRatio; return v >= 2.5 ? 'text-green-300 font-bold font-mono' : v >= 1.5 ? 'text-emerald-400 font-mono' : v >= 1 ? 'text-amber-500 font-mono' : 'text-slate-500 font-mono'; } },
   // v9.0 momentum columns
   { key: 'momentumScore', label: 'MomScore', width: 82, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Momentum Score — Recalibrated on 3,806 signals × 1,617 stocks</div>'
@@ -8353,6 +8364,21 @@ function HomePageInner() {
                                   );
                                 }
                                 return <span className="font-mono text-red-400">{baseStop > 0 ? '₹' + baseStop.toFixed(2) : '—'}</span>;
+                              })() : col.key === 'stage' ? (() => {
+                                const cfg = STAGE_CONFIG[row.stage];
+                                const hasMom = !!row.monster?.badges?.some((b: {type: string}) => b.type === 'MOM');
+                                const isElite = row.stage === 'STRONG_BUY' && row.paramSetKey === 'optimized_highprecision_15plus';
+                                const label = cfg.label + (isElite ? ' ⭐' : '') + (hasMom ? ' 🚀' : '');
+                                const textCol = isElite ? '#FFD700' : cfg.textColor;
+                                const bg = isElite ? '#FFD70020' : cfg.bgColor;
+                                return (
+                                  <span
+                                    className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap"
+                                    style={{ color: textCol, backgroundColor: bg, border: `1px solid ${textCol}50` }}
+                                  >
+                                    {label}
+                                  </span>
+                                );
                               })() : col.fmt(row)}
                               {col.key === 'symbol' && (
                                 <button onClick={(e) => { e.stopPropagation(); const ta = document.createElement('textarea'); ta.value = row.symbol.replace('.NS','').replace('.BO',''); ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }}
