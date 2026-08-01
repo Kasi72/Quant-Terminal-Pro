@@ -221,6 +221,11 @@ export interface AnalysisResult {
   // Raw stages remain visible; tradePromoted=false means watchlist/scanner-only.
   practicalOverlay?: PracticalOverlayResult | null;
   tradePromoted?: boolean;
+  // Brain V2 Goldmine (2026-08-02): UC pre-detection score from 1000 UC events (n_before=1).
+  // Feature weights derived from actionable vs on_radar Cohen's d:
+  //   closeLoc(d=0.55)→40pts, rsi2(d=0.43)→25pts, vol(d=0.27)→20pts, range(d=0.23)→10pts, body(d=0.17)→5pts
+  ucScore?: number;     // 0-100 composite UC probability score
+  ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable in Brain data
 }
 
 export interface CandleDNA {
@@ -3628,6 +3633,28 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   }, tuningDebug);
 }
 
+// ─── UC GOLDMINE SCORE ───────────────────────────────────────────────────────
+
+function computeUCScore(
+  closeLoc: number,
+  volRatio20: number,
+  rsi2: number,
+  rangeATR14: number,
+  bodyPct: number,
+): { ucScore: number; ucGoldmine: boolean } {
+  // Feature weights from Brain V2 goldmine analysis 2026-08-02 (1000 UC events, n_before=1)
+  // actionable vs on_radar Cohen's d: CL(0.55) vol(0.27) RSI2(0.43) range(0.23) body(0.17)
+  const clComp  = Math.min(1, Math.max(0, (closeLoc   - 40) / 60)) * 40;
+  const rsiComp = Math.min(1, Math.max(0, (rsi2       - 40) / 60)) * 25;
+  const volComp = Math.min(1, Math.max(0, (volRatio20 - 0.5) / 4.5)) * 20;
+  const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 2.5)) * 10;
+  const bPComp  = Math.min(1, Math.max(0, (bodyPct    - 20) / 80))  *  5;
+  const ucScore = Math.round(Math.min(100, clComp + rsiComp + volComp + rngComp + bPComp));
+  // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable at D-1 in Brain data
+  const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
+  return { ucScore, ucGoldmine };
+}
+
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 
 export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich = true, forensicMode = false): AnalysisResult {
@@ -3900,6 +3927,19 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.regimeSignal = null;
       }
     } catch { /* keep hitRateGate undefined */ }
+
+    // 12. UC Goldmine Score — Brain V2 goldmine weights (2026-08-02, 1000 UC events n_before=1)
+    try {
+      const { ucScore, ucGoldmine } = computeUCScore(
+        result.closeLoc ?? 50,
+        (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
+        result.rsi2 ?? 50,
+        (result as any).exactRangeATR14 ?? 1,
+        result.bodyPct ?? 0,
+      );
+      result.ucScore    = ucScore;
+      result.ucGoldmine = ucGoldmine;
+    } catch { /* keep undefined */ }
   }
 
   return result;
