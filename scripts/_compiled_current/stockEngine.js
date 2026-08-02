@@ -3125,20 +3125,23 @@ function analyzeCircuitBreaker(candles) {
     }, tuningDebug);
 }
 // ─── UC GOLDMINE SCORE ───────────────────────────────────────────────────────
-function computeUCScore(closeLoc, volRatio20, rsi2, rangeATR14, bodyPct, clTrend) {
-    // Brain V2 goldmine weights (2026-08-02, 1000 UC events n_before=1)
-    // Cohen's d: CL(0.55) RSI2(0.43) vol(0.27) range(0.23) body(0.17) + trajectory clTrend(0.8+)
-    const clComp = Math.min(1, Math.max(0, (closeLoc - 40) / 60)) * 35;
-    const rsiComp = Math.min(1, Math.max(0, (rsi2 - 40) / 60)) * 20;
-    const volComp = Math.min(1, Math.max(0, (volRatio20 - 0.5) / 4.5)) * 15;
-    const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 2.5)) * 7;
-    const bPComp = Math.min(1, Math.max(0, (bodyPct - 20) / 80)) * 3;
-    // clTrend: closeLoc[today] − closeLoc[2 days ago]; actionable avg +11 vs on_radar −3.9
-    // range −10→+30 maps to 0→20pts; 10pts neutral when no trajectory data available
-    const trajComp = clTrend != null
-        ? Math.min(1, Math.max(0, (clTrend + 10) / 40)) * 20
-        : 10;
-    const ucScore = Math.round(Math.min(100, clComp + rsiComp + volComp + rngComp + bPComp + trajComp));
+function computeUCScore(closeLoc, volRatio20, // kept for ucGoldmine gate only — d=0.005 as linear feature
+rsi2, rangeATR14, bodyPct, clTrend, rsi2Velocity) {
+    // Weights ∝ actual Cohen's d (2209 events n_before=1, 613 actionable vs 1596 on_radar)
+    //   CL(0.676) RSI2(0.460) clTrend(0.424) rsi2Vel(0.291) range(0.130) body(0.126)
+    //   vol d=0.005 (means 1.97 vs 1.91, sd_on_radar=12.18 → linear component useless)
+    // Bounds: [mean_on_radar − σ_pooled, mean_actionable + σ_pooled]
+    const clComp = Math.min(1, Math.max(0, (closeLoc - 23) / 69)) * 32; // [23, 92]
+    const rsiComp = Math.min(1, Math.max(0, (rsi2 - 26) / 74)) * 22; // [26, 100]
+    const cltComp = clTrend != null
+        ? Math.min(1, Math.max(0, (clTrend + 39) / 85)) * 20 // [-39, 46]
+        : 10; // neutral half-weight when candle history < 3 bars
+    const rsvComp = rsi2Velocity != null
+        ? Math.min(1, Math.max(0, (rsi2Velocity + 36) / 83)) * 14 // [-36, 47]
+        : 7; // neutral half-weight when rsi2Velocity unavailable
+    const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 1.2)) * 6; // [0.5, 1.7]
+    const bPComp = Math.min(1, Math.max(0, (bodyPct - 15) / 56)) * 6; // [15, 71]
+    const ucScore = Math.round(Math.min(100, clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp));
     // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable at D-1 in Brain data
     const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
     return { ucScore, ucGoldmine };
@@ -3429,9 +3432,9 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
             }
         }
         catch { /* keep hitRateGate undefined */ }
-        // 12. UC Goldmine Score — Brain V2 goldmine weights (2026-08-02, 1000 UC events n_before=1)
+        // 12. UC Goldmine Score — d-calibrated weights (2026-08-02, 2209 events, actual Cohen's d)
         try {
-            // clTrend = closeLoc[today] − closeLoc[2 bars ago]; proxy for D-1 vs D-3 trajectory
+            // clTrend: closeLoc[today] - closeLoc[2 bars ago] (d=0.424)
             let clTrend;
             if (candles.length >= 3) {
                 const d1 = candles[candles.length - 1];
@@ -3440,7 +3443,14 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                 const cl3 = d3.h > d3.l ? (d3.c - d3.l) / (d3.h - d3.l) * 100 : 50;
                 clTrend = cl1 - cl3;
             }
-            const { ucScore, ucGoldmine } = computeUCScore(result.closeLoc ?? 50, result.exactVolRatio20 ?? result.volRatio20 ?? 1, result.rsi2 ?? 50, result.exactRangeATR14 ?? 1, result.bodyPct ?? 0, clTrend);
+            // rsi2Velocity: RSI2[today] - RSI2[2 bars ago] (d=0.291)
+            // Slice to n-2 is O(22) — cheap, Wilder RSI warmup = period+20
+            let rsi2Velocity;
+            if (candles.length >= 25) {
+                const rsi2D3 = computeRSI(candles.slice(0, candles.length - 2), 2);
+                rsi2Velocity = (result.rsi2 ?? 50) - rsi2D3;
+            }
+            const { ucScore, ucGoldmine } = computeUCScore(result.closeLoc ?? 50, result.exactVolRatio20 ?? result.volRatio20 ?? 1, result.rsi2 ?? 50, result.exactRangeATR14 ?? 1, result.bodyPct ?? 0, clTrend, rsi2Velocity);
             result.ucScore = ucScore;
             result.ucGoldmine = ucGoldmine;
         }
