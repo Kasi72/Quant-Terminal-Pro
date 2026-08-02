@@ -1588,6 +1588,8 @@ function HomePageInner() {
   const [sessions, setSessions] = useState<ScanSession[]>([]);
   const [favorites, setFavorites] = useState<ScanFavorite[]>([]);
   const [reviews, setReviews] = useState<TradeReview[]>([]);
+  const [journalSort, setJournalSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'entryDate', dir: 'desc'});
+  const [journalFilter, setJournalFilter] = useState<{status: string; stage: string; search: string}>({status: 'ALL', stage: 'ALL', search: ''});
   const [showRulesCheck, setShowRulesCheck] = useState(false);
   const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
   const [showSessions, setShowSessions] = useState(false);
@@ -4540,43 +4542,222 @@ function HomePageInner() {
 
         {/* ── Journal Tab ── */}
         {activeTab === 'journal' && (
-          <div className="flex-1 overflow-auto p-4 space-y-4">
-            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">📝 Trade Journal</h2>
+          <div className="flex-1 overflow-auto p-4 space-y-3">
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">📝 Trade Journal</h2>
+              <span className="text-xs text-slate-600 ml-auto">{trackedTrades.length} trades</span>
+            </div>
 
-            {/* Add Review */}
-            <div className="bg-slate-800/40 rounded-lg p-3">
-              <div className="text-xs text-slate-500 font-semibold mb-2">Post-Trade Review</div>
-              {trackedTrades.filter(t => t.status !== 'open').slice(-5).reverse().map((t, i) => {
-                const existing = reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate);
-                return (
-                  <div key={i} className="flex items-start gap-2 text-xs bg-slate-900/40 rounded px-2 py-1.5 mb-1">
-                    <span className="font-mono text-slate-200 w-24 shrink-0">{t.symbol}</span>
-                    <span className={t.pnlPct && t.pnlPct >= 0 ? 'text-emerald-400 w-14 shrink-0' : 'text-red-400 w-14 shrink-0'}>{t.pnlPct ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}</span>
-                    <span className="text-slate-500 w-20 shrink-0">{t.closedDate ?? ''}</span>
-                    {existing ? (
-                      <span className="text-slate-400 flex-1 truncate" title={existing.lessons}>{existing.lessons || existing.notes}</span>
-                    ) : (
-                      <button onClick={() => {
-                        const notes = prompt(`What happened with ${t.symbol}? What did you learn?`);
+            {/* Filter bar */}
+            <div className="flex items-center gap-2 flex-wrap bg-slate-800/40 rounded-lg p-2 border border-slate-700/40">
+              <input
+                type="text"
+                placeholder="Search symbol / sector…"
+                value={journalFilter.search}
+                onChange={e => setJournalFilter(f => ({...f, search: e.target.value}))}
+                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 w-40 focus:outline-none focus:border-indigo-500"
+              />
+              <select
+                value={journalFilter.status}
+                onChange={e => setJournalFilter(f => ({...f, status: e.target.value}))}
+                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="ALL">All Status</option>
+                <option value="open">Open</option>
+                <option value="hit_t1">✓ T1 Hit</option>
+                <option value="hit_t2">✓ T2 Hit</option>
+                <option value="hit_t3">✓ T3 Hit</option>
+                <option value="stopped">Stopped</option>
+                <option value="expired">Expired</option>
+                <option value="manual_close">Manual</option>
+                <option value="closed_early">Early Exit</option>
+              </select>
+              <select
+                value={journalFilter.stage}
+                onChange={e => setJournalFilter(f => ({...f, stage: e.target.value}))}
+                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="ALL">All Stages</option>
+                {[...new Set(trackedTrades.map(t => t.stage).filter(Boolean))].sort().map(s => (
+                  <option key={s} value={s}>{STAGE_CONFIG[s as StageRating]?.label ?? s}</option>
+                ))}
+              </select>
+              {(journalFilter.search || journalFilter.status !== 'ALL' || journalFilter.stage !== 'ALL') && (
+                <button
+                  onClick={() => setJournalFilter({status: 'ALL', stage: 'ALL', search: ''})}
+                  className="text-xs text-amber-500 hover:text-amber-300 px-2 py-1 rounded border border-amber-800/40 bg-amber-900/20"
+                >✕ Clear filters</button>
+              )}
+              <span className="text-[11px] text-slate-600 ml-auto">
+                {(() => {
+                  let ct = trackedTrades;
+                  if (journalFilter.search) ct = ct.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
+                  if (journalFilter.status !== 'ALL') ct = ct.filter(t => t.status === journalFilter.status);
+                  if (journalFilter.stage !== 'ALL') ct = ct.filter(t => t.stage === journalFilter.stage);
+                  return `${ct.length} / ${trackedTrades.length} rows`;
+                })()}
+              </span>
+            </div>
+
+            {/* Pending reviews (compact chips) */}
+            {(() => {
+              const pending = trackedTrades.filter(t => t.status !== 'open' && !reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate));
+              if (pending.length === 0) return null;
+              return (
+                <div className="bg-amber-900/10 border border-amber-800/30 rounded-lg p-2">
+                  <div className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider mb-1.5">Pending Reviews ({pending.length})</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pending.slice(-10).reverse().map((t, i) => (
+                      <button key={i} onClick={() => {
+                        const notes = prompt(`${t.symbol} — what happened? What did you learn?`);
                         if (notes) {
                           const review: TradeReview = { symbol: t.symbol, date: t.closedDate ?? '', outcome: t.status, pnlPct: t.pnlPct ?? 0, notes: '', lessons: notes };
                           const updated = [...reviews, review]; setReviews(updated); saveReviews(updated);
                         }
-                      }} className="text-amber-500 hover:text-amber-300">+ Add review</button>
-                    )}
+                      }} className="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2 py-0.5 flex items-center gap-1 transition-colors">
+                        <span className="font-mono text-slate-300">{t.symbol.replace('.NS','').replace('.BO','')}</span>
+                        {t.pnlPct != null && <span className={t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span>}
+                        <span className="text-amber-600">+</span>
+                      </button>
+                    ))}
                   </div>
-                );
-              })}
-              {trackedTrades.filter(t => t.status !== 'open').length === 0 && (
-                <div className="text-xs text-slate-600 py-2">No closed trades to review yet</div>
-              )}
+                </div>
+              );
+            })()}
+
+            {/* Sortable / filterable main table */}
+            <div className="overflow-auto max-h-[62vh] border border-slate-800/50 rounded-lg">
+              <table className="w-full text-xs whitespace-nowrap">
+                <thead className="sticky top-0 z-10 bg-[#0d1117]">
+                  <tr className="border-b border-slate-700 text-slate-500">
+                    {([
+                      ['symbol',     'Symbol',    'text-left'],
+                      ['stage',      'Stage',     'text-left'],
+                      ['entryDate',  'Entry Dt',  'text-left'],
+                      ['closedDate', 'Exit Dt',   'text-left'],
+                      ['status',     'Status',    'text-center'],
+                      ['entryPrice', 'Entry ₹',   'text-right'],
+                      ['closedPrice','Exit ₹',    'text-right'],
+                      ['pnlPct',     'P&L%',      'text-right'],
+                      ['pnlR',       'P&L-R',     'text-right'],
+                      ['mfe',        'MFE%',      'text-right'],
+                      ['mae',        'MAE%',      'text-right'],
+                      ['daysHeld',   'Days',      'text-right'],
+                      ['sector',     'Sector',    'text-left'],
+                      ['conviction', 'Conv',      'text-right'],
+                    ] as [string,string,string][]).map(([col, label, align]) => (
+                      <th
+                        key={col}
+                        onClick={() => setJournalSort(s => ({col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
+                        className={`px-2 py-1.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors ${align}`}
+                      >
+                        {label} <span className={journalSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{journalSort.col === col ? (journalSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                      </th>
+                    ))}
+                    <th className="px-2 py-1.5 font-medium text-left">Review</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    let rows = [...trackedTrades];
+                    if (journalFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
+                    if (journalFilter.status !== 'ALL') rows = rows.filter(t => t.status === journalFilter.status);
+                    if (journalFilter.stage !== 'ALL') rows = rows.filter(t => t.stage === journalFilter.stage);
+
+                    rows.sort((a, b) => {
+                      const mult = journalSort.dir === 'asc' ? 1 : -1;
+                      const pick = (t: TrackedTrade): number | string => {
+                        switch (journalSort.col) {
+                          case 'symbol':     return t.symbol;
+                          case 'stage':      return t.stage ?? '';
+                          case 'entryDate':  return t.entryDate ?? '';
+                          case 'closedDate': return t.closedDate ?? '';
+                          case 'status':     return t.status;
+                          case 'entryPrice': return t.entryPrice ?? 0;
+                          case 'closedPrice':return t.closedPrice ?? 0;
+                          case 'pnlPct':     return t.pnlPct ?? -9999;
+                          case 'pnlR':       return t.pnlR ?? -9999;
+                          case 'mfe':        return getTradeMfePct(t);
+                          case 'mae':        return getTradeMaePct(t);
+                          case 'daysHeld':   return t.daysHeld ?? 0;
+                          case 'sector':     return t.sector ?? '';
+                          case 'conviction': return t.conviction ?? 0;
+                          default:           return '';
+                        }
+                      };
+                      const av = pick(a), bv = pick(b);
+                      if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
+                      return ((av as number) - (bv as number)) * mult;
+                    });
+
+                    const sCfg: Record<string, {label: string; cls: string}> = {
+                      open:         {label: 'OPEN',  cls: 'text-blue-400'},
+                      hit_t1:       {label: '✓ T1',  cls: 'text-emerald-400'},
+                      hit_t2:       {label: '✓ T2',  cls: 'text-emerald-300'},
+                      hit_t3:       {label: '✓ T3',  cls: 'text-yellow-300'},
+                      stopped:      {label: 'STOP',  cls: 'text-red-400'},
+                      expired:      {label: 'EXP',   cls: 'text-amber-400'},
+                      manual_close: {label: 'MAN',   cls: 'text-slate-400'},
+                      closed_early: {label: 'EXIT',  cls: 'text-cyan-400'},
+                    };
+
+                    if (rows.length === 0) return (
+                      <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-600">No trades match filters</td></tr>
+                    );
+
+                    return rows.map((t, i) => {
+                      const sc = sCfg[t.status] ?? {label: t.status, cls: 'text-slate-500'};
+                      const stg = STAGE_CONFIG[t.stage as StageRating];
+                      const mfePct = getTradeMfePct(t);
+                      const maePct = getTradeMaePct(t);
+                      const rev = reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate);
+                      return (
+                        <tr key={t.symbol + i} className="border-b border-slate-800/40 hover:bg-slate-800/25 transition-colors">
+                          <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol.replace('.NS','').replace('.BO','')}</td>
+                          <td className={`px-2 py-1.5 ${stg?.color ?? 'text-slate-500'}`}>{stg?.label ?? t.stage}</td>
+                          <td className="px-2 py-1.5 font-mono text-slate-500">{t.entryDate}</td>
+                          <td className="px-2 py-1.5 font-mono text-slate-500">{t.closedDate ?? '—'}</td>
+                          <td className={`px-2 py-1.5 text-center font-bold text-[10px] ${sc.cls}`}>{sc.label}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${(t.pnlPct ?? 0) > 0 ? 'text-emerald-400' : (t.pnlPct ?? 0) < 0 ? 'text-red-400' : 'text-slate-600'}`}>
+                            {t.pnlPct != null ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${(t.pnlR ?? 0) > 0 ? 'text-emerald-300' : (t.pnlR ?? 0) < 0 ? 'text-red-300' : 'text-slate-600'}`}>
+                            {t.pnlR != null ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
+                          </td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
+                          <td className="px-2 py-1.5 text-slate-500 max-w-[80px] truncate" title={t.sector}>{t.sector ?? '—'}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
+                          <td className="px-2 py-1.5 min-w-[120px]">
+                            {t.status !== 'open' && (rev ? (
+                              <span className="text-slate-500 text-[10px]" title={rev.lessons}>✍ {rev.lessons.slice(0, 28)}{rev.lessons.length > 28 ? '…' : ''}</span>
+                            ) : (
+                              <button onClick={() => {
+                                const notes = prompt(`${t.symbol} — what happened? What did you learn?`);
+                                if (notes) {
+                                  const review: TradeReview = { symbol: t.symbol, date: t.closedDate ?? '', outcome: t.status, pnlPct: t.pnlPct ?? 0, notes: '', lessons: notes };
+                                  const updated = [...reviews, review]; setReviews(updated); saveReviews(updated);
+                                }
+                              }} className="text-amber-600 hover:text-amber-400 text-[10px] transition-colors">+ Review</button>
+                            ))}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
             </div>
 
-            {/* Review History */}
+            {/* Lessons learned */}
             {reviews.length > 0 && (
               <div className="bg-slate-800/40 rounded-lg p-3">
                 <div className="text-xs text-slate-500 font-semibold mb-2">Lessons Learned ({reviews.length})</div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {reviews.slice().reverse().map((r, i) => (
                     <div key={i} className="text-xs bg-slate-900/40 rounded px-2 py-1.5">
                       <div className="flex items-center gap-2 mb-0.5">
@@ -4590,24 +4771,6 @@ function HomePageInner() {
                 </div>
               </div>
             )}
-
-            {/* Trade Timeline */}
-            <div className="bg-slate-800/40 rounded-lg p-3">
-              <div className="text-xs text-slate-500 font-semibold mb-2">Trade History Timeline</div>
-              <div className="space-y-1">
-                {trackedTrades.slice().reverse().map((t, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${t.status === 'open' ? 'bg-amber-400' : t.pnlPct && t.pnlPct > 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                    <span className="text-slate-500 w-20">{t.entryDate}</span>
-                    <span className="font-mono text-slate-300 w-24 truncate">{t.symbol}</span>
-                    <span className="text-slate-600">{t.status}</span>
-                    {t.pnlPct !== undefined && <span className={t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span>}
-                    {t.daysHeld !== undefined && <span className="text-slate-600">{t.daysHeld}d</span>}
-                  </div>
-                ))}
-                {trackedTrades.length === 0 && <div className="text-xs text-slate-600 py-2">No trades tracked yet</div>}
-              </div>
-            </div>
           </div>
         )}
 
