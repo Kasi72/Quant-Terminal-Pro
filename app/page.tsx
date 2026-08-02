@@ -6914,7 +6914,7 @@ function HomePageInner() {
                       )}
                     </div>
                     {all.length > 0 ? (
-                      <div className="overflow-x-auto">
+                      <div className="overflow-auto max-h-[70vh] border border-slate-800/50 rounded">
                         <table className="w-full text-xs whitespace-nowrap">
                           <thead className="sticky top-0 z-10 bg-[#0d1117]"><tr className="border-b border-slate-700 text-slate-500">
                             <th className="px-2 py-1 text-left font-medium">Symbol</th>
