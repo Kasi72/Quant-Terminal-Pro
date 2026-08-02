@@ -4430,7 +4430,18 @@ function HomePageInner() {
                             <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
                             <td className={`px-2 py-1.5 text-right font-mono ${maeR < 0 ? 'text-red-300' : 'text-slate-600'}`}>{maeR < 0 ? `${maeR.toFixed(1)}R` : '—'}</td>
                             <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-center"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span></td>
+                            <td className="px-2 py-1.5 text-center">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span>
+                                {mfePct >= 5 && (
+                                  <div className="flex gap-0.5">
+                                    <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                                    {mfePct >= 7 && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
+                                    {mfePct >= 10 && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-2 py-1.5 text-center">
                               {(() => {
                                 if (!cGLog || cGLog.length === 0) return <span className="text-slate-700 text-[9px]">—</span>;
