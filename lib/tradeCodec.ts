@@ -1,4 +1,5 @@
 import type { TrackedTrade } from './tradeOps';
+import { lookupSector } from './sectorMap';
 
 export const TRADE_USER_ID = 'drkkr';
 
@@ -131,7 +132,7 @@ export function rowToTrade(row: TrackedTradeRow): TrackedTrade {
     disasterStop: safeNum(row.disaster_stop) ?? base.disasterStop ?? 0,
     entryDate: safeString(row.entry_date, base.entryDate),
     paramSetKey: safeString(row.param_set_key, base.paramSetKey),
-    sector: safeString(row.sector, base.sector),
+    sector: safeString(row.sector, base.sector) || lookupSector(safeString(row.symbol, base.symbol ?? '')),
     conviction: safeNum(row.conviction) ?? base.conviction ?? 0,
     candlePattern: safeString(row.candle_pattern, base.candlePattern),
     atrState: safeString(row.atr_state, base.atrState),
