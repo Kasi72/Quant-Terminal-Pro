@@ -211,17 +211,28 @@ export function getTradeRiskPerShare(t: Pick<TrackedTrade, 'entryPrice' | 'stopL
 }
 
 export function getTradeMfePct(t: TrackedTrade): number {
-  if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0) return t.mfe ?? 0;
-  if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
-    return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+  const tracked = (() => {
+    if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0) return t.mfe ?? 0;
+    if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
+      return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+    }
+    if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
+      return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
+    }
+    if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
+      return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
+    }
+    return Math.max(0, t.pnlPct ?? 0);
+  })();
+  // For terminal trades, derive minimum guaranteed MFE from the targets actually hit.
+  // t.mfe may only reflect the D-day or T1-exit snapshot, not the lifetime peak.
+  if (t.entryPrice > 0) {
+    const pct = (p: number) => (p - t.entryPrice) / t.entryPrice * 100;
+    if (t.status === 'hit_t3' && t.target3 > 0) return Math.max(tracked, pct(t.target3));
+    if (t.status === 'hit_t2' && t.target2 > 0) return Math.max(tracked, pct(t.target2));
+    if (t.status === 'hit_t1' && t.target1 > 0) return Math.max(tracked, pct(t.target1));
   }
-  if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
-    return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
-  }
-  if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
-    return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
-  }
-  return Math.max(0, t.pnlPct ?? 0);
+  return tracked;
 }
 
 export function getTradeMfeR(t: TrackedTrade): number {
