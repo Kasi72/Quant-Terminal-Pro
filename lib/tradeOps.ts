@@ -148,6 +148,9 @@ export interface TrackedTrade {
   mae?: number;
   mfeR?: number;
   maeR?: number;
+  hit5pct?: boolean;   // price ever crossed entry × 1.05
+  hit7pct?: boolean;   // price ever crossed entry × 1.07
+  hit10pct?: boolean;  // price ever crossed entry × 1.10
   qty?: number;
   daysHeld?: number;
   notes?: string;

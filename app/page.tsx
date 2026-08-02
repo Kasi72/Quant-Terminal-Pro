@@ -2242,9 +2242,13 @@ function HomePageInner() {
             updated[i] = { ...updated[i], highestPrice: rawPeak };
           }
           const rawMfePct = ((rawPeak - updated[i].entryPrice) / updated[i].entryPrice) * 100;
-          if (rawMfePct > (updated[i].mfe ?? 0)) {
-            updated[i] = { ...updated[i], mfe: Math.round(rawMfePct * 100) / 100 };
-          }
+          updated[i] = {
+            ...updated[i],
+            mfe: rawMfePct > (updated[i].mfe ?? 0) ? Math.round(rawMfePct * 100) / 100 : updated[i].mfe,
+            hit5pct:  updated[i].hit5pct  || rawMfePct >= 5,
+            hit7pct:  updated[i].hit7pct  || rawMfePct >= 7,
+            hit10pct: updated[i].hit10pct || rawMfePct >= 10,
+          };
           // FAIL-SAFE: Detect STOPPED status change → trigger alert
           if (prevStatus === 'open' && updated[i].status === 'stopped') {
             const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -4443,11 +4447,11 @@ function HomePageInner() {
                             <td className="px-2 py-1.5 text-center">
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span>
-                                {badgeMfe >= 5 && (
+                                {(t.hit5pct || badgeMfe >= 5) && (
                                   <div className="flex gap-0.5">
                                     <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
-                                    {badgeMfe >= 7 && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
-                                    {badgeMfe >= 10 && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
+                                    {(t.hit7pct || badgeMfe >= 7) && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
+                                    {(t.hit10pct || badgeMfe >= 10) && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
                                   </div>
                                 )}
                               </div>
@@ -6587,7 +6591,13 @@ function HomePageInner() {
                                       const rawPeak = _vBars.length > 0 ? Math.max(..._vBars.map(c => c.h)) : 0;
                                       if (rawPeak > (u.highestPrice ?? 0)) u = { ...u, highestPrice: rawPeak };
                                       const rawMfePct = ((rawPeak - updated[idx].entryPrice) / updated[idx].entryPrice) * 100;
-                                      if (rawMfePct > (u.mfe ?? 0)) u = { ...u, mfe: Math.round(rawMfePct * 100) / 100 };
+                                      u = {
+                                        ...u,
+                                        mfe: rawMfePct > (u.mfe ?? 0) ? Math.round(rawMfePct * 100) / 100 : u.mfe,
+                                        hit5pct:  u.hit5pct  || rawMfePct >= 5,
+                                        hit7pct:  u.hit7pct  || rawMfePct >= 7,
+                                        hit10pct: u.hit10pct || rawMfePct >= 10,
+                                      };
                                       updated[idx] = u;
                                       validated++;
                                     }
