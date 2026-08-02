@@ -2845,10 +2845,13 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
 
   // 6 signal conditions — DMI + candle-arch augmented (OOS WR 80.7%, n=2086, Wilson 79.3%)
   const bsc = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
-  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 5.0);         // institutional volume spike
+  // VF threshold sweep 2026-08-02: vol 5.0→3.5, rangeATR 3.5→1.5
+  // OOS (n=73): SL 13.7% WR 84.9% P&L +1.40% PF 2.10x vs old (n≈45): SL 20% WR 80% P&L +0.88%
+  // Brain: vol≥5× + rangeATR≥3.5× are anti-correlated — old thresholds filtered to near-zero UC detection
+  const c1 = volRatio20 >= tuned(key, 'minVolRatio', 3.5);         // institutional volume spike
   const c2 = closeLoc >= tuned(key, 'minCloseLoc', 75) && ca.upperWickPct <= tuned(key, 'maxUpperWick', 25);
   const c3 = hi20 > 0 && sig.c >= hi20 * tuned(key, 'minHi20Frac', 0.88);
-  const c4 = exactRangeATR14 >= tuned(key, 'minRangeATR', 3.5);
+  const c4 = exactRangeATR14 >= tuned(key, 'minRangeATR', 1.5);
   const c5 = sig.o >= prevClose * (1 + tuned(key, 'maxGapDownPct', 0) / 100);
   const c6 = (!tunedBool(key, 'requireDIBull', false) || diPlusV > diMinusV) &&
              (tuned(key, 'maxBsc', 3) >= 99 || bsc <= tuned(key, 'maxBsc', 3)) &&
@@ -2878,10 +2881,10 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Volume ≥ 5.0× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
+    { label: 'Volume ≥ 3.5× 20d avg', pass: c1, value: `${volRatio20.toFixed(1)}×` },
     { label: 'Close top 25% of range AND upper wick ≤ 25%', pass: c2, value: `CL=${closeLoc.toFixed(0)}% UW=${ca.upperWickPct.toFixed(0)}%` },
     { label: 'Price within 12% of 20d high', pass: c3, value: hi20 > 0 ? `${((sig.c/hi20)*100).toFixed(1)}%` : '—' },
-    { label: 'Range expansion ≥ 3.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
+    { label: 'Range expansion ≥ 1.5× ATR', pass: c4, value: `${exactRangeATR14.toFixed(2)}×` },
     { label: 'Open gap-down ≤ 0%', pass: c5, value: sig.o >= prevClose ? 'YES' : 'NO' },
     { label: 'Fresh DI timing and ADX ≥ 25', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} BSC=${bsc === 99 ? 'none' : bsc} ADX${adxVal.toFixed(0)}` },
   ];
