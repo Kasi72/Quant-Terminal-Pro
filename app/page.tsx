@@ -6952,6 +6952,20 @@ function HomePageInner() {
                             }).map((t, i) => {
                               const rps = getTradeRiskPerShare(t);
                               const mfePct = getTradeMfePct(t);
+                              const badgeMfe = (() => {
+                                if (t.entryPrice <= 0) return mfePct;
+                                const e = t.entryPrice;
+                                const pct = (p: number) => (p - e) / e * 100;
+                                const candidates: number[] = [mfePct];
+                                if (t.status === 'hit_t3' || t.status === 'hit_t2' || t.status === 'hit_t1') {
+                                  if (t.target3 > 0 && t.status === 'hit_t3') candidates.push(pct(t.target3));
+                                  if (t.target2 > 0 && (t.status === 'hit_t2' || t.status === 'hit_t3')) candidates.push(pct(t.target2));
+                                  if (t.target1 > 0) candidates.push(pct(t.target1));
+                                }
+                                if (t.closedPrice && t.closedPrice > e) candidates.push(pct(t.closedPrice));
+                                if (t.highestPrice && t.highestPrice > e) candidates.push(pct(t.highestPrice));
+                                return Math.max(...candidates);
+                              })();
                               const mfeR = getTradeMfeR(t);
                               const curPrice = t.closedPrice ?? t.currentPrice ?? 0;
                               const activePosition = !isTerminalTrade(t);
@@ -7033,9 +7047,13 @@ function HomePageInner() {
                                   })() : <span className="text-slate-700">—</span>}</td>
                                   {/* #2: Outcome with tooltip */}
                                   <td className="px-2 py-1.5 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      {mfePct >= 5 && (
-                                        <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      {(t.hit5pct || badgeMfe >= 5) && (
+                                        <div className="flex gap-0.5">
+                                          <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                                          {(t.hit7pct || badgeMfe >= 7) && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
+                                          {(t.hit10pct || badgeMfe >= 10) && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
+                                        </div>
                                       )}
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}
                                         title={partialClosed ? `Targets through ${t.status === 'hit_t1' ? 'T1' : 'T2'} were booked; the remaining position exited at ₹${(t.closedPrice ?? 0).toFixed(2)}` : t.status === 'hit_t1' ? 'T1 hit: 50% booked; remaining runner stays protected by the review/trail floor until T2' : t.status === 'hit_t2' ? 'T2 hit: 50% at T1 + 30% at T2; remaining 20% uses the hard chandelier trail' : t.status === 'hit_t3' ? 'T3 hit: 50% at T1 + 30% at T2 + 20% at T3; fully closed' : t.status === 'stopped' ? 'Hard or confirmed review exit executed; see Gate Status for the stop type' : t.status === 'expired' ? `Expired after ${holdHorizon} trading bars; closed at market` : 'Trade is open and monitored by the canonical replay engine'}>{sc.label}</span>
