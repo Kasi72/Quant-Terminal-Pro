@@ -4404,6 +4404,16 @@ function HomePageInner() {
                       {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = getTradeMfePct(t);
+                        // Milestone badges: guarantee floor from targets actually cleared,
+                        // independent of whether t.mfe captured the lifetime peak.
+                        const badgeMfe = (() => {
+                          if (t.entryPrice <= 0) return mfePct;
+                          const pct = (p: number) => (p - t.entryPrice) / t.entryPrice * 100;
+                          if (t.status === 'hit_t3' && t.target3 > 0) return Math.max(mfePct, pct(t.target3));
+                          if (t.status === 'hit_t2' && t.target2 > 0) return Math.max(mfePct, pct(t.target2));
+                          if (t.status === 'hit_t1' && t.target1 > 0) return Math.max(mfePct, pct(t.target1));
+                          return mfePct;
+                        })();
                         const mfeR = getTradeMfeR(t);
                         const maePct = getTradeMaePct(t);
                         const maeR = riskPerShare > 0 && maePct < 0 ? (maePct / 100 * t.entryPrice) / riskPerShare : 0;
@@ -4433,11 +4443,11 @@ function HomePageInner() {
                             <td className="px-2 py-1.5 text-center">
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.color}`}>{sc.label}</span>
-                                {mfePct >= 5 && (
+                                {badgeMfe >= 5 && (
                                   <div className="flex gap-0.5">
                                     <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
-                                    {mfePct >= 7 && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
-                                    {mfePct >= 10 && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
+                                    {badgeMfe >= 7 && <span className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">7%✓</span>}
+                                    {badgeMfe >= 10 && <span className="text-[8px] font-bold text-cyan-400 bg-cyan-900/50 border border-cyan-700 px-1 py-0.5 rounded leading-none">10%✓</span>}
                                   </div>
                                 )}
                               </div>
