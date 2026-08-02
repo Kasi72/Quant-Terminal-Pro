@@ -3644,15 +3644,21 @@ function computeUCScore(
   rsi2: number,
   rangeATR14: number,
   bodyPct: number,
+  clTrend?: number,
 ): { ucScore: number; ucGoldmine: boolean } {
-  // Feature weights from Brain V2 goldmine analysis 2026-08-02 (1000 UC events, n_before=1)
-  // actionable vs on_radar Cohen's d: CL(0.55) vol(0.27) RSI2(0.43) range(0.23) body(0.17)
-  const clComp  = Math.min(1, Math.max(0, (closeLoc   - 40) / 60)) * 40;
-  const rsiComp = Math.min(1, Math.max(0, (rsi2       - 40) / 60)) * 25;
-  const volComp = Math.min(1, Math.max(0, (volRatio20 - 0.5) / 4.5)) * 20;
-  const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 2.5)) * 10;
-  const bPComp  = Math.min(1, Math.max(0, (bodyPct    - 20) / 80))  *  5;
-  const ucScore = Math.round(Math.min(100, clComp + rsiComp + volComp + rngComp + bPComp));
+  // Brain V2 goldmine weights (2026-08-02, 1000 UC events n_before=1)
+  // Cohen's d: CL(0.55) RSI2(0.43) vol(0.27) range(0.23) body(0.17) + trajectory clTrend(0.8+)
+  const clComp   = Math.min(1, Math.max(0, (closeLoc   - 40) / 60))  * 35;
+  const rsiComp  = Math.min(1, Math.max(0, (rsi2       - 40) / 60))  * 20;
+  const volComp  = Math.min(1, Math.max(0, (volRatio20 - 0.5) / 4.5)) * 15;
+  const rngComp  = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 2.5)) *  7;
+  const bPComp   = Math.min(1, Math.max(0, (bodyPct    - 20) / 80))   *  3;
+  // clTrend: closeLoc[today] − closeLoc[2 days ago]; actionable avg +11 vs on_radar −3.9
+  // range −10→+30 maps to 0→20pts; 10pts neutral when no trajectory data available
+  const trajComp = clTrend != null
+    ? Math.min(1, Math.max(0, (clTrend + 10) / 40)) * 20
+    : 10;
+  const ucScore = Math.round(Math.min(100, clComp + rsiComp + volComp + rngComp + bPComp + trajComp));
   // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable at D-1 in Brain data
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
   return { ucScore, ucGoldmine };
@@ -3933,12 +3939,22 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
 
     // 12. UC Goldmine Score — Brain V2 goldmine weights (2026-08-02, 1000 UC events n_before=1)
     try {
+      // clTrend = closeLoc[today] − closeLoc[2 bars ago]; proxy for D-1 vs D-3 trajectory
+      let clTrend: number | undefined;
+      if (candles.length >= 3) {
+        const d1 = candles[candles.length - 1];
+        const d3 = candles[candles.length - 3];
+        const cl1 = d1.h > d1.l ? (d1.c - d1.l) / (d1.h - d1.l) * 100 : 50;
+        const cl3 = d3.h > d3.l ? (d3.c - d3.l) / (d3.h - d3.l) * 100 : 50;
+        clTrend = cl1 - cl3;
+      }
       const { ucScore, ucGoldmine } = computeUCScore(
         result.closeLoc ?? 50,
         (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
         result.rsi2 ?? 50,
         (result as any).exactRangeATR14 ?? 1,
         result.bodyPct ?? 0,
+        clTrend,
       );
       result.ucScore    = ucScore;
       result.ucGoldmine = ucGoldmine;

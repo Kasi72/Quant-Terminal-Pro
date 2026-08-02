@@ -63,6 +63,16 @@ interface EventRow {
   near_breakout_tier: string | null;
   archetype_type: string | null;
   zone_shape: string | null;
+  // Trajectory features (D-1 vs D-3): stored on n_before=1 rows
+  vol_accel: number | null;      // vol_ratio_20[D-1] / vol_ratio_20[D-3]
+  rsi2_velocity: number | null;  // rsi2[D-1] - rsi2[D-3]
+  cl_trend: number | null;       // close_loc[D-1] - close_loc[D-3]
+}
+
+interface TrajectoryFeatures {
+  volAccel: number | null;
+  rsi2Velocity: number | null;
+  clTrend: number | null;
 }
 
 // Per-feature scales so cosine distance weights all 9 dimensions comparably.
@@ -84,13 +94,21 @@ const SHAPE_OFFSET = 9;
 const SHAPE_LEN = 20;
 const SHAPE_WEIGHT = 0.6;
 
-function toVector(f: EventFeatures, shape?: number[] | null): number[] {
+function toVector(f: EventFeatures, shape?: number[] | null, traj?: TrajectoryFeatures | null): number[] {
   const v = new Array<number>(VECTOR_DIMS).fill(0);
   FEATURE_ORDER.forEach((k, i) => { v[i] = (f[k] ?? 0) / SCALES[k]; });
   if (shape && shape.length === SHAPE_LEN) {
     shape.forEach((s, i) => { v[SHAPE_OFFSET + i] = Number(s) * SHAPE_WEIGHT; });
   }
+  // dims 29-31: trajectory features (reserved → active 2026-08-02)
+  if (traj?.volAccel != null)     v[29] = Math.min(3, Math.max(0, traj.volAccel)) / 3;
+  if (traj?.rsi2Velocity != null) v[30] = (Math.min(50, Math.max(-50, traj.rsi2Velocity)) + 50) / 100;
+  if (traj?.clTrend != null)      v[31] = (Math.min(80, Math.max(-80, traj.clTrend)) + 80) / 160;
   return v;
+}
+
+function rowToTrajectory(r: EventRow): TrajectoryFeatures {
+  return { volAccel: r.vol_accel, rsi2Velocity: r.rsi2_velocity, clTrend: r.cl_trend };
 }
 
 function rowToFeatures(r: EventRow): EventFeatures {
@@ -271,21 +289,61 @@ async function labelOutcomes(env: Env): Promise<{ labeled: number }> {
   return { labeled };
 }
 
+// ── Trajectory: compute & store D-1 vs D-3 features on n_before=1 rows ──────
+async function computeAndStoreTrajectory(env: Env, d1Rows: EventRow[], sevenDaysAgo: string): Promise<void> {
+  const needsTraj = d1Rows.filter(r => r.vol_accel == null);
+  if (needsTraj.length === 0) return;
+
+  // n_before=3 rows share the same event_date (the UC event date) as n_before=1 rows
+  const d3Rows = await supabaseGet(
+    env,
+    `pbfb_uc_events?select=symbol,event_date,vol_ratio_20,rsi2,close_loc&n_before=eq.3&event_date=gte.${sevenDaysAgo}&order=event_date.desc&limit=2000`,
+  ) as Array<{ symbol: string; event_date: string | null; vol_ratio_20: number | null; rsi2: number | null; close_loc: number | null }>;
+
+  const d3Map = new Map<string, typeof d3Rows[0]>();
+  for (const r of d3Rows) {
+    if (r.event_date) d3Map.set(`${r.symbol}_${r.event_date}`, r);
+  }
+
+  for (const r of needsTraj) {
+    if (!r.event_date) continue;
+    const d3 = d3Map.get(`${r.symbol}_${r.event_date}`);
+    if (!d3) continue;
+
+    const vol_accel = (d3.vol_ratio_20 != null && d3.vol_ratio_20 > 0 && r.vol_ratio_20 != null)
+      ? Math.round(r.vol_ratio_20 / d3.vol_ratio_20 * 1000) / 1000 : null;
+    const rsi2_velocity = (r.rsi2 != null && d3.rsi2 != null)
+      ? Math.round((r.rsi2 - d3.rsi2) * 100) / 100 : null;
+    const cl_trend = (r.close_loc != null && d3.close_loc != null)
+      ? Math.round((r.close_loc - d3.close_loc) * 100) / 100 : null;
+
+    if (vol_accel == null && rsi2_velocity == null && cl_trend == null) continue;
+
+    try {
+      await supabasePatch(env, `pbfb_uc_events?id=eq.${r.id}`, { vol_accel, rsi2_velocity, cl_trend });
+      r.vol_accel = vol_accel; r.rsi2_velocity = rsi2_velocity; r.cl_trend = cl_trend;
+    } catch { /* non-fatal — vectorize uses null trajectory for this row */ }
+  }
+}
+
 // ── Ingest: Supabase events → Vectorize fingerprints ────────────────────────
 async function ingest(env: Env): Promise<{ ingested: number }> {
   // Bug 22 fix: date filter keeps nightly ingestion well within the 1000-row Supabase limit
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
+    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape,vol_accel,rsi2_velocity,cl_trend&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
   ) as EventRow[];
+
+  // Compute & persist trajectory for rows that don't have it yet, then update in-memory rows
+  await computeAndStoreTrajectory(env, rows, sevenDaysAgo);
 
   let ingested = 0;
   for (let i = 0; i < rows.length; i += 100) {
     const chunk = rows.slice(i, i + 100);
     await env.VECTORIZE.upsert(chunk.map(r => ({
       id: r.id,
-      values: toVector(rowToFeatures(r), r.shape_vec),
+      values: toVector(rowToFeatures(r), r.shape_vec, rowToTrajectory(r)),
       metadata: {
         symbol: r.symbol, run_date: r.run_date, event_date: r.event_date ?? '',
         best_stage: r.best_stage, best_param_set: r.best_param_set ?? '',
