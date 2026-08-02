@@ -1594,6 +1594,9 @@ function HomePageInner() {
   const [tdOpenFilter, setTdOpenFilter] = useState<{sector: string; search: string}>({sector: 'ALL', search: ''});
   const [tdClosedSort, setTdClosedSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'closedDate', dir: 'desc'});
   const [tdClosedFilter, setTdClosedFilter] = useState<{status: string; search: string}>({status: 'ALL', search: ''});
+  const [valSort, setValSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'entryDate', dir: 'desc'});
+  const [valFilter, setValFilter] = useState<{status: string; search: string}>({status: 'ALL', search: ''});
+  const [valSelected, setValSelected] = useState<Set<string>>(new Set());
   const [showRulesCheck, setShowRulesCheck] = useState(false);
   const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
   const [showSessions, setShowSessions] = useState(false);
@@ -7167,9 +7170,51 @@ function HomePageInner() {
                   {/* SECTION 3: TRADE LOG                      */}
                   {/* ═══════════════════════════════════════════ */}
                   <div className="bg-slate-800/40 rounded-lg p-3">
-                    <div className="flex items-center mb-2">
-                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2"><span className="w-1 h-4 bg-emerald-500 rounded-full"></span>Trade Log ({all.length} trades)</span>
-                      {all.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider flex items-center gap-2 shrink-0">
+                        <span className="w-1 h-4 bg-emerald-500 rounded-full"></span>
+                        Trade Log ({(() => {
+                          let r = all;
+                          if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
+                          if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                          return r.length;
+                        })()} / {all.length})
+                      </span>
+                      <input type="text" placeholder="Search symbol / sector…" value={valFilter.search}
+                        onChange={e => setValFilter(f => ({...f, search: e.target.value}))}
+                        className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 w-36" />
+                      <select value={valFilter.status} onChange={e => setValFilter(f => ({...f, status: e.target.value}))}
+                        className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+                        <option value="ALL">All Status</option>
+                        <option value="open">Open</option>
+                        <option value="hit_t1">T1 Hit</option>
+                        <option value="hit_t2">T2 Hit</option>
+                        <option value="hit_t3">T3 Hit</option>
+                        <option value="stopped">Stopped</option>
+                        <option value="expired">Expired</option>
+                        <option value="manual_close">Manual Close</option>
+                        <option value="closed_early">Closed Early</option>
+                      </select>
+                      {(valFilter.search || valFilter.status !== 'ALL') && (
+                        <button onClick={() => setValFilter({status: 'ALL', search: ''})} className="text-xs text-slate-500 hover:text-slate-300 px-1">✕ Clear</button>
+                      )}
+                      {valSelected.size > 0 && (
+                        <span className="text-xs text-indigo-300 bg-indigo-900/40 border border-indigo-700 px-2 py-0.5 rounded">{valSelected.size} selected</span>
+                      )}
+                      {valSelected.size > 0 && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Remove ${valSelected.size} selected trade(s)?`)) return;
+                            const updated = trackedTrades.filter(t => !valSelected.has(`${t.symbol}_${t.entryDate ?? ''}`));
+                            setTrackedTrades(updated);
+                            syncTradesToCloud(updated);
+                            setValSelected(new Set());
+                          }}
+                          className="text-xs text-red-500 hover:text-red-300 border border-red-800 px-2 py-0.5 rounded">
+                          🗑 Delete ({valSelected.size})
+                        </button>
+                      )}
+                      {all.length > 0 && valSelected.size === 0 && (
                         <button onClick={async () => {
                           if (!confirm('Remove ALL tracked trades?')) return;
                           try {
@@ -7186,39 +7231,110 @@ function HomePageInner() {
                       <div className="overflow-auto max-h-[70vh] border border-slate-800/50 rounded">
                         <table className="w-full text-xs whitespace-nowrap">
                           <thead className="sticky top-0 z-10 bg-[#0d1117]"><tr className="border-b border-slate-700 text-slate-500">
-                            <th className="px-2 py-1 text-left font-medium">Symbol</th>
-                            <th className="px-2 py-1 text-left font-medium">Stage</th>
-                            <th className="px-2 py-1 text-right font-medium">Entry</th>
-                            <th className="px-2 py-1 text-right font-medium" title="Frozen close-confirmed review level; hard-stop risk is reflected in Risk/sh">Review</th>
-                            <th className="px-2 py-1 text-right font-medium">T1</th>
-                            <th className="px-2 py-1 text-right font-medium">T2</th>
-                            <th className="px-2 py-1 text-right font-medium">T3</th>
-                            <th className="px-2 py-1 text-right font-medium">Risk/sh</th>
-                            <th className="px-2 py-1 text-left font-medium">Entry Dt</th>
-                            <th className="px-2 py-1 text-right font-medium">CMP/Exit</th>
-                            <th className="px-2 py-1 text-right font-medium">Planned R:R</th>
-                            <th className="px-2 py-1 text-right font-medium">P&L%</th>
-                            <th className="px-2 py-1 text-right font-medium">P&L R</th>
-                            <th className="px-2 py-1 text-right font-medium">MFE%</th>
-                            <th className="px-2 py-1 text-right font-medium">MFE-R</th>
-                            <th className="px-2 py-1 text-right font-medium">MAE%</th>
-                            <th className="px-2 py-1 text-right font-medium">MAE-R</th>
-                            <th className="px-2 py-1 text-right font-medium">Days</th>
-                            <th className="px-2 py-1 text-center font-medium">Expiry</th>
-                            <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                            <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail">Gate Status</th>
-                            <th className="px-2 py-1 text-left font-medium">Exit Model</th>
-                            <th className="px-2 py-1 text-left font-medium">Sector</th>
-                            <th className="px-2 py-1 text-right font-medium">Conv</th>
-                            <th className="px-2 py-1 text-left font-medium">Closed Dt</th>
+                            <th className="px-2 py-1 text-center w-6">
+                              <input type="checkbox" className="w-3 h-3 accent-indigo-500 cursor-pointer"
+                                checked={valSelected.size > 0 && (() => {
+                                  let r = all;
+                                  if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
+                                  if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                                  return r.length > 0 && r.every(t => valSelected.has(`${t.symbol}_${t.entryDate ?? ''}`));
+                                })()}
+                                onChange={e => {
+                                  let r = all;
+                                  if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
+                                  if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                                  if (e.target.checked) {
+                                    setValSelected(prev => new Set([...prev, ...r.map(t => `${t.symbol}_${t.entryDate ?? ''}`)]))
+                                  } else {
+                                    const keys = new Set(r.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
+                                    setValSelected(prev => new Set([...prev].filter(k => !keys.has(k))));
+                                  }
+                                }} />
+                            </th>
+                            {([
+                              ['symbol',     'px-2 py-1 text-left',  'Symbol',      undefined,                                              true],
+                              ['stage',      'px-2 py-1 text-left',  'Stage',       undefined,                                              true],
+                              ['entryPrice', 'px-2 py-1 text-right', 'Entry',       undefined,                                              true],
+                              ['stopLoss',   'px-2 py-1 text-right', 'Review',      'Frozen close-confirmed review level; hard-stop risk is reflected in Risk/sh', true],
+                              ['target1',    'px-2 py-1 text-right', 'T1',          undefined,                                              true],
+                              ['target2',    'px-2 py-1 text-right', 'T2',          undefined,                                              true],
+                              ['target3',    'px-2 py-1 text-right', 'T3',          undefined,                                              true],
+                              ['riskPerSh',  'px-2 py-1 text-right', 'Risk/sh',     undefined,                                              true],
+                              ['entryDate',  'px-2 py-1 text-left',  'Entry Dt',    undefined,                                              true],
+                              ['curPrice',   'px-2 py-1 text-right', 'CMP/Exit',    undefined,                                              true],
+                              ['plannedRR',  'px-2 py-1 text-right', 'Planned R:R', undefined,                                              true],
+                              ['pnlPct',     'px-2 py-1 text-right', 'P&L%',        undefined,                                              true],
+                              ['pnlR',       'px-2 py-1 text-right', 'P&L R',       undefined,                                              true],
+                              ['mfePct',     'px-2 py-1 text-right', 'MFE%',        undefined,                                              true],
+                              ['mfeR',       'px-2 py-1 text-right', 'MFE-R',       undefined,                                              true],
+                              ['maePct',     'px-2 py-1 text-right', 'MAE%',        undefined,                                              true],
+                              ['maeR',       'px-2 py-1 text-right', 'MAE-R',       undefined,                                              true],
+                              ['daysHeld',   'px-2 py-1 text-right', 'Days',        undefined,                                              true],
+                              [null,         'px-2 py-1 text-center','Expiry',      undefined,                                              false],
+                              ['status',     'px-2 py-1 text-center','Outcome',     undefined,                                              true],
+                              [null,         'px-2 py-1 text-center','Gate Status', 'Gate Cascade v7\nHard disaster stop: broker SL-M, stop-first, never shielded\nTactical stop: close-confirmed review level; failed review exits next session open\nG0-G9: all evaluated as evidence\nBelow-stop shield requires near-stop price defence plus another independent evidence group\nMissing ATR, volume, or locked structure never auto-shields\nAfter T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail', false],
+                              [null,         'px-2 py-1 text-left',  'Exit Model',  undefined,                                              false],
+                              ['sector',     'px-2 py-1 text-left',  'Sector',      undefined,                                              true],
+                              ['conviction', 'px-2 py-1 text-right', 'Conv',        undefined,                                              true],
+                              ['closedDate', 'px-2 py-1 text-left',  'Closed Dt',   undefined,                                              true],
+                            ] as [string|null,string,string,string|undefined,boolean][]).map(([col,cls,label,title,sortable],idx) => sortable && col ? (
+                              <th key={idx} onClick={() => setValSort(s => ({col: col as string, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
+                                className={`${cls} font-medium cursor-pointer select-none hover:text-slate-300`} title={title}>
+                                {label} <span className={valSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{valSort.col === col ? (valSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                            ) : (
+                              <th key={idx} className={`${cls} font-medium`} title={title}>{label}</th>
+                            ))}
                             <th className="px-1 py-1 w-6"></th>
                           </tr></thead>
                           <tbody>
-                            {[...all].sort((a, b) => {
-                              if (!isTerminalTrade(a) && isTerminalTrade(b)) return -1;
-                              if (isTerminalTrade(a) && !isTerminalTrade(b)) return 1;
-                              return 0;
-                            }).map((t, i) => {
+                            {(() => {
+                              let rows = [...all];
+                              if (valFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
+                              if (valFilter.status !== 'ALL') rows = rows.filter(t => t.status === valFilter.status);
+                              rows.sort((a, b) => {
+                                const mult = valSort.dir === 'asc' ? 1 : -1;
+                                const pick = (t: TrackedTrade): number | string => {
+                                  const rp = getTradeRiskPerShare(t);
+                                  const cur = t.closedPrice ?? t.currentPrice ?? 0;
+                                  const isT = isTerminalTrade(t);
+                                  const curPnlV = (t.pnlPct != null && (t.status !== 'open' || isT)) ? (t.pnlPct ?? 0) : (cur > 0 && t.entryPrice > 0 ? ((cur - t.entryPrice) / t.entryPrice) * 100 : 0);
+                                  const curRV = (t.pnlR != null && (t.status !== 'open' || isT)) ? t.pnlR : (rp > 0 && cur > 0 ? (cur - t.entryPrice) / rp : 0);
+                                  const rrBase = t.target2 > t.entryPrice ? t.target2 : t.target1;
+                                  const rrV = rp > 0 && rrBase > t.entryPrice ? (rrBase - t.entryPrice) / rp : 0;
+                                  switch (valSort.col) {
+                                    case 'symbol':     return t.symbol;
+                                    case 'stage':      return t.stage ?? '';
+                                    case 'entryPrice': return t.entryPrice;
+                                    case 'stopLoss':   return t.stopLoss;
+                                    case 'target1':    return t.target1;
+                                    case 'target2':    return t.target2 ?? 0;
+                                    case 'target3':    return t.target3 ?? 0;
+                                    case 'riskPerSh':  return rp;
+                                    case 'entryDate':  return t.entryDate ?? '';
+                                    case 'curPrice':   return cur;
+                                    case 'plannedRR':  return rrV;
+                                    case 'pnlPct':     return curPnlV;
+                                    case 'pnlR':       return curRV;
+                                    case 'mfePct':     return getTradeMfePct(t);
+                                    case 'mfeR':       return getTradeMfeR(t);
+                                    case 'maePct':     return getTradeMaePct(t);
+                                    case 'maeR':       return getTradeMaeR(t);
+                                    case 'daysHeld':   return t.daysHeld ?? 0;
+                                    case 'status':     return t.status ?? '';
+                                    case 'sector':     return t.sector ?? '';
+                                    case 'conviction': return t.conviction ?? 0;
+                                    case 'closedDate': return t.closedDate ?? '';
+                                    default:           return 0;
+                                  }
+                                };
+                                const av = pick(a), bv = pick(b);
+                                if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
+                                return ((av as number) - (bv as number)) * mult;
+                              });
+                              return rows.map((t, i) => {
+                              const selKey = `${t.symbol}_${t.entryDate ?? ''}`;
+                              const isSelected = valSelected.has(selKey);
                               const rps = getTradeRiskPerShare(t);
                               const mfePct = getTradeMfePct(t);
                               const badgeMfe = (() => {
@@ -7273,7 +7389,12 @@ function HomePageInner() {
                               const stgCfg = STAGE_CONFIG[t.stage];
 
                               return (
-                                <tr key={i} className={`border-b border-slate-800/30 group ${activePosition ? 'bg-slate-800/20' : ''}`}>
+                                <tr key={`${selKey}_${i}`} className={`border-b border-slate-800/30 group ${isSelected ? 'bg-indigo-900/20' : activePosition ? 'bg-slate-800/20' : ''}`}>
+                                  <td className="px-2 py-1.5 text-center">
+                                    <input type="checkbox" className="w-3 h-3 accent-indigo-500 cursor-pointer"
+                                      checked={isSelected}
+                                      onChange={e => setValSelected(prev => { const next = new Set(prev); if (e.target.checked) next.add(selKey); else next.delete(selKey); return next; })} />
+                                  </td>
                                   <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol}</td>
                                   <td className={`px-2 py-1.5 ${stgCfg?.color ?? 'text-slate-500'}`}>{stgCfg?.label ?? t.stage}</td>
                                   <td className="px-2 py-1.5 text-right font-mono text-slate-300">₹{t.entryPrice.toFixed(2)}</td>
@@ -7368,7 +7489,8 @@ function HomePageInner() {
                                   </td>
                                 </tr>
                               );
-                            })}
+                            })
+                          })()}
                           </tbody>
                         </table>
                       </div>
