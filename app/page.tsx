@@ -4408,15 +4408,26 @@ function HomePageInner() {
                       {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = getTradeMfePct(t);
-                        // Milestone badges: guarantee floor from targets actually cleared,
-                        // independent of whether t.mfe captured the lifetime peak.
+                        // Milestone badges: use every available price signal as evidence.
+                        // t.target3 may be 0 if trade predates target storage; fall back to
+                        // closedPrice (= exit fill, which IS the target for hit_tN) and
+                        // highestPrice so we never miss a crossed milestone.
                         const badgeMfe = (() => {
                           if (t.entryPrice <= 0) return mfePct;
-                          const pct = (p: number) => (p - t.entryPrice) / t.entryPrice * 100;
-                          if (t.status === 'hit_t3' && t.target3 > 0) return Math.max(mfePct, pct(t.target3));
-                          if (t.status === 'hit_t2' && t.target2 > 0) return Math.max(mfePct, pct(t.target2));
-                          if (t.status === 'hit_t1' && t.target1 > 0) return Math.max(mfePct, pct(t.target1));
-                          return mfePct;
+                          const e = t.entryPrice;
+                          const pct = (p: number) => (p - e) / e * 100;
+                          const candidates: number[] = [mfePct];
+                          // Target prices for the exact status reached
+                          if (t.status === 'hit_t3' || t.status === 'hit_t2' || t.status === 'hit_t1') {
+                            if (t.target3 > 0 && t.status === 'hit_t3') candidates.push(pct(t.target3));
+                            if (t.target2 > 0 && (t.status === 'hit_t2' || t.status === 'hit_t3')) candidates.push(pct(t.target2));
+                            if (t.target1 > 0) candidates.push(pct(t.target1));
+                          }
+                          // Exit fill price (= target for hit_tN trades; actual exit for others)
+                          if (t.closedPrice && t.closedPrice > e) candidates.push(pct(t.closedPrice));
+                          // Lifetime highest price tracked in scan
+                          if (t.highestPrice && t.highestPrice > e) candidates.push(pct(t.highestPrice));
+                          return Math.max(...candidates);
                         })();
                         const mfeR = getTradeMfeR(t);
                         const maePct = getTradeMaePct(t);
