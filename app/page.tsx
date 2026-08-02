@@ -1590,6 +1590,10 @@ function HomePageInner() {
   const [reviews, setReviews] = useState<TradeReview[]>([]);
   const [journalSort, setJournalSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'entryDate', dir: 'desc'});
   const [journalFilter, setJournalFilter] = useState<{status: string; stage: string; search: string}>({status: 'ALL', stage: 'ALL', search: ''});
+  const [tdOpenSort, setTdOpenSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'entryDate', dir: 'desc'});
+  const [tdOpenFilter, setTdOpenFilter] = useState<{sector: string; search: string}>({sector: 'ALL', search: ''});
+  const [tdClosedSort, setTdClosedSort] = useState<{col: string; dir: 'asc' | 'desc'}>({col: 'closedDate', dir: 'desc'});
+  const [tdClosedFilter, setTdClosedFilter] = useState<{status: string; search: string}>({status: 'ALL', search: ''});
   const [showRulesCheck, setShowRulesCheck] = useState(false);
   const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
   const [showSessions, setShowSessions] = useState(false);
@@ -4250,8 +4254,21 @@ function HomePageInner() {
 
               {/* Open Positions */}
               <div className="bg-slate-800/30 rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-slate-800/50">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Open Positions ({trackedTrades.filter(t => t.status === 'open').length})</span>
+                <div className="px-3 py-2 bg-slate-800/50 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider shrink-0">
+                    Open Positions ({trackedTrades.filter(t => t.status === 'open' && (!tdOpenFilter.search || t.symbol.toLowerCase().includes(tdOpenFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(tdOpenFilter.search.toLowerCase())) && (tdOpenFilter.sector === 'ALL' || t.sector === tdOpenFilter.sector)).length}/{trackedTrades.filter(t => t.status === 'open').length})
+                  </span>
+                  <input type="text" placeholder="Search symbol/sector…" value={tdOpenFilter.search}
+                    onChange={e => setTdOpenFilter(f => ({...f, search: e.target.value}))}
+                    className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 w-32" />
+                  <select value={tdOpenFilter.sector} onChange={e => setTdOpenFilter(f => ({...f, sector: e.target.value}))}
+                    className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+                    <option value="ALL">All Sectors</option>
+                    {[...new Set(trackedTrades.filter(t => t.status === 'open').map(t => t.sector).filter(Boolean))].sort().map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {(tdOpenFilter.search || tdOpenFilter.sector !== 'ALL') && (
+                    <button onClick={() => setTdOpenFilter({sector: 'ALL', search: ''})} className="text-xs text-slate-500 hover:text-slate-300 px-1">✕ Clear</button>
+                  )}
                   {trackedTrades.length > 0 && (
                     <button onClick={async () => {
                       if (!confirm('Remove ALL tracked trades? This cannot be undone.')) return;
@@ -4266,27 +4283,61 @@ function HomePageInner() {
                   )}
                 </div>
                 {trackedTrades.filter(t => t.status === 'open').length > 0 ? (
-                  <table className="w-full text-xs">
-                    <thead><tr className="border-b border-slate-700 text-slate-500">
-                      <th className="px-3 py-1 text-left font-medium">Symbol</th>
-                      <th className="px-2 py-1 text-right font-medium">Entry</th>
-                      <th className="px-2 py-1 text-right font-medium" title="Close-confirmed review level; the hard broker stop is shown in the tooltip">Review</th>
-                      <th className="px-2 py-1 text-right font-medium">T1</th>
-                      <th className="px-2 py-1 text-left font-medium">Date</th>
-                      <th className="px-2 py-1 text-left font-medium">Sector</th>
-                      <th className="px-2 py-1 text-right font-medium" title="Maximum Favorable Excursion %">MFE%</th>
-                      <th className="px-2 py-1 text-right font-medium" title="MFE in R-multiples">MFE-R</th>
-                      <th className="px-2 py-1 text-right font-medium" title="Maximum Adverse Excursion %">MAE%</th>
-                      <th className="px-2 py-1 text-right font-medium" title="MAE in R-multiples">MAE-R</th>
-                      <th className="px-2 py-1 text-right font-medium">Days</th>
-                      <th className="px-2 py-1 text-right font-medium">CMP</th>
-                      <th className="px-2 py-1 text-right font-medium">P&L%</th>
-                      <th className="px-2 py-1 text-center font-medium">Status</th>
-                      <th className="px-2 py-1 text-center font-medium">Gate</th>
+                  <div className="overflow-auto max-h-[60vh]">
+                  <table className="w-full text-xs whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-[#0d1117]"><tr className="border-b border-slate-700 text-slate-500">
+                      {([
+                        ['symbol',   'px-3 py-1 text-left',  'Symbol', undefined, true],
+                        [null,       'px-2 py-1 text-right', 'Entry',  undefined, false],
+                        [null,       'px-2 py-1 text-right', 'Review', 'Close-confirmed review level; the hard broker stop is shown in the tooltip', false],
+                        [null,       'px-2 py-1 text-right', 'T1',     undefined, false],
+                        ['entryDate','px-2 py-1 text-left',  'Date',   undefined, true],
+                        ['sector',   'px-2 py-1 text-left',  'Sector', undefined, true],
+                        ['mfePct',   'px-2 py-1 text-right', 'MFE%',   'Maximum Favorable Excursion %', true],
+                        ['mfeR',     'px-2 py-1 text-right', 'MFE-R',  'MFE in R-multiples', true],
+                        ['maePct',   'px-2 py-1 text-right', 'MAE%',   'Maximum Adverse Excursion %', true],
+                        ['maeR',     'px-2 py-1 text-right', 'MAE-R',  'MAE in R-multiples', true],
+                        ['daysHeld', 'px-2 py-1 text-right', 'Days',   undefined, true],
+                        [null,       'px-2 py-1 text-right', 'CMP',    undefined, false],
+                        ['pnl',      'px-2 py-1 text-right', 'P&L%',   undefined, true],
+                        [null,       'px-2 py-1 text-center','Status', undefined, false],
+                        [null,       'px-2 py-1 text-center','Gate',   undefined, false],
+                      ] as [string|null,string,string,string|undefined,boolean][]).map(([col,cls,label,title,sortable],idx) => sortable && col ? (
+                        <th key={idx} onClick={() => setTdOpenSort(s => ({col: col as string, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
+                          className={`${cls} font-medium cursor-pointer select-none hover:text-slate-300`} title={title}>
+                          {label} <span className={tdOpenSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{tdOpenSort.col === col ? (tdOpenSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                      ) : (
+                        <th key={idx} className={`${cls} font-medium`} title={title}>{label}</th>
+                      ))}
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
-                      {trackedTrades.filter(t => t.status === 'open').map((t, i) => {
+                      {(() => {
+                        let rows = trackedTrades.filter(t => t.status === 'open');
+                        if (tdOpenFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(tdOpenFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(tdOpenFilter.search.toLowerCase()));
+                        if (tdOpenFilter.sector !== 'ALL') rows = rows.filter(t => t.sector === tdOpenFilter.sector);
+                        rows = [...rows].sort((a, b) => {
+                          const mult = tdOpenSort.dir === 'asc' ? 1 : -1;
+                          const pick = (t: TrackedTrade): number | string => {
+                            switch (tdOpenSort.col) {
+                              case 'symbol':    return t.symbol;
+                              case 'entryDate': return t.entryDate ?? '';
+                              case 'sector':    return t.sector ?? '';
+                              case 'mfePct':    return getTradeMfePct(t);
+                              case 'mfeR':      return getTradeMfeR(t);
+                              case 'maePct':    return getTradeMaePct(t);
+                              case 'maeR':      return getTradeMaeR(t);
+                              case 'daysHeld':  return t.daysHeld ?? 0;
+                              case 'pnl':       return t.currentPrice && t.entryPrice > 0 ? (t.currentPrice - t.entryPrice) / t.entryPrice * 100 : -9999;
+                              default:          return 0;
+                            }
+                          };
+                          const av = pick(a), bv = pick(b);
+                          if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
+                          return ((av as number) - (bv as number)) * mult;
+                        });
+                        return rows.map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = getTradeMfePct(t);
                         const mfeR = getTradeMfeR(t);
@@ -4374,9 +4425,11 @@ function HomePageInner() {
                           </tr>
                         )}
                         </Fragment>);
-                      })}
+                        });
+                      })()}
                     </tbody>
                   </table>
+                  </div>
                 ) : (
                   <div className="text-xs text-slate-600 py-4 text-center">No open positions</div>
                 )}
@@ -4386,28 +4439,80 @@ function HomePageInner() {
             {/* Closed / Auto-Validated Trades */}
             {trackedTrades.filter(t => t.status !== 'open').length > 0 && (
               <div className="bg-slate-800/40 rounded-lg p-3">
-                <div className="flex items-center mb-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Closed Trades ({trackedTrades.filter(t => t.status !== 'open').length})</span>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider shrink-0">
+                    Closed Trades ({trackedTrades.filter(t => t.status !== 'open' && (!tdClosedFilter.search || t.symbol.toLowerCase().includes(tdClosedFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(tdClosedFilter.search.toLowerCase())) && (tdClosedFilter.status === 'ALL' || t.status === tdClosedFilter.status)).length}/{trackedTrades.filter(t => t.status !== 'open').length})
+                  </span>
+                  <input type="text" placeholder="Search symbol…" value={tdClosedFilter.search}
+                    onChange={e => setTdClosedFilter(f => ({...f, search: e.target.value}))}
+                    className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 w-32" />
+                  <select value={tdClosedFilter.status} onChange={e => setTdClosedFilter(f => ({...f, status: e.target.value}))}
+                    className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+                    <option value="ALL">All Outcomes</option>
+                    <option value="hit_t1">✓ T1 Hit</option>
+                    <option value="hit_t2">✓ T2 Hit</option>
+                    <option value="hit_t3">✓ T3 Hit</option>
+                    <option value="stopped">✗ Stopped</option>
+                    <option value="expired">⏳ Expired</option>
+                    <option value="manual_close">◉ Manual</option>
+                    <option value="closed_early">↗ Early Exit</option>
+                  </select>
+                  {(tdClosedFilter.search || tdClosedFilter.status !== 'ALL') && (
+                    <button onClick={() => setTdClosedFilter({status: 'ALL', search: ''})} className="text-xs text-slate-500 hover:text-slate-300 px-1">✕ Clear</button>
+                  )}
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead><tr className="border-b border-slate-700 text-slate-500">
-                      <th className="px-3 py-1 text-left font-medium">Symbol</th>
-                      <th className="px-2 py-1 text-right font-medium">Entry</th>
-                      <th className="px-2 py-1 text-right font-medium">Exit</th>
-                      <th className="px-2 py-1 text-right font-medium">P&L%</th>
-                      <th className="px-2 py-1 text-right font-medium">P&L R</th>
-                      <th className="px-2 py-1 text-right font-medium">MFE%</th>
-                      <th className="px-2 py-1 text-right font-medium">MFE-R</th>
-                      <th className="px-2 py-1 text-right font-medium">MAE%</th>
-                      <th className="px-2 py-1 text-right font-medium">MAE-R</th>
-                      <th className="px-2 py-1 text-right font-medium">Days</th>
-                      <th className="px-2 py-1 text-center font-medium">Outcome</th>
-                      <th className="px-2 py-1 text-center font-medium cursor-help" title="Gate Cascade v7&#10;Hard disaster stop: broker SL-M, stop-first, never shielded&#10;Tactical stop: close-confirmed review level; failed review exits next session open&#10;G0-G9: all evaluated as evidence&#10;Below-stop shield requires near-stop price defence plus another independent evidence group&#10;Missing ATR, volume, or locked structure never auto-shields&#10;After T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail">Gate Status</th>
+                <div className="overflow-auto max-h-[60vh]">
+                  <table className="w-full text-xs whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-[#0d1117]"><tr className="border-b border-slate-700 text-slate-500">
+                      {([
+                        ['symbol', 'px-3 py-1 text-left',  'Symbol',     undefined, true],
+                        ['entry',  'px-2 py-1 text-right', 'Entry',      undefined, true],
+                        ['exit',   'px-2 py-1 text-right', 'Exit',       undefined, false],
+                        ['pnlPct', 'px-2 py-1 text-right', 'P&L%',       undefined, true],
+                        ['pnlR',   'px-2 py-1 text-right', 'P&L R',      undefined, true],
+                        ['mfePct', 'px-2 py-1 text-right', 'MFE%',       undefined, true],
+                        ['mfeR',   'px-2 py-1 text-right', 'MFE-R',      undefined, true],
+                        ['maePct', 'px-2 py-1 text-right', 'MAE%',       undefined, true],
+                        ['maeR',   'px-2 py-1 text-right', 'MAE-R',      undefined, true],
+                        ['daysHeld','px-2 py-1 text-right','Days',       undefined, true],
+                        [null,     'px-2 py-1 text-center','Outcome',    undefined, false],
+                        [null,     'px-2 py-1 text-center','Gate Status','Gate Cascade v7', false],
+                      ] as [string|null,string,string,string|undefined,boolean][]).map(([col,cls,label,title,sortable],idx) => sortable && col ? (
+                        <th key={idx} onClick={() => setTdClosedSort(s => ({col: col as string, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
+                          className={`${cls} font-medium cursor-pointer select-none hover:text-slate-300`} title={title}>
+                          {label} <span className={tdClosedSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{tdClosedSort.col === col ? (tdClosedSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                        </th>
+                      ) : (
+                        <th key={idx} className={`${cls} font-medium${label === 'Gate Status' ? ' cursor-help' : ''}`} title={title ?? (label === 'Gate Status' ? 'Gate Cascade v7\nHard disaster stop: broker SL-M, stop-first, never shielded\nTactical stop: close-confirmed review level; failed review exits next session open\nG0-G9: all evaluated as evidence\nBelow-stop shield requires near-stop price defence plus another independent evidence group\nMissing ATR, volume, or locked structure never auto-shields\nAfter T1: remaining runner stays protected by the review/trail floor until T2; T2 activates the hard chandelier trail' : undefined)}>{label}</th>
+                      ))}
                       <th className="px-1 py-1 text-center font-medium w-8"></th>
                     </tr></thead>
                     <tbody>
-                      {trackedTrades.filter(t => t.status !== 'open').reverse().map((t, i) => {
+                      {(() => {
+                        let rows = trackedTrades.filter(t => t.status !== 'open');
+                        if (tdClosedFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(tdClosedFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(tdClosedFilter.search.toLowerCase()));
+                        if (tdClosedFilter.status !== 'ALL') rows = rows.filter(t => t.status === tdClosedFilter.status);
+                        rows = [...rows].sort((a, b) => {
+                          const mult = tdClosedSort.dir === 'asc' ? 1 : -1;
+                          const pick = (t: TrackedTrade): number | string => {
+                            switch (tdClosedSort.col) {
+                              case 'symbol':   return t.symbol;
+                              case 'entry':    return t.entryPrice;
+                              case 'pnlPct':   return t.pnlPct ?? -9999;
+                              case 'pnlR':     return t.pnlR ?? -9999;
+                              case 'mfePct':   return getTradeMfePct(t);
+                              case 'mfeR':     return getTradeMfeR(t);
+                              case 'maePct':   return getTradeMaePct(t);
+                              case 'maeR':     return getTradeMaeR(t);
+                              case 'daysHeld': return t.daysHeld ?? 0;
+                              default:         return 0;
+                            }
+                          };
+                          const av = pick(a), bv = pick(b);
+                          if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
+                          return ((av as number) - (bv as number)) * mult;
+                        });
+                        return rows.map((t, i) => {
                         const riskPerShare = getTradeRiskPerShare(t);
                         const mfePct = getTradeMfePct(t);
                         // Milestone badges: use every available price signal as evidence.
@@ -4519,7 +4624,8 @@ function HomePageInner() {
                             </tr>
                           )}
                         </Fragment>);
-                      })}
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
