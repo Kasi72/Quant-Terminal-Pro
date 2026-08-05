@@ -2555,6 +2555,43 @@ function HomePageInner() {
     }
   }, [paramSetKey, scanAll, lookback, niftyCandles, scanSource]);
 
+  // UC Candidate Logger — fires once per scan after scanning = false
+  // Sends ucScore ≥ 35 stocks to /api/log-uc-scan for 30-day precision tracking
+  useEffect(() => {
+    if (scanning) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const candidates = results
+      .filter(r => ((r as any).ucScore as number | undefined) != null && ((r as any).ucScore as number) >= 35)
+      .map(r => ({
+        symbol:           r.symbol,
+        scan_date:        today,
+        uc_score:         (r as any).ucScore   as number,
+        uc_elite:         (r as any).ucElite   as boolean ?? false,
+        uc_strong:        (r as any).ucStrong  as boolean ?? false,
+        uc_goldmine:      (r as any).ucGoldmine as boolean ?? false,
+        close_loc:        r.closeLoc,
+        rsi2:             r.rsi2,
+        body_pct:         r.bodyPct,
+        upper_wick_pct:   r.upperWickPct,
+        vol_ratio_20:     r.volRatio20,
+        vol_pre5:         (r as any).exactVolVsPre5 ?? null,
+        range_atr:        (r as any).exactRangeATR14 ?? null,
+        stage:            r.stage,
+        sector:           (r as any).sector ?? null,
+        conviction:       (r as any).conviction ?? null,
+        day_chg_pct:      (r as any).dayChangePct ?? null,
+        confluence_score: r.confluenceScore,
+        inflection_score: r.inflectionScore,
+        dd52wh:           (r as any).dd52WH ?? null,
+      }));
+    if (candidates.length === 0) return;
+    fetch('/api/log-uc-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates }),
+    }).catch(() => {}); // fire-and-forget, never block UI
+  }, [results, scanning]);
+
   // Feature #5+#8: Adaptive auto-refresh during market hours
   useEffect(() => {
     if (!autoRefresh || lastScanSymbols.length === 0) return;

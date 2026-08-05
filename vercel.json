@@ -7,6 +7,10 @@
     {
       "path": "/api/nightly-update",
       "schedule": "30 15 * * 1-5"
+    },
+    {
+      "path": "/api/label-uc-outcomes",
+      "schedule": "30 11 * * 2-6"
     }
   ]
 }
