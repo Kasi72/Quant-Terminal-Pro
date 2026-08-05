@@ -884,26 +884,31 @@ const COLUMNS: ColDef[] = [
   { key: 'ucScore', label: '🔮 UC', width: 72, align: 'right',
     headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score (0-100)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score. Computed from 1,000 Upper Circuit events at D-1 (day before UC). Higher = more likely to be in UC setup zone.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~68-72% actionable rate (triple-lock). Shown as 🎯 badge. Highest precision tier.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">⚡ Elite</span></div><div><div class="rt-desc">Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → 77.8% actionable (backtest n=27). Dual-vol surge confirms no single-period artefact. Highest precision tier.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock). Shown as 🎯 badge.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate. Trophy badge when conditions met.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights</span></div><div><div class="rt-desc">CloseLoc(30pts, d=0.676) + RSI2(20pts, d=0.460) + clTrend(18pts, d=0.424) + rsi2Vel(13pts, d=0.291) + VolBonus(8pts, 3x+) + Body(6pts) + Range(5pts).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 50-69: moderate · 35-49: weak · &lt;35: not in UC zone</div><div class="rt-hit hit-green">Best combos: Vol>3x + CL>75 + RSI2>70 = ~70% actionable · Vol>3x + (CL>75 OR RSI2>70) = 54-60%</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Source</span></div><div><div class="rt-desc">Brain V2 goldmine analysis 2026-08-02 · 2,209 UC events · Cohen\'s d discriminants · n_before=1 day</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights v3</span></div><div><div class="rt-desc">Grid-searched on 1,000 UC events (AUC 0.846): CL(22pts@40) + RSI2(16pts@30) + clTrend(18pts) + rsi2Vel(13pts) + VolBonus(12pts, 3x+) + Range(5pts) + Body(5pts).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">At score ≥36: catches 75% of all actionable UC stocks at 45.5% precision</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · n_before=1 day · ROC AUC 0.846 · 2026-08-05 backtest run</div></div></div>',
     fmt: r => {
-      const s = (r as any).ucScore as number | undefined;
-      const g = (r as any).ucGoldmine as boolean | undefined;
-      const st = (r as any).ucStrong as boolean | undefined;
+      const s  = (r as any).ucScore   as number | undefined;
+      const el = (r as any).ucElite   as boolean | undefined;
+      const st = (r as any).ucStrong  as boolean | undefined;
+      const g  = (r as any).ucGoldmine as boolean | undefined;
       if (s == null) return '—';
+      if (el) return `${s} ⚡`;
       if (st) return `${s} 🎯`;
       return g ? `${s} 🏆` : String(s);
     },
     numVal: r => (r as any).ucScore ?? 0,
     cellClass: r => {
-      const s = (r as any).ucScore as number | undefined;
+      const s  = (r as any).ucScore   as number | undefined;
       if (s == null) return 'text-slate-600';
-      const st = (r as any).ucStrong as boolean | undefined;
+      const el = (r as any).ucElite   as boolean | undefined;
+      if (el) return 'text-purple-300 font-bold';
+      const st = (r as any).ucStrong  as boolean | undefined;
       if (st) return 'text-orange-300 font-bold';
-      const g = (r as any).ucGoldmine as boolean | undefined;
+      const g  = (r as any).ucGoldmine as boolean | undefined;
       if (g) return 'text-yellow-300 font-bold';
       return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },

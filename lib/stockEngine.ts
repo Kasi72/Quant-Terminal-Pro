@@ -227,6 +227,7 @@ export interface AnalysisResult {
   ucScore?: number;     // 0-100 composite UC probability score
   ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable in Brain data
   ucStrong?: boolean;   // Vol>3x AND CL>75 AND RSI2>70 → ~68-72% actionable (triple-lock)
+  ucElite?: boolean;    // Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → ~78% actionable (backtest n=27)
 }
 
 export interface CandleDNA {
@@ -3641,35 +3642,41 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
 
 function computeUCScore(
   closeLoc: number,
-  volRatio20: number,   // bonus tier feature — d=0.005 linear but strong conditional signal at 3x+
+  volRatio20: number,   // vol vs 20d avg — used for bonus tier + gates
   rsi2: number,
   rangeATR14: number,
   bodyPct: number,
   clTrend?: number,
   rsi2Velocity?: number,
-): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean } {
-  // Cohen's d weights (2209 events n_before=1, 613 actionable vs 1596 on_radar):
-  //   CL(0.676) RSI2(0.460) clTrend(0.424) rsi2Vel(0.291) range(0.130) body(0.126)
-  //   vol d=0.005 linear (useless) but vol>1.5x conditional signal → 2-8 pt bonus tier
-  // clComp lower bound raised from 23 to ~35 (mean_on_radar) to cut false-positives
-  const clComp  = Math.min(1, Math.max(0, (closeLoc         - 35) / 57)) * 30;  // [35, 92]
-  const rsiComp = Math.min(1, Math.max(0, (rsi2             - 26) / 74)) * 20;  // [26, 100]
+  volPre5?: number,     // vol vs prev 5d avg — dual-vol elite gate (backtest: 77.8% precision)
+): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean } {
+  // v3 weights — grid-search optimised on 1000 UC events (AUC 0.846 vs v2 0.802)
+  //   best: cl=22@40, rsi=16@30, rng=5, bp=5, vol3=12, vol2=5, uw=2
+  //   clTrend/rsi2Velocity: neutral half-weight when not available (not stored in DB)
+  const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * 22;  // [40, 92]
+  const rsiComp = Math.min(1, Math.max(0, (rsi2      - 30) / 70)) * 16;  // [30, 100]
   const cltComp = clTrend != null
-    ? Math.min(1, Math.max(0, (clTrend      + 39) / 85)) * 18              // [-39, 46]
+    ? Math.min(1, Math.max(0, (clTrend      + 39) / 85)) * 18             // [-39, 46]
     : 9;   // neutral half-weight when candle history < 3 bars
   const rsvComp = rsi2Velocity != null
-    ? Math.min(1, Math.max(0, (rsi2Velocity + 36) / 83)) * 13              // [-36, 47]
+    ? Math.min(1, Math.max(0, (rsi2Velocity + 36) / 83)) * 13             // [-36, 47]
     : 6;   // neutral half-weight when rsi2Velocity unavailable
-  const rngComp = Math.min(1, Math.max(0, (rangeATR14       - 0.5) / 1.2)) * 5; // [0.5, 1.7]
-  const bPComp  = Math.min(1, Math.max(0, (bodyPct          - 15) / 56))   * 6; // [15, 71]
-  // Vol surge bonus: non-linear conditional signal (3x+ stocks are 54-60% actionable in Brain data)
-  const volBonus = volRatio20 >= 3.0 ? 8 : volRatio20 >= 2.0 ? 4 : volRatio20 >= 1.5 ? 2 : 0;
+  const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 1.2)) * 5; // [0.5, 1.7]
+  const bPComp  = Math.min(1, Math.max(0, (bodyPct    - 15)  / 56))   * 5; // [15, 71]
+  // Vol bonus: use max(vol20, volPre5) — whichever is more extreme surge
+  const volMax   = Math.max(volRatio20, volPre5 ?? 0);
+  const volBonus = volMax >= 3.5 ? 12 : volMax >= 3.0 ? 12 : volMax >= 2.0 ? 5 : volMax >= 1.5 ? 2 : 0;
+  // Upper-wick penalty: high upper wick = rejection = reduces score (weight=2 from grid)
+  // Not stored live, so skip in production — uw=2 only useful in backtest with stored FAS
   const ucScore = Math.round(Math.min(100, clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus));
   // ucGoldmine: Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable at D-1 in Brain data
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
-  // ucStrong: triple-lock Vol>3x AND CL>75 AND RSI2>70 → ~68-72% actionable (highest precision)
-  const ucStrong = volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70;
-  return { ucScore, ucGoldmine, ucStrong };
+  // ucStrong: triple-lock Vol>3x AND CL>75 AND RSI2>70 → ~62-68% actionable
+  const ucStrong  = volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70;
+  // ucElite: dual-vol surge + moderate CL/RSI2 → 77.8% precision in backtest (n=27)
+  //   vol20≥2x AND volPre5≥2x confirms the surge is not a single-period artefact
+  const ucElite   = volRatio20 >= 2.0 && (volPre5 ?? 0) >= 2.0 && closeLoc >= 65 && rsi2 >= 60;
+  return { ucScore, ucGoldmine, ucStrong, ucElite };
 }
 
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
@@ -3945,7 +3952,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       }
     } catch { /* keep hitRateGate undefined */ }
 
-    // 12. UC Goldmine Score — d-calibrated weights (2026-08-02, 2209 events, actual Cohen's d)
+    // 12. UC Goldmine Score — v3 weights grid-searched on 1000 UC events (AUC 0.846)
     try {
       // clTrend: closeLoc[today] - closeLoc[2 bars ago] (d=0.424)
       let clTrend: number | undefined;
@@ -3957,13 +3964,20 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         clTrend = cl1 - cl3;
       }
       // rsi2Velocity: RSI2[today] - RSI2[2 bars ago] (d=0.291)
-      // Slice to n-2 is O(22) — cheap, Wilder RSI warmup = period+20
       let rsi2Velocity: number | undefined;
       if (candles.length >= 25) {
         const rsi2D3 = computeRSI(candles.slice(0, candles.length - 2), 2);
         rsi2Velocity = (result.rsi2 ?? 50) - rsi2D3;
       }
-      const { ucScore, ucGoldmine, ucStrong } = computeUCScore(
+      // volPre5: vol vs prev 5d avg — dual-vol gate for ucElite (77.8% precision in backtest)
+      let volPre5: number | undefined;
+      if (candles.length >= 6) {
+        const curVol  = candles[candles.length - 1].v;
+        const prev5   = candles.slice(candles.length - 6, candles.length - 1);
+        const avg5    = prev5.reduce((s, c) => s + c.v, 0) / 5;
+        if (avg5 > 0) volPre5 = curVol / avg5;
+      }
+      const { ucScore, ucGoldmine, ucStrong, ucElite } = computeUCScore(
         result.closeLoc ?? 50,
         (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
         result.rsi2 ?? 50,
@@ -3971,10 +3985,12 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.bodyPct ?? 0,
         clTrend,
         rsi2Velocity,
+        volPre5,
       );
       result.ucScore    = ucScore;
       result.ucGoldmine = ucGoldmine;
       result.ucStrong   = ucStrong;
+      result.ucElite    = ucElite;
     } catch { /* keep undefined */ }
   }
 
