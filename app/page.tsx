@@ -694,7 +694,7 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Spread%</span></div><div><div class="rt-desc">Raw spread of all 12 EMAs as % of price — shown for reference, not predictive alone.</div></div></div>',
     fmt: r => r.stats.guppySpring ? '⚡ ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCoiledRelease ? '🌀 ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCleanBullishFan ? r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(1) + '%' : '—',
     numVal: r => r.stats.guppySpring ? 2000 - r.stats.guppySpreadPct : r.stats.guppyCoiledRelease ? 1000 - r.stats.guppySpreadPct : r.stats.guppyCleanBullishFan ? 500 - r.stats.guppySpreadPct : -r.stats.guppySpreadPct,
-    cellClass: r => r.stats.guppySpring ? 'text-violet-300 font-bold font-mono bg-violet-900/40 px-1 rounded' : r.stats.guppyCoiledRelease ? 'text-green-300 font-bold font-mono bg-green-900/30 px-1 rounded' : r.stats.guppyCleanBullishFan ? 'text-cyan-400 font-semibold font-mono' : 'text-slate-600 font-mono' },
+    cellClass: r => r.stats.guppySpring ? 'text-amber-300 font-bold font-mono bg-amber-900/40 px-1 rounded' : r.stats.guppyCoiledRelease ? 'text-teal-300 font-bold font-mono bg-teal-900/30 px-1 rounded' : r.stats.guppyCleanBullishFan ? 'text-cyan-400 font-semibold font-mono' : 'text-slate-600 font-mono' },
   { key: 'ema10',   label: '10 EMA',       width: 78,  align: 'right',
     fmt: r => r.stats.ema10 > 0 ? r.stats.ema10.toFixed(2) + (r.stats.ema10Cross ? ' ✕' : '') : '—',
     numVal: r => r.stats.ema10,
