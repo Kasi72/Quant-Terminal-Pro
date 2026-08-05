@@ -2588,7 +2588,7 @@ function HomePageInner() {
     fetch('/api/log-uc-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidates }),
+      body: JSON.stringify({ candidates, total_scan_count: results.length }),
     }).catch(() => {}); // fire-and-forget, never block UI
   }, [results, scanning]);
 

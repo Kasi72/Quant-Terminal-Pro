@@ -32,7 +32,7 @@ interface UCCandidate {
 
 export async function POST(req: NextRequest) {
   try {
-    const { candidates } = (await req.json()) as { candidates: UCCandidate[] };
+    const { candidates, total_scan_count } = (await req.json()) as { candidates: UCCandidate[]; total_scan_count?: number };
     if (!Array.isArray(candidates) || candidates.length === 0) {
       return NextResponse.json({ logged: 0 });
     }
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       inflection_score: c.inflection_score ?? null,
       dd52wh:           c.dd52wh ?? null,
       market_regime:    c.market_regime ?? null,
+      total_scan_count: total_scan_count ?? null,
     }));
 
     const { error, count } = await sb
