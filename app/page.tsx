@@ -692,9 +692,9 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Fan</span></div><div><div class="rt-desc">Clean Bullish Fan alone (no recent compression required): 55.7% WR vs 50.5% when fan is messy/overlapping.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Correction</span></div><div><div class="rt-desc">IMPORTANT: tight spread RIGHT NOW (not coiled-release) is actually the WORST tier — 1-1.5% spread bucket = 48% WR, the lowest of any range. Raw "compressed" is NOT bullish on its own.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">Spread%</span></div><div><div class="rt-desc">Raw spread of all 12 EMAs as % of price — shown for reference, not predictive alone.</div></div></div>',
-    fmt: r => r.stats.guppyCoiledRelease ? '🌀 ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCleanBullishFan ? r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(1) + '%' : '—',
-    numVal: r => r.stats.guppyCoiledRelease ? 1000 - r.stats.guppySpreadPct : r.stats.guppyCleanBullishFan ? 500 - r.stats.guppySpreadPct : -r.stats.guppySpreadPct,
-    cellClass: r => r.stats.guppyCoiledRelease ? 'text-green-300 font-bold font-mono bg-green-900/30 px-1 rounded' : r.stats.guppyCleanBullishFan ? 'text-cyan-400 font-semibold font-mono' : 'text-slate-600 font-mono' },
+    fmt: r => r.stats.guppySpring ? '⚡ ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCoiledRelease ? '🌀 ' + r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppyCleanBullishFan ? r.stats.guppySpreadPct.toFixed(1) + '%' : r.stats.guppySpreadPct < 99 ? r.stats.guppySpreadPct.toFixed(1) + '%' : '—',
+    numVal: r => r.stats.guppySpring ? 2000 - r.stats.guppySpreadPct : r.stats.guppyCoiledRelease ? 1000 - r.stats.guppySpreadPct : r.stats.guppyCleanBullishFan ? 500 - r.stats.guppySpreadPct : -r.stats.guppySpreadPct,
+    cellClass: r => r.stats.guppySpring ? 'text-violet-300 font-bold font-mono bg-violet-900/40 px-1 rounded' : r.stats.guppyCoiledRelease ? 'text-green-300 font-bold font-mono bg-green-900/30 px-1 rounded' : r.stats.guppyCleanBullishFan ? 'text-cyan-400 font-semibold font-mono' : 'text-slate-600 font-mono' },
   { key: 'ema10',   label: '10 EMA',       width: 78,  align: 'right',
     fmt: r => r.stats.ema10 > 0 ? r.stats.ema10.toFixed(2) + (r.stats.ema10Cross ? ' ✕' : '') : '—',
     numVal: r => r.stats.ema10,
@@ -3790,7 +3790,7 @@ function HomePageInner() {
                           rsi14: 50, cci34: 0, ema10: 0, ema21: 0, ema55: 0, sma200: 0,
                           ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false,
                           guppySpreadPct: c.gp ?? 99, guppyCompressed: (c.gp ?? 99) < 1, guppyUltraCompressed: (c.gp ?? 99) < 0.5,
-                          guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false,
+                          guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, guppySpring: false,
                           candlePattern: c.cp ?? '—', candlePatternFull: c.cpf ?? 'Unknown',
                           candlePatternType: (c.cpt ?? 'neutral') as 'bullish' | 'bearish' | 'neutral',
                           candlePatternStrength: c.cps ?? 0, statsScore: c.ss,
