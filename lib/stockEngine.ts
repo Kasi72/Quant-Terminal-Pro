@@ -441,13 +441,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   optimized_deployable_20plus: {
     name: 'Volume Footprint Scout', tag: '📊 Institutional Buying',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
-    maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.90,
-    maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 0.8,
+    maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 3.5, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 5.5, minExactVolVsPre5: 2.0,
+    minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
     minCloseLoc: 68, maxUpperWickPct: 25, minBodyPct: 50, maxCandleRisk: 10.0,
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
@@ -459,21 +459,23 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   },
   // v13 forensic — stop-first validation: 62.5% WR, +1.33% avg, PF 1.67 (80 trades)
   // tpsl_optimizer (2026-08-06): TP=10%/SL=2.5×ATR → WR=54.2%, PF=1.92, exp=+2.03% OOS (n=24).
-  //   Tightened closeLoc 55→60 and bodyPct 20→25 per param-variation analysis (quality filter).
   //   Exit configured in ARCHETYPE_EXIT_DEFAULTS: targetPct=10, slAtrMult=2.5.
+  // Phase 1 spec-restoration (2026-08-06): maxPre10AvgRangeATR 1.0→0.85, minExactRangeATR14 0.2→1.0,
+  //   maxExactRangeATR14 1.1→5.0, minExactVolRatio20 3.0→1.1, minCloseLoc 60→65,
+  //   maxCandleRisk 12→11, minCandleQualityScore null→3 (spec alignment, broadens signal pool).
   optimized_highprecision_15plus: {
     name: 'Compression Coil', tag: '🔄 Energy Storage',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
-    maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 5.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
-    minExactRangeATR14: 0.2, maxExactRangeATR14: 1.1,
-    minExactVolRatio20: 3.0, minExactVolVsPre5: 2.0,
-    minCloseLoc: 60, maxUpperWickPct: 40, minBodyPct: 25, maxCandleRisk: 12.0,
+    minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
+    minExactVolRatio20: 1.1, minExactVolVsPre5: 2.0,
+    minCloseLoc: 65, maxUpperWickPct: 40, minBodyPct: 25, maxCandleRisk: 11.0,
     minUltraPrecisionScore: 50, minRSI2: 50,
-    minVolatilityExpansionRatio: 1.4, minCandleQualityScore: null,
+    minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: 4.0,
     forensic: {
       maxBodyATR: 1.6,
@@ -482,42 +484,43 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // v12 tuned — stop-first validation: 75.0% WR, +3.41% avg, PF 4.33 (12 trades; small sample)
   // tpsl_optimizer (2026-08-06): PF=0.90 max across all 64 TP/SL combos OOS (n=680). MAE p50=8.1%
   //   exceeds all viable TP targets. RETIRED from active trading → screener/watchlist only.
+  // Phase 1 spec-restoration (2026-08-06): minUltraPrecisionScore 0→45, minCloseLoc 45→65,
+  //   minBodyPct 5→25, maxCandleRisk 5→10, maxPre10AvgRangeATR 1.0→0.85, maxPre10AvgVolRatio 1.0→0.90
+  //   (grid-search had zeroed quality gates; restored to remove low-quality signal contamination).
   optimized_elite_10plus: {
     name: 'Momentum Pocket', tag: '🎯 First Recovery',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
-    maxPre10AvgRangeATR: 1.0, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
-    maxPre10AvgVolRatio: 1.0, maxPre5AvgVolRatio: 1.10,
+    maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 1.2, minExactVolVsPre5: 2.0,
-    minCloseLoc: 45, maxUpperWickPct: 30, minBodyPct: 5, maxCandleRisk: 5.0,
-    minUltraPrecisionScore: 0, minRSI2: 50,
+    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 25, maxCandleRisk: 10.0,
+    minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
   },
   // ✅ Grid-optimised v13 — 1616-stock sweep, n=294, WR=56.8%, Wilson=51.09%, PF=1.933
-  // Key changes vs v12: minUltraPrecisionScore 0→60, minExactVolRatio20 0.8→1.5,
-  //   minExactVolVsPre5 1.5→2.0, minCloseLoc 65→63, maxUpperWickPct 20→15,
-  //   minVolatilityExpansionRatio 1.4→1.1, minBodyPct 60→30, maxPre10HighVolCount 0→1,
-  //   maxPre10RedVolBias 0.8→1.5, maxZoneTightnessPct 15→18, minExactRangeATR14 1.2→1.0
   // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
-  // OOS (last 30%): n=17, WR=70.6%, PF=4.237. Tighter than Grid-v13 (7x fewer signals, cleaner setup)
   // tpsl_optimizer (2026-08-06): PF=0.89 max across all 64 TP/SL combos OOS (n=314). MAE p50=7.6%
   //   wipes available TP. RETIRED from active trading → screener/watchlist only.
+  // Phase 1 spec-restoration (2026-08-06): minUltraPrecisionScore 0→45, minBodyPct 60→25,
+  //   maxPre10AvgRangeATR 1.3→0.75, maxPre10RedVolBias 0.8→1.1, maxCandleRisk 5→10
+  //   (grid-search zeroed quality gates and over-tightened pre-zone ATR; restored spec defaults).
   optimized_ultraselective_8plus: {
     name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
-    maxPre10AvgRangeATR: 1.3, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 15.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
-    maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 0.8,
+    maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5,
-    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 60, maxCandleRisk: 5.0,
-    minUltraPrecisionScore: 0, minRSI2: 50,
+    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 25, maxCandleRisk: 10.0,
+    minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
   },
@@ -566,18 +569,21 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
   //    maxPre10AvgRangeATR 0.80→1.15, maxPre10RedVolBias 0.90→1.6, minExactVolRatio20 1.8→1.5,
   //    minCloseLoc 75→65, maxUpperWickPct 20→15, minBodyPct 50→20, minVolExpRatio 2.0→1.0
+  // Phase 1 spec-restoration (2026-08-06): minUltraPrecisionScore 5→45, maxCandleRisk 16→11,
+  //   minExactVolVsPre5 3.5→2.0, maxUpperWickPct 15→35, maxPre10AvgRangeATR 1.15→0.95
+  //   (quality gate zeroed by grid-search; candle risk and vol-vs-pre5 over-tightened vs spec).
   sniper_95plus: {
     name: 'Perfect Storm', tag: '⚡ Multi-Archetype',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
-    maxPre10AvgRangeATR: 1.15, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
+    maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.5, minExactVolVsPre5: 3.5,
-    minCloseLoc: 65, maxUpperWickPct: 15, minBodyPct: 35, maxCandleRisk: 16.0,
-    minUltraPrecisionScore: 5, minRSI2: 50,
+    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
+    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 35, maxCandleRisk: 11.0,
+    minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
   },

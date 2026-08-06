@@ -48,3 +48,5 @@ scripts/_stop_audit_data.json
 scripts/*.log
 scripts/*.err.log
 *.bak
+# Added by code-review-graph
+.code-review-graph/
