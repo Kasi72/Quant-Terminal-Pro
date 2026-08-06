@@ -553,7 +553,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
       tpPct: 3,
       slAtrMult: 2.0,
-      maxHoldBars: 25,          // extended from 20 for larger reversal captures
+      maxHoldBars: 12,          // backtest: ORS WR peaks at H+3 (69.6% OOS, PF 3.22); exit within 3 bars, not 5
     },
   },
   // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
