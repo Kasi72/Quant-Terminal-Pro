@@ -458,6 +458,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     },
   },
   // v13 forensic — stop-first validation: 62.5% WR, +1.33% avg, PF 1.67 (80 trades)
+  // tpsl_optimizer (2026-08-06): TP=10%/SL=2.5×ATR → WR=54.2%, PF=1.92, exp=+2.03% OOS (n=24).
+  //   Tightened closeLoc 55→60 and bodyPct 20→25 per param-variation analysis (quality filter).
+  //   Exit configured in ARCHETYPE_EXIT_DEFAULTS: targetPct=10, slAtrMult=2.5.
   optimized_highprecision_15plus: {
     name: 'Compression Coil', tag: '🔄 Energy Storage',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
@@ -468,7 +471,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 0.2, maxExactRangeATR14: 1.1,
     minExactVolRatio20: 3.0, minExactVolVsPre5: 2.0,
-    minCloseLoc: 55, maxUpperWickPct: 40, minBodyPct: 20, maxCandleRisk: 12.0,
+    minCloseLoc: 60, maxUpperWickPct: 40, minBodyPct: 25, maxCandleRisk: 12.0,
     minUltraPrecisionScore: 50, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: null,
     maxCloseAboveZonePct: 4.0,
@@ -477,6 +480,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     },
   },
   // v12 tuned — stop-first validation: 75.0% WR, +3.41% avg, PF 4.33 (12 trades; small sample)
+  // tpsl_optimizer (2026-08-06): PF=0.90 max across all 64 TP/SL combos OOS (n=680). MAE p50=8.1%
+  //   exceeds all viable TP targets. RETIRED from active trading → screener/watchlist only.
   optimized_elite_10plus: {
     name: 'Momentum Pocket', tag: '🎯 First Recovery',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
@@ -499,6 +504,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   maxPre10RedVolBias 0.8→1.5, maxZoneTightnessPct 15→18, minExactRangeATR14 1.2→1.0
   // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
   // OOS (last 30%): n=17, WR=70.6%, PF=4.237. Tighter than Grid-v13 (7x fewer signals, cleaner setup)
+  // tpsl_optimizer (2026-08-06): PF=0.89 max across all 64 TP/SL combos OOS (n=314). MAE p50=7.6%
+  //   wipes available TP. RETIRED from active trading → screener/watchlist only.
   optimized_ultraselective_8plus: {
     name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
@@ -577,6 +584,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // Discriminant-analysis design: case-control study 6,339 circuit events vs 31,695 controls.
   // Backtest (cb_backtest.js): recall 15%, precision 0.36% OOS, lift 1.3× vs 0.27% base rate.
   // Designed as a momentum screener (universe reduction), not a binary next-day predictor.
+  // tpsl_optimizer (2026-08-06): redesigned as Upper Circuit Candidate (ULTRA/STRONG + near 20d high
+  //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
   circuit_breaker_v2: {
     name: 'Circuit Breaker', tag: '⚡ Upper Circuit Candidate',
     // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
@@ -817,16 +826,26 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
   },
 };
 
+// VF/SNIPER: previously watchlist-only (negative expectancy confirmed).
+// MP/EMA: tpsl_optimizer (2026-08-06): PF<1 at ALL 64 TP/SL combos OOS — negative expectancy.
+// CB: redesigned as Upper Circuit Candidate; PF=0.82 max, all combos negative — screener-only.
+// CC: positive expectancy at TP=10%/SL=2.5×ATR (exp=+2.03%, n=24 OOS) — ACTIVE, not watchlist.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
   'optimized_deployable_20plus',
   'sniper_95plus',
+  'optimized_elite_10plus',
+  'optimized_ultraselective_8plus',
+  'circuit_breaker_v2',
 ]);
 
 // targetPct=0 → ATR-based T1/T2/T3 (2026-08-01: removed fixed 5% override; 5% is a UI
 // milestone display only, not the actual trade target). SL sweep (2026-08-01): PS 4.0× optimal.
+// CC exit: tpsl_optimizer (2026-08-06) — TP=10%/SL=2.5×ATR → WR=54.2%, PF=1.92, exp=+2.03% (n=24 OOS).
+//   MAE p50=4.5% (coil MAE tighter than all other archetypes) makes SL=2.5×ATR viable.
+//   Only non-ORS archetype with positive expectancy under TP/SL simulation.
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
   optimized_deployable_20plus:    { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
-  optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_highprecision_15plus: { targetPct: 10, slAtrMult: 2.5, maxHoldBars: 20 },
   optimized_elite_10plus:         { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
   optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
   sniper_95plus:                  { targetPct: 0, slAtrMult: 4.0, maxHoldBars: 20 },
