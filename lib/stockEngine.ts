@@ -538,7 +538,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     // ORS-specific logic — v5 DMI-augmented params (OOS WR 96.2%, n=624)
     ors: {
       maxRSI2: 7,           // slightly relaxed from 5 (DMI filters direction)
-      maxRSI14: 38,         // tightened from 43 (deeper oversold)
+      maxRSI14: 35,         // tightened from 38 — grid-search OOS WR 63.9% (n=448, PF 2.40)
       maxCloseLoc: 53,      // tightened from 58 (lower close location)
       minBodyPct: 37,          // relaxed from 62 (ADX handles quality)
       maxUpperWickPct: 30,     // tightened from 41 — rejection above close must be limited
@@ -547,7 +547,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       minDdSwingHigh: 38,      // 38%+ below 60d swing high (was 39)
       requireSwingLow: false,
       requireRedCandle: false,  // removed — ORS score + EMA distance do quality control
-      minOrsScore: 63,          // tightened from 58 (composite oversold score)
+      minOrsScore: 68,          // tightened from 63 — grid-search validated OOS champion
       minADX: 20,               // ADX ≥ 20 required (trending regime)
       minLowerWickPct: 20,      // lower tail ≥ 20% of range (demand absorption proof — backtest-validated sweet spot)
       maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)

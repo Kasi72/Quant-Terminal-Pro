@@ -429,7 +429,7 @@ export function computeParams(candles: Candle[]): ComputedParams {
   const passed_ors_signal = (
     ors_red &&
     ors_rsi2 <= 5 &&
-    ors_rsi14 <= 38 &&
+    ors_rsi14 <= 35 &&
     ors_close_loc <= 35 &&
     ors_body_pct >= 45 &&
     ors_up_wick <= 20 &&
@@ -468,7 +468,7 @@ export function computeParams(candles: Candle[]): ComputedParams {
       let prevMinLo = Infinity;
       for (let i = Math.max(0, n - 8); i < n - 2; i++) if (candles[i].l < prevMinLo) prevMinLo = candles[i].l;
       ors_confirmed = (
-        prev.c < prev.o && prevRsi2 <= 5 && prevRsi14 <= 38 && prevCloseLoc <= 35 &&
+        prev.c < prev.o && prevRsi2 <= 5 && prevRsi14 <= 35 && prevCloseLoc <= 35 &&
         prevBodyPct >= 45 && prevUpWick <= 20 && prevRPct >= 3.5 &&
         prevDistE20 <= -3.0 && prevDd >= 30 && prev.l <= prevMinLo
       );
