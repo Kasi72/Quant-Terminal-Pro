@@ -832,29 +832,30 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
   },
 };
 
-// VF/SNIPER: previously watchlist-only (negative expectancy confirmed).
-// MP/EMA: tpsl_optimizer (2026-08-06): PF<1 at ALL 64 TP/SL combos OOS — negative expectancy.
-// CB: redesigned as Upper Circuit Candidate; PF=0.82 max, all combos negative — screener-only.
-// CC: positive expectancy at TP=10%/SL=2.5×ATR (exp=+2.03%, n=24 OOS) — ACTIVE, not watchlist.
+// Phase 2 tpsl_optimizer (2026-08-06, spec-restored params):
+//   VF:     TP=3%/SL=5×ATR → WR=81.3%, PF=6.12,  n=128 OOS → ACTIVE
+//   MP:     TP=3%/SL=5×ATR → WR=90.6%, PF=12.97, n=96  OOS → ACTIVE
+//   SNIPER: TP=5%/SL=5×ATR → WR=77.7%, PF=5.25,  n=372 OOS → ACTIVE
+//   CC:     n=8 OOS — insufficient to validate (watchlist until more accumulates)
+//   EMA:    n=11 OOS — insufficient to validate (watchlist)
+//   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
-  'optimized_deployable_20plus',
-  'sniper_95plus',
-  'optimized_elite_10plus',
   'optimized_ultraselective_8plus',
   'circuit_breaker_v2',
 ]);
 
-// targetPct=0 → ATR-based T1/T2/T3 (2026-08-01: removed fixed 5% override; 5% is a UI
-// milestone display only, not the actual trade target). SL sweep (2026-08-01): PS 4.0× optimal.
-// CC exit: tpsl_optimizer (2026-08-06) — TP=10%/SL=2.5×ATR → WR=54.2%, PF=1.92, exp=+2.03% (n=24 OOS).
-//   MAE p50=4.5% (coil MAE tighter than all other archetypes) makes SL=2.5×ATR viable.
-//   Only non-ORS archetype with positive expectancy under TP/SL simulation.
+// tpsl_optimizer v2 (2026-08-06, spec-restored params, 470-stock universe):
+//   VF:     TP=3%/SL=5×ATR  — WR=81.3%, PF=6.12,  AvgPnL=+0.85%  (OOS n=128)
+//   MP:     TP=3%/SL=5×ATR  — WR=90.6%, PF=12.97, AvgPnL=+2.04%  (OOS n=96)
+//   SNIPER: TP=5%/SL=5×ATR  — WR=77.7%, PF=5.25,  AvgPnL=+1.67%  (OOS n=372)
+//   CC:     TP=10%/SL=2.5×ATR — WR=54.2%, PF=1.92, exp=+2.03%     (OOS n=24, previous run)
+//   EMA:    targetPct=0 — watchlist only, no validated exit
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_deployable_20plus:    { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
   optimized_highprecision_15plus: { targetPct: 10, slAtrMult: 2.5, maxHoldBars: 20 },
-  optimized_elite_10plus:         { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
-  optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 },
-  sniper_95plus:                  { targetPct: 0, slAtrMult: 4.0, maxHoldBars: 20 },
+  optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
+  optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 3.5, maxHoldBars: 20 },
+  sniper_95plus:                  { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
