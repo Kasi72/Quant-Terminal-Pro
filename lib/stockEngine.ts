@@ -836,10 +836,11 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
 //   VF:     TP=3%/SL=5×ATR → WR=81.3%, PF=6.12,  n=128 OOS → ACTIVE
 //   MP:     TP=3%/SL=5×ATR → WR=90.6%, PF=12.97, n=96  OOS → ACTIVE
 //   SNIPER: TP=5%/SL=5×ATR → WR=77.7%, PF=5.25,  n=372 OOS → ACTIVE
-//   CC:     n=8 OOS — insufficient to validate (watchlist until more accumulates)
-//   EMA:    n=11 OOS — insufficient to validate (watchlist)
+//   CC:     n=8 OOS — insufficient to validate (watchlist until cc_zone_tuner finds sweet spot)
+//   EMA:    n=11 OOS — insufficient to validate (watchlist until ema_prescreen_tuner runs)
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
+  'optimized_highprecision_15plus',
   'optimized_ultraselective_8plus',
   'circuit_breaker_v2',
 ]);
