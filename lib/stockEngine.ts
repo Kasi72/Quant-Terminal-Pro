@@ -836,26 +836,25 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
 //   VF:     TP=3%/SL=5×ATR → WR=81.3%, PF=6.12,  n=128 OOS → ACTIVE
 //   MP:     TP=3%/SL=5×ATR → WR=90.6%, PF=12.97, n=96  OOS → ACTIVE
 //   SNIPER: TP=5%/SL=5×ATR → WR=77.7%, PF=5.25,  n=372 OOS → ACTIVE
-//   CC:     n=8 OOS — insufficient to validate (watchlist until cc_zone_tuner finds sweet spot)
-//   EMA:    n=11 OOS — insufficient to validate (watchlist until ema_prescreen_tuner runs)
+//   EMA:    TP=3%/SL=5×ATR → WR=78.1%, PF=6.02,  n=32  OOS → ACTIVE (ema_prescreen_tuner 2026-08-07)
+//   CC:     n=8 OOS — insufficient to validate (watchlist until cc_archetype_tuner finds sweet spot)
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
   'optimized_highprecision_15plus',
-  'optimized_ultraselective_8plus',
   'circuit_breaker_v2',
 ]);
 
-// tpsl_optimizer v2 (2026-08-06, spec-restored params, 470-stock universe):
+// tpsl_optimizer v2 (2026-08-06/07, spec-restored params, 470-stock universe):
 //   VF:     TP=3%/SL=5×ATR  — WR=81.3%, PF=6.12,  AvgPnL=+0.85%  (OOS n=128)
 //   MP:     TP=3%/SL=5×ATR  — WR=90.6%, PF=12.97, AvgPnL=+2.04%  (OOS n=96)
 //   SNIPER: TP=5%/SL=5×ATR  — WR=77.7%, PF=5.25,  AvgPnL=+1.67%  (OOS n=372)
-//   CC:     TP=10%/SL=2.5×ATR — WR=54.2%, PF=1.92, exp=+2.03%     (OOS n=24, previous run)
-//   EMA:    targetPct=0 — watchlist only, no validated exit
+//   EMA:    TP=3%/SL=5×ATR  — WR=78.1%, PF=6.02,  AvgPnL=+1.09%  (OOS n=32, ema_prescreen_tuner 2026-08-07)
+//   CC:     TP=10%/SL=2.5×ATR — WR=54.2%, PF=1.92, exp=+2.03%     (OOS n=24, previous run, watchlist)
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
   optimized_deployable_20plus:    { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
   optimized_highprecision_15plus: { targetPct: 10, slAtrMult: 2.5, maxHoldBars: 20 },
   optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
-  optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 3.5, maxHoldBars: 20 },
+  optimized_ultraselective_8plus: { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
   sniper_95plus:                  { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
 };
 
@@ -3275,9 +3274,9 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   // Strict EMAStack sweet spot: crossover remains fresh, but the post-signal
   // trade promotion overlay still decides whether it is auto-track eligible.
   // forensicMode: bypassed — PBFB detects EMA crossover structure regardless of quality filters.
-  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+  if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
       tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -0.5) ||
-      (tuned(key, 'minEMA20VsEMA50', 1) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 1))))
+      (tuned(key, 'minEMA20VsEMA50', 0) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))))
     return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
 
   const ema10Arr = computeEMA(candles, 10);
@@ -3328,9 +3327,10 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   }
   const c5 = recentlyOversold;
 
-  // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 6 bars && ADX ≥ 15
+  // C6 (DMI): DI+ > DI− && DI+ crossed DI− within 5 bars && ADX ≥ 15
+  // maxBsc 0→5: ema_prescreen_tuner 2026-08-07 (OOS WR 78.1%, PF 6.02, n=32)
   const c6 = (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
-    (tuned(key, 'maxBsc', 0) >= 99 || bscES <= tuned(key, 'maxBsc', 0)) &&
+    (tuned(key, 'maxBsc', 5) >= 99 || bscES <= tuned(key, 'maxBsc', 5)) &&
     adxVal >= tuned(key, 'minADX', 15);
 
   // Legacy: allow yesterday cross for crossedYesterday tracking only
