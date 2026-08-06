@@ -837,10 +837,9 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
 //   MP:     TP=3%/SL=5×ATR → WR=90.6%, PF=12.97, n=96  OOS → ACTIVE
 //   SNIPER: TP=5%/SL=5×ATR → WR=77.7%, PF=5.25,  n=372 OOS → ACTIVE
 //   EMA:    TP=3%/SL=5×ATR → WR=78.1%, PF=6.02,  n=32  OOS → ACTIVE (ema_prescreen_tuner 2026-08-07)
-//   CC:     n=8 OOS — insufficient to validate (watchlist until cc_archetype_tuner finds sweet spot)
+//   CC:     TP=5%/SL=5×ATR → WR=67.3%, PF=4.10,  n=257 OOS → ACTIVE (cc_archetype_tuner 2026-08-07)
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
-  'optimized_highprecision_15plus',
   'circuit_breaker_v2',
 ]);
 
@@ -849,10 +848,10 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   MP:     TP=3%/SL=5×ATR  — WR=90.6%, PF=12.97, AvgPnL=+2.04%  (OOS n=96)
 //   SNIPER: TP=5%/SL=5×ATR  — WR=77.7%, PF=5.25,  AvgPnL=+1.67%  (OOS n=372)
 //   EMA:    TP=3%/SL=5×ATR  — WR=78.1%, PF=6.02,  AvgPnL=+1.09%  (OOS n=32, ema_prescreen_tuner 2026-08-07)
-//   CC:     TP=10%/SL=2.5×ATR — WR=54.2%, PF=1.92, exp=+2.03%     (OOS n=24, previous run, watchlist)
+//   CC:     TP=5%/SL=5×ATR  — WR=67.3%, PF=4.10,  AvgPnL=+1.41%  (OOS n=257, cc_archetype_tuner 2026-08-07)
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
   optimized_deployable_20plus:    { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
-  optimized_highprecision_15plus: { targetPct: 10, slAtrMult: 2.5, maxHoldBars: 20 },
+  optimized_highprecision_15plus: { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
   optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
   optimized_ultraselective_8plus: { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
   sniper_95plus:                  { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
@@ -2970,7 +2969,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   if (!skipPrecisionGate && !_forensicMode) {
     if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1) ||
         tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
-        volRatio20 < tuned(key, 'minGateVolRatio', 3) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1) ||
+        volRatio20 < tuned(key, 'minGateVolRatio', 1) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1) ||
         tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
       return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: 0, archetypeTotal: 6 };
   }
@@ -3040,14 +3039,15 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     ca.closeLoc >= tuned(key, 'minCloseLoc', 55) && ca.bodyPct >= tuned(key, 'minBodyPct', 20) &&
     ca.candleRisk <= tuned(key, 'maxCandleRisk', 12);
 
-  // Condition 6 (DMI): DI+ > DI− and ADX ≥ 28 (trend aligned for imminent breakout)
+  // Condition 6 (DMI): DI+ > DI− and ADX ≥ 20 (trend aligned for imminent breakout)
+  // minADX 45→20: cc_archetype_tuner 2026-08-07 (OOS WR 67.3%, PF 4.10, n=257)
   const bscCC = barsSinceDICross(diPlusArr, diMinusArr, endIdx, 5);
   // forensicMode: compression stocks have falling ADX by definition — test direction only (DI+ > DI-), not trend strength
   const c6 = _forensicMode
     ? diPlusV > diMinusV
     : (!tunedBool(key, 'requireDIBull', true) || diPlusV > diMinusV) &&
       (tuned(key, 'maxBsc', 3) >= 99 || bscCC <= tuned(key, 'maxBsc', 3)) &&
-      adxVal >= tuned(key, 'minADX', 45);
+      adxVal >= tuned(key, 'minADX', 20);
 
   const passed = [c1, c2, c3, c4, c5, c6];
   const conditionsMet = passed.filter(Boolean).length;
