@@ -2007,6 +2007,16 @@ function HomePageInner() {
           archetype_enc: ARCH_ENC[result.archetypeType ?? ''] ?? -1,
         });
         result.survivalLabel = formatSurvivalLabel(result.archetypeType);
+        // UC v4 blend: 60% formula (v3 + 4 new features) + 40% XGBoost
+        // XGB brings non-linear feature interactions the weighted formula can't capture.
+        // Re-evaluates NO_SIGNAL-derived stages (EARLY_INFLECTION / COMPRESSION_WATCH) with blended score.
+        if (result.xgbScore != null && result.ucScore != null) {
+          const blended = Math.round(Math.min(100, 0.6 * result.ucScore + 0.4 * result.xgbScore * 100));
+          result.ucScore = blended;
+          if (['NO_SIGNAL', 'EARLY_INFLECTION', 'COMPRESSION_WATCH'].includes(result.stage)) {
+            result.stage = blended >= 65 ? 'EARLY_INFLECTION' : blended >= 45 ? 'COMPRESSION_WATCH' : 'NO_SIGNAL';
+          }
+        }
         newResults.push(result);
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
