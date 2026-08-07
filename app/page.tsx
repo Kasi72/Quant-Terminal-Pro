@@ -875,10 +875,21 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.momentum.gapAdjustedRR > 0 ? r.momentum.gapAdjustedRR.toFixed(1) : '—',
     numVal: r => r.momentum.gapAdjustedRR,
     cellClass: r => r.momentum.gapAdjustedRR >= 2 ? 'text-emerald-400' : r.momentum.gapAdjustedRR > 0 ? 'text-amber-400' : 'text-slate-600' },
-  { key: 'rsNifty', label: 'RS/N50', width: 65, align: 'right',
-    fmt: r => r.momentum.rsNifty20.toFixed(2),
+  { key: 'rsNifty', label: 'RS/N50', width: 78, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">RS vs Nifty50</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">20d</span></div><div><div class="rt-desc">20-day price return ratio vs Nifty50. ≥1.05 = outperforming.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">63d</span></div><div><div class="rt-desc">63-day (1 quarter) RS. ≥1.15 upgrades EARLY_INFLECTION → PRE_BREAKOUT. &lt;0.75 demotes one tier.</div></div></div>',
+    fmt: r => {
+      const rs63 = r.momentum.rsNifty63;
+      return rs63 !== undefined ? `${r.momentum.rsNifty20.toFixed(2)} · ${rs63.toFixed(2)}` : r.momentum.rsNifty20.toFixed(2);
+    },
     numVal: r => r.momentum.rsNifty20,
-    cellClass: r => r.momentum.rsNifty20 >= 1.05 ? 'text-emerald-400 font-semibold' : r.momentum.rsNifty20 >= 1.0 ? 'text-slate-300' : 'text-red-400' },
+    cellClass: r => {
+      const rs63 = r.momentum.rsNifty63;
+      const strong = (rs63 !== undefined ? rs63 : r.momentum.rsNifty20) >= 1.05;
+      const weak   = (rs63 !== undefined ? rs63 : r.momentum.rsNifty20) < 0.9;
+      return strong ? 'text-emerald-400 font-semibold' : weak ? 'text-red-400' : 'text-slate-300';
+    } },
   { key: 'brain', label: '🧠 Brain', width: 80, align: 'right',
     headerTipHtml: '<div class="rt-hdr">🧠 Adaptive Brain v2</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain-adjusted conviction score. Learns from +5% decided trades using Bayesian inference.</div></div></div>'
@@ -1904,10 +1915,29 @@ function HomePageInner() {
         }
         // Monster scan
         result.monster = detectMonster(candles, candles.length - 1, result);
-        // Feature #4: compute RS vs Nifty
+        // Feature #4: compute RS vs Nifty (20-day + 63-day quarter RS)
         if (niftyData && niftyData.length > 20) {
-          const rs = computeRSvsNifty(candles, niftyData, 20);
-          result.momentum = { ...result.momentum, rsNifty20: Number.isFinite(rs) ? rs : 1.0 };
+          const rs20 = computeRSvsNifty(candles, niftyData, 20);
+          const rs63 = niftyData.length > 63 && candles.length > 63
+            ? computeRSvsNifty(candles, niftyData, 63) : undefined;
+          result.momentum = {
+            ...result.momentum,
+            rsNifty20: Number.isFinite(rs20) ? rs20 : 1.0,
+            rsNifty63: rs63 !== undefined && Number.isFinite(rs63) ? rs63 : undefined,
+          };
+          // RS 63-day stage modifier: strong RS lifts EARLY_INFLECTION; weak RS demotes one tier
+          if (rs63 !== undefined && Number.isFinite(rs63)) {
+            const TIER_DOWN: Record<string, string> = {
+              ULTRA_STRONG_BUY: 'STRONG_BUY', STRONG_BUY: 'BUY', BUY: 'PRE_BREAKOUT',
+              PRE_BREAKOUT: 'EARLY_INFLECTION', EARLY_INFLECTION: 'COMPRESSION_WATCH',
+              COMPRESSION_WATCH: 'NO_SIGNAL', NO_SIGNAL: 'NO_SIGNAL',
+            };
+            if (rs63 >= 1.15 && result.stage === 'EARLY_INFLECTION') {
+              result.stage = 'PRE_BREAKOUT';   // leading stock confirms setup
+            } else if (rs63 < 0.75 && result.stage !== 'NO_SIGNAL') {
+              result.stage = TIER_DOWN[result.stage] as typeof result.stage;
+            }
+          }
         }
         // Clenow score computed before slice while full candle array available
         if (candles.length >= 130) {

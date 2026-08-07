@@ -2,10 +2,11 @@
 // Vectorize fingerprinting + Workers AI narration for the UC-hitter intelligence loop.
 //
 // Endpoints (all require x-worker-token header except OPTIONS):
-//   POST /ingest   — pull recent pbfb_uc_events from Supabase, upsert fingerprints into Vectorize
-//   POST /similar  — body { features: EventFeatures, topK? } → nearest historical events + hit rate
-//   GET  /narrate  — Llama 3.1 summary of the current brain state
-//   scheduled()    — nightly /ingest (cron in wrangler.toml)
+//   POST /ingest      — pull recent pbfb_uc_events from Supabase, upsert fingerprints into Vectorize
+//   POST /similar     — body { features: EventFeatures, topK? } → nearest historical events + hit rate
+//   GET  /narrate     — Llama 3.1 summary of the current brain state
+//   GET  /bayes-wr    — Bayesian Beta-Binomial win-rate posteriors per archetype
+//   scheduled()       — nightly /ingest + /label-outcomes + Bayesian WR update (cron in wrangler.toml)
 
 interface VectorizeMatch {
   id: string;
@@ -192,6 +193,21 @@ async function supabasePatch(env: Env, path: string, body: unknown): Promise<voi
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`Supabase PATCH ${res.status}: ${await res.text()}`);
+}
+
+async function supabasePost(env: Env, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'content-type': 'application/json',
+      prefer: 'return=minimal,resolution=merge-duplicates',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`Supabase POST ${res.status}: ${await res.text()}`);
 }
 
 // ── Outcome labeling ─────────────────────────────────────────────────────────
@@ -408,6 +424,65 @@ async function narrate(env: Env): Promise<{ narration: string }> {
   return { narration: result.response ?? 'No narration generated.' };
 }
 
+// ── Bayesian WR: Beta-Binomial posterior per archetype ───────────────────────
+// Prior from OOS backtests. Live data from pbfb_uc_events (labeled).
+// Posterior alpha = prior_wins + live_wins; beta = prior_losses + live_losses.
+const BAYES_PRIORS: Record<string, { alpha: number; beta: number }> = {
+  CompressionCoil:  { alpha: 173, beta:  84 }, // OOS WR 67.3%, n=257
+  VolumeFootprint:  { alpha:  50, beta:  12 }, // OOS WR ~81%, n≈62
+  MomentumPocket:   { alpha:  35, beta:   4 }, // OOS WR ~90%, n≈39
+  EMAStack:         { alpha:  25, beta:   7 }, // OOS WR ~78%, n≈32
+  CircuitBreaker:   { alpha:  45, beta:  13 }, // OOS WR ~78%, n≈58
+};
+
+function betaCI(a: number, b: number): { low: number; high: number } {
+  const mean = a / (a + b);
+  const variance = (a * b) / ((a + b) ** 2 * (a + b + 1));
+  const std = Math.sqrt(variance);
+  return { low: Math.max(0, mean - 1.96 * std), high: Math.min(1, mean + 1.96 * std) };
+}
+
+async function computeBayesianWR(env: Env): Promise<{ updated: number }> {
+  type LabeledRow = { archetype_type: string | null; hit_t1: boolean | null; stopped_out: boolean | null };
+  const rows = await supabaseGet(
+    env,
+    `pbfb_uc_events?select=archetype_type,hit_t1,stopped_out&n_before=eq.1&outcome_labeled_at=not.is.null&archetype_type=not.is.null&limit=5000`,
+  ) as LabeledRow[];
+
+  const tally = new Map<string, { wins: number; losses: number }>();
+  for (const r of rows) {
+    if (!r.archetype_type) continue;
+    const arch = r.archetype_type;
+    if (!tally.has(arch)) tally.set(arch, { wins: 0, losses: 0 });
+    const t = tally.get(arch)!;
+    if (r.hit_t1 === true) t.wins++;
+    else if (r.stopped_out === true || r.hit_t1 === false) t.losses++;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let updated = 0;
+
+  for (const [arch, prior] of Object.entries(BAYES_PRIORS)) {
+    const live = tally.get(arch) ?? { wins: 0, losses: 0 };
+    const alpha = prior.alpha + live.wins;
+    const beta  = prior.beta  + live.losses;
+    const posterior_mean = alpha / (alpha + beta);
+    const ci = betaCI(alpha, beta);
+    await supabasePost(env, `archetype_bayes_wr`, {
+      archetype: arch, prior_alpha: prior.alpha, prior_beta: prior.beta,
+      live_wins: live.wins, live_losses: live.losses,
+      alpha, beta, posterior_mean,
+      ci_low: ci.low, ci_high: ci.high, updated_at: today,
+    });
+    updated++;
+  }
+  return { updated };
+}
+
+async function getBayesianWR(env: Env): Promise<unknown> {
+  return supabaseGet(env, `archetype_bayes_wr?select=*&order=posterior_mean.desc`);
+}
+
 // ── Router ───────────────────────────────────────────────────────────────────
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -436,6 +511,9 @@ export default {
       if (req.method === 'GET' && pathname === '/narrate') {
         return json(await narrate(env), 200, req, env);
       }
+      if (req.method === 'GET' && pathname === '/bayes-wr') {
+        return json(await getBayesianWR(env), 200, req, env);
+      }
       if (req.method === 'POST' && pathname === '/label-outcomes') {
         return json(await labelOutcomes(env), 200, req, env);
       }
@@ -448,5 +526,6 @@ export default {
   async scheduled(_event: unknown, env: Env): Promise<void> {
     await ingest(env);
     await labelOutcomes(env);
+    await computeBayesianWR(env);
   },
 };

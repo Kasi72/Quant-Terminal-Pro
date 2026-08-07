@@ -282,6 +282,7 @@ export interface MomentumEnhancements {
   gapAdjustedRR: number;       // reward:risk accounting for gap
   momentumScore: number;       // composite 0-100
   rsNifty20: number;           // relative strength vs Nifty 50 (20-day)
+  rsNifty63?: number;          // relative strength vs Nifty 50 (63-day, ~1 quarter)
 }
 
 export interface MultiAnalysisResult {
@@ -1436,7 +1437,7 @@ const ARCH_ULTRA: Record<string, number> = {
 
 // Total condition count per archetype — used to normalize capRank to % of total
 const ARCH_TOTAL: Record<string, number> = {
-  CompressionCoil: 6,
+  CompressionCoil: 7,
   VolumeFootprint: 6,
   MomentumPocket:  6,
   EMAStack:        6,
@@ -3081,18 +3082,24 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
       (tuned(key, 'maxBsc', 3) >= 99 || bscCC <= tuned(key, 'maxBsc', 3)) &&
       adxVal >= tuned(key, 'minADX', 20);
 
-  const passed = [c1, c2, c3, c4, c5, c6];
-  const conditionsMet = passed.filter(Boolean).length;
-  const tuning = { ...tech, compressionBars, volDeclineDays, pricePos20, bbWidthPctl, rangeATR: exactRangeATR14, isGreen: ca.isGreen, closeLoc: ca.closeLoc, bodyPct: ca.bodyPct, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscCC, adx: adxVal, conditions: passed.map(Boolean) };
+  // Condition 7: Progressive ATR contraction over 5 bars — genuine squeeze, not random narrowing
+  const atr5bAgo = atr14Arr[Math.max(0, endIdx - 5)] || atr14;
+  const atrContraction5d = atr5bAgo > 0 ? (atr5bAgo - atr14) / atr5bAgo : 0;
+  const c7 = atrContraction5d >= 0.08; // ATR declined ≥8% over 5 bars
 
-  if (conditionsMet < 1) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
+  const passed = [c1, c2, c3, c4, c5, c6, c7];
+  const conditionsMet = passed.filter(Boolean).length;
+  const tuning = { ...tech, compressionBars, volDeclineDays, pricePos20, bbWidthPctl, rangeATR: exactRangeATR14, isGreen: ca.isGreen, closeLoc: ca.closeLoc, bodyPct: ca.bodyPct, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscCC, adx: adxVal, atrContraction5d, conditions: passed.map(Boolean) };
+
+  if (conditionsMet < 1) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 7, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 7 }, tuning);
 
   // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
   // c3 (price in upper 41% of 20d range) is top predictor (+4.0% WR delta) → 49 pts
   // c1 (deep coil ≥8 bars) strong (+3.4%) → 20 pts kept
   // c5 (coil-bar quality) showed -1.4% delta → floor 3 pts; c2 / c6 near-zero → floor 3 pts
+  // c7 (ATR contraction) is a squeeze-quality confirmer → 4 pts
   const score = Math.min(100, Math.round(
-    (c1 ? 20 : 0) + (c2 ? 3 : 0) + (c3 ? 49 : 0) + (c4 ? 18 : 0) + (c5 ? 3 : 0) + (c6 ? 3 : 0) +
+    (c1 ? 20 : 0) + (c2 ? 3 : 0) + (c3 ? 45 : 0) + (c4 ? 18 : 0) + (c5 ? 3 : 0) + (c6 ? 3 : 0) + (c7 ? 4 : 0) +
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
@@ -3117,6 +3124,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     { label: 'BB width ≤ 40th pctl (60d) — extreme squeeze', pass: c4, value: `${bbWidthPctl.toFixed(0)}th pctl` },
     { label: 'Coil bar: range ≤ 1.1×ATR, green, close ≥55%, body ≥20%', pass: c5, value: `rng=${exactRangeATR14.toFixed(2)}× CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` },
     { label: 'DI+ > DI− and ADX ≥ 45 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
+    { label: 'ATR contraction ≥ 8% over 5 bars (progressive squeeze)', pass: c7, value: `${(atrContraction5d * 100).toFixed(1)}%` },
   ];
 
   return attachTuningDebug({
@@ -3127,14 +3135,14 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
     ultraPrecisionScore: score, candleQualityScore: ca.qualityTier,
     priceEngine: pe,
-    conditionsMet, totalConditions: 6, checklist,
+    conditionsMet, totalConditions: 7, checklist,
     momentum: { emaAligned: sig.c > ema20 && ema20 > ema50, ema20, ema50, higherLowConfirmed: false, swingLow20: 0, volDryUpScore: compressionBars, obvSlope10: computeOBVSlope10(candles, endIdx), adx14: adxVal, adxInRange: adxVal >= 20 && adxVal <= 50, gapAdjustedRR: pe.rewardRisk, momentumScore: score, rsNifty20: 1.0 },
     stats: { ...base.stats, bbWidthPctl, guppyCompressed: compressionBars >= 3, guppyUltraCompressed: compressionBars >= 5 },
     candleDNA,
     monster: conditionsMet >= 5 ? { badges: [{ type: 'MOM', probability: score / 100, details: `Compressed ${compressionBars}bars — DI+${diPlusV.toFixed(0)}/DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)} — CL=${ca.closeLoc.toFixed(0)}% Bd=${ca.bodyPct.toFixed(0)}%` }], topProbability: score / 100 } : base.monster,
     archetypeType: 'CompressionCoil',
     archetypeConditions: conditionsMet,
-    archetypeTotal: 6,
+    archetypeTotal: 7,
   }, tuning);
 }
 
