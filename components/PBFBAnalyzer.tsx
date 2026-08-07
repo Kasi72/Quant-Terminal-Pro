@@ -768,9 +768,11 @@ export default function PBFBAnalyzer() {
         zoneLen:         r.bestResult?.zone?.windowLength     ?? null,
         closePrice:       r.bestResult?.lastClose          ?? null,
         shapeVec:         r.shapeVec,
-        nearBreakoutTier: r.bestResult?.nearBreakoutTier   ?? null,
-        archetypeType:    r.bestResult?.archetypeType      ?? null,
-        zoneShape:        r.bestResult?.zone?.zoneShape    ?? null,
+        nearBreakoutTier: r.bestResult?.nearBreakoutTier     ?? null,
+        archetypeType:    r.bestResult?.archetypeType        ?? null,
+        zoneShape:        r.bestResult?.zone?.zoneShape      ?? null,
+        rsi2Velocity:     (r.bestResult as any)?.rsi2Velocity ?? null,
+        clTrend:          (r.bestResult as any)?.clTrend      ?? null,
       })),
     };
     const body = JSON.stringify(payload);

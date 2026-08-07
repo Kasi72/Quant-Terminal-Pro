@@ -60,6 +60,7 @@ export interface UCXgbFeatures {
   cl_trend?: number;
   near_breakout_tier_enc?: number;
   archetype_enc?: number;
+  nifty_5d_ret?: number;
 }
 
 /**

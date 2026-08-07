@@ -4089,6 +4089,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       result.ucGoldmine = ucGoldmine;
       result.ucStrong   = ucStrong;
       result.ucElite    = ucElite;
+      (result as any).clTrend      = clTrend;
+      (result as any).rsi2Velocity = rsi2Velocity;
       // forensicMode: promote PRE_BREAKOUT with high ucScore to BUY
       // Top feature lifts (Brain data): Wick≤25% (51×), CloseLoc≥70% (48×), Body≥45% (48×) — ucScore ≥65 captures these
       if (forensicMode && result.stage === 'PRE_BREAKOUT' && ucScore >= 65) {

@@ -34,6 +34,8 @@ interface EventPayload {
   nearBreakoutTier?: string | null;
   archetypeType?:    string | null;
   zoneShape?:        string | null;
+  rsi2Velocity?:     number | null;
+  clTrend?:          number | null;
 }
 
 interface SavePayload {
@@ -153,6 +155,8 @@ export async function POST(req: NextRequest) {
     near_breakout_tier: e.nearBreakoutTier ?? null,
     archetype_type:     e.archetypeType    ?? null,
     zone_shape:         e.zoneShape        ?? null,
+    rsi2_velocity:      e.rsi2Velocity     ?? null,
+    cl_trend:           e.clTrend          ?? null,
   }));
 
   // Batch upsert in chunks of 200, keyed on the event itself — the same

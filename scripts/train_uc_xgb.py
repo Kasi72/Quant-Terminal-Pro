@@ -45,8 +45,8 @@ except Exception as e:
     sys.exit(1)
 
 COLS = (
-    "hit_t1,outcome_pct_20d,vol_ratio_20,close_loc,body_pct,rsi2,"
-    "range_atr,zone_len,zone_tightness,vol_accel,rsi2_velocity,"
+    "hit_t1,outcome_pct_20d,event_date,vol_ratio_20,close_loc,body_pct,rsi2,"
+    "range_atr,zone_len,zone_tightness,vol_vs_pre5,vol_accel,rsi2_velocity,"
     "cl_trend,near_breakout_tier,archetype_type"
 )
 
@@ -83,11 +83,49 @@ if len(df) < 100:
     sys.exit(0)
 
 # ---------------------------------------------------------------------------
-# Label: hit_uc_proxy = hit_t1 AND outcome_pct_20d > 12
+# Fix vol_accel: vol_vs_pre5 is the correct column (written by pbfb-save).
+# vol_accel column in DB is mostly null; vol_vs_pre5 has 3x better coverage.
+# The model feature stays named "vol_accel" to match ucXgbInfer.ts interface.
+# ---------------------------------------------------------------------------
+df["vol_accel"] = pd.to_numeric(df.get("vol_vs_pre5"), errors="coerce").combine_first(
+    pd.to_numeric(df.get("vol_accel"), errors="coerce")
+)
+
+# ---------------------------------------------------------------------------
+# Nifty 5-day return -- market regime feature.
+# UC events cluster in bull phases; adding Nifty context improves class separation.
+# ---------------------------------------------------------------------------
+try:
+    import yfinance as yf
+    _dates = pd.to_datetime(df["event_date"], errors="coerce").dropna()
+    if len(_dates) > 0:
+        _start = (_dates.min() - pd.Timedelta(days=15)).strftime("%Y-%m-%d")
+        _end   = (_dates.max() + pd.Timedelta(days=5)).strftime("%Y-%m-%d")
+        _nifty = yf.download("^NSEI", start=_start, end=_end, progress=False, auto_adjust=True)
+        if not _nifty.empty:
+            _close = _nifty["Close"].squeeze()
+            _ret5  = _close.pct_change(5) * 100
+            _map   = {d.strftime("%Y-%m-%d"): v for d, v in _ret5.items() if not pd.isna(v)}
+            df["nifty_5d_ret"] = df["event_date"].astype(str).map(_map)
+            _nn = df["nifty_5d_ret"].notna().sum()
+            print(f"[INFO] nifty_5d_ret: {_nn}/{len(df)} non-null ({_nn/len(df):.0%})")
+        else:
+            print("[WARN] yfinance returned empty Nifty data. Regime feature skipped.")
+    else:
+        print("[WARN] No valid event_date values. Regime feature skipped.")
+except ImportError:
+    print("[WARN] yfinance not installed (pip install yfinance). Regime feature skipped.")
+except Exception as _e:
+    print(f"[WARN] Nifty fetch failed: {_e}. Regime feature skipped.")
+
+# ---------------------------------------------------------------------------
+# Label: hit_uc_proxy = hit_t1 AND outcome_pct_20d > 20
+# Tighter than the previous > 12 threshold -- catches genuine big fast moves.
+# Base rate drops from ~26% to ~15-18%; harder problem, cleaner signal.
 # ---------------------------------------------------------------------------
 df["hit_t1"] = df["hit_t1"].astype(bool)
 df["outcome_pct_20d"] = pd.to_numeric(df["outcome_pct_20d"], errors="coerce")
-df["hit_uc_proxy"] = (df["hit_t1"] == True) & (df["outcome_pct_20d"] > 12)
+df["hit_uc_proxy"] = (df["hit_t1"] == True) & (df["outcome_pct_20d"] > 20)
 y_all = df["hit_uc_proxy"].astype(int)
 
 pos_rate = y_all.mean()
