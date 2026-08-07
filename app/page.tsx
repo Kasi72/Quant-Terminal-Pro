@@ -75,6 +75,8 @@ import {
   deleteTradeFromCloud, deleteAllTradesFromCloud,
   setOwnerToken, hasOwnerToken,
 } from '@/lib/tradeSync';
+import { inferXgbScore } from '@/lib/xgbInfer';
+import { formatSurvivalLabel } from '@/lib/survivalInfer';
 import {
   computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
   deduplicateSymbols, type ScanStats,
@@ -491,6 +493,16 @@ const ALL_STAGES: StageRating[] = [
   'ULTRA_STRONG_BUY','STRONG_BUY','BUY','PRE_BREAKOUT','EARLY_INFLECTION','COMPRESSION_WATCH','NO_SIGNAL',
 ];
 
+// XGBoost archetype encoding (alphabetical category order from pandas .cat.codes)
+const ARCH_ENC: Record<string, number> = {
+  CompressionCoil: 0, EMAStack: 1, MomentumPocket: 2, PerfectStorm: 3, VolumeFootprint: 4,
+};
+// Bayesian WR priors (alpha/(alpha+beta)) — updated nightly by brain worker
+const BAYES_WR: Record<string, number> = {
+  CompressionCoil: 0.67, VolumeFootprint: 0.81, MomentumPocket: 0.90,
+  EMAStack: 0.78, CircuitBreaker: 0.78, PerfectStorm: 0.75,
+};
+
 const COLUMNS: ColDef[] = [
   { key: 'symbol',    label: 'Symbol',      width: 120, align: 'left',
     fmt: r => r.symbol,
@@ -621,6 +633,21 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.priceEngine.breakoutTier === 'A+' ? '★ A+' : r.priceEngine.breakoutTier === 'A' ? '✓ A' : 'B',
     numVal: r => r.priceEngine.breakoutTier === 'A+' ? 3 : r.priceEngine.breakoutTier === 'A' ? 2 : 1,
     cellClass: r => r.priceEngine.breakoutTier === 'A+' ? 'text-emerald-400 font-bold bg-green-900/30 px-1 rounded' : r.priceEngine.breakoutTier === 'A' ? 'text-blue-400 font-semibold' : 'text-slate-600' },
+  { key: 'xgbScore', label: 'XGB%', width: 56, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">XGBoost Hit-T1 Probability</div><div class="rt-row"><div><span class="rt-badge bg-neon">What</span></div><div><div class="rt-desc">ML model (200 trees, AUC=0.857) trained on 3,718 labeled outcomes. Predicts P(stock hits +8% within 20 bars). Top features: close location, vol ratio, RSI-2.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">≥70%</span></div><div><div class="rt-desc">High confidence — model agrees signal is actionable.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">55-70%</span></div><div><div class="rt-desc">Moderate — signal marginal on ML features.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">—</span></div><div><div class="rt-desc">Model not yet retrained (run train_xgb_score.py monthly).</div></div></div>',
+    fmt: r => r.xgbScore != null ? `${Math.round(r.xgbScore * 100)}%` : '—',
+    numVal: r => r.xgbScore ?? 0,
+    cellClass: r => r.xgbScore == null ? 'text-slate-600' : r.xgbScore >= 0.70 ? 'text-emerald-400 font-bold' : r.xgbScore >= 0.55 ? 'text-yellow-400' : 'text-red-400' },
+  { key: 'survivalProb', label: '5d·10d', width: 88, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Survival Probability — Time to +5%</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Kaplan-Meier empirical probability of reaching +5% by day 5 and day 10, per archetype. Fitted on 672 historical signal outcomes from NIFTY ALL1783 CSVs.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">High</span></div><div><div class="rt-desc">MomentumPocket and VolumeFootprint archetypes historically reach +5% fastest.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">Use</span></div><div><div class="rt-desc">Higher 5d% = expect faster move. Size accordingly or use tighter holding window.</div></div></div>',
+    fmt: r => r.survivalLabel ?? '—',
+    numVal: r => 0,
+    cellClass: () => 'text-slate-400 text-[10px]' },
+  { key: 'bayesWR', label: 'B-WR%', width: 60, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">Bayesian Win Rate (Beta-Binomial)</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Posterior mean win rate per archetype, combining OOS priors with live pbfb_uc_events outcomes. Updates nightly via brain worker.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Prior</span></div><div><div class="rt-desc">CC=67% · VF=81% · MP=90% · EMA=78% · PS=75%. Live outcomes tighten the posterior as trades accumulate.</div></div></div>',
+    fmt: r => { const wr = BAYES_WR[r.archetypeType ?? '']; return wr != null ? `${Math.round(wr * 100)}%` : '—'; },
+    numVal: r => BAYES_WR[r.archetypeType ?? ''] ?? 0,
+    cellClass: r => { const wr = BAYES_WR[r.archetypeType ?? '']; return wr == null ? 'text-slate-600' : wr >= 0.80 ? 'text-emerald-400 font-bold' : wr >= 0.70 ? 'text-yellow-400' : 'text-slate-400'; } },
   { key: 'clDep', label: 'VF', width: 50, align: 'center',
     headerTipHtml: '<div class="rt-hdr">VF — Verified Filters (Deployable cluster)</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">X/Y minimum-viable deployment conditions met. Covers volume footprint, structure basics, and range quality needed before any signal is actionable.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-neon">Full</span></div><div><div class="rt-desc">All conditions met — signal passes baseline deployment gate. Sky = confirmed.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">Partial</span></div><div><div class="rt-desc">Some conditions missing — signal may be watchlist-only, not immediately tradeable.</div></div></div>',
     fmt: r => r.clusterBreakdown?.deployable ? `${r.clusterBreakdown.deployable.met}/${r.clusterBreakdown.deployable.total}` : '—',
@@ -1368,7 +1395,7 @@ const COLUMNS: ColDef[] = [
 type ScannerSubTab = 'overview' | 'screening' | 'tradeplan' | 'momentum' | 'statistics' | 'advanced' | 'all';
 
 const SUBTAB_KEYS: Record<ScannerSubTab, Set<string>> = {
-  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','ucScore','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','dd52WH','missing','track_btn']),
+  overview: new Set(['symbol','sector','conviction','stage','confluenceScore','archetypeType','sat_signal','inflectionScore','confidence','cmp','dayChg','atr14pct','candle','candleDNA','guppy','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','brain','ucScore','pcaScore','monster','zone_exp','atr_state','vol_badge','rs_rank','tf_align','momentumScore','statsScore','ors_reversal','nearBrk','brkTier','xgbScore','survivalProb','bayesWR','dd52WH','missing','track_btn']),
   screening: new Set(['symbol','stage','clDep','clHP','clElt','clUS','clSN','ors_reversal','volRatio20','atrPct14Pctl120','zone_atr','closeLoc','upperWickPct','ultraPrecisionScore','volatilityExpansionRatio']),
   tradeplan: new Set(['symbol','stage','cmp','candle','guppy','ema10','ema21','ema55','sma200','pe_er','pe_entry','pe_tact','pe_risk','pe_rr','pe_rr_verdict','pe_rps','pe_t1','pe_t2','pe_t3r','pivot_pp','pivot_r1','pivot_s1','pe_gap','pe_gATR','pe_status','pe_valid','pe_chT1','pe_chT2','track_btn']),
   momentum: new Set(['symbol','stage','sat_signal','archetypeType','confluenceScore','brain','ucScore','pcaScore','monster','candleDNA','momentumScore','emaAligned','higherLow','volDryUp','obvSlope','adx14','gapRR','rsNifty','clenow','ultraPrecisionScore','volatilityExpansionRatio','volRatio20']),
@@ -1966,6 +1993,20 @@ function HomePageInner() {
         freshCandleMap[result.symbol] = sliced;
         // Keep full history for post-scan cluster breakdown (not in React state — GC'd after scan)
         freshFullCandleMap[result.symbol] = candles;
+        // Attach ML overlay scores (computed once per scan, stored on result)
+        result.xgbScore = inferXgbScore({
+          vol_ratio_20: result.exactVolRatio20,
+          close_loc: result.closeLoc,
+          body_pct: result.bodyPct,
+          rsi2: result.rsi2,
+          range_atr: result.exactRangeATR14,
+          zone_len: result.zone?.windowLength,
+          zone_tightness: result.zone?.zoneTightnessPct,
+          vol_accel: result.exactVolVsPre5,
+          near_breakout_tier_enc: result.priceEngine.breakoutTier === 'A+' ? 2 : result.priceEngine.breakoutTier === 'A' ? 1 : 0,
+          archetype_enc: ARCH_ENC[result.archetypeType ?? ''] ?? -1,
+        });
+        result.survivalLabel = formatSurvivalLabel(result.archetypeType);
         newResults.push(result);
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {

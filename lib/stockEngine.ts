@@ -228,6 +228,9 @@ export interface AnalysisResult {
   ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable in Brain data
   ucStrong?: boolean;   // Vol>3x AND CL>75 AND RSI2>70 → ~68-72% actionable (triple-lock)
   ucElite?: boolean;    // Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → ~78% actionable (backtest n=27)
+  // ML overlay (computed once per scan, attached post-analysis)
+  xgbScore?: number | null;   // XGBoost P(hit_t1) 0-1, null when model not trained
+  survivalLabel?: string;     // KM "5d:38% · 10d:61%" per archetype
 }
 
 export interface CandleDNA {
