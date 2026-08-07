@@ -3521,13 +3521,15 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   let tSum = 0, vSum = 0;
   for (let i = tStart; i < endIdx; i++) { tSum += candles[i].c * candles[i].v; vSum += candles[i].v; }
   const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
-  if (turnover20 < tuned(key, 'minAvgTurnover20', 10_000_000)) return base;
+  // forensicMode: bypass — PBFB detects UC momentum regardless of liquidity
+  if (!_forensicMode && turnover20 < tuned(key, 'minAvgTurnover20', 10_000_000)) return base;
   const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
   const volRatioD1 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
 
   // ATR% gate
   const atrPct = sig.c > 0 ? atr14 / sig.c * 100 : 0;
-  if (atrPct < tuned(key, 'minAtrPct', 3.0) || atrPct > tuned(key, 'maxAtrPct', 20.0)) return base;
+  // forensicMode: bypass — detect CB pattern regardless of volatility band
+  if (!_forensicMode && (atrPct < tuned(key, 'minAtrPct', 3.0) || atrPct > tuned(key, 'maxAtrPct', 20.0))) return base;
 
   // Anti-pattern hard gates (OR 0.476, 0.508): flat/tight price or pure vol decline disqualifies
   if (n >= 5) {
@@ -3606,13 +3608,15 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   const conditionsMet = conditions.filter(Boolean).length;
 
   // Mandatory gates: c1 AND c2 must both pass (best pair OR=2.2)
-  if (!c1 || !c2) {
+  // forensicMode: require at least one of c1/c2 (not both must pass); live screener needs both
+  const mandatoryFail = _forensicMode ? (!c1 && !c2) : (!c1 || !c2);
+  if (mandatoryFail) {
     const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
     return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
 
-  // Require at least 5 of 8 conditions
-  if (conditionsMet < 5) {
+  // forensicMode: 4/8 conditions sufficient to enter scoring; live screener requires 5/8
+  if (conditionsMet < (_forensicMode ? 4 : 5)) {
     const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
     return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
@@ -4018,6 +4022,11 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       result.ucGoldmine = ucGoldmine;
       result.ucStrong   = ucStrong;
       result.ucElite    = ucElite;
+      // forensicMode: promote PRE_BREAKOUT with high ucScore to BUY
+      // Top feature lifts (Brain data): Wick≤25% (51×), CloseLoc≥70% (48×), Body≥45% (48×) — ucScore ≥65 captures these
+      if (forensicMode && result.stage === 'PRE_BREAKOUT' && ucScore >= 65) {
+        result.stage = 'BUY';
+      }
     } catch { /* keep undefined */ }
   }
 
