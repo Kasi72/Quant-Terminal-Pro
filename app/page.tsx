@@ -76,6 +76,8 @@ import {
   setOwnerToken, hasOwnerToken,
 } from '@/lib/tradeSync';
 import { inferXgbScore } from '@/lib/xgbInfer';
+import { inferUCXgb } from '@/lib/ucXgbInfer';
+import { calibrateUCScore } from '@/lib/ucCalibration';
 import { formatSurvivalLabel } from '@/lib/survivalInfer';
 import {
   computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
@@ -940,9 +942,10 @@ const COLUMNS: ColDef[] = [
       const st = (r as any).ucStrong  as boolean | undefined;
       const g  = (r as any).ucGoldmine as boolean | undefined;
       if (s == null) return '—';
-      if (el) return `${s} ⚡`;
-      if (st) return `${s} 🎯`;
-      return g ? `${s} 🏆` : String(s);
+      const prob = `${calibrateUCScore(s)}%`;
+      if (el) return `${prob} ⚡`;
+      if (st) return `${prob} 🎯`;
+      return g ? `${prob} 🏆` : prob;
     },
     numVal: r => (r as any).ucScore ?? 0,
     cellClass: r => {
@@ -2006,12 +2009,28 @@ function HomePageInner() {
           near_breakout_tier_enc: result.priceEngine.breakoutTier === 'A+' ? 2 : result.priceEngine.breakoutTier === 'A' ? 1 : 0,
           archetype_enc: ARCH_ENC[result.archetypeType ?? ''] ?? -1,
         });
+        // UC-specific XGB (hit_uc_proxy label); falls back to generic xgbScore while model null
+        const ucXgbPred = inferUCXgb({
+          vol_ratio_20: result.exactVolRatio20,
+          close_loc: result.closeLoc,
+          body_pct: result.bodyPct,
+          rsi2: result.rsi2,
+          range_atr: result.exactRangeATR14,
+          zone_len: result.zone?.windowLength,
+          zone_tightness: result.zone?.zoneTightnessPct,
+          vol_accel: result.exactVolVsPre5,
+          rsi2_velocity: (result as any).rsi2Velocity,
+          cl_trend: (result as any).clTrend,
+          near_breakout_tier_enc: result.priceEngine.breakoutTier === 'A+' ? 2 : result.priceEngine.breakoutTier === 'A' ? 1 : 0,
+          archetype_enc: ARCH_ENC[result.archetypeType ?? ''] ?? -1,
+        });
         result.survivalLabel = formatSurvivalLabel(result.archetypeType);
         // UC v4 blend: 60% formula (v3 + 4 new features) + 40% XGBoost
         // XGB brings non-linear feature interactions the weighted formula can't capture.
         // Re-evaluates NO_SIGNAL-derived stages (EARLY_INFLECTION / COMPRESSION_WATCH) with blended score.
-        if (result.xgbScore != null && result.ucScore != null) {
-          const blended = Math.round(Math.min(100, 0.6 * result.ucScore + 0.4 * result.xgbScore * 100));
+        const ucXgbSource = ucXgbPred ?? result.xgbScore;
+        if (ucXgbSource != null && result.ucScore != null) {
+          const blended = Math.round(Math.min(100, 0.6 * result.ucScore + 0.4 * ucXgbSource * 100));
           result.ucScore = blended;
           if (['NO_SIGNAL', 'EARLY_INFLECTION', 'COMPRESSION_WATCH'].includes(result.stage)) {
             result.stage = blended >= 65 ? 'EARLY_INFLECTION' : blended >= 45 ? 'COMPRESSION_WATCH' : 'NO_SIGNAL';
