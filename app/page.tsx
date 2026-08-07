@@ -509,9 +509,14 @@ const COLUMNS: ColDef[] = [
     numVal: r => computeConviction(r),
     cellClass: () => '' },
   { key: 'stage',     label: 'Stage',       width: 155, align: 'left',
-    headerTipHtml: '<div class="rt-hdr">Stage</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Zone-breakout classification: compression detected, then graded by how cleanly it broke out.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM Alert</span></div><div><div class="rt-desc">Independent of stage. The zone engine misses ~70% of real monster moves (PBFB forensic backtest, 3,102 events) because they\'re momentum-continuation on already-elevated-volatility stocks, not quiet compression. A 🚀MOM tag can appear on ANY stage, including NO_SIGNAL — it means a different, separately-validated pattern fired: Mom5≥7%, eRA≥1.2, Vol≥1.0x, ATR≥4.5%, above SMA50.</div><div class="rt-hit hit-green">50.9% OOS hit rate vs 35% baseline · ATR floor lowered from 5.0% to 4.5% via dedicated threshold sweep — same/better OOS rate, 2x+ more coverage · use the MOM Alert quick filter to surface all of these at once</div></div></div>',
+    headerTipHtml: '<div class="rt-hdr">Stage — Classification Logic</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">ULTRA STRONG BUY</span></div><div><div class="rt-desc">100% conditions met + score ≥ archetype ultraT threshold (88-85 depending on archetype). Rarest — full pattern + peak quality.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">STRONG BUY</span></div><div><div class="rt-desc">≥75% conditions met + score ≥62. Strong multi-condition confirmation.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">BUY</span></div><div><div class="rt-desc">≥60% conditions met + score ≥43. Core actionable signal. All validated OOS exits fire here.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">PRE_BREAKOUT</span></div><div><div class="rt-desc">≥45% conditions met + score ≥22. Setup forming — not yet tradeable but worth queuing.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">EARLY INFLECTION</span></div><div><div class="rt-desc">Either: ≥30% conditions met + score ≥10 (partial archetype pattern) OR ucScore ≥65 (trajectory synthesis: AUC 0.846, cl_trend d≈0.8+). Stock showing early momentum build-up before pattern crystallises.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">COMPRESSION WATCH</span></div><div><div class="rt-desc">Either: &lt;30% conditions + some score (very early pattern) OR ucScore ≥45 (compression-phase trajectory: volume stabilising, price consolidating). Watchlist candidate.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🚀 MOM Alert</span></div><div><div class="rt-desc">Independent of stage. A 🚀MOM tag can appear on ANY stage, including NO_SIGNAL — Mom5≥7%, eRA≥1.2, Vol≥1.0x, ATR≥4.5%, above SMA50.</div><div class="rt-hit hit-green">50.9% OOS hit rate vs 35% baseline · use MOM Alert quick filter to surface all of these</div></div></div>',
     fmt: r => {
       const hasMom = !!r.monster?.badges?.some(b => b.type === 'MOM');
       const isElite = r.stage === 'STRONG_BUY' && r.paramSetKey === 'optimized_highprecision_15plus';
