@@ -60,7 +60,12 @@ _csv_cache: dict[str, pd.DataFrame] = {}
 def load_csv(symbol: str) -> pd.DataFrame | None:
     if symbol in _csv_cache:
         return _csv_cache[symbol]
-    candidates = list(CSV_DIR.glob(f"{symbol}.csv")) + list(CSV_DIR.glob(f"{symbol}_*.csv"))
+    stem = symbol.replace(".", "_")
+    candidates = (
+        list(CSV_DIR.glob(f"{stem}_OHLCV.csv")) +
+        list(CSV_DIR.glob(f"{stem}.csv")) +
+        list(CSV_DIR.glob(f"{stem}_*.csv"))
+    )
     if not candidates:
         return None
     df = pd.read_csv(candidates[0])
