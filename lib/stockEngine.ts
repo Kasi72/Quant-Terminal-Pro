@@ -3953,8 +3953,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       }
 
       // Round 5 / practical derived fields — bodyGate, bullPoolSignal, regimeSignal,
-      // tradePromoted. Deployable and Sniper remain scanner/watchlist-only until a
-      // cost-aware OOS retune clears PF>1.2 and positive expectancy.
+      // tradePromoted. Only CB (circuit_breaker_v2) is watchlist-only; all 5 archetypes
+      // (VF/CC/MP/EMA/SNIPER) are active with validated OOS exits as of 2026-08-07.
       result.bodyGate = body >= 35;
       if (WATCHLIST_ONLY_PARAM_SETS.has(paramSetKey)) {
         result.tradePromoted = false;
