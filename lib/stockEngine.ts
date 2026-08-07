@@ -1427,22 +1427,54 @@ function computeInflectionScore(
 // Phase-3: per-archetype ULTRA thresholds via expectancy maximization + bootstrap CI (22K signals, 60 stocks).
 // E = WR×5% − SLrate×7.5%. Bootstrap 95% CI: CC=[62.2–72.1%], VF=[56.0–72.8%], MP=[57.9–67.1%], EMA=[62.7–81.9%]
 const ARCH_ULTRA: Record<string, number> = {
-  CompressionCoil:  84,  // WR 67.4% @ n=315 — lowered from 86 to include more confirmed setups at same rate
-  VolumeFootprint:  98,  // WR 64.8% @ n=125 — high bar; VF score distribution peaks at very high values
-  MomentumPocket:   99,  // WR 62.4% @ n=404 — tight bar eliminates many marginal MP signals
-  EMAStack:         99,  // WR 72.3% @ n=83  — biggest gain (+11.6pp); EMA99 only fires on cleanest breakouts
-  CircuitBreaker:   72,  // Discovery archetype — lower bar, prediction task not historical P&L archetype
+  CompressionCoil:  84,  // WR 67.4% @ n=315
+  VolumeFootprint:  88,  // 98→88: score peaks high; 88 = achievable top-tier VF (was 98 = ~0 ULTRA signals)
+  MomentumPocket:   85,  // 99→85: 99 produced ~0 ULTRA; 85 = top-tier MP setup
+  EMAStack:         85,  // 99→85: same rationale; EMA still selective via pre-screen gates
+  CircuitBreaker:   72,  // Discovery archetype — lower bar, case-control model not P&L archetype
 };
 
+// Total condition count per archetype — used to normalize capRank to % of total
+const ARCH_TOTAL: Record<string, number> = {
+  CompressionCoil: 6,
+  VolumeFootprint: 6,
+  MomentumPocket:  6,
+  EMAStack:        6,
+  CircuitBreaker:  8,
+};
+
+// archetypeStage v2: %-normalized thresholds, full 7-stage spectrum.
+// Both condition% AND score must qualify — min(capRank, scoreRank) gates the stage.
+// ARCH_TOTAL normalises CB (8 conds) to the same scale as 6-condition archetypes.
 function archetypeStage(conditionsMet: number, score: number, arch?: string): StageRating {
+  const total  = (arch !== undefined && ARCH_TOTAL[arch] !== undefined) ? ARCH_TOTAL[arch] : 6;
   const ultraT = (arch !== undefined && ARCH_ULTRA[arch] !== undefined) ? ARCH_ULTRA[arch] : 86;
-  const capRank = conditionsMet >= 6 ? 3 : conditionsMet === 5 ? 2 : conditionsMet === 4 ? 1 : 0;
-  const scoreRank = score >= ultraT ? 3 : score >= 62 ? 2 : score >= 43 ? 1 : 0;
+  const pct    = total > 0 ? conditionsMet / total : 0;
+
+  // Condition ceiling: % of total conditions met gates the highest achievable stage
+  const capRank = pct >= 1.00 ? 4   // 100% conditions → ULTRA_STRONG_BUY ceiling
+                : pct >= 0.75 ? 3   // ≥75% → STRONG_BUY ceiling
+                : pct >= 0.60 ? 2   // ≥60% → BUY ceiling
+                : pct >= 0.45 ? 1   // ≥45% → PRE_BREAKOUT ceiling
+                : pct >= 0.30 ? 0   // ≥30% → EARLY_INFLECTION ceiling
+                : -1;               // <30% → COMPRESSION_WATCH ceiling
+
+  // Score ceiling: signal quality gates the highest achievable stage
+  const scoreRank = score >= ultraT ? 4
+                  : score >= 62     ? 3
+                  : score >= 43     ? 2
+                  : score >= 22     ? 1
+                  : score >= 10     ? 0
+                  : -1;
+
   const rank = Math.min(capRank, scoreRank);
-  return rank === 3 ? 'ULTRA_STRONG_BUY'
-    : rank === 2 ? 'STRONG_BUY'
-    : rank === 1 ? 'BUY'
-    : 'PRE_BREAKOUT';
+
+  return rank >= 4 ? 'ULTRA_STRONG_BUY'
+       : rank === 3 ? 'STRONG_BUY'
+       : rank === 2 ? 'BUY'
+       : rank === 1 ? 'PRE_BREAKOUT'
+       : rank === 0 ? 'EARLY_INFLECTION'
+       : 'COMPRESSION_WATCH';
 }
 
 // ─── BUILD NULL PRICE ENGINE ──────────────────────────────────────────────────
@@ -2887,7 +2919,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const conditionsMet = passed.filter(Boolean).length;
 
   const tuning = { ...tech, volRatio20, closeLoc, upperWickPct: ca.upperWickPct, hi20Frac: hi20 > 0 ? sig.c / hi20 : 0, rangeATR: exactRangeATR14, gapDownPct: prevClose > 0 ? (sig.o / prevClose - 1) * 100 : 0, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc, adx: adxVal, conditions: passed.map(Boolean) };
-  if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
+  if (conditionsMet < 1) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, exactVolRatio20: volRatio20, closeLoc, exactRangeATR14, archetypeType: 'VolumeFootprint', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
   // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
   // c1 (volume ≥3.7×) top predictor (+7.7% WR delta) → 43 pts; c4 (range expansion) strong (+6.4%) → 21 pts
@@ -3053,7 +3085,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   const conditionsMet = passed.filter(Boolean).length;
   const tuning = { ...tech, compressionBars, volDeclineDays, pricePos20, bbWidthPctl, rangeATR: exactRangeATR14, isGreen: ca.isGreen, closeLoc: ca.closeLoc, bodyPct: ca.bodyPct, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscCC, adx: adxVal, conditions: passed.map(Boolean) };
 
-  if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
+  if (conditionsMet < 1) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'CompressionCoil', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
   // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
   // c3 (price in upper 41% of 20d range) is top predictor (+4.0% WR delta) → 49 pts
@@ -3199,7 +3231,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   const conditionsMet = passed.filter(Boolean).length;
   const tuning = { ...tech, dd52W, stabilizationBars, closeLoc, bodyPct, upperWickPct: ca.upperWickPct, isGreen: ca.isGreen, hammer: ca.isHammer, volRatio20, rsi14, candleRisk: ca.candleRisk, diBull: diPlusV > diMinusV, bsc: bscMP, adx: adxVal, conditions: passed.map(Boolean) };
 
-  if (conditionsMet < 3) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
+  if (conditionsMet < 2) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
   // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
   // c5 (volume ≥1.5×) top predictor (+3.1% WR delta) → 39 pts; c6 (DI+>DI-) strong (+2.4%) → 25 pts
@@ -3616,7 +3648,7 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   }
 
   // forensicMode: 4/8 conditions sufficient to enter scoring; live screener requires 5/8
-  if (conditionsMet < (_forensicMode ? 4 : 5)) {
+  if (conditionsMet < (_forensicMode ? 4 : 3)) {
     const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
     return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
