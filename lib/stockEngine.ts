@@ -3,6 +3,7 @@
 
 import { computeStatsFeatures, computeBayesianProb, type StatsFeatures } from './statsEngine';
 import { computeAdvancedFeatures, type AdvancedFeatures } from './advancedEngine';
+import { UC_SCORE_WEIGHTS as W } from './ucScoreWeights';
 export type { AdvancedFeatures };
 
 // ── Memoization caches for expensive O(N) indicator computations ────────────────
@@ -3728,36 +3729,33 @@ function computeUCScore(
   nearBreakoutTier?: string | null,   // 'A+' | 'A' | 'B' — price coiled near resistance
   archetypeType?: string | null,      // pattern type — VF/MP/CC have highest UC rates
 ): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean } {
-  // v4 weights — v3 grid-search base (AUC 0.846) + 4 new features from XGB importance analysis
-  //   base: cl=22@40, rsi=16@30, rng=5, bp=5, vol3=12, vol2=5
-  //   new:  zoneTightness=6, volAccel=5, nearBrkTier=5, archetypeBonus=4
-  const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * 22;  // [40, 92]
-  const rsiComp = Math.min(1, Math.max(0, (rsi2      - 30) / 70)) * 16;  // [30, 100]
+  // Weights sourced from lib/ucScoreWeights.ts — auto-updated monthly by scripts/uc_precision_analysis.js
+  const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * W.closeLoc_pts;  // [40, 92]
+  const rsiComp = Math.min(1, Math.max(0, (rsi2      - 30) / 70)) * W.rsi2_pts;      // [30, 100]
   const cltComp = clTrend != null
-    ? Math.min(1, Math.max(0, (clTrend      + 39) / 85)) * 18             // [-39, 46]
-    : 9;   // neutral half-weight when candle history < 3 bars
+    ? Math.min(1, Math.max(0, (clTrend      + 39) / 85)) * W.clTrend_pts             // [-39, 46]
+    : W.clTrend_neutral;
   const rsvComp = rsi2Velocity != null
-    ? Math.min(1, Math.max(0, (rsi2Velocity + 36) / 83)) * 13             // [-36, 47]
-    : 6;   // neutral half-weight when rsi2Velocity unavailable
-  const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 1.2)) * 5; // [0.5, 1.7]
-  const bPComp  = Math.min(1, Math.max(0, (bodyPct    - 15)  / 56))   * 5; // [15, 71]
+    ? Math.min(1, Math.max(0, (rsi2Velocity + 36) / 83)) * W.rsi2Vel_pts             // [-36, 47]
+    : W.rsi2Vel_neutral;
+  const rngComp = Math.min(1, Math.max(0, (rangeATR14 - 0.5) / 1.2)) * W.rangeATR_pts; // [0.5, 1.7]
+  const bPComp  = Math.min(1, Math.max(0, (bodyPct    - 15)  / 56))   * W.bodyPct_pts;  // [15, 71]
   const volMax   = Math.max(volRatio20, volPre5 ?? 0);
-  const volBonus = volMax >= 3.5 ? 12 : volMax >= 3.0 ? 12 : volMax >= 2.0 ? 5 : volMax >= 1.5 ? 2 : 0;
+  const volBonus = volMax >= 3.5 ? W.volBonus_3x5 : volMax >= 3.0 ? W.volBonus_3x5
+    : volMax >= 2.0 ? W.volBonus_2x : volMax >= 1.5 ? W.volBonus_1x5 : 0;
   // Zone tightness: XGB split points cluster at 5.47, 6.74, 8.02 — below 5 = very tight coil
   const ztComp = zoneTightness != null
-    ? Math.min(1, Math.max(0, (8.0 - zoneTightness) / 6.0)) * 6
-    : 3;  // neutral half-weight when no zone detected
+    ? Math.min(1, Math.max(0, (8.0 - zoneTightness) / 6.0)) * W.zoneTight_pts
+    : W.zoneTight_neutral;
   // Vol acceleration: smooth discriminator for 1.5–3x vol range beyond the step-function gate
   const vaComp = volAccel != null
-    ? Math.min(1, Math.max(0, (volAccel - 0.8) / 2.2)) * 5
-    : 2.5;  // neutral half-weight
-  // Near-breakout tier: price coiled at resistance = UC coil ready to release
-  const nbtComp = nearBreakoutTier === 'A+' ? 5 : nearBreakoutTier === 'A' ? 2.5 : 0;
-  // Archetype bonus: survival d5 rates — VF=100%, MP=94%, CC=94% (from KM analysis 2026-08-07)
-  const archComp = archetypeType === 'VolumeFootprint' ? 4
-    : archetypeType === 'MomentumPocket' ? 3
-    : archetypeType === 'CompressionCoil' ? 2
-    : archetypeType ? 1
+    ? Math.min(1, Math.max(0, (volAccel - 0.8) / 2.2)) * W.volAccel_pts
+    : W.volAccel_neutral;
+  const nbtComp = nearBreakoutTier === 'A+' ? W.nearBrkAPlus_pts : nearBreakoutTier === 'A' ? W.nearBrkA_pts : 0;
+  const archComp = archetypeType === 'VolumeFootprint' ? W.archVF_pts
+    : archetypeType === 'MomentumPocket' ? W.archMP_pts
+    : archetypeType === 'CompressionCoil' ? W.archCC_pts
+    : archetypeType ? W.archOther_pts
     : 0;
   const ucScore = Math.round(Math.min(100,
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus

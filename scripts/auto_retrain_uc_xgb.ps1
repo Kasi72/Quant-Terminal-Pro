@@ -51,19 +51,32 @@ if ($auc -gt 0 -and $auc -lt 0.52) {
 }
 
 # ------------------------------------------------------------------
-# 2. Stage updated TS weight files
+# 2. Run UC precision analysis — updates formula weights from labeled data
 # ------------------------------------------------------------------
-git add lib\ucXgbWeights.ts lib\ucCalibration.ts
+Log "Running UC precision analysis (Cohen's d weight recalibration)..."
+$node = (Get-Command node -ErrorAction SilentlyContinue)?.Source ?? "node"
+$precisionOut = & $node "$Root\scripts\uc_precision_analysis.js" --apply 2>&1
+$precisionOut | ForEach-Object { Log $_ }
+if ($LASTEXITCODE -eq 0) {
+    Log "ucScoreWeights.ts updated from precision analysis."
+} else {
+    Log "WARN: uc_precision_analysis.js exited $LASTEXITCODE — may be insufficient labeled data. Continuing with existing weights."
+}
+
+# ------------------------------------------------------------------
+# 3. Stage updated TS weight files
+# ------------------------------------------------------------------
+git add lib\ucXgbWeights.ts lib\ucCalibration.ts lib\ucScoreWeights.ts
 if ($LASTEXITCODE -ne 0) { Log "ERROR: git add failed."; exit 1 }
 
-$gitStatus = git status --short lib\ucXgbWeights.ts lib\ucCalibration.ts
+$gitStatus = git status --short lib\ucXgbWeights.ts lib\ucCalibration.ts lib\ucScoreWeights.ts
 if (-not $gitStatus) {
     Log "No changes in weight files -- model output identical to last commit. Skipping commit+deploy."
     exit 0
 }
 
 # ------------------------------------------------------------------
-# 3. Commit
+# 4. Commit
 # ------------------------------------------------------------------
 $today = (Get-Date).ToString("yyyy-MM-dd")
 $msg   = "chore: auto-retrain UC-XGBoost $today (AUC=$auc)"
@@ -72,14 +85,14 @@ if ($LASTEXITCODE -ne 0) { Log "ERROR: git commit failed."; exit 1 }
 Log "Committed: $msg"
 
 # ------------------------------------------------------------------
-# 4. Push
+# 5. Push
 # ------------------------------------------------------------------
 git push
 if ($LASTEXITCODE -ne 0) { Log "ERROR: git push failed."; exit 1 }
 Log "Pushed to remote."
 
 # ------------------------------------------------------------------
-# 5. Vercel deploy
+# 6. Vercel deploy
 # ------------------------------------------------------------------
 Log "Starting Vercel deploy..."
 $deployOut = vercel deploy --prod --yes 2>&1

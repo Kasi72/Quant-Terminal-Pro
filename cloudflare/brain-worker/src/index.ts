@@ -68,6 +68,8 @@ interface EventRow {
   vol_accel: number | null;      // vol_ratio_20[D-1] / vol_ratio_20[D-3]
   rsi2_velocity: number | null;  // rsi2[D-1] - rsi2[D-3]
   cl_trend: number | null;       // close_loc[D-1] - close_loc[D-3]
+  hit_t1: boolean | null;        // reached +8% within 20 trading days (forward label)
+  outcome_pct_20d: number | null;
 }
 
 interface TrajectoryFeatures {
@@ -348,7 +350,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape,vol_accel,rsi2_velocity,cl_trend&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
+    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape,vol_accel,rsi2_velocity,cl_trend,hit_t1,outcome_pct_20d&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
   ) as EventRow[];
 
   // Compute & persist trajectory for rows that don't have it yet, then update in-memory rows
@@ -367,6 +369,8 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
         near_breakout_tier: r.near_breakout_tier ?? null,
         archetype_type:     r.archetype_type     ?? null,
         zone_shape:         r.zone_shape         ?? null,
+        hit_t1:             r.hit_t1             ?? null,
+        hit_uc_proxy:       (r.hit_t1 === true && typeof r.outcome_pct_20d === 'number' && r.outcome_pct_20d > 20) ? true : (r.hit_t1 !== null ? false : null),
       },
     })));
     ingested += chunk.length;
@@ -380,7 +384,13 @@ async function similar(env: Env, features: EventFeatures, topK: number, shape?: 
     topK: Math.min(Math.max(topK, 1), 20),
     returnMetadata: 'all',
   });
-  const actionable = matches.filter(m => m.metadata?.classification === 'actionable').length;
+  // Prefer forward label (hit_uc_proxy) when available; fall back to classification proxy.
+  // hit_uc_proxy is stored in metadata after 2026-08-08 (requires labeling cron to run).
+  const labeled = matches.filter(m => m.metadata?.hit_uc_proxy !== null && m.metadata?.hit_uc_proxy !== undefined);
+  const actionable = labeled.length > 0
+    ? labeled.filter(m => m.metadata?.hit_uc_proxy === true).length
+    : matches.filter(m => m.metadata?.classification === 'actionable').length;
+  const denominator = labeled.length > 0 ? labeled.length : matches.length;
   return {
     matches: matches.map(m => ({
       score: Math.round(m.score * 1000) / 1000,
@@ -390,8 +400,10 @@ async function similar(env: Env, features: EventFeatures, topK: number, shape?: 
       bestParamSet: m.metadata?.best_param_set ?? null,
       classification: m.metadata?.classification ?? null,
       movePct: m.metadata?.move_pct ?? null,
+      hitUCProxy: m.metadata?.hit_uc_proxy ?? null,
     })),
-    neighborHitRate: matches.length > 0 ? actionable / matches.length : null,
+    neighborHitRate: denominator > 0 ? actionable / denominator : null,
+    labelSource: labeled.length > 0 ? 'hit_uc_proxy' : 'classification',
   };
 }
 

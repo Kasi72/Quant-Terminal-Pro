@@ -1928,6 +1928,13 @@ function HomePageInner() {
         } catch {}
       }
     }
+    // Item 7: Nifty 5d regime gate — bull market boosts UC probability, bear dampens it
+    let niftyRegimeMult = 1.0;
+    if (niftyData && niftyData.length >= 6) {
+      const nc = niftyData;
+      const ret5d = (nc[nc.length - 1].c - nc[nc.length - 6].c) / nc[nc.length - 6].c * 100;
+      niftyRegimeMult = ret5d > 2 ? 1.10 : ret5d < -2 ? 0.85 : 1.0;
+    }
     // Start ETA clock only after the Nifty/VIX prefetch — otherwise those 3-5s inflate perStock estimate
     setScanStartTime(Date.now());
 
@@ -2036,6 +2043,10 @@ function HomePageInner() {
             result.stage = blended >= 65 ? 'EARLY_INFLECTION' : blended >= 45 ? 'COMPRESSION_WATCH' : 'NO_SIGNAL';
           }
         }
+        // Item 7: apply Nifty market regime multiplier after formula+XGB blend
+        if (niftyRegimeMult !== 1.0 && result.ucScore != null) {
+          result.ucScore = Math.min(100, Math.round(result.ucScore * niftyRegimeMult));
+        }
         newResults.push(result);
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
@@ -2141,6 +2152,55 @@ function HomePageInner() {
     } catch {
       setBulkFlowMap({});
       setBulkHealth(null);
+    }
+    // Item 5: Brain Vectorize similarity — batch-fetch neighborHitRate for BUY signals
+    // Re-blends ucScore with instance-based "stocks with similar D-1 fingerprints hit UC at X% rate".
+    const buySigsForBrain = newResults.filter(r =>
+      ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.ucScore != null
+    ).slice(0, 30);
+    if (buySigsForBrain.length > 0 && !abortRef.current) {
+      const BRAIN_BATCH = 5;
+      for (let bi = 0; bi < buySigsForBrain.length; bi += BRAIN_BATCH) {
+        if (abortRef.current) break;
+        const chunk = buySigsForBrain.slice(bi, bi + BRAIN_BATCH);
+        await Promise.allSettled(chunk.map(async r => {
+          try {
+            const res = await fetch('/api/brain-similar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                features: {
+                  closeLoc:      r.closeLoc      ?? 50,
+                  bodyPct:       r.bodyPct       ?? 30,
+                  upperWickPct:  r.upperWickPct  ?? 10,
+                  volRatio20:    r.exactVolRatio20 ?? (r as any).volRatio20 ?? 1,
+                  volPre5:       r.exactVolVsPre5  ?? 1,
+                  rangeATR:      r.exactRangeATR14 ?? 1,
+                  rsi2:          r.rsi2          ?? 50,
+                  zoneLen:       r.zone?.windowLength     ?? 0,
+                  zoneTightness: r.zone?.zoneTightnessPct ?? 0,
+                },
+                topK: 10,
+              }),
+              signal: AbortSignal.timeout(8_000),
+            });
+            if (res.ok) {
+              const data = await res.json() as { neighborHitRate: number | null };
+              if (data.neighborHitRate != null) {
+                (r as any).neighborHitRate = data.neighborHitRate;
+                // 75% score-based + 25% instance-based neighbor hit rate
+                r.ucScore = Math.min(100, Math.round(
+                  0.75 * (r.ucScore ?? 0) + 0.25 * data.neighborHitRate * 100
+                ));
+              }
+            }
+          } catch { /* non-fatal — brain worker may be cold or unavailable */ }
+        }));
+        if (bi + BRAIN_BATCH < buySigsForBrain.length) {
+          await new Promise<void>(resolve => setTimeout(resolve, 200));
+        }
+      }
+      if (!abortRef.current) setResults([...newResults]);
     }
     // Sprint 5: shadow validation log — save per-scan flow snapshot to localStorage
     try {
