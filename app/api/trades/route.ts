@@ -15,6 +15,16 @@ async function requireAuth(req: NextRequest): Promise<NextResponse | null> {
     : NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
 
+async function requireOwnerToken(req: NextRequest): Promise<NextResponse | null> {
+  const ownerToken = process.env.OWNER_TOKEN;
+  if (!ownerToken) return null; // not configured — no restriction
+  const provided = req.headers.get('x-owner-token') ?? '';
+  if (provided !== ownerToken) {
+    return NextResponse.json({ error: 'Owner token required' }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const denied = await requireAuth(req);
   if (denied) return denied;
@@ -33,6 +43,8 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const denied = await requireAuth(req);
   if (denied) return denied;
+  const ownerDenied = await requireOwnerToken(req);
+  if (ownerDenied) return ownerDenied;
 
   const declaredLength = Number(req.headers.get('content-length') ?? 0);
   if (declaredLength > MAX_BODY_BYTES) {
@@ -71,6 +83,8 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const denied = await requireAuth(req);
   if (denied) return denied;
+  const ownerDenied = await requireOwnerToken(req);
+  if (ownerDenied) return ownerDenied;
 
   const symbol = req.nextUrl.searchParams.get('symbol');
   const db = getServiceClient();

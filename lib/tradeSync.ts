@@ -4,6 +4,19 @@ import { isPlausibleTrade } from './tradeCodec';
 const LS_KEY = 'qtp_tracked_trades';
 const LS_BACKUP = 'qtp_tracked_trades_backup';
 const LS_EMERGENCY = 'qtp_tracked_trades_emergency'; // restored: triple-redundancy
+const LS_OWNER_TOKEN = 'qtp_owner_token';
+
+function getOwnerToken(): string {
+  try { return localStorage.getItem(LS_OWNER_TOKEN) ?? ''; } catch { return ''; }
+}
+
+export function setOwnerToken(token: string): void {
+  try { localStorage.setItem(LS_OWNER_TOKEN, token); } catch {}
+}
+
+export function hasOwnerToken(): boolean {
+  return getOwnerToken().length > 0;
+}
 
 // ─── Load ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +82,7 @@ export async function syncTradesToCloud(trades: TrackedTrade[]): Promise<void> {
       _pendingTrades = null;
       const res = await fetch('/api/trades', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Token': getOwnerToken() },
         body: JSON.stringify({ trades: batch }),
       });
       if (!res.ok) {
@@ -95,7 +108,7 @@ async function waitForSyncIdle(): Promise<void> {
 // Delete one trade from cloud
 export async function deleteTradeFromCloud(symbol: string): Promise<void> {
   try {
-    const res = await fetch(`/api/trades?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/trades?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
     if (!res.ok) {
       const body = await res.json().catch(() => ({} as { error?: string }));
       console.error('[tradeSync] delete failed:', symbol, body.error ?? res.statusText);
@@ -110,7 +123,7 @@ export async function deleteAllTradesFromCloud(): Promise<void> {
   // Serialize behind any in-flight upsert; otherwise an older PUT can recreate
   // rows after this DELETE has completed.
   await waitForSyncIdle();
-  const res = await fetch('/api/trades', { method: 'DELETE' });
+  const res = await fetch('/api/trades', { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
   if (!res.ok) {
     const body = await res.json().catch(() => ({} as { error?: string }));
     throw new Error(body.error ?? res.statusText);

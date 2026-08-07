@@ -73,6 +73,7 @@ import {
 import {
   loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
   deleteTradeFromCloud, deleteAllTradesFromCloud,
+  setOwnerToken, hasOwnerToken,
 } from '@/lib/tradeSync';
 import {
   computeConviction, getSectorTag, computeScanStats, generateJournalMarkdown,
@@ -1590,6 +1591,7 @@ function HomePageInner() {
   trackedTradesRef.current = trackedTrades;
   const [showTracker, setShowTracker] = useState(false);
   const [autoTrackCount, setAutoTrackCount] = useState(0);
+  const [isOwner, setIsOwner] = useState(false);
   // Trade daily log
   const [logSymbol, setLogSymbol] = useState<string | null>(null);
   type DailyLogRow = { date: string; open: number; high: number; low: number; close: number; day_num: number; mfe_pct: number; mae_pct: number; event_type: string | null; event_detail: string | null };
@@ -1692,6 +1694,8 @@ function HomePageInner() {
         syncTradesToCloud(healed);
       }
     };
+
+    setIsOwner(hasOwnerToken());
 
     // Cloud-first load. null=error (use localStorage), []=healthy empty, [...]=use cloud.
     loadTradesFromCloud().then(cloudTrades => {
@@ -3500,6 +3504,16 @@ function HomePageInner() {
           <button onClick={() => setShowTracker(v => !v)} data-tip="Win rate tracker — shows open positions, P&L, and trading statistics" data-tip-color="green"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showTracker ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             📊 {trackedTrades.length > 0 ? `${winStats.winRate.toFixed(0)}% 5%WR (${winStats.wins}W/${winStats.losses}L · ${winStats.open} open)` : 'WR'}</button>
+          <button
+            onClick={() => {
+              const t = window.prompt(isOwner ? 'Update owner token (leave blank to clear):' : 'Enter owner token to enable tracking:') ?? '';
+              if (t === '' && isOwner) { setOwnerToken(''); setIsOwner(false); }
+              else if (t) { setOwnerToken(t); setIsOwner(true); }
+            }}
+            data-tip={isOwner ? 'Owner mode active — you can track stocks' : 'View-only mode — enter owner token to track'}
+            className={`h-7 w-7 rounded text-[13px] border transition-colors ${isOwner ? 'bg-emerald-900/40 border-emerald-700 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-600 hover:text-slate-400'}`}>
+            {isOwner ? '🔒' : '🔓'}
+          </button>
           <button onClick={() => setShowSessions(v => !v)} data-tip="Saved scan sessions — compare, export, import historical scans" data-tip-color="blue"
             className={`h-7 px-2 rounded text-[11px] font-medium border transition-colors ${showSessions ? 'bg-blue-900/50 border-blue-600 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
             💾 {sessions.length || '—'}</button>
