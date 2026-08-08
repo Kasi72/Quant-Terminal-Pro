@@ -451,13 +451,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     name: 'Volume Footprint Scout', tag: '📊 Institutional Buying',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
     maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 6.0,   // v2: 12→6 (tighter zone)
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.90,
     maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
-    minCloseLoc: 68, maxUpperWickPct: 25, minBodyPct: 50, maxCandleRisk: 10.0,
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 5.0,                                        // v2: vr20 1.5→2.5, vp5 2.0→5.0
+    minCloseLoc: 68, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0,              // v2: wick 25→18, body 50→65
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 6.0,
@@ -476,13 +476,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     name: 'Compression Coil', tag: '🔄 Energy Storage',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
     maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 5, maxZoneLen: 25, maxZoneTightnessPct: 5.0,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 10, maxZoneLen: 25, maxZoneTightnessPct: 7.0,  // v2: minZone 5→10, tight 5→7
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.1, minExactVolVsPre5: 2.0,
-    minCloseLoc: 65, maxUpperWickPct: 40, minBodyPct: 25, maxCandleRisk: 11.0,
+    minExactVolRatio20: 2.0, minExactVolVsPre5: 2.0,                                        // v2: vr20 1.1→2.0
+    minCloseLoc: 65, maxUpperWickPct: 22, minBodyPct: 35, maxCandleRisk: 11.0,              // v2: wick 40→22, body 25→35
     minUltraPrecisionScore: 50, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: 4.0,
@@ -522,13 +522,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
     maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 15.0,
+    zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,  // v2: tight 15→12
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
     maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
-    minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5,
-    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 25, maxCandleRisk: 10.0,
+    minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5,                                         // v2: unchanged
+    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 55, maxCandleRisk: 10.0,               // v2: wick 35→30, body 25→55
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
@@ -585,13 +585,13 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     name: 'Perfect Storm', tag: '⚡ Multi-Archetype',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
     maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,   // v2: unchanged
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 1.5, minExactVolVsPre5: 2.0,
-    minCloseLoc: 65, maxUpperWickPct: 35, minBodyPct: 35, maxCandleRisk: 11.0,
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 3.0,                                         // v2: vr20 1.5→2.5, vp5 2.0→3.0
+    minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 55, maxCandleRisk: 11.0,               // v2: wick 35→25, body 35→55
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
@@ -858,12 +858,18 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   SNIPER: TP=5%/SL=5×ATR  — WR=77.7%, PF=5.25,  AvgPnL=+1.67%  (OOS n=372)
 //   EMA:    TP=3%/SL=5×ATR  — WR=78.1%, PF=6.02,  AvgPnL=+1.09%  (OOS n=32, ema_prescreen_tuner 2026-08-07)
 //   CC:     TP=5%/SL=5×ATR  — WR=67.3%, PF=4.10,  AvgPnL=+1.41%  (OOS n=257, cc_archetype_tuner 2026-08-07)
+// arch_optimizer_v2 (2026-08-08, 1415-stock universe, dual OOS 30%/40% split, 210 exit combos):
+//   VF:  TP=2%/SL=1.5×ATR/H≤12d — WR=92.9%, PF30=7.03, PF40=2.48, AvgPnL=+1.59% (OOS n=28)
+//   CC:  TP=2%/SL=2.0×ATR/H≤20d — WR=88.5%, PF30=7.05, PF40=2.20, AvgPnL=+1.52% (OOS n=26)
+//   PS:  TP=2%/SL=2.5×ATR/H≤8d  — WR=92.3%, PF30=9.53, PF40=2.09, AvgPnL=+1.62% (OOS n=52)
+//   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
+//   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
-  optimized_highprecision_15plus: { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
-  optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
-  optimized_ultraselective_8plus: { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },
-  sniper_95plus:                  { targetPct: 5,  slAtrMult: 5.0, maxHoldBars: 20 },
+  optimized_deployable_20plus:    { targetPct: 2,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v2: PF30=7.03 WR=92.9%
+  optimized_highprecision_15plus: { targetPct: 2,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: PF30=7.05 WR=88.5%
+  optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },  // MP: unchanged
+  optimized_ultraselective_8plus: { targetPct: 2,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: PF30=5.80 WR=93.3%
+  sniper_95plus:                  { targetPct: 2,  slAtrMult: 2.5, maxHoldBars: 8  },  // PS v2: PF30=9.53 WR=92.3%
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
