@@ -7404,7 +7404,12 @@ function HomePageInner() {
                         Trade Log ({(() => {
                           let r = all;
                           if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
-                          if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                          if (valFilter.status !== 'ALL') {
+                            if (valFilter.status === 'hit_5pct') r = r.filter(t => getTradeMfePct(t) >= 5);
+                            else if (valFilter.status === 'hit_7pct') r = r.filter(t => getTradeMfePct(t) >= 7);
+                            else if (valFilter.status === 'hit_10pct') r = r.filter(t => getTradeMfePct(t) >= 10);
+                            else r = r.filter(t => t.status === valFilter.status);
+                          }
                           return r.length;
                         })()} / {all.length})
                       </span>
@@ -7422,6 +7427,10 @@ function HomePageInner() {
                         <option value="expired">Expired</option>
                         <option value="manual_close">Manual Close</option>
                         <option value="closed_early">Closed Early</option>
+                        <option disabled value="">──────────</option>
+                        <option value="hit_5pct">≥5% MFE Hit</option>
+                        <option value="hit_7pct">≥7% MFE Hit</option>
+                        <option value="hit_10pct">≥10% MFE Hit</option>
                       </select>
                       {(valFilter.search || valFilter.status !== 'ALL') && (
                         <button onClick={() => setValFilter({status: 'ALL', search: ''})} className="text-xs text-slate-500 hover:text-slate-300 px-1">✕ Clear</button>
@@ -7464,13 +7473,23 @@ function HomePageInner() {
                                 checked={valSelected.size > 0 && (() => {
                                   let r = all;
                                   if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
-                                  if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                                  if (valFilter.status !== 'ALL') {
+                                    if (valFilter.status === 'hit_5pct') r = r.filter(t => getTradeMfePct(t) >= 5);
+                                    else if (valFilter.status === 'hit_7pct') r = r.filter(t => getTradeMfePct(t) >= 7);
+                                    else if (valFilter.status === 'hit_10pct') r = r.filter(t => getTradeMfePct(t) >= 10);
+                                    else r = r.filter(t => t.status === valFilter.status);
+                                  }
                                   return r.length > 0 && r.every(t => valSelected.has(`${t.symbol}_${t.entryDate ?? ''}`));
                                 })()}
                                 onChange={e => {
                                   let r = all;
                                   if (valFilter.search) r = r.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
-                                  if (valFilter.status !== 'ALL') r = r.filter(t => t.status === valFilter.status);
+                                  if (valFilter.status !== 'ALL') {
+                                    if (valFilter.status === 'hit_5pct') r = r.filter(t => getTradeMfePct(t) >= 5);
+                                    else if (valFilter.status === 'hit_7pct') r = r.filter(t => getTradeMfePct(t) >= 7);
+                                    else if (valFilter.status === 'hit_10pct') r = r.filter(t => getTradeMfePct(t) >= 10);
+                                    else r = r.filter(t => t.status === valFilter.status);
+                                  }
                                   if (e.target.checked) {
                                     setValSelected(prev => new Set([...prev, ...r.map(t => `${t.symbol}_${t.entryDate ?? ''}`)]))
                                   } else {
@@ -7519,7 +7538,12 @@ function HomePageInner() {
                             {(() => {
                               let rows = [...all];
                               if (valFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(valFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(valFilter.search.toLowerCase()));
-                              if (valFilter.status !== 'ALL') rows = rows.filter(t => t.status === valFilter.status);
+                              if (valFilter.status !== 'ALL') {
+                                if (valFilter.status === 'hit_5pct') rows = rows.filter(t => getTradeMfePct(t) >= 5);
+                                else if (valFilter.status === 'hit_7pct') rows = rows.filter(t => getTradeMfePct(t) >= 7);
+                                else if (valFilter.status === 'hit_10pct') rows = rows.filter(t => getTradeMfePct(t) >= 10);
+                                else rows = rows.filter(t => t.status === valFilter.status);
+                              }
                               rows.sort((a, b) => {
                                 const mult = valSort.dir === 'asc' ? 1 : -1;
                                 const pick = (t: TrackedTrade): number | string => {
