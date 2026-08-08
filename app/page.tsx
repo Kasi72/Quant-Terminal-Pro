@@ -519,9 +519,9 @@ const COLUMNS: ColDef[] = [
   { key: 'symbol',    label: 'Symbol',      width: 120, align: 'left',
     fmt: r => r.symbol,
     cellClass: () => 'text-slate-200 font-medium font-mono' },
-  { key: 'sector',    label: 'Sector',     width: 50, align: 'center',
-    fmt: r => getSectorTag(r.symbol),
-    cellClass: () => 'text-slate-500 text-xs' },
+  { key: 'sector',    label: 'Sector',     width: 55, align: 'center',
+    fmt: r => { const s = getSectorTag(r.symbol); return ['O&G','CEMENT','MTL'].includes(s) ? `⚠ ${s}` : s; },
+    cellClass: r => { const s = getSectorTag(r.symbol); return ['O&G','CEMENT','MTL'].includes(s) ? 'text-amber-400 text-xs font-semibold' : 'text-slate-500 text-xs'; } },
   { key: 'conviction', label: 'Conv', width: 60, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Conviction Score (0-100)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Composite score measuring how STRONG the breakout signal is. Combines breakout stage tier, inflection score, momentum quality, and confidence level.</div></div></div>'
@@ -2899,6 +2899,14 @@ function HomePageInner() {
       alert(`⛔ Entry blocked: ${r.symbol} is PRE_BREAKOUT + ATR Explosion + Conviction ${computeConviction(r)} < 60. High stop-out risk — not added.`);
       return;
     }
+    // No disaster stop: no hard floor means position can drift to 20-bar expiry
+    const dsVal = r.priceEngine.disasterStop;
+    const validDS = dsVal > 0 && dsVal < r.priceEngine.plannedEntry;
+    if (!validDS && !confirm(`⚠ ${r.symbol} has no disaster stop. Without a hard floor this position can drift for up to ${r.priceEngine.maxHoldBars ?? 20} bars and expire at a loss. Set a mental hard stop or reduce size. Continue?`)) return;
+    // Macro-sensitive sector soft warning (O&G/CEMENT/MTL: 0 wins in live log, n=4)
+    const MACRO_SECTORS = ['O&G', 'CEMENT', 'MTL'];
+    const entrySector = getSectorTag(r.symbol);
+    if (MACRO_SECTORS.includes(entrySector) && !confirm(`⚠ ${r.symbol} is in ${entrySector} — macro-sensitive sector (0 wins in live log). Valid in a rotation cycle; consider 0.5× size. Continue?`)) return;
     // Risk warning: check if adding this trade exceeds 5% total risk
     const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' && t.symbol !== r.symbol);
     // Each open trade risks 1% of account; new trade adds another 1%
@@ -2929,7 +2937,8 @@ function HomePageInner() {
       zoneExplosion: zeInfo || undefined,
       monsterBadge: monsterBadgeType || undefined,
       regimeAtEntry: marketRegime?.label || undefined,
-      sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : undefined,
+      // G9 gate needs sw5Low at entry; fall back to tactical stop when price engine didn't compute it
+      sw5LowAtEntry: r.priceEngine.sw5LowAtEntry > 0 ? r.priceEngine.sw5LowAtEntry : (r.priceEngine.tacticalStop > 0 ? r.priceEngine.tacticalStop : undefined),
       atr14AtEntry: r.priceEngine.atr14AtEntry > 0 ? r.priceEngine.atr14AtEntry : undefined,
       maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
