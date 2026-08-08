@@ -64,7 +64,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
-  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats,
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
@@ -408,6 +408,12 @@ function computeEdgeScore(r: AnalysisResult): number {
   // Stage tier bump: ensures tier order is preserved in top-picks ranking
   const stageTier = r.stage === 'ULTRA_STRONG_BUY' ? 6 : r.stage === 'STRONG_BUY' ? 4 : r.stage === 'BUY' ? 2 : 0;
   return Math.round(Math.min(stats + mom + zone + vol + atr + dna + monster + conv + inf + stageTier, 100));
+}
+
+// Surgical entry gate: PRE_BREAKOUT + ATR explosion + conviction < 60 = high stop-out risk.
+// Keeps AVADHSUGAR-class setups (conv≥60) while blocking CUB-class failures (conv<60).
+function isSurgicallyBlockedSignal(r: AnalysisResult): boolean {
+  return r.stage === 'PRE_BREAKOUT' && detectATRState(r).explosion && computeConviction(r) < 60;
 }
 
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
@@ -2811,6 +2817,9 @@ function HomePageInner() {
       ? (multiStageFilter.size > 0 ? results.filter(r => multiStageFilter.has(r.stage)) : results)
       : results.filter(r => r.stage === stageFilter);
 
+    // Surgical gate: suppress PRE_BREAKOUT + EXPLOSION + conviction<60 from display
+    rows = rows.filter(r => !isSurgicallyBlockedSignal(r));
+
     // Quick filter (#8)
     if (quickFilter !== 'all') {
       const qf = QUICK_FILTERS.find(f => f.key === quickFilter);
@@ -2873,7 +2882,7 @@ function HomePageInner() {
   const topPicks = useMemo(() => {
     const buySet = new Set<StageRating>(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
     return [...results]
-      .filter(r => buySet.has(r.stage))
+      .filter(r => buySet.has(r.stage) && !isSurgicallyBlockedSignal(r))
       .map(r => ({ r, score: computeEdgeScore(r) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
@@ -2885,6 +2894,11 @@ function HomePageInner() {
 
   // Track a trade (#2)
   function trackTrade(r: AnalysisResult) {
+    // Surgical gate: hard-reject before save — belt-and-suspenders after display filter
+    if (isSurgicallyBlockedSignal(r)) {
+      alert(`⛔ Entry blocked: ${r.symbol} is PRE_BREAKOUT + ATR Explosion + Conviction ${computeConviction(r)} < 60. High stop-out risk — not added.`);
+      return;
+    }
     // Risk warning: check if adding this trade exceeds 5% total risk
     const openTrades = trackedTradesRef.current.filter(t => t.status === 'open' && t.symbol !== r.symbol);
     // Each open trade risks 1% of account; new trade adds another 1%

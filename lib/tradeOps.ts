@@ -329,8 +329,14 @@ export function isTradeResolvedForWinRate(t: TrackedTrade): boolean {
   return didReachFivePctTarget(t) || isTerminalTrade(t);
 }
 
+// Surgical gate: PRE_BREAKOUT in ATR explosion with conviction < 60 → disproportionate stop-out risk.
+// Excluded from win-rate/PF analytics so metrics reflect only trades that passed entry criteria.
+export function isSurgicallyGateBlocked(t: Pick<TrackedTrade, 'stage' | 'atrState' | 'conviction'>): boolean {
+  return t.stage === 'PRE_BREAKOUT' && t.atrState === 'EXPLOSION' && (t.conviction ?? 100) < 60;
+}
+
 export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
-  const closed = trades.filter(isTradeResolvedForWinRate);
+  const closed = trades.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
   const wins = closed.filter(didReachFivePctTarget);
   const losses = closed.filter(t => !didReachFivePctTarget(t));
 
