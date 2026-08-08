@@ -1,3 +1,7 @@
+// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+// Proprietary and confidential. Unauthorised use or distribution is prohibited.
+// See LICENSE file in the project root for full licence terms.
+
 export interface NiftyPreset {
   key: string;
   label: string;

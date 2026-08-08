@@ -1,3 +1,7 @@
+// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+// Proprietary and confidential. Unauthorised use or distribution is prohibited.
+// See LICENSE file in the project root for full licence terms.
+
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo, Component, Fragment, type ReactNode } from 'react';
@@ -9817,7 +9821,7 @@ function HomePageInner() {
           )
         )}
         {autoRefresh && <span className="text-green-600">· ⟳ Auto 15m</span>}
-        <span className="ml-auto hidden sm:block">{scanAll ? `★ All ${PARAM_SET_OPTIONS.length} Sets` : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v9.0</span>
+        <span className="ml-auto hidden sm:block">{scanAll ? `★ All ${PARAM_SET_OPTIONS.length} Sets` : PARAM_SETS[paramSetKey].name} · Dr KKR Quant Terminal Pro v9.0 · © 2024–2026 Kasi Krishnaraja Paldurai</span>
       </footer>
     </main>
   );
