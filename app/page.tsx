@@ -4182,7 +4182,7 @@ function HomePageInner() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
             {filteredResults.filter(r => r.priceEngine.tradeValid).map(r => {
-              const riskPerShare = r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
+              const riskPerShare = r.priceEngine.riskPerShare > 0 ? r.priceEngine.riskPerShare : r.priceEngine.plannedEntry - r.priceEngine.tacticalStop;
               const maxRisk = accountSize * 0.01;
               const shares = riskPerShare > 0 ? Math.floor(maxRisk / riskPerShare) : 0;
               const position = shares * r.priceEngine.plannedEntry;
