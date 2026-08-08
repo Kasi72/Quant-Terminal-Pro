@@ -3080,8 +3080,8 @@ function HomePageInner() {
         e.preventDefault();
         setSelectedRowIdx(prev => { const next = Math.max(prev - 1, 0); setSelectedSymbol(filteredResults[next]?.symbol ?? null); return next; });
       }
-      if (e.key === 't' && selectedResult?.priceEngine.tradeValid) trackTrade(selectedResult);
-      if (e.key === 'w' && selectedResult) {
+      if (e.key === 't' && isOwner && selectedResult?.priceEngine.tradeValid) trackTrade(selectedResult);
+      if (e.key === 'w' && isOwner && selectedResult) {
         if (!watchlist.some(w => w.symbol === selectedResult.symbol)) {
           const item: WatchlistItem = { symbol: selectedResult.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: selectedResult.stage, lastClose: selectedResult.lastClose };
           const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated);
@@ -4628,7 +4628,7 @@ function HomePageInner() {
                             })()}
                           </td>
                           <td className="px-1 py-1.5 text-center">
-                            <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                            {isOwner && <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>}
                           </td>
                         </tr>
                         {gLog && gLog.length > 0 && (
@@ -4827,7 +4827,7 @@ function HomePageInner() {
                               })()}
                             </td>
                             <td className="px-1 py-1.5 text-center">
-                              <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                              {isOwner && <button onClick={() => removeTrade(t)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>}
                             </td>
                           </tr>
                           {cGLog && cGLog.length > 0 && (
@@ -6688,13 +6688,15 @@ function HomePageInner() {
                             )
                         }
                       </button>
-                      {/* Delete button — appears on hover */}
-                      <button
-                        onClick={e => { e.stopPropagation(); if (window.confirm(`Remove ${t.symbol} from tracking?`)) { removeTrade(t); if (logSymbol === t.symbol) setLogSymbol(null); } }}
-                        title="Remove from tracking"
-                        className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 text-[15px] leading-none transition-opacity px-0.5">
-                        ×
-                      </button>
+                      {/* Delete button — appears on hover, owner-only */}
+                      {isOwner && (
+                        <button
+                          onClick={e => { e.stopPropagation(); if (window.confirm(`Remove ${t.symbol} from tracking?`)) { removeTrade(t); if (logSymbol === t.symbol) setLogSymbol(null); } }}
+                          title="Remove from tracking"
+                          className="absolute top-2 right-1.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 text-[15px] leading-none transition-opacity px-0.5">
+                          ×
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -7710,7 +7712,7 @@ function HomePageInner() {
                                           className="text-[9px] px-1 py-0.5 rounded bg-cyan-900/40 text-cyan-400 hover:bg-cyan-800/60 font-bold"
                                           title={`Mark closed early at CMP ₹${t.currentPrice?.toFixed(0)} — records exit quality for Brain learning`}>↗ Exit</button>
                                       )}
-                                      <button onClick={() => removeTrade(t)} className="text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>
+                                      {isOwner && <button onClick={() => removeTrade(t)} className="text-red-500 hover:text-red-300 transition-all" title="Remove trade">✕</button>}
                                     </div>
                                   </td>
                                 </tr>
@@ -8536,14 +8538,16 @@ function HomePageInner() {
                           <span className="text-slate-500">({(accountSize > 0 ? maxRisk / accountSize * 100 : 0).toFixed(2)}% of account)</span>
                         </div>
 
-                        {/* Action buttons */}
+                        {/* Action buttons — Track/Remove/Watch are owner-only */}
                         <div className="flex gap-2 px-4 py-2.5 border-t border-slate-700/30">
-                          <button onClick={() => { trackTrade(r); }}
-                            disabled={isTracked}
-                            className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isTracked ? 'bg-emerald-900/30 border border-emerald-700 text-emerald-400 cursor-default' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
-                            {isTracked ? '✓ Tracked' : '✓ Trade'}
-                          </button>
-                          {isTracked && (
+                          {isOwner && (
+                            <button onClick={() => { trackTrade(r); }}
+                              disabled={isTracked}
+                              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isTracked ? 'bg-emerald-900/30 border border-emerald-700 text-emerald-400 cursor-default' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
+                              {isTracked ? '✓ Tracked' : '✓ Trade'}
+                            </button>
+                          )}
+                          {isOwner && isTracked && (
                             <button onClick={() => { const tr = trackedTrades.find(t => t.symbol === r.symbol && t.status === 'open'); if (tr) removeTrade(tr); }}
                               className="px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded text-xs font-medium text-red-400 transition-colors">
                               ✕ Remove</button>
@@ -8551,12 +8555,14 @@ function HomePageInner() {
                           <button onClick={() => setSelectedSymbol(r.symbol)}
                             className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">
                             Details</button>
-                          <button onClick={() => {
-                            const exists = watchlist.some(w => w.symbol === r.symbol);
-                            if (!exists) { const item = { symbol: r.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
-                          }}
-                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-amber-400 transition-colors">
-                            ⭐ Watch</button>
+                          {isOwner && (
+                            <button onClick={() => {
+                              const exists = watchlist.some(w => w.symbol === r.symbol);
+                              if (!exists) { const item = { symbol: r.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                            }}
+                              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-amber-400 transition-colors">
+                              ⭐ Watch</button>
+                          )}
                         </div>
                       </div>
                     );
@@ -8588,10 +8594,12 @@ function HomePageInner() {
                               <span className="font-mono font-semibold text-slate-300 w-28 shrink-0">{r.symbol.replace('.NS','').replace('.BO','')}</span>
                               <span className="text-slate-600">{met}/{total} checks</span>
                               <span className="text-amber-500/80 flex-1">Missing: {failedNames.join(', ') || `${total - met} condition${total - met > 1 ? 's' : ''}`}</span>
-                              <button onClick={() => {
-                                const exists = watchlist.some(w => w.symbol === r.symbol);
-                                if (!exists) { const item = { symbol: r.symbol, note: 'Near-miss', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
-                              }} className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] text-amber-400 shrink-0">⭐ Watch</button>
+                              {isOwner && (
+                                <button onClick={() => {
+                                  const exists = watchlist.some(w => w.symbol === r.symbol);
+                                  if (!exists) { const item = { symbol: r.symbol, note: 'Near-miss', addedDate: new Date().toISOString().slice(0,10), stage: r.stage, lastClose: r.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                                }} className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] text-amber-400 shrink-0">⭐ Watch</button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -9316,16 +9324,18 @@ function HomePageInner() {
                 ))}
               </div>
 
-              {/* Watchlist star + Signal Age */}
+              {/* Watchlist star + Signal Age — watch button owner-only */}
               <div className="flex items-center gap-2 mb-3">
-                <button onClick={() => {
-                  const exists = watchlist.some(w => w.symbol === selectedResult.symbol);
-                  if (exists) { const updated = watchlist.filter(w => w.symbol !== selectedResult.symbol); setWatchlist(updated); saveWatchlist(updated); }
-                  else { const item: WatchlistItem = { symbol: selectedResult.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: selectedResult.stage, lastClose: selectedResult.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
-                }}
-                  className={`px-2 py-1 rounded text-xs border transition-colors ${watchlist.some(w => w.symbol === selectedResult.symbol) ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-amber-300'}`}>
-                  {watchlist.some(w => w.symbol === selectedResult.symbol) ? '⭐ Watched' : '☆ Watch'}
-                </button>
+                {isOwner && (
+                  <button onClick={() => {
+                    const exists = watchlist.some(w => w.symbol === selectedResult.symbol);
+                    if (exists) { const updated = watchlist.filter(w => w.symbol !== selectedResult.symbol); setWatchlist(updated); saveWatchlist(updated); }
+                    else { const item: WatchlistItem = { symbol: selectedResult.symbol, note: '', addedDate: new Date().toISOString().slice(0,10), stage: selectedResult.stage, lastClose: selectedResult.lastClose }; const updated = [...watchlist, item]; setWatchlist(updated); saveWatchlist(updated); }
+                  }}
+                    className={`px-2 py-1 rounded text-xs border transition-colors ${watchlist.some(w => w.symbol === selectedResult.symbol) ? 'bg-amber-900/50 border-amber-600 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-amber-300'}`}>
+                    {watchlist.some(w => w.symbol === selectedResult.symbol) ? '⭐ Watched' : '☆ Watch'}
+                  </button>
+                )}
                 {(() => {
                   const age = getSignalAge(selectedResult.symbol, selectedResult.stage, signalHistory);
                   if (age > 0) return <span className={`px-2 py-0.5 rounded text-xs font-medium ${age === 1 ? 'bg-green-900/40 text-green-300' : age <= 3 ? 'bg-amber-900/40 text-amber-300' : 'bg-red-900/40 text-red-300'}`}>{age === 1 ? 'NEW' : `Day ${age}`}</span>;
