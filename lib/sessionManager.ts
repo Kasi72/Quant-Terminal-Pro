@@ -52,6 +52,7 @@ export interface ScanSession {
 
 const MAX_SESSIONS = 20;
 const STORAGE_KEY = 'qtp_sessions';
+const MAX_IMPORT_BYTES = 2_000_000;
 
 // ─── Compress/Decompress ─────────────────────────────────────────────────────
 
@@ -161,13 +162,37 @@ export function exportSessions(): string {
 
 export function importSessions(json: string): number {
   try {
+    if (new TextEncoder().encode(json).byteLength > MAX_IMPORT_BYTES) return 0;
     const imported = JSON.parse(json) as ScanSession[];
     if (!Array.isArray(imported)) return 0;
     const existing = loadSessions();
     const existingIds = new Set(existing.map(s => s.id));
     let added = 0;
     for (const s of imported) {
-      if (s && typeof s.id === 'string' && typeof s.timestamp === 'number' && !existingIds.has(s.id)) { existing.unshift(s); added++; }
+      if (
+        s
+        && typeof s.id === 'string'
+        && s.id.length <= 80
+        && typeof s.timestamp === 'number'
+        && Number.isFinite(s.timestamp)
+        && Array.isArray(s.results)
+        && s.results.length <= 2500
+        && s.results.every(r => (
+          r
+          && typeof r.sym === 'string'
+          && /^[A-Z0-9._&-]{1,30}$/.test(r.sym)
+          && typeof r.stg === 'string'
+        ))
+        && !existingIds.has(s.id)
+      ) {
+        existing.unshift({
+          ...s,
+          label: typeof s.label === 'string' ? s.label.slice(0, 80) : '',
+          source: typeof s.source === 'string' ? s.source.slice(0, 80) : '',
+          results: s.results.slice(0, 2500),
+        });
+        added++;
+      }
     }
     if (existing.length > MAX_SESSIONS) existing.splice(MAX_SESSIONS);
     saveSessions(existing);

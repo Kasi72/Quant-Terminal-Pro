@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canonicalNseSymbol } from '@/lib/symbolCrossref';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -305,9 +306,10 @@ function todayIST(): string {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const sym = req.nextUrl.searchParams.get('symbol');
-  if (!sym) return NextResponse.json({ error: 'missing symbol' }, { status: 400 });
-  if (sym.length > 30 || !/^[A-Za-z0-9._^&-]+$/.test(sym)) return NextResponse.json({ error: 'invalid symbol' }, { status: 400 });
+  const rawSym = req.nextUrl.searchParams.get('symbol');
+  if (!rawSym) return NextResponse.json({ error: 'missing symbol' }, { status: 400 });
+  if (rawSym.length > 30 || !/^[A-Za-z0-9._^&-]+$/.test(rawSym)) return NextResponse.json({ error: 'invalid symbol' }, { status: 400 });
+  const sym = canonicalNseSymbol(rawSym);
 
   const base = sym.replace(/\.(NS|BO)$/i, '');
   const isNS = sym.toUpperCase().endsWith('.NS') || !sym.includes('.');

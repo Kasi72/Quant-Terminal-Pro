@@ -1,0 +1,58 @@
+{
+  "DONCHIAN": {
+    "params": {
+      "N": 303,
+      "volMult": 2.356019600796306
+    },
+    "agg": {
+      "signals": 6411,
+      "ftRate": 0.6828887849009515,
+      "meanMFE": 14.48388136967209,
+      "medianMFE": 10.086490437324896,
+      "meanMAE": -9.589615225828027,
+      "meanFwdRet": 2.4495983378865778,
+      "winRate": 0.52534705974107,
+      "mfeMaeRatio": 1.5103714829623378,
+      "fitness": 3.057325428304618
+    }
+  },
+  "NEWHIGH": {
+    "params": {
+      "N": 303,
+      "volMult": 2.346966043267886,
+      "maxAbovePct": 7.4599523401437615
+    },
+    "agg": {
+      "signals": 5875,
+      "ftRate": 0.656,
+      "meanMFE": 14.149769365922868,
+      "medianMFE": 9.95575221238938,
+      "meanMAE": -9.391366872045994,
+      "meanFwdRet": 2.5666540780169353,
+      "winRate": 0.5307234042553192,
+      "mfeMaeRatio": 1.5066783737349847,
+      "fitness": 3.1024650922070975
+    }
+  },
+  "VCP": {
+    "params": {
+      "maxBase": 44.202727517774846,
+      "maxTightPct": 2.1026160734069723,
+      "maxDepthPct": 24.701207690471946,
+      "minVolMult": 3.0348398119456954,
+      "near52wPct": 13.979068224926312,
+      "requireVolDecline": true
+    },
+    "agg": {
+      "signals": 1,
+      "ftRate": 1,
+      "meanMFE": 31.351351351351354,
+      "medianMFE": 31.351351351351354,
+      "meanMAE": 0,
+      "meanFwdRet": 18.91891891891892,
+      "winRate": 1,
+      "mfeMaeRatio": 0,
+      "fitness": 31.351351351351354
+    }
+  }
+}

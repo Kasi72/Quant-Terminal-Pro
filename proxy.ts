@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAuthorizedScreenerRequest, isScreenerAuthConfigured } from '@/lib/screenerSession';
 
 const PUBLIC_PATHS = ['/login', '/api/screener-auth', '/api/nightly-update'];
 
-export function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Pass through auth routes and static assets
@@ -11,8 +12,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const authCookie = req.cookies.get('screener_auth');
-  if (authCookie?.value === process.env.SCREENER_PASSWORD) {
+  if (isScreenerAuthConfigured() && await isAuthorizedScreenerRequest(req)) {
     return NextResponse.next();
   }
 

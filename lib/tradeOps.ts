@@ -1,3 +1,7 @@
+// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+// Proprietary and confidential. Unauthorised use or distribution is prohibited.
+// See LICENSE file in the project root for full licence terms.
+
 import type { AnalysisResult, StageRating, Candle } from './stockEngine';
 
 // ─── #1: Trade Sheet ─────────────────────────────────────────────────────────
@@ -7,13 +11,15 @@ export interface TradeSheet {
   action: 'BUY';
   entry: number;
   qty: number;
-  stopLoss: number;
+  stopLoss: number;             // compatibility alias for hardStop
+  reviewStop: number;           // close-confirmed review level
+  hardStop: number;             // broker SL-M / worst-case risk basis
   target1: number;
   target2: number;
   target3: number;
   trailRule: string;
-  breakEvenTrigger: number;   // price level that triggers breakeven stop (= T1 or +2%, whichever is lower)
-  breakEvenStop: number;      // stop moves here once trigger is hit (+0.5% entry)
+  breakEvenTrigger: number;   // T1 fill books half; T2 activates the stronger hard trail
+  breakEvenStop: number;      // compatibility field: entry reference, not an immediate post-T1 hard stop
   totalCost: number;
   maxRisk: number;
   riskPct: number;
@@ -29,9 +35,13 @@ export interface TradeSheet {
 
 export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskPct = 1): TradeSheet | null {
   const entry = r.priceEngine.plannedEntry;
-  const sl = r.priceEngine.tacticalStop;
-  if (!Number.isFinite(entry) || !Number.isFinite(sl) || entry <= 0 || sl <= 0) return null;
-  const riskPerShare = entry - sl;
+  const reviewStop = r.priceEngine.tacticalStop;
+  const disasterStop = r.priceEngine.disasterStop;
+  if (!Number.isFinite(entry) || !Number.isFinite(reviewStop) || entry <= 0 || reviewStop <= 0) return null;
+  const hardStop = Number.isFinite(disasterStop) && disasterStop > 0 && disasterStop < reviewStop
+    ? disasterStop
+    : reviewStop;
+  const riskPerShare = entry - hardStop;
   if (riskPerShare <= 0) return null;
   const safeT1 = Number.isFinite(r.priceEngine.target5) ? r.priceEngine.target5 : entry + riskPerShare * 2;
   const safeT2 = Number.isFinite(r.priceEngine.target7) ? r.priceEngine.target7 : entry + riskPerShare * 3;
@@ -39,21 +49,21 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
   const maxRisk = accountSize * (riskPct / 100);
   const qty = Math.floor(maxRisk / riskPerShare);
   if (qty <= 0) return null;
-  // Breakeven trigger: whichever comes first — T1 or +2%. For low-ATR stocks T1<2%,
-  // so hardcoding +2% would fire AFTER T1 which is backwards (trail fires too late).
-  const beTrigger = Math.min(safeT1, Math.round(entry * 1.02 * 100) / 100);
+  const beTrigger = safeT1;
   return {
     symbol: r.symbol,
     action: 'BUY',
     entry: Math.round(entry * 100) / 100,
     qty,
-    stopLoss: Math.round(sl * 100) / 100,
+    stopLoss: Math.round(hardStop * 100) / 100,
+    reviewStop: Math.round(reviewStop * 100) / 100,
+    hardStop: Math.round(hardStop * 100) / 100,
     target1: Math.round(safeT1 * 100) / 100,
     target2: Math.round(safeT2 * 100) / 100,
     target3: Math.round(safeT3 * 100) / 100,
     breakEvenTrigger: Math.round(beTrigger * 100) / 100,
-    breakEvenStop:   Math.round(entry * 1.005 * 100) / 100,
-    trailRule: `Move SL to ₹${(entry * 1.005).toFixed(2)} (BE+0.5%) when T1 ₹${safeT1.toFixed(2)} hit. Sell 50% at T1, 30% at T2, 20% at T3.`,
+    breakEvenStop:   Math.round(entry * 100) / 100,
+    trailRule: `Review stop exits next session open after a confirmed close. Sell 50% at T1 ₹${safeT1.toFixed(2)}; keep the remaining 50% protected by the review/trail floor until T2, then use the hard chandelier trail.`,
     totalCost: Math.round(qty * entry),
     maxRisk: Math.round(qty * riskPerShare),
     riskPct,
@@ -61,16 +71,21 @@ export function generateTradeSheet(r: AnalysisResult, accountSize: number, riskP
 }
 
 export function tradeSheetToClipboard(ts: TradeSheet): string {
+  const riskPerShare = ts.entry - ts.hardStop;
+  const rr = (target: number) => riskPerShare > 0
+    ? ((target - ts.entry) / riskPerShare).toFixed(2)
+    : 'n/a';
   const lines = [
     `═══ TRADE SHEET ═══`,
     `SYMBOL: ${ts.symbol}`,
     `ACTION: ${ts.action}`,
     `ENTRY: ₹${ts.entry.toFixed(2)} (Limit)`,
     `QTY: ${ts.qty} shares`,
-    `STOP LOSS: ₹${ts.stopLoss.toFixed(2)} (SL-M)`,
-    `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%) — R:R ≈ 1.0R`,
-    `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%) — R:R ≈ 2.0R`,
-    `TARGET 3: ₹${ts.target3.toFixed(2)} (Sell 20%) — R:R ≈ 3.3R`,
+    `HARD STOP: ₹${ts.hardStop.toFixed(2)} (broker SL-M; always executes)`,
+    `REVIEW STOP: ₹${ts.reviewStop.toFixed(2)} (close-confirmed; exit next session open)`,
+    `TARGET 1: ₹${ts.target1.toFixed(2)} (Sell 50%) — hard-risk R:R ${rr(ts.target1)}R`,
+    `TARGET 2: ₹${ts.target2.toFixed(2)} (Sell 30%) — hard-risk R:R ${rr(ts.target2)}R`,
+    `TARGET 3: ₹${ts.target3.toFixed(2)} (Sell 20%) — hard-risk R:R ${rr(ts.target3)}R`,
     `TRAIL: ${ts.trailRule}`,
     `CAPITAL: ₹${(ts.totalCost / 100000).toFixed(2)}L`,
     `MAX RISK: ₹${ts.maxRisk.toLocaleString('en-IN')}`,
@@ -99,7 +114,7 @@ export interface TrackedTrade {
   stage: StageRating;
   entryPrice: number;
   entryDate: string;
-  stopLoss: number;
+  stopLoss: number;         // frozen close-confirmed review level
   target1: number;
   target2: number;
   target3: number;
@@ -112,6 +127,7 @@ export interface TrackedTrade {
   monsterBadge?: string;    // monster badge type at entry (MRV/MOM/BRK)
   sw5LowAtEntry?: number;   // 5-bar swing low at entry — used by G9 Structure Intact gate
   atr14AtEntry?: number;    // ATR-14 at signal bar — Chandelier trail fallback when post-entry bars < 14
+  maxHoldBars?: number;     // frozen archetype holding horizon captured at entry
   breakoutTier?: 'A+' | 'A' | 'B';  // GA-calibrated VCP tier at entry time
   // P0: feature snapshot at entry — feeds Brain v3's Pattern Scorecard,
   // Golden/Weak Setups, Regime Scorecard, and ATR/pattern anomaly checks.
@@ -136,9 +152,13 @@ export interface TrackedTrade {
   mae?: number;
   mfeR?: number;
   maeR?: number;
+  hit5pct?: boolean;   // price ever crossed entry × 1.05
+  hit7pct?: boolean;   // price ever crossed entry × 1.07
+  hit10pct?: boolean;  // price ever crossed entry × 1.10
   qty?: number;
   daysHeld?: number;
   notes?: string;
+  targetLog?: Array<{ target: 'T1' | 'T2' | 'T3'; day: number; date: string; price: number; fraction: number }>;
   trailLog?: Array<{ day: number; newStop: number; reason: string }>;
   gateLog?: Array<{
     day: number;
@@ -147,9 +167,11 @@ export interface TrackedTrade {
     low?: number;
     stopLevel: number;
     dipPct: number;
-    triggerType?: 'intraday_low' | 'close' | 'gap_down';
+    triggerType?: 'intraday_low' | 'close' | 'gap_down' | 'review_open';
     gatesTested: Array<{ gate: string; passed: boolean; reason: string }>;
     result: string;
+    stopKind?: 'hard' | 'review' | 'trail';
+    evidenceGroups?: number;
   }>;
 }
 
@@ -183,30 +205,53 @@ export interface WinRateStats {
 
 export const FIVE_PCT_WIN_THRESHOLD = 5;
 
+export function getTradeHardStop(t: Pick<TrackedTrade, 'entryPrice' | 'stopLoss' | 'disasterStop'>): number {
+  const reviewStop = t.stopLoss > 0 && t.stopLoss < t.entryPrice ? t.stopLoss : 0;
+  const disasterStop = t.disasterStop > 0 && t.disasterStop < t.entryPrice ? t.disasterStop : 0;
+  if (disasterStop > 0 && (reviewStop <= 0 || disasterStop < reviewStop)) return disasterStop;
+  return reviewStop;
+}
+
+export function getTradeRiskPerShare(t: Pick<TrackedTrade, 'entryPrice' | 'stopLoss' | 'disasterStop'>): number {
+  const hardStop = getTradeHardStop(t);
+  return hardStop > 0 ? Math.max(0, t.entryPrice - hardStop) : 0;
+}
+
 export function getTradeMfePct(t: TrackedTrade): number {
-  if (Number.isFinite(t.mfe)) return t.mfe ?? 0;
-  if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
-    return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+  const tracked = (() => {
+    if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0) return t.mfe ?? 0;
+    if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
+      return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+    }
+    if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
+      return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
+    }
+    if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
+      return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
+    }
+    return Math.max(0, t.pnlPct ?? 0);
+  })();
+  // For terminal trades, derive minimum guaranteed MFE from the targets actually hit.
+  // t.mfe may only reflect the D-day or T1-exit snapshot, not the lifetime peak.
+  if (t.entryPrice > 0) {
+    const pct = (p: number) => (p - t.entryPrice) / t.entryPrice * 100;
+    if (t.status === 'hit_t3' && t.target3 > 0) return Math.max(tracked, pct(t.target3));
+    if (t.status === 'hit_t2' && t.target2 > 0) return Math.max(tracked, pct(t.target2));
+    if (t.status === 'hit_t1' && t.target1 > 0) return Math.max(tracked, pct(t.target1));
   }
-  if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
-    return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
-  }
-  if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
-    return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
-  }
-  return Math.max(0, t.pnlPct ?? 0);
+  return tracked;
 }
 
 export function getTradeMfeR(t: TrackedTrade): number {
   if (Number.isFinite(t.mfeR)) return Math.max(0, t.mfeR ?? 0);
-  const riskPerShare = t.entryPrice - t.stopLoss;
+  const riskPerShare = getTradeRiskPerShare(t);
   const mfePct = getTradeMfePct(t);
   return riskPerShare > 0 && t.entryPrice > 0 ? ((mfePct / 100) * t.entryPrice) / riskPerShare : 0;
 }
 
 export function getTradeMaePct(t: TrackedTrade): number {
   if (Number.isFinite(t.mae)) return Math.abs(t.mae ?? 0);
-  const riskPerShare = t.entryPrice - t.stopLoss;
+  const riskPerShare = getTradeRiskPerShare(t);
   if (Number.isFinite(t.maeR) && riskPerShare > 0 && t.entryPrice > 0) {
     return (Math.abs(t.maeR ?? 0) * riskPerShare / t.entryPrice) * 100;
   }
@@ -219,7 +264,7 @@ export function getTradeMaePct(t: TrackedTrade): number {
 
 export function getTradeMaeR(t: TrackedTrade): number {
   if (Number.isFinite(t.maeR) && (t.maeR ?? 0) !== 0) return -Math.abs(t.maeR ?? 0);
-  const riskPerShare = t.entryPrice - t.stopLoss;
+  const riskPerShare = getTradeRiskPerShare(t);
   const maePct = getTradeMaePct(t);
   return riskPerShare > 0 && t.entryPrice > 0 ? -((maePct / 100) * t.entryPrice) / riskPerShare : 0;
 }
@@ -228,9 +273,56 @@ export function didReachFivePctTarget(t: TrackedTrade): boolean {
   return getTradeMfePct(t) >= FIVE_PCT_WIN_THRESHOLD;
 }
 
+// Canonical return for analytics whose stated outcome is "did price reach +5%?".
+// Winners are valued at the pre-declared +5% exit, never at their later MFE.
+export function getFivePctObjectivePnlPct(t: TrackedTrade): number {
+  return didReachFivePctTarget(t) ? FIVE_PCT_WIN_THRESHOLD : (t.pnlPct ?? 0);
+}
+
+export function getFivePctObjectiveR(t: TrackedTrade): number {
+  if (!didReachFivePctTarget(t)) {
+    if (Number.isFinite(t.pnlR)) return t.pnlR ?? 0;
+    const riskPerShare = getTradeRiskPerShare(t);
+    return riskPerShare > 0 && t.entryPrice > 0
+      ? (((t.pnlPct ?? 0) / 100) * t.entryPrice) / riskPerShare
+      : 0;
+  }
+  const riskPerShare = getTradeRiskPerShare(t);
+  return riskPerShare > 0 && t.entryPrice > 0
+    ? (FIVE_PCT_WIN_THRESHOLD / 100 * t.entryPrice) / riskPerShare
+    : 0;
+}
+
+const ACTIVE_STATUSES   = new Set(['open', 'hit_t1', 'hit_t2']);
+const TERMINAL_STATUSES = new Set(['hit_t3', 'stopped', 'expired', 'manual_close', 'closed_early']);
+
+export function isLegacyT1BreakevenTrailExit(t: TrackedTrade): boolean {
+  if (t.status !== 'hit_t1') return false;
+  if (typeof t.closedDate !== 'string' || t.closedDate.trim().length === 0) return false;
+
+  const entry = Number(t.entryPrice);
+  const closed = Number(t.closedPrice);
+  if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(closed) || closed <= 0) return false;
+
+  const closedNearEntry = Math.abs(closed - entry) / entry <= 0.0025;
+  if (!closedNearEntry) return false;
+
+  return (t.gateLog ?? []).some(gate => {
+    const gateName = gate.gatesTested?.[0]?.gate ?? '';
+    return gate.result === 'STOPPED'
+      && (gate.stopKind === 'trail' || /protective trail/i.test(gateName));
+  });
+}
+
 export function isTerminalTrade(t: TrackedTrade): boolean {
+  if (isLegacyT1BreakevenTrailExit(t)) return false;
   const hasCloseDate = typeof t.closedDate === 'string' && t.closedDate.trim().length > 0;
-  return hasCloseDate || !['open', 'hit_t1', 'hit_t2'].includes(t.status);
+  if (hasCloseDate) return true;
+  if (TERMINAL_STATUSES.has(t.status)) return true;
+  if (ACTIVE_STATUSES.has(t.status)) return false;
+  // Unknown status — quarantine: treat as terminal to prevent silent reprocessing
+  console.warn(`[isTerminalTrade] unknown status "${t.status}" on trade ${t.symbol ?? '?'} — quarantined`);
+  return true;
 }
 
 export function isTradeResolvedForWinRate(t: TrackedTrade): boolean {
@@ -242,15 +334,21 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const wins = closed.filter(didReachFivePctTarget);
   const losses = closed.filter(t => !didReachFivePctTarget(t));
 
-  const totalWinPct = wins.reduce((s, t) => s + Math.max(t.pnlPct ?? 0, getTradeMfePct(t)), 0);
-  const totalLossPct = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
-  const totalWinR = wins.reduce((s, t) => s + Math.max(t.pnlR ?? 0, getTradeMfeR(t)), 0);
-  const totalLossR = Math.abs(losses.reduce((s, t) => s + (t.pnlR ?? 0), 0));
+  const totalWinPct = wins.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0);
+  const totalLossPct = Math.abs(losses.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0));
+  const totalWinR = wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0);
+  const totalLossR = Math.abs(losses.reduce((s, t) => s + getFivePctObjectiveR(t), 0));
+  // Actual avg win: use real blended exit P&L for terminal wins, peak MFE for open wins.
+  // profitFactor/expectancy stay model-based (5% objective) for consistency with Brain V2.
+  const totalActualWinPct = wins.reduce((s, t) => {
+    if (isTerminalTrade(t) && t.pnlPct != null) return s + t.pnlPct;
+    return s + getTradeMfePct(t);
+  }, 0);
 
   let bestTrade: { symbol: string; pnlPct: number } | null = null;
   let worstTrade: { symbol: string; pnlPct: number } | null = null;
   for (const t of closed) {
-    const p = t.pnlPct ?? 0;
+    const p = getFivePctObjectivePnlPct(t);
     if (!bestTrade || p > bestTrade.pnlPct) bestTrade = { symbol: t.symbol, pnlPct: p };
     if (!worstTrade || p < worstTrade.pnlPct) worstTrade = { symbol: t.symbol, pnlPct: p };
   }
@@ -273,7 +371,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     wins: wins.length,
     losses: losses.length,
     fivePctWins: wins.length,
-    open: trades.filter(t => t.status === 'open').length,
+    open: trades.filter(t => !isTerminalTrade(t)).length,
     hitT1: trades.filter(t => t.status === 'hit_t1').length,
     hitT2: trades.filter(t => t.status === 'hit_t2').length,
     hitT3: trades.filter(t => t.status === 'hit_t3').length,
@@ -282,7 +380,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     manualClose: trades.filter(t => t.status === 'manual_close').length,
     closedEarly: trades.filter(t => t.status === 'closed_early').length,
     winRate: closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
-    avgWinPct: wins.length > 0 ? totalWinPct / wins.length : 0,
+    avgWinPct: wins.length > 0 ? totalActualWinPct / wins.length : 0,
     avgLossPct: losses.length > 0 ? -totalLossPct / losses.length : 0,
     avgWinR: wins.length > 0 ? totalWinR / wins.length : 0,
     avgLossR: losses.length > 0 ? -totalLossR / losses.length : 0,
@@ -295,70 +393,6 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     avgDaysHeld: Math.round(avgDays),
     streakWins, streakLosses,
   };
-}
-
-export function checkTradeStatus(trade: TrackedTrade, currentPrice: number): TrackedTrade {
-  if (trade.status !== 'open') return trade;
-  const updated = { ...trade, currentPrice, lastCheckDate: new Date().toISOString().slice(0, 10) };
-  const entryTs = new Date(trade.entryDate).getTime();
-  const daysHeld = Number.isFinite(entryTs) ? Math.floor((Date.now() - entryTs) / 86400000) : 0;
-  updated.daysHeld = daysHeld;
-  updated.highestPrice = Math.max(trade.highestPrice ?? 0, currentPrice);
-  const riskPerShare = trade.entryPrice - trade.stopLoss;
-
-  if (currentPrice <= trade.disasterStop) {
-    updated.status = 'stopped';
-    updated.closedPrice = trade.disasterStop;
-    updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((trade.disasterStop - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (trade.disasterStop - trade.entryPrice) / riskPerShare : -1;
-  } else if (riskPerShare > 0 && trade.stopLoss > 0 && currentPrice <= trade.stopLoss) {
-    updated.status = 'stopped';
-    updated.closedPrice = trade.stopLoss;
-    updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((trade.stopLoss - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = (trade.stopLoss - trade.entryPrice) / riskPerShare;
-  } else if (currentPrice >= trade.target3) {
-    // Weighted exit: 50%@T1 + 30%@T2 + 20%@T3 (matches validateTrade() model)
-    updated.status = 'hit_t3';
-    updated.closedPrice = trade.target3;
-    updated.closedDate = updated.lastCheckDate;
-    const weightedT3 = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
-    updated.pnlPct = ((weightedT3 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (weightedT3 - trade.entryPrice) / riskPerShare : 0;
-  } else if (currentPrice >= trade.target2) {
-    // Weighted exit: 50%@T1 + 30%@T2 + 20%@currentPrice
-    updated.status = 'hit_t2';
-    updated.closedPrice = trade.target2;
-    updated.closedDate = updated.lastCheckDate;
-    const weightedT2 = trade.target1 * 0.5 + trade.target2 * 0.3 + currentPrice * 0.2;
-    updated.pnlPct = ((weightedT2 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (weightedT2 - trade.entryPrice) / riskPerShare : 0;
-  } else if (currentPrice >= trade.target1) {
-    // Weighted exit: 50%@T1 + 50%@currentPrice (held for T2, rest at current)
-    updated.status = 'hit_t1';
-    updated.closedPrice = trade.target1;
-    updated.closedDate = updated.lastCheckDate;
-    const weightedT1 = trade.target1 * 0.5 + currentPrice * 0.5;
-    updated.pnlPct = ((weightedT1 - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (weightedT1 - trade.entryPrice) / riskPerShare : 0;
-  } else if (((currentPrice - trade.entryPrice) / trade.entryPrice) * 100 >= 5.0) {
-    // CMP has delivered the screener's core 5% profit target even though the
-    // T1 price level hasn't been reached (happens when T1 is set far above 5%).
-    // Count as T1 hit — the entire system is calibrated around the 5% exit.
-    updated.status = 'hit_t1';
-    updated.closedPrice = currentPrice;
-    updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (currentPrice - trade.entryPrice) / riskPerShare : 0;
-  } else if (daysHeld >= 20) {
-    updated.status = 'expired';
-    updated.closedPrice = currentPrice;
-    updated.closedDate = updated.lastCheckDate;
-    updated.pnlPct = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
-    updated.pnlR = riskPerShare > 0 ? (currentPrice - trade.entryPrice) / riskPerShare : 0;
-  }
-  return updated;
 }
 
 // ─── #3: Risk Dashboard ──────────────────────────────────────────────────────
@@ -381,7 +415,7 @@ export function computePortfolioRisk(
 ): PortfolioRisk {
   const open = trades.filter(t => t.status === 'open');
   const totalCap = open.reduce((s, t) => s + t.entryPrice * (t.qty ?? 1), 0);
-  const totalRisk = open.reduce((s, t) => s + Math.abs(t.entryPrice - t.stopLoss) * (t.qty ?? 1), 0);
+  const totalRisk = open.reduce((s, t) => s + getTradeRiskPerShare(t) * (t.qty ?? 1), 0);
 
   const sectorCounts: Record<string, number> = {};
   for (const t of open) {

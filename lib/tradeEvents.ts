@@ -1,16 +1,25 @@
-import type { TrackedTrade } from './tradeOps';
+import { isTerminalTrade, type TrackedTrade } from './tradeOps';
 
 export type TradeLogEventType =
   | 'hit_5pct'
+  | 'hit_7pct'
+  | 'hit_10pct'
   | 'hit_t1'
   | 'hit_t2'
   | 'hit_t3'
-  | 'stop_shielded'
-  | 'stopped'
+  | 'wick_shield'          // low swept review stop; close recovered above it
+  | 'below_stop_rescue'    // close below review stop; confluence gates rescued
+  | 'review_exit_pending'  // close confirmed below review stop; exit queued next open
+  | 'review_exit'          // next-open execution of the pending review exit (terminal)
+  | 'hard_stop'            // hard disaster stop hit intraday — before T1 (terminal)
+  | 'trail_stop'           // protective trail / T2 chandelier stop (terminal)
   | 'target_exit'
   | 'expired'
   | 'manual_close'
-  | 'closed_early';
+  | 'closed_early'
+  // legacy aliases — kept so consuming code doesn't break; new logic emits the specific types above
+  | 'stop_shielded'
+  | 'stopped';
 
 export interface TradeLogEvent {
   type: TradeLogEventType;
@@ -29,6 +38,8 @@ export interface TradeEventPriceRow {
 
 export interface TradeMilestoneState {
   fivePct: boolean;
+  sevenPct: boolean;
+  tenPct: boolean;
   t1: boolean;
   t2: boolean;
   t3: boolean;
@@ -46,15 +57,24 @@ export interface DerivedTradeEventRow {
 
 export const TRADE_EVENT_ICONS: Record<TradeLogEventType, string> = {
   hit_5pct: '✅',
+  hit_7pct: '✅✅',
+  hit_10pct: '✅✅✅',
   hit_t1: '🎯',
   hit_t2: '🎯🎯',
   hit_t3: '🎯🎯🎯',
-  stop_shielded: '🛡',
-  stopped: '🛑',
+  wick_shield: '🛡',
+  below_stop_rescue: '🔰',
+  review_exit_pending: '⏳',
+  review_exit: '🔔',
+  hard_stop: '🛑',
+  trail_stop: '⛓',
   target_exit: '↩',
   expired: '⏰',
   manual_close: '✅',
   closed_early: '✅',
+  // legacy
+  stop_shielded: '🛡',
+  stopped: '🛑',
 };
 
 function finitePositive(value: unknown): number | null {
@@ -94,8 +114,10 @@ export function deriveTradeEventRows(
   const entry = finitePositive(trade.entryPrice) ?? 0;
   const stopLoss = finitePositive(trade.stopLoss) ?? 0;
   const fivePctTarget = entry * 1.05;
+  const sevenPctTarget = entry * 1.07;
+  const tenPctTarget = entry * 1.10;
   const targets = getValidTradeTargets(trade);
-  const terminalDate = normalizeDate(trade.closedDate);
+  const terminalDate = isTerminalTrade(trade) ? normalizeDate(trade.closedDate) : null;
 
   const gateByDay = new Map<number, NonNullable<TrackedTrade['gateLog']>[number]>();
   const gateByDate = new Map<string, NonNullable<TrackedTrade['gateLog']>[number]>();
@@ -106,6 +128,8 @@ export function deriveTradeEventRows(
   }
 
   let seenFivePct = false;
+  let seenSevenPct = false;
+  let seenTenPct = false;
   let seenT1 = false;
   let seenT2 = false;
   let seenT3 = false;
@@ -123,15 +147,26 @@ export function deriveTradeEventRows(
       isTerminalDate || gate?.result === 'STOPPED'
     );
     const stopShielded = !terminalReached && !stopVerified && gate?.result === 'SHIELDED';
+    const reviewExitPending = !terminalReached && gate?.result === 'EXIT_PENDING';
     const events: TradeLogEvent[] = [];
 
     // Daily OHLC cannot resolve whether the high or low occurred first. The
     // validator uses conservative stop-first treatment for a verified stop.
     if (stopVerified) {
       const stopPrice = finitePositive(trade.closedPrice) ?? effectiveStop;
+      const gateName = gate?.gatesTested?.[0]?.gate ?? '';
+      // review_open = next-session open fill after a pending review exit
+      // 'Protective Trail' gate name = hard runner trail after T1/T2
+      // everything else = hard disaster stop
+      const isReviewExit = gate?.triggerType === 'review_open';
+      const isTrailStop = !isReviewExit && gateName.includes('Protective Trail');
+      const eventType: TradeLogEventType = isReviewExit ? 'review_exit'
+        : isTrailStop ? 'trail_stop'
+        : 'hard_stop';
+      const label = isReviewExit ? 'Review exit' : isTrailStop ? 'Trail stop' : 'Hard stop';
       events.push({
-        type: 'stopped',
-        detail: `SL ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
+        type: eventType,
+        detail: `${label} ₹${stopPrice.toFixed(2)} (${pctFromEntry(stopPrice, entry).toFixed(1)}%)`,
         terminal: true,
       });
       terminalReached = true;
@@ -150,6 +185,28 @@ export function deriveTradeEventRows(
           detail: `+5% ₹${fivePctTarget.toFixed(2)} crossed (${source})`,
         });
         seenFivePct = true;
+      }
+      if (!seenSevenPct && sevenPctTarget > 0 && high >= sevenPctTarget) {
+        const source = close >= sevenPctTarget
+          ? `CMP +${pctFromEntry(close, entry).toFixed(1)}%`
+          : `High +${pctFromEntry(high, entry).toFixed(1)}%`;
+        crossed.push({
+          type: 'hit_7pct',
+          price: sevenPctTarget,
+          detail: `+7% ₹${sevenPctTarget.toFixed(2)} crossed (${source})`,
+        });
+        seenSevenPct = true;
+      }
+      if (!seenTenPct && tenPctTarget > 0 && high >= tenPctTarget) {
+        const source = close >= tenPctTarget
+          ? `CMP +${pctFromEntry(close, entry).toFixed(1)}%`
+          : `High +${pctFromEntry(high, entry).toFixed(1)}%`;
+        crossed.push({
+          type: 'hit_10pct',
+          price: tenPctTarget,
+          detail: `+10% ₹${tenPctTarget.toFixed(2)} crossed (${source})`,
+        });
+        seenTenPct = true;
       }
       if (!seenT1 && targets.t1 != null && high >= targets.t1) {
         crossed.push({ type: 'hit_t1', price: targets.t1, detail: `T1 ₹${targets.t1.toFixed(2)} cleared` });
@@ -178,12 +235,26 @@ export function deriveTradeEventRows(
         });
 
       if (stopShielded) {
-        const blockedBy = gate?.gatesTested?.find(g => g.passed)?.gate
-          ?? gate?.gatesTested?.[0]?.gate
-          ?? 'Gate shield';
+        const isWickShield = close >= effectiveStop;
+        const supportingGates = gate?.gatesTested?.filter(g => g.passed).map(g => g.gate) ?? [];
+        const blockedBy = supportingGates.length > 0
+          ? supportingGates.join(' + ')
+          : isWickShield
+            ? 'close recovered above review stop'
+            : 'confluence shield';
         events.push({
-          type: 'stop_shielded',
-          detail: `SL touch shielded (${blockedBy})`,
+          type: isWickShield ? 'wick_shield' : 'below_stop_rescue',
+          detail: isWickShield
+            ? `Wick Shield — low swept stop, close recovered (${blockedBy})`
+            : `Below-Stop Rescue — close below stop, gates saved (${blockedBy})`,
+          terminal: false,
+        });
+      }
+
+      if (reviewExitPending) {
+        events.push({
+          type: 'review_exit_pending',
+          detail: `Review stop confirmed at close; exit queued for next session open`,
           terminal: false,
         });
       }
@@ -208,9 +279,12 @@ export function deriveTradeEventRows(
           const closePrice = finitePositive(trade.closedPrice) ?? row.close;
           const completedAt = trade.status === 'hit_t1' ? 'T1' : 'T2';
           const remainingSize = trade.status === 'hit_t1' ? '50%' : '20%';
+          const exitReason = gate?.result === 'STOPPED' && (gate.gatesTested?.[0]?.gate ?? '').includes('Protective Trail')
+            ? 'hard protective trail'
+            : `exit after ${completedAt}`;
           events.push({
             type: 'target_exit',
-            detail: `Final ${remainingSize} exited after ${completedAt} at ₹${closePrice.toFixed(2)} (${pctFromEntry(closePrice, entry).toFixed(1)}% vs entry)`,
+            detail: `Final ${remainingSize} ${exitReason} at ₹${closePrice.toFixed(2)} (${pctFromEntry(closePrice, entry).toFixed(1)}% vs entry)`,
             terminal: true,
           });
           terminalReached = true;
@@ -228,7 +302,7 @@ export function deriveTradeEventRows(
 
     return {
       events,
-      state: { fivePct: seenFivePct, t1: seenT1, t2: seenT2, t3: seenT3 },
+      state: { fivePct: seenFivePct, sevenPct: seenSevenPct, tenPct: seenTenPct, t1: seenT1, t2: seenT2, t3: seenT3 },
       rawStopTouch,
       stopVerified,
       stopShielded,
@@ -245,12 +319,21 @@ export function primaryTradeEventType(events: TradeLogEvent[]): TradeLogEventTyp
     'hit_t3',
     'hit_t2',
     'hit_t1',
+    'hit_10pct',
+    'hit_7pct',
     'hit_5pct',
-    'stop_shielded',
+    'review_exit',
+    'hard_stop',
+    'trail_stop',
+    'wick_shield',
+    'below_stop_rescue',
+    'review_exit_pending',
     'target_exit',
     'expired',
     'manual_close',
     'closed_early',
+    // legacy fallbacks
+    'stop_shielded',
     'stopped',
   ];
   return priority.find(type => events.some(event => event.type === type)) ?? null;

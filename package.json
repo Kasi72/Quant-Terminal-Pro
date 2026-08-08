@@ -6,22 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "compile": "./node_modules/.bin/tsc lib/stockEngine.ts lib/statsEngine.ts lib/candlePatterns.ts lib/autoValidator.ts --target ES2020 --module CommonJS --outDir scripts/_compiled --esModuleInterop --skipLibCheck --moduleResolution node --strict false",
-    "compile:engine": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts",
+    "compile": "npm run compile:engine",
+    "compile:engine": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts lib/autoValidator.ts lib/tradeOps.ts lib/tradeEvents.ts lib/symbolCrossref.ts",
     "compile:watch": "npx tsc --target ES2020 --module commonjs --skipLibCheck --outDir scripts/_compiled_current lib/stockEngine.ts --watch",
-    "backtest:hitrate": "node scripts/fivePctHitRateBacktest.js",
+    "backtest:hitrate": "npm run compile:engine && node scripts/fivePctHitRateBacktest.js",
+    "test:stop-engine": "npm run compile:engine && node scripts/stopEngineRegression.js",
+    "test:trail": "npm run compile:engine && node scripts/trailRegressionTest.js",
     "check-params": "node scripts/checkParams.js",
     "update-params": "node scripts/checkParams.js --update"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.4",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.8",
     "lucide-react": "^0.468.0",
-    "next": "16.2.9",
+    "next": "16.2.12",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "xlsx": "^0.18.5"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -30,5 +31,9 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.24",
+    "sharp": "0.35.3"
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceClient } from '@/lib/supabase';
-import { isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
+import { getServiceClient } from '@/lib/supabaseServer';
+import { isLegacyT1BreakevenTrailExit, isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
 import { validateTrade, applyValidation } from '@/lib/autoValidator';
 import { deriveTradeEventRows, primaryTradeEventType, summarizeTradeEvents } from '@/lib/tradeEvents';
 
@@ -63,9 +63,24 @@ async function runWithConcurrency<T>(
   await Promise.all(runners);
 }
 
+async function selectAll<T>(
+  pageFactory: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+  pageSize = 1000,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await pageFactory(from, to);
+    if (error) return { data: out, error };
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < pageSize) return { data: out, error: null };
+  }
+}
+
 // ── Candle parsing ────────────────────────────────────────────────────────────
 
-interface DayBar { date: string; open: number; high: number; low: number; close: number; }
+interface DayBar { date: string; open: number; high: number; low: number; close: number; volume: number; }
 
 function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
   const r0 = ((json?.chart as Record<string, unknown>)?.result as Record<string, unknown>[])?.[0];
@@ -87,6 +102,7 @@ function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
     let h = q.high?.[i] ?? null;
     let l = q.low?.[i] ?? null;
     let c = q.close?.[i] ?? null;
+    const v = q.volume?.[i] ?? 0;
     if (
       i === timestamps.length - 1 &&
       metaDate === date &&
@@ -102,9 +118,46 @@ function parseYahooCandles(json: Record<string, unknown>): DayBar[] {
     if (o == null || h == null || l == null || c == null) continue;
     if (!isFinite(o) || !isFinite(h) || !isFinite(l) || !isFinite(c)) continue;
     if (c <= 0 || h < l || h <= 0 || l <= 0) continue;
-    bars.push({ date, open: o, high: h, low: l, close: c });
+    bars.push({ date, open: o, high: h, low: l, close: c, volume: Number.isFinite(v) && v > 0 ? v : 0 });
   }
   return bars;
+}
+
+// ── Nifty 50 regime map ───────────────────────────────────────────────────────
+
+function normalizeRegime(raw: string | null | undefined): 'bull' | 'flat' | 'bear' | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase();
+  if (s.includes('bull')) return 'bull';
+  if (s.includes('bear')) return 'bear';
+  if (s === 'flat') return 'flat';
+  return null;
+}
+
+async function buildNiftyRegimeMap(): Promise<Map<string, 'bull' | 'flat' | 'bear'>> {
+  const map = new Map<string, 'bull' | 'flat' | 'bear'>();
+  try {
+    const hosts = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
+    let json: Record<string, unknown> | null = null;
+    for (const host of hosts) {
+      try {
+        const res = await fetch(
+          `https://${host}/v8/finance/chart/%5ENSEI?interval=1d&range=2y&includePrePost=false`,
+          { headers: YF_HEADERS, signal: AbortSignal.timeout(8000) },
+        );
+        if (res.ok) { json = await res.json() as Record<string, unknown>; break; }
+      } catch { /* try next */ }
+    }
+    if (!json) return map;
+    const bars = parseYahooCandles(json);
+    const WIN = 50;
+    for (let i = WIN - 1; i < bars.length; i++) {
+      const sma = bars.slice(i - WIN + 1, i + 1).reduce((s, b) => s + b.close, 0) / WIN;
+      const c = bars[i].close;
+      map.set(bars[i].date, c > sma * 1.01 ? 'bull' : c < sma * 0.99 ? 'bear' : 'flat');
+    }
+  } catch { /* non-fatal */ }
+  return map;
 }
 
 // ── Supabase row helpers (mirrored from tradeSync.ts) ─────────────────────────
@@ -188,97 +241,173 @@ function toRow(t: TrackedTrade) {
   };
 }
 
-// ── Trade status computation (candle-by-candle replay) ────────────────────────
-// Uses intraday HIGH for target checks, intraday LOW for stop checks —
-// more accurate than EOD close, matches real-world bracket-order behavior.
+// ── PBFB outcome backfill ─────────────────────────────────────────────────────
+//
+// Cross-references pbfb_uc_events against tracked_trades to populate the four
+// outcome columns (hit_t1, hit_t2, stopped_out, outcome_pct_20d) that the
+// Brain V2 intelligence panel needs for MI ranking, feature-bucketed hit rates,
+// Kelly fraction, and cluster labeling.
+//
+// Market regime is populated from:
+//   1. regime_at_entry on the matched trade (most accurate)
+//   2. Nifty 50 50-day SMA position for that date (fallback for missed events)
 
-function processTrade(trade: TrackedTrade, bars: DayBar[]): TrackedTrade {
-  // Only process trades that are still being watched (T3/stopped/expired are terminal)
-  if (!['open', 'hit_t1', 'hit_t2'].includes(trade.status)) return trade;
+interface PbfbOutcomeUpdate {
+  symbol:          string;
+  event_date:      string;
+  hit_t1:          boolean | null;
+  hit_t2:          boolean | null;
+  stopped_out:     boolean | null;
+  outcome_pct_20d: number | null;
+  market_regime:   'bull' | 'flat' | 'bear' | null;
+}
 
-  const entryDate = trade.entryDate.slice(0, 10);
-  const postEntry = bars.filter(b => b.date > entryDate);
-  if (postEntry.length === 0) return trade;
+function outcomeFromStatus(
+  status: string,
+  pnlPct: number | null,
+  hasExitDate: boolean,
+): { hit_t1: boolean; hit_t2: boolean; stopped_out: boolean } | null {
+  // Only label definitively closed trades
+  switch (status) {
+    case 'hit_t3':
+      return { hit_t1: true,  hit_t2: true,  stopped_out: false };
+    case 'hit_t2':
+      return hasExitDate
+        ? { hit_t1: true,  hit_t2: true,  stopped_out: false }
+        : null; // still active at T2 — outcome unknown
+    case 'hit_t1':
+      return hasExitDate
+        ? { hit_t1: true,  hit_t2: false, stopped_out: false }
+        : null; // still active at T1 — outcome unknown
+    case 'stopped':
+      return { hit_t1: false, hit_t2: false, stopped_out: true  };
+    case 'expired':
+      return { hit_t1: false, hit_t2: false, stopped_out: false };
+    case 'manual_close':
+    case 'closed_early':
+      // Use P&L as proxy: T1 is typically ≥5% gain
+      return { hit_t1: (pnlPct ?? 0) >= 5, hit_t2: (pnlPct ?? 0) >= 10, stopped_out: false };
+    default:
+      return null; // open or unknown — skip
+  }
+}
 
-  const rps = trade.entryPrice > 0 && trade.stopLoss > 0
-    ? trade.entryPrice - trade.stopLoss : 0;
+async function backfillPbfbOutcomes(
+  db: ReturnType<typeof getServiceClient>,
+): Promise<{ labeled: number; regimeOnly: number; skipped: number }> {
+  const stats = { labeled: 0, regimeOnly: 0, skipped: 0 };
 
-  let mfe = trade.mfe ?? 0;
-  let mae = trade.mae ?? 0;
-  let highestPrice = trade.highestPrice ?? trade.entryPrice;
+  // Only backfill events old enough to have a known outcome (≥21 days)
+  const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 10);
 
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  const daysFrom = (date: string) =>
-    Math.ceil((new Date(date).getTime() - new Date(entryDate).getTime()) / 86400000);
+  const { data: rawEvents, error: evErr } = await db
+    .from('pbfb_uc_events')
+    .select('symbol, event_date')
+    .is('hit_t1', null)
+    .lte('event_date', cutoff)
+    .limit(500);
 
-  const baseUpdate = (bar: DayBar) => ({
-    ...trade,
-    currentPrice: bar.close,
-    highestPrice,
-    mfe: round2(mfe),
-    mae: round2(mae),
-    mfeR: rps > 0 ? Math.round((mfe / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
-    maeR: rps > 0 ? Math.round((mae / 100 * trade.entryPrice / rps) * 100) / 100 : undefined,
-    daysHeld: daysFrom(bar.date),
-    lastCheckDate: bar.date,
-  });
+  if (evErr || !rawEvents?.length) return stats;
 
-  // T1 and T2 are milestones (partial exits), not terminal states.
-  // Tracking continues until T3, stop, or 20-day expiry — whichever comes first.
-  let t1Hit = false, t2Hit = false;
+  // Deduplicate by (symbol, event_date) — multiple n_before rows exist per event
+  const seen = new Set<string>();
+  const events: { symbol: string; event_date: string }[] = [];
+  for (const e of rawEvents as { symbol: string; event_date: string }[]) {
+    const key = `${e.symbol}::${e.event_date}`;
+    if (!seen.has(key)) { seen.add(key); events.push(e); }
+  }
 
-  // Weighted P&L accounting for partial exits already crystallised
-  const calcPnl = (closePrice: number) => {
-    if (t2Hit) return round2(((trade.target1 * 0.5 + trade.target2 * 0.3 + closePrice * 0.2) - trade.entryPrice) / trade.entryPrice * 100);
-    if (t1Hit) return round2(((trade.target1 * 0.5 + closePrice * 0.5) - trade.entryPrice) / trade.entryPrice * 100);
-    return round2(((closePrice - trade.entryPrice) / trade.entryPrice) * 100);
+  const symbols = [...new Set(events.map(e => e.symbol))];
+
+  // Fetch Nifty regime map and terminal trades in parallel
+  const [regimeMap, { data: trades }] = await Promise.all([
+    buildNiftyRegimeMap(),
+    db.from('tracked_trades')
+      .select('symbol, entry_date, status, pnl_pct, regime_at_entry, exit_date')
+      .in('symbol', symbols),
+  ]);
+
+  // Build symbol → trades[] lookup
+  type TRef = {
+    entryMs:     number;
+    status:      string;
+    pnlPct:      number | null;
+    regime:      string | null;
+    hasExitDate: boolean;
   };
-  const calcR = (pct: number) => rps > 0 ? round2(pct / 100 * trade.entryPrice / rps) : 0;
-
-  for (const bar of postEntry) {
-    const barMfe = ((bar.high - trade.entryPrice) / trade.entryPrice) * 100;
-    const barMae = ((trade.entryPrice - bar.low) / trade.entryPrice) * 100;
-    if (barMfe > mfe) mfe = barMfe;
-    if (barMae > mae) mae = barMae;
-    if (bar.high > highestPrice) highestPrice = bar.high;
-
-    const stopLevel = (trade.disasterStop > 0 && trade.stopLoss > 0)
-      ? Math.max(trade.disasterStop, trade.stopLoss)
-      : (trade.stopLoss > 0 ? trade.stopLoss : trade.disasterStop);
-
-    // TERMINAL: stop hit
-    if (stopLevel > 0 && bar.low <= stopLevel) {
-      const pnlPct = calcPnl(stopLevel);
-      return { ...baseUpdate(bar), status: 'stopped', closedPrice: stopLevel, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
-    }
-
-    // TERMINAL: T3 hit
-    if (trade.target3 > 0 && bar.high >= trade.target3) {
-      const wt = trade.target1 * 0.5 + trade.target2 * 0.3 + trade.target3 * 0.2;
-      const pnlPct = round2(((wt - trade.entryPrice) / trade.entryPrice) * 100);
-      return { ...baseUpdate(bar), status: 'hit_t3', closedPrice: trade.target3, closedDate: bar.date, pnlPct, pnlR: calcR(pnlPct) };
-    }
-
-    // MILESTONE: T2 hit — mark and continue scanning for T3
-    if (!t2Hit && trade.target2 > 0 && bar.high >= trade.target2) t2Hit = true;
-
-    // MILESTONE: T1 hit — mark and continue scanning for T2/T3
-    if (!t1Hit && trade.target1 > 0 && bar.high >= trade.target1) t1Hit = true;
+  const bySymbol = new Map<string, TRef[]>();
+  for (const t of (trades ?? []) as Record<string, unknown>[]) {
+    const entryMs = t.entry_date ? new Date(t.entry_date as string).getTime() : NaN;
+    if (!Number.isFinite(entryMs)) continue;
+    const sym = t.symbol as string;
+    if (!bySymbol.has(sym)) bySymbol.set(sym, []);
+    bySymbol.get(sym)!.push({
+      entryMs,
+      status:      t.status      as string,
+      pnlPct:      t.pnl_pct    as number | null ?? null,
+      regime:      t.regime_at_entry as string | null ?? null,
+      hasExitDate: !!t.exit_date,
+    });
   }
 
-  const lastBar = postEntry[postEntry.length - 1];
-  const daysHeld = daysFrom(lastBar.date);
+  const updates: PbfbOutcomeUpdate[] = [];
 
-  // TERMINAL: 20-day expiry — P&L reflects any partial exits already taken
-  if (daysHeld >= 20) {
-    const pnlPct = calcPnl(lastBar.close);
-    return { ...baseUpdate(lastBar), status: 'expired', closedPrice: lastBar.close, closedDate: lastBar.date, pnlPct, pnlR: calcR(pnlPct) };
+  for (const event of events) {
+    const eventMs = new Date(event.event_date).getTime();
+    if (!Number.isFinite(eventMs)) continue;
+
+    // Find closest terminal-candidate trade within ±15 days
+    const candidates = bySymbol.get(event.symbol) ?? [];
+    let best: TRef | null = null;
+    let bestDiff = Infinity;
+    for (const c of candidates) {
+      const diff = Math.abs(c.entryMs - eventMs) / 86400000;
+      if (diff <= 15 && diff < bestDiff) { bestDiff = diff; best = c; }
+    }
+
+    // Resolve market regime (trade-recorded > Nifty fallback)
+    const tradeRegime = normalizeRegime(best?.regime ?? null);
+    const niftyRegime  = regimeMap.get(event.event_date) ?? null;
+    const marketRegime = tradeRegime ?? niftyRegime;
+
+    const outcomes = best ? outcomeFromStatus(best.status, best.pnlPct, best.hasExitDate) : null;
+
+    if (!outcomes && !marketRegime) { stats.skipped++; continue; }
+
+    updates.push({
+      symbol:          event.symbol,
+      event_date:      event.event_date,
+      hit_t1:          outcomes?.hit_t1          ?? null,
+      hit_t2:          outcomes?.hit_t2          ?? null,
+      stopped_out:     outcomes?.stopped_out     ?? null,
+      outcome_pct_20d: outcomes ? (best?.pnlPct ?? null) : null,
+      market_regime:   marketRegime,
+    });
   }
 
-  // Still within 20 days — return current milestone, no closedDate (still tracking)
-  const status: TrackedTrade['status'] = t2Hit ? 'hit_t2' : t1Hit ? 'hit_t1' : 'open';
-  const pnlPct = calcPnl(lastBar.close);
-  return { ...baseUpdate(lastBar), status, closedPrice: undefined, closedDate: undefined, pnlPct, pnlR: calcR(pnlPct) };
+  // Batch update — each row updates all rows for that (symbol, event_date) pair
+  for (const u of updates) {
+    const patch: Record<string, unknown> = { market_regime: u.market_regime };
+    if (u.hit_t1 !== null) {
+      patch.hit_t1          = u.hit_t1;
+      patch.hit_t2          = u.hit_t2;
+      patch.stopped_out     = u.stopped_out;
+      patch.outcome_pct_20d = u.outcome_pct_20d;
+    }
+
+    const { error } = await db
+      .from('pbfb_uc_events')
+      .update(patch)
+      .eq('symbol', u.symbol)
+      .eq('event_date', u.event_date);
+
+    if (!error) {
+      if (u.hit_t1 !== null) stats.labeled++;
+      else stats.regimeOnly++;
+    }
+  }
+
+  return stats;
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -319,8 +448,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const [{ data: rows, error: loadErr }, { data: existingLogs, error: logsErr }] = await Promise.all([
-      db.from('tracked_trades').select('*').eq('user_id', USER_ID),
-      db.from('trade_daily_log').select('symbol,date').eq('user_id', USER_ID),
+      selectAll<Record<string, unknown>>((from, to) => Promise.resolve(db
+        .from('tracked_trades')
+        .select('*')
+        .eq('user_id', USER_ID)
+        .order('created_at', { ascending: true })
+        .range(from, to))),
+      selectAll<{ symbol: string; date: string }>((from, to) => Promise.resolve(db
+        .from('trade_daily_log')
+        .select('symbol,date')
+        .eq('user_id', USER_ID)
+        .order('date', { ascending: true })
+        .range(from, to))),
     ]);
 
     if (loadErr) throw new Error(`trade load failed: ${loadErr.message}`);
@@ -359,6 +498,9 @@ export async function GET(req: NextRequest) {
       hit_t2: 0,
       hit_t3: 0,
       expired: 0,
+      pbfbLabeled: 0,
+      pbfbRegimeOnly: 0,
+      pbfbSkipped: 0,
       errors: [] as string[],
     };
 
@@ -378,21 +520,34 @@ export async function GET(req: NextRequest) {
         }
 
         const entryDate = trade.entryDate.slice(0, 10);
-        const terminalDateBeforeReplay = trade.closedDate?.slice(0, 10);
+        const repairingLegacyT1Trail = isLegacyT1BreakevenTrailExit(trade);
+        const terminalDateBeforeReplay = repairingLegacyT1Trail ? null : trade.closedDate?.slice(0, 10);
         const postEntry = bars.filter(bar =>
           bar.date > entryDate &&
           (!terminalDateBeforeReplay || bar.date <= terminalDateBeforeReplay)
         );
+        const preEntry = bars.filter(bar => bar.date <= entryDate).slice(-30);
         const lastBar = postEntry[postEntry.length - 1];
-        const validation = isTerminalTrade(trade)
+        const validation = isTerminalTrade(trade) && !repairingLegacyT1Trail
           ? null
           : validateTrade(trade, postEntry.map(bar => ({
               o: bar.open,
               h: bar.high,
               l: bar.low,
               c: bar.close,
+              v: bar.volume,
               d: bar.date,
-            })));
+            })), {
+              preEntryCandles: preEntry.map(bar => ({
+                o: bar.open,
+                h: bar.high,
+                l: bar.low,
+                c: bar.close,
+                v: bar.volume,
+                d: bar.date,
+              })),
+              maxHoldBars: trade.maxHoldBars,
+            });
         const updated = lastBar
           ? {
               ...(validation ? applyValidation(trade, validation) : trade),
@@ -489,6 +644,18 @@ export async function GET(req: NextRequest) {
     };
 
     await runWithConcurrency(trades, 3, processTrade_);
+
+    // Phase 2 — PBFB outcome backfill (runs after trades, non-blocking on errors)
+    try {
+      const pbfb = await backfillPbfbOutcomes(db);
+      summary.pbfbLabeled    = pbfb.labeled;
+      summary.pbfbRegimeOnly = pbfb.regimeOnly;
+      summary.pbfbSkipped    = pbfb.skipped;
+    } catch (pbfbErr) {
+      const msg = pbfbErr instanceof Error ? pbfbErr.message : String(pbfbErr);
+      summary.errors.push(`pbfb-backfill: ${msg}`);
+    }
+
     summary.ok = summary.errors.length === 0;
     const status = summary.ok ? 'completed' : 'partial';
     await finishRun(status, {

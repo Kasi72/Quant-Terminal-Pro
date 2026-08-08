@@ -128,7 +128,7 @@ export function generateNarrative(
     const rp = safe(pe.tacticalRiskPct);
     const rrVerdict = (rr >= 0.8 && rr <= 1.3 && rp >= 4 && rp <= 6.5) ? 'Elite' : (rr >= 0.6 && rr <= 2.0) ? 'Good' : rr >= 0.4 ? 'Fair' : 'Weak';
     entryParts.push(`R:R is ${rr.toFixed(2)}:1 (${rrVerdict})`);
-    entryParts.push(`T1 at ₹${pe.target5.toFixed(2)} — sell 50% here, move stop to breakeven`);
+    entryParts.push(`T1 at ₹${pe.target5.toFixed(2)} — sell 50% here; keep the rest protected by the review/trail floor until T2`);
     if (pe.target7 > 0) entryParts.push(`T2 at ₹${pe.target7.toFixed(2)} — sell 30%, trail with Chandelier exit`);
 
     const entry = entryParts.join('. ') + '.';

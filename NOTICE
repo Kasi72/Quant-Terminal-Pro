@@ -1,0 +1,40 @@
+NOTICE — Quant Terminal Pro
+===========================
+
+Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+
+This product includes original proprietary software authored by
+Kasi Krishnaraja Paldurai (drkasi@gmail.com).
+
+Third-Party Components
+----------------------
+This software makes use of the following open-source components. Their
+licences are separate from and do not affect the proprietary licence
+covering the Owner's original work.
+
+  Next.js            — MIT Licence       — https://github.com/vercel/next.js
+  React              — MIT Licence       — https://github.com/facebook/react
+  TypeScript         — Apache-2.0        — https://github.com/microsoft/TypeScript
+  Tailwind CSS       — MIT Licence       — https://github.com/tailwindlabs/tailwindcss
+  @supabase/supabase-js — MIT Licence    — https://github.com/supabase/supabase-js
+  Cloudflare Workers — Developer TOS     — https://www.cloudflare.com
+  Recharts           — MIT Licence       — https://github.com/recharts/recharts
+  date-fns           — MIT Licence       — https://github.com/date-fns/date-fns
+
+The use of these third-party components does not grant any rights to the
+Owner's proprietary logic, algorithms, or data structures.
+
+Original Proprietary Assets
+----------------------------
+The following components are wholly original work by the Owner and are
+NOT derived from any third-party source:
+
+  — lib/stockEngine.ts         UC Score algorithm, scan engine, breakout DNA
+  — lib/tradeOps.ts            Trade analytics, win-rate framework, MFE/MAE
+  — lib/ucScoreWeights.ts      Calibrated ML weight constants
+  — lib/bulkFlow.ts            Bulk-deal flow intelligence
+  — lib/sectorFlow.ts          Sector momentum flow model
+  — lib/niftyPresets.ts        Curated NSE stock universe presets
+  — cloudflare/brain-worker/   Brain Vectorize + Llama narration pipeline
+  — app/page.tsx               Full-stack screener orchestration UI
+  — scripts/uc_precision_analysis.js   Cohen's d weight recalibration

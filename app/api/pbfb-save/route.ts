@@ -1,7 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceClient } from '@/lib/supabaseServer';
+import { isAuthorizedScreenerRequest } from '@/lib/screenerSession';
 
-export const runtime = 'edge';
+// Node.js serverless runtime: 4.5 MB body limit vs 1 MB edge limit
+const MAX_BODY_BYTES = 4_000_000;
+const MAX_EVENTS_PER_RUN = 10_000;
 
 interface EventPayload {
   symbol:          string;
@@ -31,6 +34,8 @@ interface EventPayload {
   nearBreakoutTier?: string | null;
   archetypeType?:    string | null;
   zoneShape?:        string | null;
+  rsi2Velocity?:     number | null;
+  clTrend?:          number | null;
 }
 
 interface SavePayload {
@@ -59,24 +64,49 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
 
-  // Require internal token to prevent unauthenticated writes via service role key
+  // The route writes with the service-role key, so it must never be callable by
+  // an unauthenticated request. Browser users authenticate via screener cookie;
+  // automation may use PBFB_INTERNAL_TOKEN.
   const internalToken = process.env.PBFB_INTERNAL_TOKEN;
-  if (internalToken) {
-    const provided = req.headers.get('x-internal-token') ?? '';
-    const ok = await timingSafeEqual(provided, internalToken);
-    if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!internalToken && !process.env.SCREENER_PASSWORD) {
+    return NextResponse.json({ error: 'PBFB write auth not configured' }, { status: 500 });
   }
 
-  const body = await req.json() as SavePayload;
+  const providedInternal = req.headers.get('x-internal-token') ?? '';
+  const okByInternal = !!internalToken && !!providedInternal
+    && await timingSafeEqual(providedInternal, internalToken);
+  const okByCookie = await isAuthorizedScreenerRequest(req);
+  if (!okByInternal && !okByCookie) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const declaredLength = Number(req.headers.get('content-length') ?? 0);
+  if (declaredLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
+  let body: SavePayload;
+  try {
+    const raw = await req.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+    body = JSON.parse(raw) as SavePayload;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+  }
+
   if (!body.runDate || !Array.isArray(body.events) || body.events.length === 0) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
+  if (body.events.length > MAX_EVENTS_PER_RUN) {
+    return NextResponse.json({ error: 'Too many events in one run' }, { status: 413 });
+  }
 
-  const sb = createClient(url, key);
+  let sb: ReturnType<typeof getServiceClient>;
+  try { sb = getServiceClient(); }
+  catch { return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 }); }
 
   // Log the daily run
   const { data: run, error: runErr } = await sb
@@ -91,7 +121,10 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single();
 
-  if (runErr) return NextResponse.json({ error: runErr.message }, { status: 500 });
+  if (runErr) {
+    console.error('[pbfb-save] pbfb_daily_runs insert failed:', runErr.message);
+    return NextResponse.json({ error: runErr.message }, { status: 500 });
+  }
 
   const rows = body.events.map(e => ({
     run_date:        body.runDate,
@@ -122,6 +155,8 @@ export async function POST(req: NextRequest) {
     near_breakout_tier: e.nearBreakoutTier ?? null,
     archetype_type:     e.archetypeType    ?? null,
     zone_shape:         e.zoneShape        ?? null,
+    rsi2_velocity:      e.rsi2Velocity     ?? null,
+    cl_trend:           e.clTrend          ?? null,
   }));
 
   // Batch upsert in chunks of 200, keyed on the event itself — the same
@@ -133,7 +168,7 @@ export async function POST(req: NextRequest) {
     const { error } = await sb.from('pbfb_uc_events')
       .upsert(chunk, { onConflict: 'symbol,event_date,n_before' });
     if (!error) stored += chunk.length;
-    else if (!firstError) firstError = error.message;
+    else if (!firstError) { firstError = error.message; console.error('[pbfb-save] upsert chunk error:', error.message); }
   }
 
   if (stored === 0 && firstError) {

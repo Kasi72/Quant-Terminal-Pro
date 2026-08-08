@@ -12,9 +12,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Brain worker not configured' }, { status: 503 });
   }
 
-  const res = await fetch(`${url.replace(/\/$/, '')}/narrate`, {
-    headers: { 'x-worker-token': token },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${url.replace(/\/$/, '')}/narrate`, {
+      headers: { 'x-worker-token': token },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return NextResponse.json({ error: 'Brain worker request timed out' }, { status: 504 });
+  }
 
   return new NextResponse(await res.text(), {
     status: res.status,

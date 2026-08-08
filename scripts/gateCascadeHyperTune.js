@@ -1,3 +1,12 @@
+// RETIRED: this file is retained only as a record of the pre-v7 experiment.
+// Its standalone target-first simulator cannot represent the canonical execution
+// contract and must never be used to select production parameters.
+console.error(
+  'RETIRED: gateCascadeHyperTune.js uses the obsolete target-first/look-ahead model. ' +
+  'Use lib/autoValidator.ts through a canonical replay harness instead.'
+);
+process.exit(1);
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 10-GATE CASCADE HYPER-TUNE — Backtest on Nifty 500
 // ═══════════════════════════════════════════════════════════════════════════════

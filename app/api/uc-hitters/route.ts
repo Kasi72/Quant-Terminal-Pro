@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { inflateRawSync } from 'node:zlib';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export interface UCHitter {
   symbol:     string;
@@ -51,33 +52,23 @@ async function unzipFirst(buf: Uint8Array): Promise<string | null> {
 
   const view    = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   const method  = view.getUint16(8,  true);  // 0=stored, 8=deflate
+  const compLen = view.getUint32(18, true);
   const nameLen = view.getUint16(26, true);
   const xtraLen = view.getUint16(28, true);
   const dataOff = 30 + nameLen + xtraLen;
+  if (dataOff >= buf.length) return null;
 
-  const raw = buf.slice(dataOff);
+  // Only pass the ZIP member payload to the decompressor. Passing the central
+  // directory/footer can leave DecompressionStream waiting or failing late.
+  const dataEnd = compLen > 0 ? Math.min(dataOff + compLen, buf.length) : buf.length;
+  const raw = buf.slice(dataOff, dataEnd);
 
   if (method === 0) {
     return new TextDecoder('utf-8').decode(raw);
   }
   if (method === 8) {
     try {
-      // DecompressionStream is available in Node 18+ (Vercel runtime)
-      const ds     = new DecompressionStream('deflate-raw');
-      const writer = ds.writable.getWriter();
-      const reader = ds.readable.getReader();
-      await writer.write(raw);
-      await writer.close();
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      let offset = 0, total = 0;
-      for (const c of chunks) total += c.length;
-      const out = new Uint8Array(total);
-      for (const c of chunks) { out.set(c, offset); offset += c.length; }
+      const out = inflateRawSync(raw);
       return new TextDecoder('utf-8').decode(out);
     } catch { return null; }
   }
@@ -129,10 +120,13 @@ function filterRows(
     const volume     = iVol >= 0 ? Math.abs(parseInt(cols[iVol] ?? '0', 10)) : 0;
     if (!symbol || isNaN(prevClose) || isNaN(closePrice) || prevClose <= 0) continue;
     const movePct = (closePrice - prevClose) / prevClose * 100;
-    // Corporate action filter — any single-day move >25% without a UC lock is almost certainly a bonus/split
+    // Corporate action filter — any single-day move >25% is usually a bonus/split
     if (movePct > 25) continue;
     const isUCLock = !isNaN(highPrice) && highPrice > 0 && (highPrice - closePrice) / highPrice < 0.002;
-    if (movePct >= minPct || (isUCLock && movePct > 0)) {
+    // Keep the bhavcopy fallback aligned with the Chartink close-to-close
+    // objective. high≈close is useful evidence, but without exchange price-band
+    // data it is not proof of an upper-circuit lock by itself.
+    if (movePct > minPct) {
       results.push({ symbol, movePct, isUCLock, closePrice, prevClose, volume });
     }
   }
@@ -230,10 +224,13 @@ async function tryReportsApi(dateStr: string, minPct: number, cookies: string): 
 
 export async function GET(req: NextRequest) {
   const date   = req.nextUrl.searchParams.get('date');
-  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '5');
+  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '4.9');
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 });
+  }
+  if (!Number.isFinite(minPct) || minPct < 0 || minPct > 25) {
+    return NextResponse.json({ error: 'minPct must be a finite number between 0 and 25' }, { status: 400 });
   }
 
   // Quick weekend check (NSE is closed Saturday & Sunday)

@@ -1,3 +1,5 @@
+import { canonicalNseSymbolBase } from './symbolCrossref';
+
 export const INDUSTRY_MAP: Record<string, string> = {
   '360ONE': 'Financial Services',
   '3MINDIA': 'Diversified',
@@ -292,7 +294,7 @@ export const INDUSTRY_MAP: Record<string, string> = {
   'GSFC': 'Chemicals',
   'GSPL': 'Oil Gas & Consumable Fuels',
   'GUJALKALI': 'Chemicals',
-  'GUJGASLTD': 'Oil Gas & Consumable Fuels',
+  'GUJENERGY': 'Oil Gas & Consumable Fuels',
   'GULFOILLUB': 'Oil Gas & Consumable Fuels',
   'GVT&D': 'Capital Goods',
   'HAL': 'Capital Goods',
@@ -822,13 +824,13 @@ const SHORT: Record<string, string> = {
 };
 
 export function getIndustryTag(symbol: string): string {
-  const clean = symbol.replace('.NS', '').replace('.BO', '');
+  const clean = canonicalNseSymbolBase(symbol);
   const ind = INDUSTRY_MAP[clean];
   if (!ind) return '';
   return SHORT[ind] ?? ind.slice(0, 3).toUpperCase();
 }
 
 export function getIndustryFull(symbol: string): string {
-  const clean = symbol.replace('.NS', '').replace('.BO', '');
+  const clean = canonicalNseSymbolBase(symbol);
   return INDUSTRY_MAP[clean] ?? '';
 }

@@ -31,7 +31,10 @@ function extractCookies(h: string | null): string {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '5');
+  const minPct = parseFloat(req.nextUrl.searchParams.get('minPct') ?? '4.9');
+  if (!Number.isFinite(minPct) || minPct < 0 || minPct > 25) {
+    return NextResponse.json({ error: 'minPct must be a finite number between 0 and 25' }, { status: 400 });
+  }
 
   // ── Step 1: visit Chartink screener page to get CSRF token + session cookie ──
   let csrfToken = '';
@@ -73,8 +76,10 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Step 2: run the scan ──────────────────────────────────────────────────
-  // Scan: cash-segment stocks with ≥ minPct% close-to-close move today
-  const scanClause = `( {cash} ( latest close - 1 day ago close ) / 1 day ago close * 100 >= ${minPct} )`;
+  // Scan: cash-segment stocks whose close-to-close move is strictly above the threshold.
+  // The 4.9% default intentionally catches rounded 4.95-4.99% circuit-lock prints
+  // that a hard >=5.0% gate misses.
+  const scanClause = `( {cash} ( latest close - 1 day ago close ) / 1 day ago close * 100 > ${minPct} )`;
 
   let scanData: ChartinkHitter[] = [];
 
@@ -121,6 +126,9 @@ export async function GET(req: NextRequest) {
         const volume     = parseInt(  String(row['volume']  ?? row['Volume']  ?? 0), 10);
         return { symbol, bseCode, movePct, closePrice, volume };
       })
+      // Chartink returns per_chg rounded to two decimals, while the scan clause
+      // is evaluated on its internal precision. Keep rows at the displayed
+      // threshold so valid 4.90-ish matches are not dropped after parsing.
       .filter(h => h.symbol.length > 0 && h.movePct >= minPct && h.movePct <= 25)
       .sort((a, b) => b.movePct - a.movePct);
 

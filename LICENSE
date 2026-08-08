@@ -1,0 +1,45 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+
+NOTICE: This software and its source code (the "Software") are the exclusive
+intellectual property of Kasi Krishnaraja Paldurai ("Owner"). The Software is
+proprietary and confidential.
+
+RESTRICTIONS — The following acts are STRICTLY PROHIBITED without the express
+prior written permission of the Owner:
+
+  1. Copying, reproducing, or duplicating the Software, in whole or in part.
+  2. Distributing, publishing, or making the Software available to any third party.
+  3. Modifying, adapting, translating, or creating derivative works based on the
+     Software.
+  4. Reverse engineering, decompiling, disassembling, or otherwise attempting to
+     derive the source code or underlying algorithms of the Software.
+  5. Sub-licensing, selling, renting, leasing, or transferring rights to the
+     Software.
+  6. Deploying, hosting, or operating the Software for commercial purposes or on
+     behalf of any third party.
+  7. Removing, obscuring, or altering any copyright, trademark, or proprietary
+     notices contained in the Software.
+
+GITHUB VISIBILITY: The source code is made available on GitHub solely for
+personal review, audit, and transparency purposes. Visibility on a public or
+private repository does NOT constitute a grant of any licence, permission, or
+right to use, copy, or distribute the Software.
+
+ORIGINAL AUTHORSHIP: The Owner asserts original authorship of all proprietary
+logic contained in this Software, including but not limited to:
+  — The UC Score computation engine and all associated weight systems
+  — The Brain Vectorize similarity and narration pipeline
+  — The bulk-deal flow intelligence layer
+  — The trade analytics and validation framework
+  — All curated stock universe presets and index definitions
+
+NO WARRANTY: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+THE OWNER SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY
+ARISING FROM OR IN CONNECTION WITH THE SOFTWARE.
+
+GOVERNING LAW: This licence shall be governed by the laws of India. Any
+disputes shall be subject to the exclusive jurisdiction of the courts of India.
+
+Contact: drkasi@gmail.com

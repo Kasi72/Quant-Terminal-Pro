@@ -28,3 +28,4 @@ crons = ["30 13 * * 1-5"]
 #   SUPABASE_URL               — https://cmkfqlppbwyrhjmooqbq.supabase.co
 #   SUPABASE_SERVICE_ROLE_KEY  — server-side only
 #   WORKER_TOKEN               — shared secret the Vercel app sends as x-worker-token
+#   ALLOWED_ORIGINS            — optional comma-list of Vercel origins allowed by CORS

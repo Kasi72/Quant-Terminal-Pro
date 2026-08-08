@@ -1,16 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  createScreenerSessionToken,
+  getScreenerSessionCookieName,
+  getScreenerSessionMaxAge,
+  isScreenerAuthConfigured,
+  isValidScreenerPassword,
+} from '@/lib/screenerSession';
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
-  if (password !== process.env.SCREENER_PASSWORD) {
+  if (!isScreenerAuthConfigured()) {
+    return NextResponse.json({ error: 'Screener auth is not configured' }, { status: 503 });
+  }
+
+  let password: unknown;
+  try {
+    const body = await req.json();
+    password = body?.password;
+  } catch {
+    return NextResponse.json({ error: 'Invalid login payload' }, { status: 400 });
+  }
+
+  if (!isValidScreenerPassword(password)) {
     return NextResponse.json({ error: 'Wrong password' }, { status: 401 });
   }
+
+  const token = await createScreenerSessionToken();
   const res = NextResponse.json({ ok: true });
-  res.cookies.set('screener_auth', password, {
+  res.cookies.set(getScreenerSessionCookieName(), token, {
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    maxAge: getScreenerSessionMaxAge(),
     path: '/',
   });
   return res;
@@ -18,6 +38,6 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.delete('screener_auth');
+  res.cookies.delete(getScreenerSessionCookieName());
   return res;
 }

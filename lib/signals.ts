@@ -1,6 +1,7 @@
 import type { AnalysisResult } from './stockEngine';
 import { SECTOR_PRESETS } from './sectorPresets';
 import { getIndustryTag, getIndustryFull } from './industryMap';
+import { canonicalNseSymbol, canonicalNseSymbolBase } from './symbolCrossref';
 
 // ─── #1: Conviction Score ────────────────────────────────────────────────────
 
@@ -54,14 +55,15 @@ function buildSectorCache(): Map<string, string> {
   for (const sp of SECTOR_PRESETS) {
     const tag = SECTOR_SHORT[sp.label] ?? sp.label.slice(0, 3).toUpperCase();
     for (const sym of sp.symbols) {
-      if (!_sectorCache.has(sym)) _sectorCache.set(sym, tag);
+      const canonical = canonicalNseSymbolBase(sym);
+      if (!_sectorCache.has(canonical)) _sectorCache.set(canonical, tag);
     }
   }
   return _sectorCache;
 }
 
 export function getSectorTag(symbol: string): string {
-  const clean = symbol.replace('.NS', '').replace('.BO', '');
+  const clean = canonicalNseSymbolBase(symbol);
   // Sub-sector overrides checked first — Brain learns PSU vs Private bank
   // win rates separately, which is the only way to capture divergent regime behaviour
   if (PSB_SYMBOLS.has(clean)) return 'BNK-PSU';
@@ -79,9 +81,9 @@ export function getSectorFull(symbol: string): string {
   const indFull = getIndustryFull(symbol);
   if (indFull) return indFull;
   // Fallback: sector presets
-  const clean = symbol.replace('.NS', '').replace('.BO', '');
+  const clean = canonicalNseSymbolBase(symbol);
   for (const sp of SECTOR_PRESETS) {
-    if (sp.symbols.includes(clean)) return sp.label;
+    if (sp.symbols.some(sym => canonicalNseSymbolBase(sym) === clean)) return sp.label;
   }
   return '';
 }
@@ -180,10 +182,11 @@ export function deduplicateSymbols(symbols: string[]): { unique: string[]; remov
   const seen = new Set<string>();
   const unique: string[] = [];
   for (const s of symbols) {
-    const clean = s.replace('.NS', '').replace('.BO', '').toUpperCase();
+    const canonical = canonicalNseSymbol(s);
+    const clean = canonicalNseSymbolBase(canonical);
     if (!seen.has(clean)) {
       seen.add(clean);
-      unique.push(s);
+      unique.push(canonical);
     }
   }
   return { unique, removed: symbols.length - unique.length };
