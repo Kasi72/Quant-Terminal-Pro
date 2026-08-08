@@ -1631,6 +1631,7 @@ function HomePageInner() {
   const [cmpData, setCmpData] = useState<{ price: number; dayChangePct: number; marketState: string } | null>(null);
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'open' | 'hit' | 'stopped'>('all');
+  const [logStatusFilter, setLogStatusFilter] = useState<string>('all');
   const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'loss_desc' | 'status' | 'stop_dist'>('date_desc');
   const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
@@ -6398,6 +6399,12 @@ function HomePageInner() {
           const filteredSortedTrades = [...trackedTrades]
             .filter(t => {
               if (logSearch && !t.symbol.toLowerCase().includes(logSearch.toLowerCase())) return false;
+              if (logStatusFilter !== 'all') {
+                if (logStatusFilter === 'hit_5pct') return getTradeMfePct(t) >= 5;
+                if (logStatusFilter === 'hit_7pct') return getTradeMfePct(t) >= 7;
+                if (logStatusFilter === 'hit_10pct') return getTradeMfePct(t) >= 10;
+                return t.status === logStatusFilter;
+              }
               if (logFilter === 'open') return t.status === 'open';
               if (logFilter === 'hit') return ['hit_t1', 'hit_t2', 'hit_t3'].includes(t.status);
               if (logFilter === 'stopped') return isTerminalTrade(t);
@@ -6579,7 +6586,7 @@ function HomePageInner() {
               <div className="flex-shrink-0 border-b border-slate-800 bg-[#090d14] px-3 py-2">
                 <div className="flex flex-wrap items-stretch gap-2">
                   {tradeLogStatCard('All Trade Log', tradeLogAllStats)}
-                  {tradeLogStatCard(logSearch || logFilter !== 'all' ? 'Visible List' : 'Current View', tradeLogVisibleStats, filteredSortedTrades.length)}
+                  {tradeLogStatCard(logSearch || logFilter !== 'all' || logStatusFilter !== 'all' ? 'Visible List' : 'Current View', tradeLogVisibleStats, filteredSortedTrades.length)}
                   <div className="min-w-[260px] flex-[1.2] rounded border border-slate-800 bg-slate-950/30 px-3 py-2">
                     <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Resolution Rule</div>
                     <div className="mt-1 text-[11px] text-slate-400 leading-snug">
@@ -6623,6 +6630,24 @@ function HomePageInner() {
                       </button>
                     );
                   })}
+                </div>
+                {/* Filter */}
+                <div className="px-2 py-1 border-b border-slate-800 flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[9px] text-slate-600 uppercase tracking-wider flex-shrink-0">Filter</span>
+                  <select value={logStatusFilter} onChange={e => setLogStatusFilter(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[10px] text-slate-400 focus:outline-none focus:border-sky-600">
+                    <option value="all">All Status</option>
+                    <option value="open">Open</option>
+                    <option value="hit_t1">T1 Hit</option>
+                    <option value="hit_t2">T2 Hit</option>
+                    <option value="hit_t3">T3 Hit</option>
+                    <option value="stopped">Stopped</option>
+                    <option value="expired">Expired</option>
+                    <option disabled value="">──────────</option>
+                    <option value="hit_5pct">≥5% MFE Hit</option>
+                    <option value="hit_7pct">≥7% MFE Hit</option>
+                    <option value="hit_10pct">≥10% MFE Hit</option>
+                  </select>
                 </div>
                 {/* Sort */}
                 <div className="px-2 py-1 border-b border-slate-800 flex items-center gap-1.5 flex-shrink-0">
