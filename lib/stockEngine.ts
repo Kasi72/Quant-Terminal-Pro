@@ -2827,14 +2827,15 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   //   MP HIGH  : t1M=1.10 — Phase5 optimizer: +17pp WR, escT1 32%→63%
   //   MP !HIGH : t1M=1.60 — VOLATILE/NORMAL both converge to ~5% absolute T1
   //   ORS : t1M=0.75, T3/T1=5.00 — tighter T1 7.6%; tail stays long (escT1 48%→67%, Score +0.74)
-  //   VF/EMA: t1M=0.65 | CC: t1M=0.60 | PS: t1M=0.55 — t1_finegrid 2026-08-08, cliff detected per arch; T2/T3 wider
+  //   maxprofit_optimizer 2026-08-08, 1415-stock universe, OOS30, objective=max AvgPnL/trade:
+  //   VF: T1=0.85 T2=3.30 T3=6.50 | CC: T1=0.65 T2=3.75 T3=7.50 | PS: T1=0.75 T2=2.80 T3=5.50 | EMA: T1=0.75 T2=4.00 T3=7.50
   const isORS = archetypeHint === 'ORS';
   const isVF  = archetypeHint === 'VF';
   const isCC  = archetypeHint === 'CC';
   const isPS  = archetypeHint === 'PS';
-  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isPS ? 0.55 : isCC ? 0.60 : 0.65;
-  const t2Mult = isMP ? t1Mult * (5 / 3) : isORS ? 1.25 : isVF ? 1.25 : 2.5;
-  const t3Mult = isMP ? t1Mult * (10 / 3) : isORS ? 3.75 : isVF ? 2.5 : 5.0;
+  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isPS ? 0.75 : isCC ? 0.65 : isVF ? 0.85 : 0.75;
+  const t2Mult = isMP ? t1Mult * (5 / 3) : isORS ? 1.25 : isVF ? 3.30 : isPS ? 2.80 : isCC ? 3.75 : 4.00;
+  const t3Mult = isMP ? t1Mult * (10 / 3) : isORS ? 3.75 : isVF ? 6.50 : isPS ? 5.50 : isCC ? 7.50 : 7.50;
   const fixedTargetPct = tunedExit(tuneKey, 'targetPct', 0);
   const t5  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct / 100)) : tick(entry * (1 + t1Mult * atrPct / 100));
   const t7  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct * 1.5 / 100)) : tick(entry * (1 + t2Mult * atrPct / 100));
