@@ -2827,10 +2827,12 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   //   MP HIGH  : t1M=1.10 — Phase5 optimizer: +17pp WR, escT1 32%→63%
   //   MP !HIGH : t1M=1.60 — VOLATILE/NORMAL both converge to ~5% absolute T1
   //   ORS : t1M=0.75, T3/T1=5.00 — tighter T1 7.6%; tail stays long (escT1 48%→67%, Score +0.74)
-  //   VF/CC/PS/EMA: t1M=0.5 (t1_optimizer 2026-08-08, 1415 stocks dual OOS WR 88-98%) — T2/T3 kept at pre-opt wider cascade
+  //   VF/EMA: t1M=0.65 | CC: t1M=0.60 | PS: t1M=0.55 — t1_finegrid 2026-08-08, cliff detected per arch; T2/T3 wider
   const isORS = archetypeHint === 'ORS';
   const isVF  = archetypeHint === 'VF';
-  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : 0.5;
+  const isCC  = archetypeHint === 'CC';
+  const isPS  = archetypeHint === 'PS';
+  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isPS ? 0.55 : isCC ? 0.60 : 0.65;
   const t2Mult = isMP ? t1Mult * (5 / 3) : isORS ? 1.25 : isVF ? 1.25 : 2.5;
   const t3Mult = isMP ? t1Mult * (10 / 3) : isORS ? 3.75 : isVF ? 2.5 : 5.0;
   const fixedTargetPct = tunedExit(tuneKey, 'targetPct', 0);
