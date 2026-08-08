@@ -2329,8 +2329,9 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
   // Routing through archetypePriceEngine gives T1=1.5×ATR, T2=3×ATR,
   // T3=5×ATR (validated across 14.3L signals — same formula as breakout archetypes).
   const entryPrice = confirmed ? sig.o : (n > 1 ? candles[n - 1].c : sig.c);
-  const sw5LowORS = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(entryPrice, a14, sw5LowORS, 'ORS');
+  const sw5LowORS  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10LowORS = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5LowORS;
+  const pe = archetypePriceEngine(entryPrice, a14, sw5LowORS, 'ORS', sw10LowORS);
   const btTechORS = archetypeTech(candles, endIdx);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, btTechORS, null);
   const target4pct = pe.target5;  // T1 ≈ 4–6% for typical stock
@@ -2744,7 +2745,7 @@ function archetypeBase(candles: Candle[], key: ParamSetKey): AnalysisResult {
   };
 }
 
-function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetypeHint = ''): PriceEngine {
+function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetypeHint = '', sw10Low = 0): PriceEngine {
   const atrPct = entry > 0 ? (atr14 / entry) * 100 : 2;
   const tuneKey = archetypeKeyFromHint(archetypeHint);
 
@@ -2781,7 +2782,9 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   // NORMAL (1.5-2.5%): optimal=3.0%; VOLATILE (2.5-3.5%): optimal=3.5%; HIGH already has 12.5% cap.
   const floorPct   = isMP ? (atrPct < 2.5 ? 3.0 : atrPct < 3.5 ? 3.5 : 2.0) : 2.0;
   const atrStop    = entry - atrMult * atr14;
-  const structStop = sw5Low > 0 ? sw5Low * 0.997 : atrStop;
+  // sw10Low gives wider structural breathing room (grid-optimised: stop rate −7.7pp, netWR +6.74pp)
+  const structLow  = sw10Low > 0 ? sw10Low : sw5Low;
+  const structStop = structLow > 0 ? structLow * 0.997 : atrStop;
   const rawStop    = tick(Math.max(0, Math.min(atrStop, structStop)));
   const floorStop  = tick(entry * (1 - floorPct / 100));
   const capStop    = tick(entry * (1 - capPct / 100));
@@ -2943,8 +2946,9 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'VF');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'VF', sw10Low);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
@@ -3117,8 +3121,9 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'CC');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'CC', sw10Low);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
   const closeLoc   = ca.closeLoc;
   const bodyPct    = ca.bodyPct;
@@ -3260,8 +3265,9 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
   const stage = archetypeStage(conditionsMet, score, 'MomentumPocket');
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'MP');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'MP', sw10Low);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
@@ -3413,8 +3419,9 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
   const bodyPct = sigRange > 0 ? Math.abs(sig.c - sig.o) / sigRange * 100 : 0;
   const upperWickPct = sigRange > 0 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
   const exactRangeATR14 = sigRange / (atr14 || 0.0001);
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'EMA');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'EMA', sw10Low);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, tech, null);
   const candleDNA = detectCandleDNA(candles, endIdx, atr14);
 
@@ -3517,8 +3524,9 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
   const sigRange = sig.h - sig.l;
   const closeLoc = sigRange > 0 ? (sig.c - sig.l) / sigRange * 100 : 50;
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'PS');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const pe = archetypePriceEngine(sig.c, atr14, sw5Low, 'PS', sw10Low);
   pe.breakoutTier = computeBreakoutTier(candles, endIdx, techPS, null);
 
   const checklist: ChecklistItem[] = [
@@ -3685,8 +3693,9 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
 
   // Price engine
   const entry  = sig.o > 0 ? sig.o : sig.c;
-  const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
-  const priceEngine = archetypePriceEngine(entry, atr14, sw5Low, 'CB');
+  const sw5Low  = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+  const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+  const priceEngine = archetypePriceEngine(entry, atr14, sw5Low, 'CB', sw10Low);
   const techCB = archetypeTech(candles, endIdx);
   priceEngine.breakoutTier = computeBreakoutTier(candles, endIdx, techCB, null);
 
