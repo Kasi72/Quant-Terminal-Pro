@@ -4907,6 +4907,10 @@ function HomePageInner() {
                 <option value="expired">Expired</option>
                 <option value="manual_close">Manual</option>
                 <option value="closed_early">Early Exit</option>
+                <option disabled value="">──────────</option>
+                <option value="hit_5pct">≥5% MFE Hit</option>
+                <option value="hit_7pct">≥7% MFE Hit</option>
+                <option value="hit_10pct">≥10% MFE Hit</option>
               </select>
               <select
                 value={journalFilter.stage}
@@ -4928,7 +4932,12 @@ function HomePageInner() {
                 {(() => {
                   let ct = trackedTrades;
                   if (journalFilter.search) ct = ct.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
-                  if (journalFilter.status !== 'ALL') ct = ct.filter(t => t.status === journalFilter.status);
+                  if (journalFilter.status !== 'ALL') {
+                    if (journalFilter.status === 'hit_5pct') ct = ct.filter(t => getTradeMfePct(t) >= 5);
+                    else if (journalFilter.status === 'hit_7pct') ct = ct.filter(t => getTradeMfePct(t) >= 7);
+                    else if (journalFilter.status === 'hit_10pct') ct = ct.filter(t => getTradeMfePct(t) >= 10);
+                    else ct = ct.filter(t => t.status === journalFilter.status);
+                  }
                   if (journalFilter.stage !== 'ALL') ct = ct.filter(t => t.stage === journalFilter.stage);
                   return `${ct.length} / ${trackedTrades.length} rows`;
                 })()}
@@ -4997,7 +5006,12 @@ function HomePageInner() {
                   {(() => {
                     let rows = [...trackedTrades];
                     if (journalFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
-                    if (journalFilter.status !== 'ALL') rows = rows.filter(t => t.status === journalFilter.status);
+                    if (journalFilter.status !== 'ALL') {
+                      if (journalFilter.status === 'hit_5pct') rows = rows.filter(t => getTradeMfePct(t) >= 5);
+                      else if (journalFilter.status === 'hit_7pct') rows = rows.filter(t => getTradeMfePct(t) >= 7);
+                      else if (journalFilter.status === 'hit_10pct') rows = rows.filter(t => getTradeMfePct(t) >= 10);
+                      else rows = rows.filter(t => t.status === journalFilter.status);
+                    }
                     if (journalFilter.stage !== 'ALL') rows = rows.filter(t => t.stage === journalFilter.stage);
 
                     rows.sort((a, b) => {
