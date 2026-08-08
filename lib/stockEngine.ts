@@ -865,11 +865,11 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 2,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v2: PF30=7.03 WR=92.9%
-  optimized_highprecision_15plus: { targetPct: 2,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: PF30=7.05 WR=88.5%
+  optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v2: SL+hold tuned; T1 = ATR-based (targetPct=0 → uses t1Mult)
+  optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
   optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },  // MP: unchanged
-  optimized_ultraselective_8plus: { targetPct: 2,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: PF30=5.80 WR=93.3%
-  sniper_95plus:                  { targetPct: 2,  slAtrMult: 2.5, maxHoldBars: 8  },  // PS v2: PF30=9.53 WR=92.3%
+  optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
+  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 8  },  // PS v2: SL+hold tuned; T1 = ATR-based
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
@@ -2827,12 +2827,12 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
   //   MP HIGH  : t1M=1.10 — Phase5 optimizer: +17pp WR, escT1 32%→63%
   //   MP !HIGH : t1M=1.60 — VOLATILE/NORMAL both converge to ~5% absolute T1
   //   ORS : t1M=0.75, T3/T1=5.00 — tighter T1 7.6%; tail stays long (escT1 48%→67%, Score +0.74)
-  //   default  : t1M=1.5 — CC/EMA/CB/VF standard cascade
+  //   VF/CC/PS/EMA: t1M=0.5 (t1_optimizer 2026-08-08, 1415 stocks dual OOS WR 88-98%) — T2/T3 kept at pre-opt wider cascade
   const isORS = archetypeHint === 'ORS';
   const isVF  = archetypeHint === 'VF';
-  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : isVF ? 0.75 : 1.5;
-  const t2Mult = t1Mult * (5 / 3);
-  const t3Mult = isORS ? t1Mult * 5.00 : t1Mult * (10 / 3);
+  const t1Mult = isMP ? (isHigh ? 1.10 : 1.60) : isORS ? 0.75 : 0.5;
+  const t2Mult = isMP ? t1Mult * (5 / 3) : isORS ? 1.25 : isVF ? 1.25 : 2.5;
+  const t3Mult = isMP ? t1Mult * (10 / 3) : isORS ? 3.75 : isVF ? 2.5 : 5.0;
   const fixedTargetPct = tunedExit(tuneKey, 'targetPct', 0);
   const t5  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct / 100)) : tick(entry * (1 + t1Mult * atrPct / 100));
   const t7  = fixedTargetPct > 0 ? tick(entry * (1 + fixedTargetPct * 1.5 / 100)) : tick(entry * (1 + t2Mult * atrPct / 100));
