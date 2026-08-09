@@ -64,7 +64,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
-  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade,
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade, getLiveDaysHeld,
   computeRollingWR, computeEquityCurveR, computeArchetypeBreakdown, computeMonthlyPerf,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
@@ -6711,7 +6711,7 @@ function HomePageInner() {
                               <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
                             )}
                             {isStagnantTrade(t) && (
-                              <span title={`${t.daysHeld}d held, only ${(t.mfe ?? 0).toFixed(1)}% MFE — consider cutting`} className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">⏰SLOW</span>
+                              <span title={`${getLiveDaysHeld(t)}d held, only ${(t.mfe ?? 0).toFixed(1)}% MFE — consider cutting`} className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">⏰SLOW</span>
                             )}
                             {isDeepEarlyMaeTrade(t) && (
                               <span title={`Day ${t.daysHeld ?? 0}: already dipped ${getTradeMaeR(t).toFixed(2)}R — wide entry, watch stop`} className="text-[8px] font-bold text-orange-400 bg-orange-900/50 border border-orange-700 px-1 py-0.5 rounded leading-none">⚠DEEP</span>
@@ -7104,6 +7104,8 @@ function HomePageInner() {
               const avgLossR = losses.length > 0 ? losses.reduce((s, t) => s + Math.abs(getFivePctObjectiveR(t)), 0) / losses.length : 0;
               const avgDays = closed.length > 0 ? closed.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / closed.length : 0;
               const avgDaysWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.daysHeld ?? 0), 0) / wins.length : 0;
+              // Live weekday count for currently open trades (fixes stale daysHeld from last validator run)
+              const avgDaysOpen = open.length > 0 ? open.reduce((s, t) => s + getLiveDaysHeld(t), 0) / open.length : 0;
 
               const mfeRTrades = closed.filter(t => getTradeRiskPerShare(t) > 0 && getTradeMfeR(t) > 0);
               const avgMfeR = mfeRTrades.length > 0 ? mfeRTrades.reduce((s, t) => s + getTradeMfeR(t), 0) / mfeRTrades.length : 0;
@@ -7359,8 +7361,8 @@ function HomePageInner() {
                       { label: 'Avg Hit R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `No-hit avg: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
                       { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Avg best excursion in R', color: 'text-emerald-300' },
                       { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Avg adverse excursion in R', color: 'text-red-300' },
-                      { label: 'Avg Days', value: avgDays > 0 ? `${avgDays.toFixed(1)}d` : '—', sub: avgDaysWin > 0 ? `Winners: ${avgDaysWin.toFixed(1)}d` : '', color: 'text-slate-300' },
-                      { label: 'Stagnant', value: stagnant.length > 0 ? String(stagnant.length) : '0', sub: stagnant.length > 0 ? '7d+ · <2% MFE · cut?' : 'All moving', color: stagnant.length > 0 ? 'text-amber-400' : 'text-slate-500' },
+                      { label: 'Avg Days', value: avgDays > 0 ? `${avgDays.toFixed(1)}d` : '—', sub: avgDaysWin > 0 ? `Win: ${avgDaysWin.toFixed(1)}d · Open: ${avgDaysOpen.toFixed(1)}d` : open.length > 0 ? `Open live: ${avgDaysOpen.toFixed(1)}d` : '', color: 'text-slate-300' },
+                      { label: 'Stagnant', value: String(stagnant.length), sub: stagnant.length > 0 ? stagnant.map(t => `${t.symbol.replace('.NS','')} ${getLiveDaysHeld(t)}d`).slice(0,3).join(' · ') : 'All moving', color: stagnant.length > 0 ? 'text-amber-400 font-bold' : 'text-slate-500' },
                     ].map((kpi, i) => (
                       <div key={i} className="bg-slate-800/40 rounded-lg px-3 py-2 text-center">
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider">{kpi.label}</div>

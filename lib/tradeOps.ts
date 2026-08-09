@@ -335,17 +335,36 @@ export function isSurgicallyGateBlocked(t: Pick<TrackedTrade, 'stage' | 'atrStat
   return t.stage === 'PRE_BREAKOUT' && t.atrState === 'EXPLOSION' && (t.conviction ?? 100) < 60;
 }
 
-// Stagnation flag: open trade held 7+ days with MFE < 2% = no momentum. Display-only; no auto-exit.
+// Live weekday count from entryDate to today for open trades; stored daysHeld for terminal trades.
+// Fixes stale-daysHeld bug where autoValidator only updates daysHeld on next revalidation run.
+export function getLiveDaysHeld(t: TrackedTrade): number {
+  if (isTerminalTrade(t)) return t.daysHeld ?? 0;
+  const entry = t.entryDate;
+  if (!entry) return t.daysHeld ?? 0;
+  const start = new Date(entry);
+  const end = new Date();
+  if (isNaN(start.getTime())) return t.daysHeld ?? 0;
+  let count = 0;
+  const cur = new Date(start);
+  while (cur <= end) {
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Math.max(0, count - 1); // entry day = day 0
+}
+
+// Stagnation flag: open trade held 7+ trading days with MFE < 2% = no momentum. Display-only; no auto-exit.
 export function isStagnantTrade(t: TrackedTrade): boolean {
   if (isTerminalTrade(t)) return false;
   if (t.status !== 'open') return false;
-  return (t.daysHeld ?? 0) >= 7 && (t.mfe ?? 0) < 2.0;
+  return getLiveDaysHeld(t) >= 7 && (t.mfe ?? 0) < 2.0;
 }
 
-// Deep early MAE: non-terminal trade, first 5 days, already dipped 0.65R+. Entry quality flag.
+// Deep early MAE: non-terminal trade, first 5 trading days, already dipped 0.65R+. Entry quality flag.
 export function isDeepEarlyMaeTrade(t: TrackedTrade): boolean {
   if (isTerminalTrade(t)) return false;
-  if ((t.daysHeld ?? 0) > 5) return false;
+  if (getLiveDaysHeld(t) > 5) return false;
   return getTradeMaeR(t) < -0.65;
 }
 
