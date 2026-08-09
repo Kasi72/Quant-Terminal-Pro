@@ -7543,14 +7543,14 @@ function HomePageInner() {
                       ) : (
                         <div className="space-y-1.5">
                           {archBreakdown.map((a, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-slate-300 w-8 flex-shrink-0">{a.archetype}</span>
-                              <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div key={i} className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-300 w-9 flex-shrink-0 truncate">{a.archetype}</span>
+                              <div className="flex-1 min-w-0 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                 <div className="h-full rounded-full bg-emerald-500" style={{width: `${a.winRate}%`}}/>
                               </div>
-                              <span className={`text-[10px] font-bold w-8 text-right ${a.winRate >= 65 ? 'text-emerald-400' : a.winRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{a.winRate.toFixed(0)}%</span>
-                              <span className="text-[9px] text-slate-600 w-12 text-right">{a.wins}W/{a.losses}L</span>
-                              {a.avgWinR > 0 && <span className="text-[9px] text-emerald-600 w-12 text-right">+{a.avgWinR.toFixed(2)}R</span>}
+                              <span className={`text-[10px] font-bold w-7 flex-shrink-0 text-right ${a.winRate >= 65 ? 'text-emerald-400' : a.winRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{a.winRate.toFixed(0)}%</span>
+                              <span className="text-[9px] text-slate-600 w-10 flex-shrink-0 text-right">{a.wins}W/{a.losses}L</span>
+                              <span className="text-[9px] text-emerald-600 w-10 flex-shrink-0 text-right">{a.avgWinR > 0 ? `+${a.avgWinR.toFixed(2)}R` : ''}</span>
                             </div>
                           ))}
                         </div>

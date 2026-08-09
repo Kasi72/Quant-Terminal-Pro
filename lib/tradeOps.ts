@@ -403,7 +403,8 @@ export function computeEquityCurveR(trades: TrackedTrade[]): { symbol: string; n
 export function computeArchetypeBreakdown(trades: TrackedTrade[]): { archetype: string; wins: number; losses: number; decided: number; winRate: number; avgWinR: number }[] {
   const groups: Record<string, { wins: TrackedTrade[]; losses: TrackedTrade[] }> = {};
   for (const t of resolvedSorted(trades)) {
-    const arch = PARAM_KEY_LABELS[t.paramSetKey] ?? t.paramSetKey ?? 'Other';
+    const raw = t.paramSetKey ?? 'Other';
+    const arch = PARAM_KEY_LABELS[raw] ?? raw.slice(0, 4).toUpperCase();
     if (!groups[arch]) groups[arch] = { wins: [], losses: [] };
     (didReachFivePctTarget(t) ? groups[arch].wins : groups[arch].losses).push(t);
   }
