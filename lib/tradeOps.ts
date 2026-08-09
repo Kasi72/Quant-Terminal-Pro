@@ -342,6 +342,13 @@ export function isStagnantTrade(t: TrackedTrade): boolean {
   return (t.daysHeld ?? 0) >= 7 && (t.mfe ?? 0) < 2.0;
 }
 
+// Deep early MAE: non-terminal trade, first 5 days, already dipped 0.65R+. Entry quality flag.
+export function isDeepEarlyMaeTrade(t: TrackedTrade): boolean {
+  if (isTerminalTrade(t)) return false;
+  if ((t.daysHeld ?? 0) > 5) return false;
+  return getTradeMaeR(t) < -0.65;
+}
+
 export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const closed = trades.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
   const wins = closed.filter(didReachFivePctTarget);

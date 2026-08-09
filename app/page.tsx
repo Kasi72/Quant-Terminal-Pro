@@ -64,7 +64,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
-  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade,
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
@@ -6712,6 +6712,9 @@ function HomePageInner() {
                             {isStagnantTrade(t) && (
                               <span title={`${t.daysHeld}d held, only ${(t.mfe ?? 0).toFixed(1)}% MFE — consider cutting`} className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">⏰SLOW</span>
                             )}
+                            {isDeepEarlyMaeTrade(t) && (
+                              <span title={`Day ${t.daysHeld ?? 0}: already dipped ${getTradeMaeR(t).toFixed(2)}R — wide entry, watch stop`} className="text-[8px] font-bold text-orange-400 bg-orange-900/50 border border-orange-700 px-1 py-0.5 rounded leading-none">⚠DEEP</span>
+                            )}
                             {statusChip(t)}
                           </div>
                         </div>
@@ -9152,10 +9155,13 @@ function HomePageInner() {
                                 if (!tf) return <span className="text-slate-700">—</span>;
                                 return <span className={`font-semibold ${tf.alignment === 'DW' ? 'text-green-300' : tf.alignment === 'D' ? 'text-yellow-300' : 'text-slate-600'}`} title={tf.alignment === 'DW' ? 'Daily + Weekly aligned' : tf.alignment === 'D' ? 'Daily only (weekly compressing)' : 'No alignment'}>{tf.alignment}</span>;
                               })() : col.key === 'track_btn' ? (
-                                <div className="flex gap-0.5">
+                                <div className="flex gap-0.5 items-center">
                                   <button onClick={(e) => { e.stopPropagation(); trackTrade(row); }}
                                     className={`text-[10px] px-1 py-0.5 rounded transition-colors ${trackedTrades.some(t => t.symbol === row.symbol) ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-700 hover:bg-emerald-900/40 text-slate-500 hover:text-emerald-300'}`}>
                                     {trackedTrades.some(t => t.symbol === row.symbol) ? '✓' : '📌'}</button>
+                                  {row.volRatio20 < 1.3 && !trackedTrades.some(t => t.symbol === row.symbol) && (
+                                    <span title={`Low volume: ${row.volRatio20.toFixed(2)}× 20d avg — unconfirmed breakout, higher false-break MAE risk`} className="text-[9px] font-bold text-red-500 leading-none cursor-help">⚠</span>
+                                  )}
                                   <button onClick={(e) => { e.stopPropagation(); setCompareList(prev => prev.includes(row.symbol) ? prev.filter(s => s !== row.symbol) : prev.length < 3 ? [...prev, row.symbol] : prev); }}
                                     className={`text-[10px] px-1 py-0.5 rounded transition-colors ${compareList.includes(row.symbol) ? 'bg-indigo-900/40 text-indigo-300' : 'opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-indigo-900/40 text-slate-600 hover:text-indigo-300'}`}
                                     title="Add to compare (max 3)">⇔</button>
