@@ -335,6 +335,13 @@ export function isSurgicallyGateBlocked(t: Pick<TrackedTrade, 'stage' | 'atrStat
   return t.stage === 'PRE_BREAKOUT' && t.atrState === 'EXPLOSION' && (t.conviction ?? 100) < 60;
 }
 
+// Stagnation flag: open trade held 7+ days with MFE < 2% = no momentum. Display-only; no auto-exit.
+export function isStagnantTrade(t: TrackedTrade): boolean {
+  if (isTerminalTrade(t)) return false;
+  if (t.status !== 'open') return false;
+  return (t.daysHeld ?? 0) >= 7 && (t.mfe ?? 0) < 2.0;
+}
+
 export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const closed = trades.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
   const wins = closed.filter(didReachFivePctTarget);

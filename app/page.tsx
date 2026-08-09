@@ -64,7 +64,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import brainPrior from '@/lib/brainPrior.json';
 import {
-  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked,
+  generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
@@ -6698,7 +6698,7 @@ function HomePageInner() {
                   )}
                   {filteredSortedTrades.map(t => (
                     <div key={t.symbol} className={`group relative border-b border-slate-800/50 border-l-2 transition-colors
-                      ${logSymbol === t.symbol ? 'bg-sky-900/25 border-l-sky-500' : 'border-l-transparent hover:bg-slate-800/40'}`}>
+                      ${logSymbol === t.symbol ? 'bg-sky-900/25 border-l-sky-500' : isStagnantTrade(t) ? 'border-l-amber-600 bg-amber-950/10 hover:bg-amber-950/20' : 'border-l-transparent hover:bg-slate-800/40'}`}>
                       <button onClick={() => selectTrade(t.symbol)}
                         className="w-full text-left px-3 py-2 flex flex-col gap-0.5 pr-6">
                         <div className="flex items-center justify-between">
@@ -6708,6 +6708,9 @@ function HomePageInner() {
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {didReachFivePctTarget(t) && t.status === 'open' && (
                               <span className="text-[8px] font-bold text-emerald-400 bg-emerald-900/50 border border-emerald-700 px-1 py-0.5 rounded leading-none">5%✓</span>
+                            )}
+                            {isStagnantTrade(t) && (
+                              <span title={`${t.daysHeld}d held, only ${(t.mfe ?? 0).toFixed(1)}% MFE — consider cutting`} className="text-[8px] font-bold text-amber-400 bg-amber-900/50 border border-amber-700 px-1 py-0.5 rounded leading-none">⏰SLOW</span>
                             )}
                             {statusChip(t)}
                           </div>
@@ -7334,7 +7337,10 @@ function HomePageInner() {
                   })()}
 
                   {/* KPI Row */}
-                  <div className="grid grid-cols-6 gap-2">
+                  {(() => {
+                    const stagnant = open.filter(isStagnantTrade);
+                    return (
+                  <div className="grid grid-cols-7 gap-2">
                     {[
                       { label: 'Total Trades', value: String(all.length), sub: `${open.length} active · ${closed.length} decided`, color: 'text-slate-200' },
                       { label: '5% Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length} hit +5% / ${losses.length} no-hit`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
@@ -7342,6 +7348,7 @@ function HomePageInner() {
                       { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Avg best excursion in R', color: 'text-emerald-300' },
                       { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Avg adverse excursion in R', color: 'text-red-300' },
                       { label: 'Avg Days', value: avgDays > 0 ? `${avgDays.toFixed(1)}d` : '—', sub: avgDaysWin > 0 ? `Winners: ${avgDaysWin.toFixed(1)}d` : '', color: 'text-slate-300' },
+                      { label: 'Stagnant', value: stagnant.length > 0 ? String(stagnant.length) : '0', sub: stagnant.length > 0 ? '7d+ · <2% MFE · cut?' : 'All moving', color: stagnant.length > 0 ? 'text-amber-400' : 'text-slate-500' },
                     ].map((kpi, i) => (
                       <div key={i} className="bg-slate-800/40 rounded-lg px-3 py-2 text-center">
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider">{kpi.label}</div>
@@ -7350,6 +7357,7 @@ function HomePageInner() {
                       </div>
                     ))}
                   </div>
+                  );})()}
 
                   {/* #1: Open positions unrealized P&L summary */}
                   {open.length > 0 && (
