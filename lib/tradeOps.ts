@@ -349,6 +349,68 @@ export function isDeepEarlyMaeTrade(t: TrackedTrade): boolean {
   return getTradeMaeR(t) < -0.65;
 }
 
+// ─── Analytics helpers ───────────────────────────────────────────────────────
+
+const PARAM_KEY_LABELS: Record<string, string> = {
+  optimized_deployable_20plus:   'VF',
+  optimized_highprecision_15plus:'CC',
+  optimized_ultraselective_8plus:'EMA',
+  sniper_95plus:                 'PS',
+  optimized_elite_10plus:        'MP',
+};
+
+function resolvedSorted(trades: TrackedTrade[]): TrackedTrade[] {
+  return trades
+    .filter(isTradeResolvedForWinRate)
+    .filter(t => !isSurgicallyGateBlocked(t))
+    .sort((a, b) => (a.closedDate ?? a.entryDate ?? '').localeCompare(b.closedDate ?? b.entryDate ?? ''));
+}
+
+export function computeRollingWR(trades: TrackedTrade[], n = 10): { winRate: number; decided: number; wins: number; losses: number } {
+  const last = resolvedSorted(trades).slice(-n);
+  const wins = last.filter(didReachFivePctTarget).length;
+  return { winRate: last.length > 0 ? (wins / last.length) * 100 : 0, decided: last.length, wins, losses: last.length - wins };
+}
+
+export function computeEquityCurveR(trades: TrackedTrade[]): { symbol: string; n: number; r: number; cum: number }[] {
+  let cum = 0;
+  return resolvedSorted(trades).map((t, i) => {
+    const r = getFivePctObjectiveR(t);
+    cum = Math.round((cum + r) * 100) / 100;
+    return { symbol: t.symbol.replace('.NS', ''), n: i + 1, r, cum };
+  });
+}
+
+export function computeArchetypeBreakdown(trades: TrackedTrade[]): { archetype: string; wins: number; losses: number; decided: number; winRate: number; avgWinR: number }[] {
+  const groups: Record<string, { wins: TrackedTrade[]; losses: TrackedTrade[] }> = {};
+  for (const t of resolvedSorted(trades)) {
+    const arch = PARAM_KEY_LABELS[t.paramSetKey] ?? t.paramSetKey ?? 'Other';
+    if (!groups[arch]) groups[arch] = { wins: [], losses: [] };
+    (didReachFivePctTarget(t) ? groups[arch].wins : groups[arch].losses).push(t);
+  }
+  return Object.entries(groups)
+    .map(([archetype, g]) => {
+      const decided = g.wins.length + g.losses.length;
+      const avgWinR = g.wins.length > 0 ? g.wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0) / g.wins.length : 0;
+      return { archetype, wins: g.wins.length, losses: g.losses.length, decided, winRate: decided > 0 ? (g.wins.length / decided) * 100 : 0, avgWinR };
+    })
+    .sort((a, b) => b.decided - a.decided);
+}
+
+export function computeMonthlyPerf(trades: TrackedTrade[]): { month: string; count: number; wins: number; losses: number; winRate: number; totalR: number }[] {
+  const groups: Record<string, TrackedTrade[]> = {};
+  for (const t of resolvedSorted(trades)) {
+    const month = (t.closedDate ?? t.entryDate ?? '').slice(0, 7);
+    if (!month) continue;
+    (groups[month] ??= []).push(t);
+  }
+  return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([month, ts]) => {
+    const wins = ts.filter(didReachFivePctTarget).length;
+    const totalR = ts.reduce((s, t) => s + getFivePctObjectiveR(t), 0);
+    return { month, count: ts.length, wins, losses: ts.length - wins, winRate: (wins / ts.length) * 100, totalR };
+  });
+}
+
 export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
   const closed = trades.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
   const wins = closed.filter(didReachFivePctTarget);

@@ -65,6 +65,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade,
+  computeRollingWR, computeEquityCurveR, computeArchetypeBreakdown, computeMonthlyPerf,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
@@ -7108,6 +7109,13 @@ function HomePageInner() {
               const avgMfeR = mfeRTrades.length > 0 ? mfeRTrades.reduce((s, t) => s + getTradeMfeR(t), 0) / mfeRTrades.length : 0;
               const maeRTrades = closed.filter(t => getTradeRiskPerShare(t) > 0 && getTradeMaePct(t) > 0);
               const avgMaeR = maeRTrades.length > 0 ? maeRTrades.reduce((s, t) => s + getTradeMaeR(t), 0) / maeRTrades.length : 0;
+              const wr = closed.length > 0 ? wins.length / closed.length : 0;
+              const expectancyR = closed.length > 0 ? wr * (avgWinR) - (1 - wr) * (avgLossR) : 0;
+              const openRiskPct = accountSize > 0 ? open.reduce((s, t) => s + getTradeRiskPerShare(t) * qtyOf(t), 0) / accountSize * 100 : 0;
+              const rolling10 = computeRollingWR(all);
+              const equityCurve = computeEquityCurveR(all);
+              const archBreakdown = computeArchetypeBreakdown(all);
+              const monthly = computeMonthlyPerf(all);
 
               return (
                 <>
@@ -7343,10 +7351,11 @@ function HomePageInner() {
                   {(() => {
                     const stagnant = open.filter(isStagnantTrade);
                     return (
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-8 gap-2">
                     {[
                       { label: 'Total Trades', value: String(all.length), sub: `${open.length} active · ${closed.length} decided`, color: 'text-slate-200' },
                       { label: '5% Win Rate', value: closed.length > 0 ? `${(wins.length / closed.length * 100).toFixed(0)}%` : '—', sub: `${wins.length} hit +5% / ${losses.length} no-hit`, color: closed.length > 0 && wins.length / closed.length >= 0.55 ? 'text-emerald-400' : closed.length > 0 && wins.length / closed.length >= 0.4 ? 'text-amber-400' : 'text-red-400' },
+                      { label: 'Expectancy', value: closed.length > 0 ? `${expectancyR >= 0 ? '+' : ''}${expectancyR.toFixed(2)}R` : '—', sub: 'edge per ₹ risked', color: expectancyR >= 0.3 ? 'text-emerald-300 font-black' : expectancyR >= 0.1 ? 'text-emerald-400' : expectancyR >= 0 ? 'text-amber-400' : 'text-red-400' },
                       { label: 'Avg Hit R', value: avgWinR > 0 ? `+${avgWinR.toFixed(2)}R` : '—', sub: `No-hit avg: -${avgLossR.toFixed(2)}R`, color: 'text-emerald-400' },
                       { label: 'Avg MFE-R', value: avgMfeR > 0 ? `+${avgMfeR.toFixed(2)}R` : '—', sub: 'Avg best excursion in R', color: 'text-emerald-300' },
                       { label: 'Avg MAE-R', value: avgMaeR < 0 ? `${avgMaeR.toFixed(2)}R` : '—', sub: 'Avg adverse excursion in R', color: 'text-red-300' },
@@ -7426,6 +7435,166 @@ function HomePageInner() {
                           )}
                         </>;
                       })()}
+                    </div>
+                  )}
+
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* SYSTEM HEALTH ROW (#2 Rolling WR, #3 Streak, #7 Open Risk) */}
+                  {/* ═══════════════════════════════════════════ */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Rolling 10-trade WR */}
+                    <div className={`rounded-lg border px-3 py-2 ${rolling10.decided >= 5 && rolling10.winRate < (closed.length > 0 ? wins.length / closed.length * 100 - 15 : 50) ? 'bg-red-900/20 border-red-800/50' : 'bg-slate-800/40 border-slate-700/40'}`}>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">Last 10 WR vs All-time</div>
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <span className={`text-xl font-black ${rolling10.decided >= 3 ? (rolling10.winRate >= 60 ? 'text-emerald-400' : rolling10.winRate >= 45 ? 'text-amber-400' : 'text-red-400') : 'text-slate-500'}`}>
+                            {rolling10.decided >= 3 ? `${rolling10.winRate.toFixed(0)}%` : '—'}
+                          </span>
+                          <span className="text-[9px] text-slate-600 ml-1">last {rolling10.decided}</span>
+                        </div>
+                        {closed.length > 0 && rolling10.decided >= 3 && (
+                          <span className={`text-[10px] font-semibold ${rolling10.winRate < wins.length / closed.length * 100 - 15 ? 'text-red-400' : rolling10.winRate > wins.length / closed.length * 100 + 10 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            vs {(wins.length / closed.length * 100).toFixed(0)}% all-time {rolling10.winRate < wins.length / closed.length * 100 - 15 ? '⚠ degrading' : '✓ consistent'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">{rolling10.wins}W · {rolling10.losses}L in last {rolling10.decided} decided</div>
+                    </div>
+
+                    {/* Max / Current Streak */}
+                    <div className={`rounded-lg border px-3 py-2 ${winStats.streakLosses >= 3 ? 'bg-red-900/20 border-red-800/50' : 'bg-slate-800/40 border-slate-700/40'}`}>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">Current Streak</div>
+                      <div className="flex items-center gap-3">
+                        {winStats.streakWins > 0 ? (
+                          <span className="text-xl font-black text-emerald-400">+{winStats.streakWins}W</span>
+                        ) : winStats.streakLosses > 0 ? (
+                          <span className={`text-xl font-black ${winStats.streakLosses >= 3 ? 'text-red-400' : 'text-amber-400'}`}>−{winStats.streakLosses}L</span>
+                        ) : (
+                          <span className="text-xl font-black text-slate-500">—</span>
+                        )}
+                        {winStats.streakLosses >= 2 && <span className="text-[9px] text-red-400">size down</span>}
+                        {winStats.streakWins >= 3 && <span className="text-[9px] text-emerald-500">system on fire</span>}
+                      </div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">{winStats.streakLosses >= 3 ? '⚠ 3+ consecutive losses — review setups' : winStats.streakWins > 0 ? 'Keep executing the process' : 'No streak'}</div>
+                    </div>
+
+                    {/* Open Risk % of capital */}
+                    <div className={`rounded-lg border px-3 py-2 ${openRiskPct > 5 ? 'bg-red-900/20 border-red-800/50' : openRiskPct > 3 ? 'bg-amber-900/20 border-amber-800/50' : 'bg-slate-800/40 border-slate-700/40'}`}>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">Open Stop Risk</div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xl font-black ${openRiskPct > 5 ? 'text-red-400' : openRiskPct > 3 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          {accountSize > 0 ? `${openRiskPct.toFixed(1)}%` : '—'}
+                        </span>
+                        <span className="text-[9px] text-slate-500">of capital</span>
+                      </div>
+                      <div className="text-[9px] text-slate-600 mt-0.5">{openRiskPct > 5 ? '⚠ overexposed — max safe ~3%' : openRiskPct > 3 ? 'elevated — watch new entries' : open.length > 0 ? `${open.length} open · healthy` : 'no open trades'}</div>
+                    </div>
+                  </div>
+
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* EQUITY CURVE (#4) + ARCHETYPE BREAKDOWN (#5) */}
+                  {/* ═══════════════════════════════════════════ */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Equity Curve sparkline */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-2">Equity Curve (R)</div>
+                      {equityCurve.length < 2 ? (
+                        <div className="text-[10px] text-slate-600 py-4 text-center">Need 2+ decided trades</div>
+                      ) : (() => {
+                        const pts = equityCurve;
+                        const minC = Math.min(...pts.map(p => p.cum), 0);
+                        const maxC = Math.max(...pts.map(p => p.cum), 0.1);
+                        const range = maxC - minC || 1;
+                        const W = 280, H = 70;
+                        const x = (i: number) => (i / (pts.length - 1)) * W;
+                        const y = (v: number) => H - ((v - minC) / range) * H;
+                        const polyline = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.cum).toFixed(1)}`).join(' ');
+                        const lastPt = pts[pts.length - 1];
+                        const isUp = lastPt.cum >= 0;
+                        return (
+                          <div className="relative">
+                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height: '70px'}}>
+                              {/* zero line */}
+                              <line x1="0" y1={y(0).toFixed(1)} x2={W} y2={y(0).toFixed(1)} stroke="#334155" strokeWidth="1" strokeDasharray="3,3"/>
+                              {/* fill */}
+                              <polygon points={`0,${y(0).toFixed(1)} ${polyline} ${W},${y(0).toFixed(1)}`} fill={isUp ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)'}/>
+                              {/* line */}
+                              <polyline points={polyline} fill="none" stroke={isUp ? '#34d399' : '#f87171'} strokeWidth="1.5"/>
+                              {/* last dot */}
+                              <circle cx={x(pts.length-1).toFixed(1)} cy={y(lastPt.cum).toFixed(1)} r="3" fill={isUp ? '#34d399' : '#f87171'}/>
+                            </svg>
+                            <div className="flex justify-between text-[9px] mt-1">
+                              <span className="text-slate-600">{pts[0].symbol}</span>
+                              <span className={`font-mono font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{lastPt.cum >= 0 ? '+' : ''}{lastPt.cum.toFixed(2)}R total</span>
+                              <span className="text-slate-600">{lastPt.symbol}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Archetype Breakdown */}
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-2">Archetype Breakdown</div>
+                      {archBreakdown.length === 0 ? (
+                        <div className="text-[10px] text-slate-600 py-4 text-center">No decided trades yet</div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {archBreakdown.map((a, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-slate-300 w-8 flex-shrink-0">{a.archetype}</span>
+                              <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-emerald-500" style={{width: `${a.winRate}%`}}/>
+                              </div>
+                              <span className={`text-[10px] font-bold w-8 text-right ${a.winRate >= 65 ? 'text-emerald-400' : a.winRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{a.winRate.toFixed(0)}%</span>
+                              <span className="text-[9px] text-slate-600 w-12 text-right">{a.wins}W/{a.losses}L</span>
+                              {a.avgWinR > 0 && <span className="text-[9px] text-emerald-600 w-12 text-right">+{a.avgWinR.toFixed(2)}R</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* MONTHLY PERFORMANCE TABLE (#6)             */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {monthly.length > 0 && (
+                    <div className="bg-slate-800/40 rounded-lg p-3">
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-2">Monthly Performance</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[10px]">
+                          <thead>
+                            <tr className="text-slate-600 text-[9px] uppercase tracking-wider border-b border-slate-700/50">
+                              <th className="text-left py-1 pr-3">Month</th>
+                              <th className="text-right pr-3">Trades</th>
+                              <th className="text-right pr-3">W/L</th>
+                              <th className="text-right pr-3">WR</th>
+                              <th className="text-right">Total R</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {monthly.map((m, i) => (
+                              <tr key={i} className="border-b border-slate-800/50">
+                                <td className="py-1 pr-3 text-slate-400 font-mono">{m.month}</td>
+                                <td className="text-right pr-3 text-slate-400">{m.count}</td>
+                                <td className="text-right pr-3 text-slate-500">{m.wins}W/{m.losses}L</td>
+                                <td className={`text-right pr-3 font-bold ${m.winRate >= 65 ? 'text-emerald-400' : m.winRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{m.winRate.toFixed(0)}%</td>
+                                <td className={`text-right font-mono font-bold ${m.totalR >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.totalR >= 0 ? '+' : ''}{m.totalR.toFixed(2)}R</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-slate-600/50">
+                              <td className="py-1 pr-3 text-slate-500 text-[9px]">All time</td>
+                              <td className="text-right pr-3 text-slate-400">{closed.length}</td>
+                              <td className="text-right pr-3 text-slate-500">{wins.length}W/{losses.length}L</td>
+                              <td className={`text-right pr-3 font-bold ${wr >= 0.65 ? 'text-emerald-400' : wr >= 0.5 ? 'text-amber-400' : 'text-red-400'}`}>{closed.length > 0 ? `${(wr*100).toFixed(0)}%` : '—'}</td>
+                              <td className={`text-right font-mono font-bold ${equityCurve.length > 0 && equityCurve[equityCurve.length-1].cum >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{equityCurve.length > 0 ? `${equityCurve[equityCurve.length-1].cum >= 0 ? '+' : ''}${equityCurve[equityCurve.length-1].cum.toFixed(2)}R` : '—'}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
                     </div>
                   )}
 
