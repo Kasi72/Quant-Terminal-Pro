@@ -785,7 +785,7 @@ const COLUMNS: ColDef[] = [
     cellClass: r => { const rk = r.priceEngine.tacticalRiskPct; return rk >= 4.0 && rk <= 8.5 ? 'text-green-300 font-bold' : rk >= 2.5 && rk < 4.0 ? 'text-yellow-300' : 'text-orange-400'; } },
   { key: 'pe_rr',     label: 'R:R',          width: 60,  align: 'right',
     headerTipHtml: '<div class="rt-hdr">Reward : Risk Ratio v3 — Phase-3 Optimised</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥2.0</span></div><div><div class="rt-desc">BEST tier — stop = 1.5×ATR exactly (structure tight). T2 gain = 3×ATR → R:R = 2.0. EV_R +0.101R in ATR 1-2% band (POSITIVE expected value).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">≥2.0</span></div><div><div class="rt-desc">BEST tier — stop = 1.5×ATR exactly (structure tight). Wide ATR-based T2/T3 targets computed per archetype (maxprofit_optimizer 2026-08-08). EV_R +0.101R in ATR 1-2% band (POSITIVE expected value).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">1.5-2.0</span></div><div><div class="rt-desc">Strong — structure stop slightly wider than 1.5×ATR. Still well above break-even expectancy. Bulk of well-structured trades land here.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">1.0-1.5</span></div><div><div class="rt-desc">Acceptable — review stop: structure may be loose. Consider sizing down.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">0.8-1.0</span></div><div><div class="rt-desc">DEAD ZONE — validated worst tier: near-zero or NEGATIVE avg P&L. Stop too wide relative to targets.</div></div></div>'
@@ -795,7 +795,7 @@ const COLUMNS: ColDef[] = [
     cellClass: r => { const rr = r.priceEngine.rewardRisk; return rr >= 2.0 ? 'text-cyan-300 font-bold' : rr >= 1.5 ? 'text-green-300 font-bold' : rr >= 1.2 ? 'text-emerald-400' : rr >= 0.8 ? 'text-orange-400' : 'text-yellow-300'; } },
   { key: 'pe_rr_verdict', label: 'Verdict', width: 72, align: 'left',
     headerTipHtml: '<div class="rt-hdr">Trade Verdict — Frozen Entry Geometry</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. Stop = 1.5×ATR, structure tight. New BASELINE — every clean setup should hit this. T1=+1.5×ATR, T2=+3×ATR, T3=+5×ATR.</div><div class="rt-hit hit-green">ATR 1-2% band: +0.101R EV · 51% WR · Phase-3 validated</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Elite+</span></div><div><div class="rt-desc">R:R ≥ 2.0. Stop = 1.5×ATR, structure tight. Archetype targets: VF T1=0.85× T2=3.30× T3=6.50× | CC T1=0.65× T2=3.75× T3=7.50× | PS T1=0.75× T2=2.80× T3=5.50× | EMA T1=0.75× T2=4.00× T3=7.50× (×ATR).</div><div class="rt-hit hit-green">ATR 1-2% band: +0.101R EV · 51% WR · Phase-3 validated</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Elite</span></div><div><div class="rt-desc">R:R 1.5–2.0. Structure stop slightly wider than 1.5×ATR (swing low provides cushion). Still strong positive expectancy.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Good</span></div><div><div class="rt-desc">R:R 1.2–1.5. Acceptable — structure wider than expected. Review the 5-bar swing zone before entry.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Weak</span></div><div><div class="rt-desc">R:R 0.8–1.2. DEAD ZONE — worst avg P&L band. Stop too wide. Avoid breakout entries here.</div></div></div>'
@@ -7083,7 +7083,7 @@ function HomePageInner() {
               const all = trackedTrades;
               const open = all.filter(t => !isTerminalTrade(t));
               const terminal = all.filter(isTerminalTrade);
-              const closed = all.filter(isTradeResolvedForWinRate);
+              const closed = all.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
               const wins = closed.filter(didReachFivePctTarget);
               const losses = closed.filter(t => !didReachFivePctTarget(t));
               const hitT1 = open.filter(t => t.status === 'hit_t1');
