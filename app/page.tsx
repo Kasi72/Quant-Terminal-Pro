@@ -8015,31 +8015,73 @@ function HomePageInner() {
                       {(() => {
                         const curve = computeExpectancyCurve(trackedTrades);
                         if (curve.length < 2) return <div className="text-xs text-slate-600 py-4 text-center">Need more terminal trades</div>;
-                        const maxR = Math.max(...curve.map(p => p.cumulativeR), 0.1);
-                        const minR = Math.min(...curve.map(p => p.cumulativeR), -0.1);
-                        const range = maxR - minR || 1;
-                        const h = 120, w = 100;
-                        const zeroY = ((maxR) / range) * 100;
+
+                        const W = 560, H = 140;
+                        const PAD = { top: 14, right: 56, bottom: 20, left: 40 };
+                        const cw = W - PAD.left - PAD.right;
+                        const ch = H - PAD.top - PAD.bottom;
+
+                        const vals = curve.map(p => p.cumulativeR);
+                        const rawMax = Math.max(...vals, 0.1);
+                        const rawMin = Math.min(...vals, -0.1);
+                        const pad = (rawMax - rawMin) * 0.12;
+                        const vMax = rawMax + pad;
+                        const vMin = rawMin - pad;
+                        const vRange = vMax - vMin || 1;
+
+                        const cx = (i: number) => PAD.left + (i / Math.max(curve.length - 1, 1)) * cw;
+                        const cy = (v: number) => PAD.top + ((vMax - v) / vRange) * ch;
+                        const zeroY = cy(0);
+                        const isPos = vals[vals.length - 1] >= 0;
+                        const color = isPos ? '#22c55e' : '#ef4444';
+                        const fillColor = isPos ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)';
+
+                        const pts = curve.map((p, i) => `${cx(i).toFixed(1)},${cy(p.cumulativeR).toFixed(1)}`).join(' ');
+                        const areaPath = `M${cx(0).toFixed(1)},${zeroY.toFixed(1)} ` +
+                          curve.map((p, i) => `L${cx(i).toFixed(1)},${cy(p.cumulativeR).toFixed(1)}`).join(' ') +
+                          ` L${cx(curve.length - 1).toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+                        // Y-axis ticks: 3 clean values
+                        const tickStep = (vMax - vMin) / 3;
+                        const yTicks = [vMax - tickStep * 0.1, 0, vMin + tickStep * 0.1].filter(v => v > vMin && v < vMax);
+
+                        const finalR = vals[vals.length - 1];
+                        const endX = cx(curve.length - 1);
+                        const endY = cy(finalR);
+                        // label above or below endpoint
+                        const labelY = endY < PAD.top + 20 ? endY + 14 : endY - 6;
+
                         return (
-                          <div className="relative" style={{ height: h }}>
-                            <div className="absolute inset-0 border border-slate-700/30 rounded overflow-hidden">
-                              {/* Zero line */}
-                              <div className="absolute left-0 right-0 border-t border-slate-600/50 border-dashed" style={{ top: `${zeroY}%` }} />
-                              {/* Curve */}
-                              <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
-                                <polyline fill="none" stroke={curve[curve.length - 1].cumulativeR >= 0 ? '#22c55e' : '#ef4444'} strokeWidth="2"
-                                  points={curve.map((p, i) => `${(i / Math.max(curve.length - 1, 1)) * w},${((maxR - p.cumulativeR) / range) * h}`).join(' ')} />
-                              </svg>
-                            </div>
-                            <div className="absolute top-0 right-1 text-[10px] text-emerald-400">+{maxR.toFixed(1)}R</div>
-                            <div className="absolute bottom-0 right-1 text-[10px] text-red-400">{minR.toFixed(1)}R</div>
-                            <div className="absolute bottom-0 left-1 text-[10px] text-slate-600">{curve.length - 1} trades</div>
-                          </div>
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height: '140px'}}>
+                            {/* Y-axis grid + labels */}
+                            {yTicks.map((v, i) => (
+                              <g key={i}>
+                                <line x1={PAD.left} y1={cy(v).toFixed(1)} x2={PAD.left + cw} y2={cy(v).toFixed(1)}
+                                  stroke={v === 0 ? '#475569' : '#1e293b'} strokeWidth={v === 0 ? 1 : 0.5} strokeDasharray={v === 0 ? '4,3' : 'none'}/>
+                                <text x={PAD.left - 4} y={cy(v) + 3.5} textAnchor="end" fontSize="8" fill="#64748b">
+                                  {v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1)}R
+                                </text>
+                              </g>
+                            ))}
+                            {/* Area fill */}
+                            <path d={areaPath} fill={fillColor}/>
+                            {/* Curve */}
+                            <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+                            {/* Endpoint dot */}
+                            <circle cx={endX.toFixed(1)} cy={endY.toFixed(1)} r="4" fill={color} stroke="#0f172a" strokeWidth="1.5"/>
+                            {/* Endpoint label */}
+                            <text x={endX - 2} y={labelY} textAnchor="end" fontSize="9" fontWeight="700" fill={color}>
+                              {finalR >= 0 ? '+' : ''}{finalR.toFixed(2)}R
+                            </text>
+                            {/* Trade count — bottom left */}
+                            <text x={PAD.left + 2} y={H - 5} fontSize="8" fill="#475569">{curve.length} trades</text>
+                            {/* Edge verdict — bottom center */}
+                            <text x={W / 2} y={H - 5} textAnchor="middle" fontSize="8" fill={color}>
+                              {isPos ? '↑ Positive edge — keep trading' : '↓ Negative edge — review system'}
+                            </text>
+                          </svg>
                         );
                       })()}
-                      <div className={`text-center text-[10px] mt-1 ${(computeExpectancyCurve(trackedTrades).pop()?.cumulativeR ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {(computeExpectancyCurve(trackedTrades).pop()?.cumulativeR ?? 0) >= 0 ? '↑ Positive edge — keep trading' : '↓ Negative edge — review system'}
-                      </div>
                     </div>
 
                     {/* #3: R-Multiple Distribution */}
