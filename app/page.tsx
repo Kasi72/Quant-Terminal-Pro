@@ -8213,22 +8213,69 @@ function HomePageInner() {
                       <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Edge Trend</div>
                       {(() => {
                         const { points, trending } = computeEdgeDecay(trackedTrades);
-                        if (points.length < 2) return <div className="text-xs text-slate-600 py-2">Need 6+ trades</div>;
-                        const maxWR = Math.max(...points.map(p => p.winRate), 1);
+                        if (points.length < 2) return <div className="text-xs text-slate-600 py-2">Need 6+ decided trades</div>;
+                        const W = 340, H = 100;
+                        const PAD = { top: 10, right: 8, bottom: 18, left: 32 };
+                        const cw = W - PAD.left - PAD.right;
+                        const ch = H - PAD.top - PAD.bottom;
+                        const wrs = points.map(p => p.winRate);
+                        const avgWR = wrs.reduce((s, v) => s + v, 0) / wrs.length;
+                        // Y-axis: zoom in on actual range, min 20pt span, always bracket 50%
+                        const rawMin = Math.min(...wrs, 50);
+                        const rawMax = Math.max(...wrs, 50);
+                        const span = Math.max(rawMax - rawMin, 20);
+                        const mid = (rawMax + rawMin) / 2;
+                        const vMin = Math.max(0, mid - span / 2 - 5);
+                        const vMax = Math.min(100, mid + span / 2 + 5);
+                        const vRange = vMax - vMin || 1;
+                        const cx = (i: number) => PAD.left + (i / Math.max(points.length - 1, 1)) * cw;
+                        const cy = (v: number) => PAD.top + ((vMax - v) / vRange) * ch;
+                        const pts = points.map((p, i) => `${cx(i).toFixed(1)},${cy(p.winRate).toFixed(1)}`).join(' ');
+                        const trendColor = trending === 'improving' ? '#22c55e' : trending === 'decaying' ? '#ef4444' : '#94a3b8';
+                        // linear regression slope
+                        const n = wrs.length;
+                        const sumX = wrs.reduce((_, __, i) => _ + i, 0);
+                        const sumY = wrs.reduce((s, v) => s + v, 0);
+                        const sumXY = wrs.reduce((s, v, i) => s + i * v, 0);
+                        const sumX2 = wrs.reduce((s, _, i) => s + i * i, 0);
+                        const slope = n * sumX2 - sumX * sumX !== 0 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0;
+                        const intercept = (sumY - slope * sumX) / n;
+                        const trendPts = `${cx(0).toFixed(1)},${cy(intercept).toFixed(1)} ${cx(n-1).toFixed(1)},${cy(intercept + slope * (n-1)).toFixed(1)}`;
                         return (
-                          <div>
-                            <div className="flex items-end gap-px h-16">
-                              {points.map((p, i) => (
-                                <div key={i} className="flex-1 flex flex-col justify-end" title={`Trade ${p.windowEnd}: ${p.winRate.toFixed(0)}% WR`}>
-                                  <div className={`rounded-t ${p.winRate >= 50 ? 'bg-emerald-500/60' : 'bg-red-500/60'}`}
-                                    style={{ height: `${(p.winRate / maxWR) * 100}%`, minHeight: 2 }} />
-                                </div>
-                              ))}
-                            </div>
-                            <div className={`text-center text-[10px] mt-1 font-semibold ${trending === 'improving' ? 'text-emerald-400' : trending === 'decaying' ? 'text-red-400' : 'text-slate-400'}`}>
-                              {trending === 'improving' ? '↑ Edge improving' : trending === 'decaying' ? '↓ Edge decaying — review system' : '— Edge stable'}
-                            </div>
-                          </div>
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{height:'100px'}}>
+                            {/* Y-axis labels + grid */}
+                            {[vMax, avgWR, vMin].map((v, i) => (
+                              <g key={i}>
+                                <line x1={PAD.left} y1={cy(v).toFixed(1)} x2={PAD.left+cw} y2={cy(v).toFixed(1)}
+                                  stroke={v === 50 ? '#475569' : '#1e293b'} strokeWidth={v === 50 ? 0.8 : 0.4} strokeDasharray={v === 50 ? '3,2' : 'none'}/>
+                                <text x={PAD.left - 3} y={cy(v) + 3.5} textAnchor="end" fontSize="7" fill="#64748b">{v.toFixed(0)}%</text>
+                              </g>
+                            ))}
+                            {/* Avg WR dashed baseline */}
+                            <line x1={PAD.left} y1={cy(avgWR).toFixed(1)} x2={PAD.left+cw} y2={cy(avgWR).toFixed(1)}
+                              stroke="#334155" strokeWidth="0.8" strokeDasharray="2,2"/>
+                            {/* Trend line */}
+                            <polyline points={trendPts} fill="none" stroke={trendColor} strokeWidth="1" strokeDasharray="3,2" opacity="0.7"/>
+                            {/* Area under line */}
+                            <polygon points={`${cx(0).toFixed(1)},${cy(avgWR).toFixed(1)} ${pts} ${cx(n-1).toFixed(1)},${cy(avgWR).toFixed(1)}`}
+                              fill={trendColor} opacity="0.08"/>
+                            {/* WR line */}
+                            <polyline points={pts} fill="none" stroke={trendColor} strokeWidth="1.8" strokeLinejoin="round"/>
+                            {/* Dots for each point */}
+                            {points.map((p, i) => (
+                              <circle key={i} cx={cx(i).toFixed(1)} cy={cy(p.winRate).toFixed(1)} r="2"
+                                fill={p.winRate >= avgWR ? '#22c55e' : '#ef4444'} opacity="0.9">
+                                <title>Window ending trade {p.windowEnd}: {p.winRate.toFixed(0)}% WR</title>
+                              </circle>
+                            ))}
+                            {/* X-axis labels */}
+                            <text x={PAD.left} y={H-2} fontSize="7" fill="#475569">trade 1</text>
+                            <text x={PAD.left+cw} y={H-2} textAnchor="end" fontSize="7" fill="#475569">trade {points[points.length-1].windowEnd}</text>
+                            {/* Verdict */}
+                            <text x={W/2} y={H-2} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={trendColor}>
+                              {trending === 'improving' ? '↑ Edge improving' : trending === 'decaying' ? '↓ Edge decaying' : '— Edge stable'}
+                            </text>
+                          </svg>
                         );
                       })()}
                     </div>
