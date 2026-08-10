@@ -64,7 +64,8 @@ function ksStat(a: number[], b: number[]): number {
   return d;
 }
 function ksSignificant(d: number, n1: number, n2: number): boolean {
-  return n1 > 0 && n2 > 0 && d > 1.36 * Math.sqrt((n1 + n2) / (n1 * n2));
+  // p=0.01 critical value (1.63) — stricter than p=0.05 (1.36) to reduce false positives
+  return n1 >= 20 && n2 >= 20 && d > 1.63 * Math.sqrt((n1 + n2) / (n1 * n2));
 }
 
 // ── K-Means Lloyd's (k=5, evenly-spaced seed) ────────────────────────────────
@@ -359,14 +360,15 @@ export async function GET() {
   const c90 = new Date(nowMs - 90  * 86400000).toISOString().slice(0, 10);
   const last30 = events.filter(e => (e.event_date as string) >= c30);
   const prev60 = events.filter(e => (e.event_date as string) >= c90 && (e.event_date as string) < c30);
-  let ksDrift: { feature: string; stat: number; significant: boolean }[] | null = null;
-  if (last30.length >= 5 && prev60.length >= 5) {
+  let ksDrift: { feature: string; stat: number; significant: boolean; meanRecent: number; meanPrior: number }[] | null = null;
+  if (last30.length >= 20 && prev60.length >= 20) {
+    const avg = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
     ksDrift = (['vol_vs_pre5', 'zone_tightness', 'close_loc', 'range_atr'] as const).map(fk => {
       const a  = last30.map(e => fv(e, fk)).filter(v => v != null) as number[];
       const b2 = prev60.map(e => fv(e, fk)).filter(v => v != null) as number[];
       const lbl = fk === 'vol_vs_pre5' ? 'Vol/Pre5' : fk === 'zone_tightness' ? 'Zone Tight' : fk === 'close_loc' ? 'Close Loc' : 'Range/ATR';
       const stat = ksStat(a, b2);
-      return { feature: lbl, stat: +stat.toFixed(3), significant: ksSignificant(stat, a.length, b2.length) };
+      return { feature: lbl, stat: +stat.toFixed(3), significant: ksSignificant(stat, a.length, b2.length), meanRecent: +avg(a).toFixed(1), meanPrior: +avg(b2).toFixed(1) };
     }).filter(r => r.stat > 0);
   }
 

@@ -1699,11 +1699,24 @@ export default function PBFBAnalyzer() {
               {brainData.ksDrift && brainData.ksDrift.some(d => d.significant) && (
                 <div className="mb-3 px-2 py-1.5 bg-amber-950/30 border border-amber-700/40 rounded text-[10px] flex items-start gap-2">
                   <span className="text-amber-400 font-bold mt-0.5">⚠</span>
-                  <div>
-                    <span className="text-amber-300 font-semibold">Feature Drift Detected — </span>
-                    <span className="text-amber-200/70">
-                      {brainData.ksDrift.filter(d => d.significant).map(d => d.feature).join(', ')} distribution shifted vs prior 60d. Historical stats may be less reliable.
-                    </span>
+                  <div className="space-y-0.5">
+                    <span className="text-amber-300 font-semibold">Market Regime Shift (p&lt;0.01) — </span>
+                    <span className="text-amber-200/70">recent 30d vs prior 60d distribution differs significantly. Historical Brain scores may be less reliable.</span>
+                    <div className="mt-1 space-y-0.5">
+                      {brainData.ksDrift.filter(d => d.significant).map(d => {
+                        const dir = d.meanRecent > d.meanPrior ? '▲' : '▼';
+                        const dirColor = d.meanRecent > d.meanPrior ? 'text-green-400' : 'text-red-400';
+                        return (
+                          <div key={d.feature} className="flex items-center gap-1.5">
+                            <span className="text-amber-400/80 font-mono">{d.feature}:</span>
+                            <span className="text-slate-400 font-mono">{d.meanPrior}</span>
+                            <span className="text-slate-500">→</span>
+                            <span className={`font-mono font-semibold ${dirColor}`}>{d.meanRecent} {dir}</span>
+                            <span className="text-slate-600 font-mono">(KS={d.stat})</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
