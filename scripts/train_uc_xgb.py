@@ -45,7 +45,7 @@ except Exception as e:
     sys.exit(1)
 
 COLS = (
-    "hit_t1,outcome_pct_20d,event_date,vol_ratio_20,close_loc,body_pct,rsi2,"
+    "hit_t1,outcome_pct_20d,event_date,vol_ratio_20,close_loc,body_pct,upper_wick_pct,rsi2,"
     "range_atr,zone_len,zone_tightness,vol_vs_pre5,vol_accel,rsi2_velocity,"
     "cl_trend,near_breakout_tier,archetype_type"
 )
@@ -154,10 +154,24 @@ def encode_archetype(val):
 df["near_breakout_tier_enc"] = df["near_breakout_tier"].apply(encode_tier)
 df["archetype_enc"] = df["archetype_type"].apply(encode_archetype)
 
+# Interaction features — capture non-linear combos tree splits handle individually but benefit
+# from having pre-computed to reduce tree depth needed:
+#   cl_vol_interact:  high close + high vol = cleanest UC entry (both required, not just one)
+#   rsi_trend_synergy: RSI momentum × trend direction — divergences penalised automatically
+#   wick_body_ratio:  rejection candle detection — large wick / small body = bearish pressure
+df["cl_vol_interact"]   = (pd.to_numeric(df.get("close_loc"), errors="coerce").fillna(50) / 100) \
+                        * (pd.to_numeric(df.get("vol_ratio_20"), errors="coerce").clip(0, 5).fillna(1) / 5)
+df["rsi_trend_synergy"] = (pd.to_numeric(df.get("rsi2"),    errors="coerce").fillna(50) / 100) \
+                        * (pd.to_numeric(df.get("cl_trend"), errors="coerce").clip(-80, 80).fillna(0) / 80)
+df["wick_body_ratio"]   = pd.to_numeric(df.get("upper_wick_pct"), errors="coerce").fillna(20) \
+                        / (pd.to_numeric(df.get("body_pct"), errors="coerce").fillna(30).clip(lower=1))
+
 FEATURES = [
-    "vol_ratio_20", "close_loc", "body_pct", "rsi2", "range_atr",
+    "vol_ratio_20", "close_loc", "body_pct", "upper_wick_pct", "rsi2", "range_atr",
     "zone_len", "zone_tightness", "vol_accel", "rsi2_velocity", "cl_trend",
     "near_breakout_tier_enc", "archetype_enc",
+    # Interaction features: non-linear combos XGBoost benefits from seeing explicitly
+    "cl_vol_interact", "rsi_trend_synergy", "wick_body_ratio",
 ]
 avail_features = [f for f in FEATURES if f in df.columns]
 
@@ -169,14 +183,54 @@ for feat in avail_features:
     print(f"  {feat:30s}: {null_pct:.1f}% null (XGBoost handles natively)")
 
 # ---------------------------------------------------------------------------
-# Train / test split -- stratified on UC proxy label
+# Walk-forward CV (3 folds, 20-bar gap) — prevents future-data leakage.
+# Random split lets validation rows precede training rows in time, inflating AUC.
 # ---------------------------------------------------------------------------
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import roc_auc_score, brier_score_loss
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X_all, y_all, test_size=0.2, random_state=42, stratify=y_all
-)
+# Sort by event_date for temporal integrity
+df_sorted = df.copy()
+df_sorted["_event_date"] = pd.to_datetime(df_sorted["event_date"], errors="coerce")
+df_sorted = df_sorted.sort_values("_event_date").reset_index(drop=True)
+X_all_sorted = df_sorted[avail_features].apply(pd.to_numeric, errors="coerce")
+y_all_sorted = ((df_sorted["hit_t1"] == True) & (df_sorted["outcome_pct_20d"] > 20)).astype(int)
+
+# Sample weights: recent events get higher weight (90-day half-life for regime drift)
+days_from_latest = (df_sorted["_event_date"].max() - df_sorted["_event_date"]).dt.days.fillna(0)
+sample_weights_all = np.exp(-days_from_latest / 90).values
+
+tscv = TimeSeriesSplit(n_splits=3, gap=20)
+cv_aucs = []
+for fold, (train_idx, val_idx) in enumerate(tscv.split(X_all_sorted)):
+    Xf_tr, Xf_va = X_all_sorted.iloc[train_idx], X_all_sorted.iloc[val_idx]
+    yf_tr, yf_va = y_all_sorted.iloc[train_idx], y_all_sorted.iloc[val_idx]
+    sw_tr = sample_weights_all[train_idx]
+    if yf_tr.sum() < 10 or yf_va.sum() < 5:
+        continue
+    import xgboost as xgb
+    pw = (yf_tr == 0).sum() / max((yf_tr == 1).sum(), 1)
+    m_cv = xgb.XGBClassifier(n_estimators=300, max_depth=4, learning_rate=0.04,
+                              subsample=0.8, colsample_bytree=0.8, scale_pos_weight=pw,
+                              eval_metric="auc", random_state=42, verbosity=0, tree_method="hist")
+    m_cv.fit(Xf_tr, yf_tr, sample_weight=sw_tr, eval_set=[(Xf_va, yf_va)], verbose=False)
+    fold_auc = roc_auc_score(yf_va, m_cv.predict_proba(Xf_va)[:, 1])
+    cv_aucs.append(fold_auc)
+    print(f"[INFO] Walk-forward fold {fold+1}/3: AUC={fold_auc:.4f}")
+
+if cv_aucs:
+    print(f"[INFO] Mean walk-forward AUC = {sum(cv_aucs)/len(cv_aucs):.4f}")
+
+# Final split: last 20% chronologically as holdout test set
+split_idx = int(len(X_all_sorted) * 0.80)
+X_train = X_all_sorted.iloc[:split_idx]
+X_test  = X_all_sorted.iloc[split_idx:]
+y_train = y_all_sorted.iloc[:split_idx]
+y_test  = y_all_sorted.iloc[split_idx:]
+sample_weight_train = sample_weights_all[:split_idx]
+
+# Keep df alignment for Platt calibration
+df = df_sorted
 
 # ---------------------------------------------------------------------------
 # XGBoost -- handle class imbalance and missing values natively
@@ -207,6 +261,7 @@ model = xgb.XGBClassifier(
 
 model.fit(
     X_train, y_train,
+    sample_weight=sample_weight_train,  # recent events weighted higher (90d half-life)
     eval_set=[(X_test, y_test)],
     verbose=False,
 )

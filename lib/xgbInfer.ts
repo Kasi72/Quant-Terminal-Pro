@@ -59,6 +59,7 @@ export interface XgbFeatures {
   vol_ratio_20?: number;
   close_loc?: number;
   body_pct?: number;
+  upper_wick_pct?: number;          // wick ≤25% = strongest UC candle signal (51× lift)
   rsi2?: number;
   range_atr?: number;
   zone_len?: number;

@@ -74,6 +74,7 @@ interface EventRow {
   cl_trend: number | null;       // close_loc[D-1] - close_loc[D-3]
   hit_t1: boolean | null;        // reached +8% within 20 trading days (forward label)
   outcome_pct_20d: number | null;
+  uc_score: number | null;       // blended formula+XGB score at event time (saved since 2026-08-11)
 }
 
 interface TrajectoryFeatures {
@@ -99,7 +100,9 @@ const FEATURE_ORDER = Object.keys(SCALES) as (keyof EventFeatures)[];
 const VECTOR_DIMS = 32;
 const SHAPE_OFFSET = 9;
 const SHAPE_LEN = 20;
-const SHAPE_WEIGHT = 0.6;
+// Reduced from 0.6: 20 shape dims × 0.6 = 12 effective dims, drowning 9 feature dims.
+// 0.3 gives shape 6 effective dims — texture signal without dominating.
+const SHAPE_WEIGHT = 0.3;
 
 function toVector(f: EventFeatures, shape?: number[] | null, traj?: TrajectoryFeatures | null): number[] {
   const v = new Array<number>(VECTOR_DIMS).fill(0);
@@ -350,15 +353,17 @@ async function computeAndStoreTrajectory(env: Env, d1Rows: EventRow[], sevenDays
 
 // ── Ingest: Supabase events → Vectorize fingerprints ────────────────────────
 async function ingest(env: Env): Promise<{ ingested: number }> {
-  // Bug 22 fix: date filter keeps nightly ingestion well within the 1000-row Supabase limit
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // 90-day window: forces full re-index when vector layout changes; nightly cron stays within
+  // 1000-row limit because only the last 7d are NEW rows (older ones upsert-merge by id).
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const sevenDaysAgo  = new Date(Date.now() -  7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const rows = await supabaseGet(
     env,
-    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape,vol_accel,rsi2_velocity,cl_trend,hit_t1,outcome_pct_20d&n_before=eq.1&run_date=gte.${sevenDaysAgo}&order=created_at.desc&limit=1000`,
+    `pbfb_uc_events?select=id,run_date,event_date,symbol,best_stage,best_param_set,classification,move_pct,close_loc,body_pct,upper_wick_pct,vol_ratio_20,vol_vs_pre5,range_atr,rsi2,zone_len,zone_tightness,shape_vec,near_breakout_tier,archetype_type,zone_shape,vol_accel,rsi2_velocity,cl_trend,hit_t1,outcome_pct_20d,uc_score&n_before=eq.1&run_date=gte.${ninetyDaysAgo}&order=created_at.desc&limit=1000`,
   ) as EventRow[];
 
   // Compute & persist trajectory for rows that don't have it yet, then update in-memory rows
-  await computeAndStoreTrajectory(env, rows, sevenDaysAgo);
+  await computeAndStoreTrajectory(env, rows, ninetyDaysAgo);
 
   let ingested = 0;
   for (let i = 0; i < rows.length; i += 100) {
@@ -374,6 +379,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
         archetype_type:     r.archetype_type     ?? null,
         zone_shape:         r.zone_shape         ?? null,
         hit_t1:             r.hit_t1             ?? null,
+        uc_score:           r.uc_score           ?? null,
         hit_uc_proxy:       (r.hit_t1 === true && typeof r.outcome_pct_20d === 'number' && r.outcome_pct_20d > 20) ? true : (r.hit_t1 !== null ? false : null),
       },
     })));
@@ -404,6 +410,7 @@ async function similar(env: Env, features: EventFeatures, topK: number, shape?: 
       bestParamSet: m.metadata?.best_param_set ?? null,
       classification: m.metadata?.classification ?? null,
       movePct: m.metadata?.move_pct ?? null,
+      ucScore: m.metadata?.uc_score ?? null,
       hitUCProxy: m.metadata?.hit_uc_proxy ?? null,
     })),
     neighborHitRate: denominator > 0 ? actionable / denominator : null,

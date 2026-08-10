@@ -36,8 +36,8 @@ try:
     resp = (
         sb.table("pbfb_uc_events")
         .select(
-            "hit_t1,stopped_out,vol_ratio_20,close_loc,body_pct,rsi2,"
-            "range_atr,zone_len,zone_tightness,vol_accel,rsi2_velocity,"
+            "hit_t1,stopped_out,event_date,vol_ratio_20,close_loc,body_pct,upper_wick_pct,rsi2,"
+            "range_atr,zone_len,zone_tightness,vol_vs_pre5,vol_accel,rsi2_velocity,"
             "cl_trend,near_breakout_tier,archetype_type,move_pct"
         )
         .eq("n_before", 1)
@@ -62,19 +62,23 @@ if len(df) < 50:
 # ---------------------------------------------------------------------------
 TIER_MAP = {"A+": 2, "A": 1, "B": 0, None: -1}
 
+# Fix: DB stores vol vs pre-5 in vol_vs_pre5 column; vol_accel is mostly null.
+df["vol_accel"] = pd.to_numeric(df.get("vol_vs_pre5"), errors="coerce").combine_first(
+    pd.to_numeric(df.get("vol_accel"), errors="coerce")
+)
 df["near_breakout_tier_enc"] = df["near_breakout_tier"].map(TIER_MAP).fillna(-1).astype(int)
 df["archetype_enc"] = df["archetype_type"].astype("category").cat.codes
 
 FEATURES = [
-    "vol_ratio_20", "close_loc", "body_pct", "rsi2", "range_atr",
+    "vol_ratio_20", "close_loc", "body_pct", "upper_wick_pct", "rsi2", "range_atr",
     "zone_len", "zone_tightness", "vol_accel", "rsi2_velocity", "cl_trend",
     "near_breakout_tier_enc", "archetype_enc",
 ]
 
-df_clean = df.dropna(subset=["hit_t1"] + [f for f in FEATURES if f in df.columns])
+df_clean = df.dropna(subset=["hit_t1"] + [c for c in ["event_date"] if c in df.columns])
 df_clean = df_clean.copy()
 
-X = df_clean[[f for f in FEATURES if f in df_clean.columns]].astype(float)
+X = df_clean[[f for f in FEATURES if f in df_clean.columns]].apply(pd.to_numeric, errors="coerce")
 y = df_clean["hit_t1"].astype(int)
 
 print(f"[INFO] Training on {len(X)} rows, {X.shape[1]} features, WR={y.mean():.1%}")
@@ -82,10 +86,27 @@ print(f"[INFO] Training on {len(X)} rows, {X.shape[1]} features, WR={y.mean():.1
 # ---------------------------------------------------------------------------
 # Train / eval split
 # ---------------------------------------------------------------------------
-from sklearn.model_selection import train_test_split  # type: ignore
+from sklearn.model_selection import TimeSeriesSplit  # type: ignore
 from sklearn.metrics import roc_auc_score  # type: ignore
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+# Sort chronologically — prevents future-data leakage that inflates random-split AUC
+if "event_date" in df_clean.columns:
+    df_clean = df_clean.sort_values("event_date").reset_index(drop=True)
+    X = df_clean[[f for f in FEATURES if f in df_clean.columns]].apply(pd.to_numeric, errors="coerce")
+    y = df_clean["hit_t1"].astype(int)
+
+# Recent events weighted higher (90-day half-life)
+if "event_date" in df_clean.columns:
+    _dates = pd.to_datetime(df_clean["event_date"], errors="coerce")
+    _days_old = (_dates.max() - _dates).dt.days.fillna(0)
+    sample_weights = np.exp(-_days_old / 90).values
+else:
+    sample_weights = np.ones(len(X))
+
+split_idx = int(len(X) * 0.80)
+X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+sw_train = sample_weights[:split_idx]
 
 try:
     import xgboost as xgb  # type: ignore
@@ -107,7 +128,7 @@ model = xgb.XGBClassifier(
     random_state=42,
     verbosity=0,
 )
-model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+model.fit(X_train, y_train, sample_weight=sw_train, eval_set=[(X_test, y_test)], verbose=False)
 
 y_prob = model.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, y_prob)

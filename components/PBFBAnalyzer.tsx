@@ -1046,10 +1046,17 @@ export default function PBFBAnalyzer() {
         }
 
         // 4-way classification — zone_only is a new tier between on_radar and missed
-        const classification: ForensicResult['classification'] =
+        let classification: ForensicResult['classification'] =
           ACTIONABLE.has(bestStage) ? 'actionable' :
           ON_RADAR.has(bestStage)   ? 'on_radar'   :
           anyZone                   ? 'zone_only'  : 'missed';
+
+        // ucScore lift: stage promotions (forensicMode) handle most cases; this catches
+        // strong-signal on_radar events the stage gate just missed (ucScore 65-71 for EI,
+        // 55-57 for PRE_BREAKOUT) and elevates zone_only stocks showing real UC momentum.
+        const uc = bestResult?.ucScore ?? 0;
+        if (classification === 'on_radar'  && uc >= 72) classification = 'actionable';
+        if (classification === 'zone_only' && uc >= 65) classification = 'on_radar';
 
         allResults.push({
           symbol: ev.symbol, date: ev.date, dateISO: ev.dateISO, movePct: ev.movePct, volMult: ev.volMult,
