@@ -97,7 +97,7 @@ interface BrainData {
   clusterProfiles?: { id: number; size: number; hitRate: number | null; dominant: string; labeledCount: number }[];
   clusterCentroids?: FeatureCentroid[];
   regimeStats?:     Record<string, { count: number; labeledCount: number; hitRate: number | null }>;
-  ksDrift?:         { feature: string; stat: number; significant: boolean }[] | null;
+  ksDrift?:         { feature: string; stat: number; significant: boolean; meanRecent: number; meanPrior: number }[] | null;
   winnerCentroid?:      FeatureCentroid | null;
   winnerCount?:         number;
   winnerCentroidReady?: boolean;
