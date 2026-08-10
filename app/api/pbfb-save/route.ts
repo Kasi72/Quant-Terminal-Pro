@@ -36,6 +36,10 @@ interface EventPayload {
   zoneShape?:        string | null;
   rsi2Velocity?:     number | null;
   clTrend?:          number | null;
+  ucScore?:          number | null;
+  ucGoldmine?:       boolean | null;
+  ucStrong?:         boolean | null;
+  ucElite?:          boolean | null;
 }
 
 interface SavePayload {
@@ -157,6 +161,10 @@ export async function POST(req: NextRequest) {
     zone_shape:         e.zoneShape        ?? null,
     rsi2_velocity:      e.rsi2Velocity     ?? null,
     cl_trend:           e.clTrend          ?? null,
+    uc_score:           e.ucScore          ?? null,
+    uc_goldmine:        e.ucGoldmine       ?? null,
+    uc_strong:          e.ucStrong         ?? null,
+    uc_elite:           e.ucElite          ?? null,
   }));
 
   // Batch upsert in chunks of 200, keyed on the event itself — the same

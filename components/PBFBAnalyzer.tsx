@@ -773,6 +773,10 @@ export default function PBFBAnalyzer() {
         zoneShape:        r.bestResult?.zone?.zoneShape      ?? null,
         rsi2Velocity:     (r.bestResult as any)?.rsi2Velocity ?? null,
         clTrend:          (r.bestResult as any)?.clTrend      ?? null,
+        ucScore:          r.bestResult?.ucScore    ?? null,
+        ucGoldmine:       r.bestResult?.ucGoldmine ?? null,
+        ucStrong:         r.bestResult?.ucStrong   ?? null,
+        ucElite:          r.bestResult?.ucElite    ?? null,
       })),
     };
     const body = JSON.stringify(payload);

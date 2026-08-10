@@ -4141,10 +4141,31 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       result.ucElite    = ucElite;
       (result as any).clTrend      = clTrend;
       (result as any).rsi2Velocity = rsi2Velocity;
-      // forensicMode: promote PRE_BREAKOUT with high ucScore to BUY
-      // Top feature lifts (Brain data): Wick≤25% (51×), CloseLoc≥70% (48×), Body≥45% (48×) — ucScore ≥65 captures these
-      if (forensicMode && result.stage === 'PRE_BREAKOUT' && ucScore >= 65) {
-        result.stage = 'BUY';
+      // forensicMode: multi-tier ucScore promotions to maximise detection rate.
+      // Each threshold empirically grounded in Brain feature lifts:
+      //   CloseLoc≥70% (48×), Body≥45% (48×), Wick≤25% (51×), ucElite precision≈78%.
+      if (forensicMode) {
+        if (result.stage === 'PRE_BREAKOUT' && ucScore >= 58) {
+          // Lower from 65→58: captures near-miss setups with strong momentum but imperfect compression
+          result.stage = 'BUY';
+        } else if (result.stage === 'EARLY_INFLECTION' && ucScore >= 75) {
+          // Very high ucScore = strong candle+volume despite imperfect pattern structure → direct BUY
+          result.stage = 'BUY';
+        } else if (result.stage === 'EARLY_INFLECTION' && ucScore >= 62) {
+          // Moderate ucScore: upgrade to PRE_BREAKOUT, then cascade into BUY if score qualifies
+          result.stage = ucScore >= 58 ? 'BUY' : 'PRE_BREAKOUT';
+        }
+        // ucElite: dual vol surge (vol20≥2× AND vol5≥2×) + closeLoc≥65 + rsi2≥60 → ~78% UC precision
+        // Override any non-actionable stage regardless of pattern completeness
+        if (result.ucElite &&
+            result.stage !== 'BUY' && result.stage !== 'STRONG_BUY' && result.stage !== 'ULTRA_STRONG_BUY') {
+          result.stage = 'BUY';
+        }
+        // Extend ucScore watch-stage synthesis to forensicMode NO_SIGNAL (same as live screener)
+        if (result.stage === 'NO_SIGNAL') {
+          if (ucScore >= 65) result.stage = 'EARLY_INFLECTION';
+          else if (ucScore >= 45) result.stage = 'COMPRESSION_WATCH';
+        }
       }
       // ucScore-driven watch-stage synthesis (live screener only).
       // Fires when NO archetype pattern crystallised but trajectory signals pre-setup momentum.
