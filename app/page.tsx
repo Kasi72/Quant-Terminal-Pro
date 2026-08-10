@@ -7605,7 +7605,11 @@ function HomePageInner() {
                   {/* ═══════════════════════════════════════════ */}
                   {(() => {
                     const rows = computeTierTargetBreakdown(trackedTrades);
-                    if (rows.length === 0) return null;
+                    if (rows.length === 0) return (
+                      <div className="bg-slate-800/40 rounded-lg p-3 text-[10px] text-slate-600">
+                        Signal Tier × Target table: no stage data on trades. Stage field missing in DB?
+                      </div>
+                    );
                     const tot = {
                       total: rows.reduce((s, r) => s + r.total, 0),
                       open:  rows.reduce((s, r) => s + r.open, 0),

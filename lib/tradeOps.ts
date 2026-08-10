@@ -379,8 +379,16 @@ export interface TierRow {
 export function computeTierTargetBreakdown(trades: TrackedTrade[]): TierRow[] {
   const groups: Record<string, TrackedTrade[]> = {};
   for (const t of trades) {
-    const s = t.stage ?? 'NO_SIGNAL';
+    const s = (t.stage && t.stage.trim()) || 'NO_SIGNAL';
     (groups[s] ??= []).push(t);
+  }
+  // also catch any non-STAGE_ORDER values under 'Other'
+  const knownSet = new Set(STAGE_ORDER);
+  for (const key of Object.keys(groups)) {
+    if (!knownSet.has(key as typeof STAGE_ORDER[number])) {
+      (groups['NO_SIGNAL'] ??= []).push(...(groups[key] ?? []));
+      delete groups[key];
+    }
   }
   return STAGE_ORDER
     .filter(s => groups[s]?.length)
