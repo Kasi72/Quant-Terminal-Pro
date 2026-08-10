@@ -354,6 +354,60 @@ export function getLiveDaysHeld(t: TrackedTrade): number {
   return Math.max(0, count - 1); // entry day = day 0
 }
 
+// ─── Tier × Target breakdown ──────────────────────────────────────────────────
+
+const STAGE_ORDER = ['ULTRA_STRONG_BUY','STRONG_BUY','BUY','PRE_BREAKOUT','EARLY_INFLECTION','COMPRESSION_WATCH','NO_SIGNAL'] as const;
+const STAGE_LABELS: Record<string, string> = {
+  ULTRA_STRONG_BUY: 'Ultra Strong Buy',
+  STRONG_BUY:       'Strong Buy',
+  BUY:              'Buy',
+  PRE_BREAKOUT:     'Pre-Breakout',
+  EARLY_INFLECTION: 'Early Inflection',
+  COMPRESSION_WATCH:'Compression Watch',
+  NO_SIGNAL:        'No Signal',
+};
+
+export interface TierRow {
+  stage: string; label: string;
+  total: number; open: number;
+  atT1: number; atT2: number; atT3: number; // current status (still open at that tier)
+  hit5: number; hit7: number; hit10: number; // ever crossed price level
+  stopped: number; expired: number;
+  decided: number; wins: number; winRate: number;
+}
+
+export function computeTierTargetBreakdown(trades: TrackedTrade[]): TierRow[] {
+  const groups: Record<string, TrackedTrade[]> = {};
+  for (const t of trades) {
+    const s = t.stage ?? 'NO_SIGNAL';
+    (groups[s] ??= []).push(t);
+  }
+  return STAGE_ORDER
+    .filter(s => groups[s]?.length)
+    .map(s => {
+      const ts = groups[s];
+      const decided = ts.filter(t => isTradeResolvedForWinRate(t) && !isSurgicallyGateBlocked(t));
+      const wins    = decided.filter(didReachFivePctTarget);
+      return {
+        stage: s,
+        label: STAGE_LABELS[s] ?? s,
+        total:   ts.length,
+        open:    ts.filter(t => t.status === 'open').length,
+        atT1:    ts.filter(t => t.status === 'hit_t1').length,
+        atT2:    ts.filter(t => t.status === 'hit_t2').length,
+        atT3:    ts.filter(t => t.status === 'hit_t3').length,
+        hit5:    ts.filter(t => t.hit5pct).length,
+        hit7:    ts.filter(t => t.hit7pct).length,
+        hit10:   ts.filter(t => t.hit10pct).length,
+        stopped: ts.filter(t => t.status === 'stopped').length,
+        expired: ts.filter(t => t.status === 'expired' || t.status === 'closed_early' || t.status === 'manual_close').length,
+        decided: decided.length,
+        wins:    wins.length,
+        winRate: decided.length > 0 ? (wins.length / decided.length) * 100 : 0,
+      };
+    });
+}
+
 // Stagnation flag: open trade held 7+ trading days with MFE < 2% = no momentum. Display-only; no auto-exit.
 export function isStagnantTrade(t: TrackedTrade): boolean {
   if (isTerminalTrade(t)) return false;

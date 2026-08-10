@@ -65,7 +65,7 @@ import { computeBrainInsights, getSetupQuality, getSymbolReliability, rankSignal
 import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade, getLiveDaysHeld,
-  computeRollingWR, computeEquityCurveR, computeArchetypeBreakdown, computeMonthlyPerf,
+  computeRollingWR, computeEquityCurveR, computeArchetypeBreakdown, computeMonthlyPerf, computeTierTargetBreakdown,
   didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
@@ -7599,6 +7599,105 @@ function HomePageInner() {
                       </div>
                     </div>
                   )}
+
+                  {/* ═══════════════════════════════════════════ */}
+                  {/* TIER × TARGET BREAKDOWN TABLE             */}
+                  {/* ═══════════════════════════════════════════ */}
+                  {(() => {
+                    const rows = computeTierTargetBreakdown(trackedTrades);
+                    if (rows.length === 0) return null;
+                    const tot = {
+                      total: rows.reduce((s, r) => s + r.total, 0),
+                      open:  rows.reduce((s, r) => s + r.open, 0),
+                      atT1:  rows.reduce((s, r) => s + r.atT1, 0),
+                      atT2:  rows.reduce((s, r) => s + r.atT2, 0),
+                      atT3:  rows.reduce((s, r) => s + r.atT3, 0),
+                      hit5:  rows.reduce((s, r) => s + r.hit5, 0),
+                      hit7:  rows.reduce((s, r) => s + r.hit7, 0),
+                      hit10: rows.reduce((s, r) => s + r.hit10, 0),
+                      stopped: rows.reduce((s, r) => s + r.stopped, 0),
+                      expired: rows.reduce((s, r) => s + r.expired, 0),
+                      wins:    rows.reduce((s, r) => s + r.wins, 0),
+                      decided: rows.reduce((s, r) => s + r.decided, 0),
+                    };
+                    const pct = (n: number, d: number) => d > 0 ? `${((n/d)*100).toFixed(0)}%` : '—';
+                    const wrColor = (wr: number) => wr >= 70 ? 'text-emerald-400' : wr >= 55 ? 'text-amber-400' : wr > 0 ? 'text-red-400' : 'text-slate-600';
+                    const stageColor: Record<string, string> = {
+                      ULTRA_STRONG_BUY: 'text-emerald-300 font-black',
+                      STRONG_BUY:       'text-emerald-400 font-bold',
+                      BUY:              'text-cyan-400 font-bold',
+                      PRE_BREAKOUT:     'text-sky-400',
+                      EARLY_INFLECTION: 'text-indigo-400',
+                      COMPRESSION_WATCH:'text-slate-400',
+                      NO_SIGNAL:        'text-slate-600',
+                    };
+                    return (
+                      <div className="bg-slate-800/40 rounded-lg p-3">
+                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
+                          <span className="w-1 h-4 bg-violet-500 rounded-full"/>
+                          Signal Tier × Target Hit Rate
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[10px] font-mono" style={{minWidth:'640px'}}>
+                            <thead>
+                              <tr className="text-[9px] text-slate-600 uppercase tracking-wider border-b border-slate-700/60">
+                                <th className="text-left py-1.5 pr-2 font-semibold">Tier</th>
+                                <th className="text-right pr-2">Total</th>
+                                <th className="text-right pr-2">Open</th>
+                                <th className="text-right pr-2 text-sky-700">@T1</th>
+                                <th className="text-right pr-2 text-cyan-700">@T2</th>
+                                <th className="text-right pr-2 text-teal-700">@T3</th>
+                                <th className="text-right pr-2 text-emerald-700">Hit 5%</th>
+                                <th className="text-right pr-2 text-emerald-600">Hit 7%</th>
+                                <th className="text-right pr-2 text-emerald-500">Hit 10%</th>
+                                <th className="text-right pr-2 text-red-700">Stopped</th>
+                                <th className="text-right pr-2 text-slate-600">Exp/Cl</th>
+                                <th className="text-right pr-2">WR%</th>
+                                <th className="text-right">5%→</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, i) => (
+                                <tr key={i} className="border-b border-slate-800/60 hover:bg-slate-700/20">
+                                  <td className={`py-1.5 pr-2 text-left ${stageColor[r.stage] ?? 'text-slate-400'}`}>{r.label}</td>
+                                  <td className="text-right pr-2 text-slate-300">{r.total}</td>
+                                  <td className="text-right pr-2 text-slate-500">{r.open || '—'}</td>
+                                  <td className="text-right pr-2 text-sky-400">{r.atT1 || '—'}</td>
+                                  <td className="text-right pr-2 text-cyan-400">{r.atT2 || '—'}</td>
+                                  <td className="text-right pr-2 text-teal-400">{r.atT3 || '—'}</td>
+                                  <td className="text-right pr-2 text-emerald-400 font-semibold">{r.hit5 || '—'}</td>
+                                  <td className="text-right pr-2 text-emerald-400">{r.hit7 || '—'}</td>
+                                  <td className="text-right pr-2 text-emerald-400">{r.hit10 || '—'}</td>
+                                  <td className="text-right pr-2 text-red-400">{r.stopped || '—'}</td>
+                                  <td className="text-right pr-2 text-slate-600">{r.expired || '—'}</td>
+                                  <td className={`text-right pr-2 font-bold ${wrColor(r.winRate)}`}>{r.decided > 0 ? `${r.winRate.toFixed(0)}%` : '—'}</td>
+                                  <td className="text-right text-slate-500">{pct(r.hit5, r.total)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t border-slate-600/60 font-bold">
+                                <td className="py-1.5 pr-2 text-slate-400 text-[9px] uppercase tracking-wider">All Tiers</td>
+                                <td className="text-right pr-2 text-slate-200">{tot.total}</td>
+                                <td className="text-right pr-2 text-slate-400">{tot.open || '—'}</td>
+                                <td className="text-right pr-2 text-sky-400">{tot.atT1 || '—'}</td>
+                                <td className="text-right pr-2 text-cyan-400">{tot.atT2 || '—'}</td>
+                                <td className="text-right pr-2 text-teal-400">{tot.atT3 || '—'}</td>
+                                <td className="text-right pr-2 text-emerald-300">{tot.hit5 || '—'}</td>
+                                <td className="text-right pr-2 text-emerald-300">{tot.hit7 || '—'}</td>
+                                <td className="text-right pr-2 text-emerald-300">{tot.hit10 || '—'}</td>
+                                <td className="text-right pr-2 text-red-400">{tot.stopped || '—'}</td>
+                                <td className="text-right pr-2 text-slate-600">{tot.expired || '—'}</td>
+                                <td className={`text-right pr-2 ${wrColor(tot.decided > 0 ? tot.wins / tot.decided * 100 : 0)}`}>{tot.decided > 0 ? `${(tot.wins/tot.decided*100).toFixed(0)}%` : '—'}</td>
+                                <td className="text-right text-slate-400">{pct(tot.hit5, tot.total)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                        <div className="text-[9px] text-slate-600 mt-2">@T1/T2/T3 = currently live at that tier · Hit 5/7/10% = ever crossed that price level · 5%→ = hit-5% rate per tier · WR = decided trades only (gate-filtered)</div>
+                      </div>
+                    );
+                  })()}
 
                   {/* ═══════════════════════════════════════════ */}
                   {/* SECTION 2: ROLLING PERFORMANCE            */}
