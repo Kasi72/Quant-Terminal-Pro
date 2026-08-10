@@ -1264,10 +1264,10 @@ export default function PBFBAnalyzer() {
                         { label: '5d ago',    days: 5 },
                         { label: '1w ago',    days: 7 },
                       ].map(({ label, days }) => {
-                        const d = new Date(); d.setDate(d.getDate() - days);
-                        const iso = d.toISOString().slice(0, 10);
+                        const getIso = () => { const d = new Date(); d.setDate(d.getDate() - days); return d.toISOString().slice(0, 10); };
+                        const iso = getIso();
                         return (
-                          <button key={days} onClick={() => setUcDate(iso)}
+                          <button key={days} onClick={() => setUcDate(getIso())}
                             className={`px-2 py-1 rounded text-[10px] border transition-colors ${ucDate === iso ? 'bg-amber-800/50 border-amber-600 text-amber-300' : 'bg-slate-700/40 border-slate-600 text-slate-500 hover:text-slate-300'}`}>
                             {label}
                           </button>
