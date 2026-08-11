@@ -563,7 +563,8 @@ export function applyValidation(trade: TrackedTrade, result: ValidationResult): 
   const needsUpdate =
     trade.status === 'open'    ||
     trade.status === 'hit_t1'  ||
-    trade.status === 'hit_t2';
+    trade.status === 'hit_t2'  ||
+    (trade.status === 'hit_t3' && !trade.closedDate);
   if (!needsUpdate) return trade;
   if (result.status === 'open') {
     const repairingLegacyT1Trail = isLegacyT1BreakevenTrailExit(trade);

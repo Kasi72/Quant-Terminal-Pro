@@ -477,7 +477,7 @@ export async function GET(req: NextRequest) {
     const trades = allTrades.filter(trade => {
       if (!isTerminalTrade(trade)) return true;
       const terminalDate = trade.closedDate?.slice(0, 10);
-      if (!terminalDate) return false;
+      if (!terminalDate) return true; // orphaned terminal (no closedDate) — re-process to heal
       const latestLogDate = latestLogBySymbol.get(trade.symbol);
       return !latestLogDate || latestLogDate < terminalDate;
     });
@@ -537,7 +537,7 @@ export async function GET(req: NextRequest) {
         );
         const preEntry = bars.filter(bar => bar.date <= entryDate).slice(-30);
         const lastBar = postEntry[postEntry.length - 1];
-        const validation = isTerminalTrade(trade) && !repairingLegacyT1Trail
+        const validation = (isTerminalTrade(trade) && !repairingLegacyT1Trail && trade.closedDate)
           ? null
           : validateTrade(trade, postEntry.map(bar => ({
               o: bar.open,
