@@ -230,9 +230,9 @@ export interface AnalysisResult {
   // Feature weights derived from actionable vs on_radar Cohen's d:
   //   closeLoc(d=0.55)→40pts, rsi2(d=0.43)→25pts, vol(d=0.27)→20pts, range(d=0.23)→10pts, body(d=0.17)→5pts
   ucScore?: number;     // 0-100 composite UC probability score
-  ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable in Brain data
-  ucStrong?: boolean;   // Vol>3x AND CL>75 AND RSI2>70 → ~68-72% actionable (triple-lock)
-  ucElite?: boolean;    // Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → ~78% actionable (backtest n=27)
+  ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
+  ucStrong?: boolean;   // Vol>3x + CL>75 → 70.8% UC precision (goldmine N=24, 2026-08-11)
+  ucElite?: boolean;    // Vol>3x + CL>75 + (Body>50 OR UW<20) → 75-78% UC precision (goldmine N=18-20)
   // ML overlay (computed once per scan, attached post-analysis)
   xgbScore?: number | null;   // XGBoost P(hit_t1) 0-1, null when model not trained
   survivalLabel?: string;     // KM "5d:38% · 10d:61%" per archetype
@@ -3780,6 +3780,7 @@ function computeUCScore(
   volAccel?: number | null,           // vol vs prev 5d avg (continuous, beyond binary gate)
   nearBreakoutTier?: string | null,   // 'A+' | 'A' | 'B' — price coiled near resistance
   archetypeType?: string | null,      // pattern type — VF/MP/CC have highest UC rates
+  upperWickPct?: number | null,       // upper shadow % of range — low = no distribution
 ): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean } {
   // Weights sourced from lib/ucScoreWeights.ts — auto-updated monthly by scripts/uc_precision_analysis.js
   const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * W.closeLoc_pts;  // [40, 92]
@@ -3813,13 +3814,15 @@ function computeUCScore(
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus
     + ztComp + vaComp + nbtComp + archComp,
   ));
-  // ucGoldmine: Vol>3x + (CL>75 OR RSI2>70) → 54-60% actionable at D-1 in Brain data
+  // ucGoldmine: vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
-  // ucStrong: triple-lock Vol>3x AND CL>75 AND RSI2>70 → ~62-68% actionable
-  const ucStrong  = volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70;
-  // ucElite: dual-vol surge + moderate CL/RSI2 → 77.8% precision in backtest (n=27)
-  //   vol20≥2x AND volPre5≥2x confirms the surge is not a single-period artefact
-  const ucElite   = volRatio20 >= 2.0 && (volPre5 ?? 0) >= 2.0 && closeLoc >= 65 && rsi2 >= 60;
+  // ucStrong: vol>3x + CL>75 → 70.8% UC precision (goldmine N=24)
+  //   RSI2 gate removed — CL>75 is stronger discriminant (d=0.68 vs d=0.55)
+  const ucStrong  = volRatio20 >= 3.0 && closeLoc >= 75;
+  // ucElite: vol>3x + CL>75 + candle quality → 75-78% UC precision (goldmine N=18-20)
+  //   Body>50 (marubozu) → 77.8% | UW<20 (no dist) → 75.0% | either = ~76%
+  const ucElite   = volRatio20 >= 3.0 && closeLoc >= 75 &&
+    (bodyPct >= 50 || ((upperWickPct ?? 100) <= 20));
   return { ucScore, ucGoldmine, ucStrong, ucElite };
 }
 
@@ -4134,6 +4137,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         (result as any).exactVolVsPre5 ?? volPre5,
         result.priceEngine?.breakoutTier ?? null,
         result.archetypeType ?? null,
+        result.upperWickPct ?? null,
       );
       result.ucScore    = ucScore;
       result.ucGoldmine = ucGoldmine;
