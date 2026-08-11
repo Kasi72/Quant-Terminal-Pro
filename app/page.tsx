@@ -7327,17 +7327,22 @@ function HomePageInner() {
                     const alerts: Array<{symbol: string; msg: string; severity: 'danger' | 'warning'}> = [];
                     for (const t of open) {
                       if (!t.currentPrice || t.entryPrice <= 0) continue;
-                      const hardStop = getTradeHardStop(t);
-                      if (hardStop <= 0) continue;
-                      const distToStop = t.currentPrice - hardStop;
-                      const distPct = (distToStop / t.currentPrice) * 100;
-                      if (distPct >= 0 && distPct <= 1.0) alerts.push({ symbol: t.symbol, msg: `within ${distPct.toFixed(1)}% of hard stop (₹${hardStop.toFixed(0)})`, severity: 'danger' });
-                      else if (distPct > 0 && distPct <= 2.0) alerts.push({ symbol: t.symbol, msg: `${distPct.toFixed(1)}% above hard stop — approaching danger zone`, severity: 'warning' });
 
-                      // #3: Near T1 alert
-                      if (t.target1 > 0 && t.currentPrice > 0) {
-                        const toT1 = ((t.target1 - t.currentPrice) / t.currentPrice) * 100;
-                        if (toT1 > 0 && toT1 <= 1.5) alerts.push({ symbol: t.symbol, msg: `only ${toT1.toFixed(1)}% from T1 (₹${t.target1.toFixed(0)}) — watch closely`, severity: 'warning' });
+                      // Stop alerts only relevant before T1 — post-T1 stop logic is different
+                      if (t.status === 'open') {
+                        const hardStop = getTradeHardStop(t);
+                        if (hardStop > 0) {
+                          const distToStop = t.currentPrice - hardStop;
+                          const distPct = (distToStop / t.currentPrice) * 100;
+                          if (distPct >= 0 && distPct <= 1.0) alerts.push({ symbol: t.symbol, msg: `within ${distPct.toFixed(1)}% of hard stop (₹${hardStop.toFixed(0)})`, severity: 'danger' });
+                          else if (distPct > 0 && distPct <= 2.0) alerts.push({ symbol: t.symbol, msg: `${distPct.toFixed(1)}% above hard stop — approaching danger zone`, severity: 'warning' });
+                        }
+
+                        // Near T1 alert — only for open trades; hit_t1/hit_t2 have already booked partial
+                        if (t.target1 > 0) {
+                          const toT1 = ((t.target1 - t.currentPrice) / t.currentPrice) * 100;
+                          if (toT1 > 0 && toT1 <= 1.5) alerts.push({ symbol: t.symbol, msg: `only ${toT1.toFixed(1)}% from T1 (₹${t.target1.toFixed(0)}) — watch closely`, severity: 'warning' });
+                        }
                       }
                     }
                     if (alerts.length === 0) return null;
