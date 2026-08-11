@@ -509,13 +509,22 @@ export async function GET(req: NextRequest) {
         const sym = trade.symbol.includes('.') ? trade.symbol : `${trade.symbol}.NS`;
         const fetched = await tryFetchWithRetry(sym);
         if (!fetched.ok || !fetched.data) {
-          summary.errors.push(`${trade.symbol}: fetch failed`);
+          // Terminal trades (stopped/expired) don't need fresh data — demote to warning
+          if (isTerminalTrade(trade)) {
+            console.warn(`[nightly-update] ${trade.symbol}: fetch failed (terminal — skipped)`);
+          } else {
+            summary.errors.push(`${trade.symbol}: fetch failed`);
+          }
           return;
         }
 
         const bars = parseYahooCandles(fetched.data as Record<string, unknown>);
         if (bars.length === 0) {
-          summary.errors.push(`${trade.symbol}: no candles`);
+          if (isTerminalTrade(trade)) {
+            console.warn(`[nightly-update] ${trade.symbol}: no candles (terminal — skipped)`);
+          } else {
+            summary.errors.push(`${trade.symbol}: no candles`);
+          }
           return;
         }
 
