@@ -2767,41 +2767,60 @@ function HomePageInner() {
   // Sends ucScore ≥ 35 stocks to /api/log-uc-scan for 30-day precision tracking
   useEffect(() => {
     if (scanning) return;
+    // Gate: NSE is closed on weekends — skip to avoid polluting labeled dataset with 0-hit rows
+    const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const istDow = nowIST.getUTCDay(); // 0=Sun, 6=Sat
+    if (istDow === 0 || istDow === 6) return;
+
     const today = new Date().toISOString().slice(0, 10);
+
+    // Sentinel detection: locked-candle stocks have bodyPct=0, upperWickPct=0 because
+    // range=0 (already at UC limit) or a synthetic meta candle. In this state, rsi2=50
+    // is computed from flat closes (avgGain=avgLoss=0 → Wilder EMA decays to 0).
+    // These are NOT missing values — they identify a specific phenotype (already-UC-locked).
+    // Store them as null so the feature is excluded from Cohen's d regression, not treated as 50.
+    const isLockedCandle = (r: AnalysisResult) => r.bodyPct === 0 && r.upperWickPct === 0;
+
     const candidates = results
       .filter(r => ((r as any).ucScore as number | undefined) != null && ((r as any).ucScore as number) >= 35)
-      .map(r => ({
-        symbol:           r.symbol,
-        scan_date:        today,
-        uc_score:         (r as any).ucScore   as number,
-        uc_elite:         (r as any).ucElite   as boolean ?? false,
-        uc_strong:        (r as any).ucStrong  as boolean ?? false,
-        uc_goldmine:      (r as any).ucGoldmine as boolean ?? false,
-        close_loc:        r.closeLoc,
-        rsi2:             r.rsi2,
-        body_pct:         r.bodyPct,
-        upper_wick_pct:   r.upperWickPct,
-        vol_ratio_20:     r.volRatio20,
-        vol_pre5:         (r as any).exactVolVsPre5 ?? null,
-        range_atr:        (r as any).exactRangeATR14 ?? null,
-        stage:            r.stage,
-        sector:           (r as any).sector ?? null,
-        conviction:       (r as any).conviction ?? null,
-        day_chg_pct:      (r as any).dayChangePct ?? null,
-        confluence_score: r.confluenceScore,
-        inflection_score: r.inflectionScore,
-        dd52wh:           (r as any).dd52WH ?? null,
-        cl_trend:         (r as any).clTrend ?? null,
-        rsi2_velocity:    (r as any).rsi2Velocity ?? null,
-        zone_tightness:   (r as any).zoneTightness ?? null,
-      }));
+      .map(r => {
+        const locked = isLockedCandle(r);
+        return {
+          symbol:           r.symbol,
+          scan_date:        today,
+          uc_score:         (r as any).ucScore    as number,
+          uc_elite:         (r as any).ucElite    as boolean ?? false,
+          uc_strong:        (r as any).ucStrong   as boolean ?? false,
+          uc_goldmine:      (r as any).ucGoldmine as boolean ?? false,
+          close_loc:        r.closeLoc,
+          // Null out when locked candle — these are not real RSI2/candle measurements
+          rsi2:             locked ? null : r.rsi2,
+          body_pct:         locked ? null : r.bodyPct,
+          upper_wick_pct:   locked ? null : r.upperWickPct,
+          vol_ratio_20:     r.volRatio20,
+          vol_pre5:         (r as any).exactVolVsPre5  ?? null,
+          range_atr:        (r as any).exactRangeATR14 ?? null,
+          stage:            r.stage,
+          sector:           getSectorTag(r.symbol),
+          morph_type:       (r as any).morphType       ?? null,
+          market_regime:    marketRegime?.label         ?? null,
+          conviction:       (r as any).conviction      ?? null,
+          day_chg_pct:      (r as any).dayChangePct    ?? null,
+          confluence_score: r.confluenceScore,
+          inflection_score: r.inflectionScore,
+          dd52wh:           (r as any).dd52WH          ?? null,
+          cl_trend:         (r as any).clTrend         ?? null,
+          rsi2_velocity:    (r as any).rsi2Velocity    ?? null,
+          zone_tightness:   (r as any).zoneTightness   ?? null,
+        };
+      });
     if (candidates.length === 0) return;
     fetch('/api/log-uc-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ candidates, total_scan_count: results.length }),
     }).catch(() => {}); // fire-and-forget, never block UI
-  }, [results, scanning]);
+  }, [results, scanning, marketRegime]);
 
   // Feature #5+#8: Adaptive auto-refresh during market hours
   useEffect(() => {

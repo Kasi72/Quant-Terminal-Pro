@@ -11,24 +11,25 @@ interface UCCandidate {
   uc_elite: boolean;
   uc_strong: boolean;
   uc_goldmine: boolean;
-  close_loc?: number;
-  rsi2?: number;
-  body_pct?: number;
-  upper_wick_pct?: number;
-  vol_ratio_20?: number;
-  vol_pre5?: number;
-  range_atr?: number;
-  cl_trend?: number;
-  rsi2_velocity?: number;
-  zone_tightness?: number;
-  stage?: string;
-  sector?: string;
-  conviction?: number;
-  day_chg_pct?: number;
-  confluence_score?: number;
-  inflection_score?: number;
-  dd52wh?: number;
-  market_regime?: string;
+  close_loc?: number | null;
+  rsi2?: number | null;
+  body_pct?: number | null;
+  upper_wick_pct?: number | null;
+  vol_ratio_20?: number | null;
+  vol_pre5?: number | null;
+  range_atr?: number | null;
+  cl_trend?: number | null;
+  rsi2_velocity?: number | null;
+  zone_tightness?: number | null;
+  stage?: string | null;
+  sector?: string | null;
+  morph_type?: string | null;
+  conviction?: number | null;
+  day_chg_pct?: number | null;
+  confluence_score?: number | null;
+  inflection_score?: number | null;
+  dd52wh?: number | null;
+  market_regime?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
       inflection_score: c.inflection_score ?? null,
       dd52wh:           c.dd52wh ?? null,
       market_regime:    c.market_regime ?? null,
+      morph_type:       c.morph_type ?? null,
       total_scan_count: total_scan_count ?? null,
     }));
 
