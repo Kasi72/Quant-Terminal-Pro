@@ -374,6 +374,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // For index symbols (^NSEI, ^INDIAVIX, etc.): indices always have today's candle
+    // during market hours but the close may be a stale Yahoo snapshot.
+    // Apply meta-price refresh so the displayed Nifty/VIX is the last traded price,
+    // not a Yahoo cache value from an earlier point in the session.
+    if (candidate.startsWith('^')) {
+      const updated = updateTodayWithMeta(json, todayIST());
+      if (updated) return NextResponse.json({ ok: true, resolvedSymbol: candidate, raw: updated });
+    }
+
     return NextResponse.json({ ok: true, resolvedSymbol: candidate, raw: json });
   }
 
