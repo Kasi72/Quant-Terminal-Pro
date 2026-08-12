@@ -3832,10 +3832,19 @@ function computeUCScore(
   // Psychological magnet: price within 3% below a round-number ceiling with strong daily close_loc.
   // Round numbers act as spring targets — operators know retail eyes these levels.
   const magnetComp = magnetFlag ? W.magnetFlag_pts : 0;
+  // Candle morphology (k-means N=1000, outcome_pct_20d>15% proxy, 2026-08-12):
+  // Coiled Spring: body<25 AND upperWick<20 = hammer/dragonfly — intraday demand absorbed all selling,
+  //   recovered to high, no distribution overhead → 34.6% UC-proxy rate vs 27% baseline (+7.6pp)
+  // Gravestone: body<25 AND upperWick>35 = shooting star / doji — rejected at high → 23.4% (-3.6pp)
+  // Rocket (body>45, wick<15) skipped: already fully captured by bPComp (earns max bodyPct_pts).
+  const uw = upperWickPct ?? 50;
+  const morphComp = (bodyPct < 25 && uw < 20) ?  W.morphCoiledSpring_pts
+    : (bodyPct < 25 && uw > 35)                ? -W.morphGravestone_penalty
+    : 0;
   const ucScore = Math.round(Math.min(100,
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus
     + ztComp + vaComp + nbtComp + archComp
-    + volDrySurgeComp + weeklyResComp + magnetComp,
+    + volDrySurgeComp + weeklyResComp + magnetComp + morphComp,
   ));
   // ucGoldmine: vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
@@ -4216,6 +4225,11 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       (result as any).volSurgeScore = volSurgeScore;
       (result as any).weeklyCloseLoc= weeklyCloseLoc;
       (result as any).magnetFlag    = magnetFlag;
+      const _bp = result.bodyPct ?? 50;
+      const _uw = result.upperWickPct ?? 50;
+      (result as any).morphType = (_bp < 25 && _uw < 20) ? 'coiled_spring'
+        : (_bp < 25 && _uw > 35)                         ? 'gravestone'
+        : null;
       // forensicMode: multi-tier ucScore promotions to maximise detection rate.
       // Each threshold empirically grounded in Brain feature lifts:
       //   CloseLoc≥70% (48×), Body≥45% (48×), Wick≤25% (51×), ucElite precision≈78%.

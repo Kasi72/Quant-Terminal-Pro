@@ -951,22 +951,25 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-sky">💧→💥 Dry+Surge</span></div><div><div class="rt-desc">Vol D-4:D-2 quiet vs D-1 explosion, relative to the quiet period (not 20d avg). Deep dry-up (dryScore&lt;0.7) then surge≥4x = operator accumulation followed by ignition. Adds up to 8pts — clean signal missed by flat vol ratio.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-indigo">📅 Weekly Rsn</span></div><div><div class="rt-desc">Last-5d pseudo-weekly range: close_loc≥70 AND body≥25 = stock closing strong at weekly scale too. Multi-timeframe alignment adds 6pts — confirms daily setup is not an isolated candle.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-rose">🧲 Magnet</span></div><div><div class="rt-desc">Price within 3% below a round-number ceiling (₹100/250/500/1000…) AND close_loc≥70. Round numbers are operator targets — approaching one with strength = spring release. Adds 4pts when active.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · Feature set 2 added 2026-08-12</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">🌀 Coiled</span></div><div><div class="rt-desc">Candle morphology: body&lt;25% AND upper wick&lt;20%. Hammer/dragonfly pattern — stock traded down intraday, recovered fully to high with no distribution overhead. K-means N=1,000 UC events: 34.6% UC-proxy rate vs 27% baseline (+7.6pp). Adds 5pts. Gravestone (body&lt;25 AND wick&gt;35) penalised -4pts — mirrors PRE_BREAKOUT quality gate.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · Feature set 2 added 2026-08-12 · Morphology K-means added 2026-08-12</div></div></div>',
     fmt: r => {
-      const s    = (r as any).ucScore    as number | undefined;
-      const el   = (r as any).ucElite    as boolean | undefined;
-      const st   = (r as any).ucStrong   as boolean | undefined;
-      const g    = (r as any).ucGoldmine as boolean | undefined;
-      const weak = (r as any).weakPBFlag as boolean | undefined;
-      const mag  = (r as any).magnetFlag as boolean | undefined;
+      const s     = (r as any).ucScore    as number | undefined;
+      const el    = (r as any).ucElite    as boolean | undefined;
+      const st    = (r as any).ucStrong   as boolean | undefined;
+      const g     = (r as any).ucGoldmine as boolean | undefined;
+      const weak  = (r as any).weakPBFlag as boolean | undefined;
+      const mag   = (r as any).magnetFlag as boolean | undefined;
+      const morph = (r as any).morphType  as string  | undefined;
       if (s == null) return '—';
       const prob = `${calibrateUCScore(s)}%`;
-      if (el)                         return `${prob} ⚡`;
-      if (st)                         return `${prob} 🎯`;
-      if (g)                          return `${prob} 🏆`;
-      if (r.stage === 'PRE_BREAKOUT') return `${prob} 🟢`;
-      if (weak)                       return `${prob} ⚠`;
-      if (mag)                        return `${prob} 🧲`;
+      if (el)                                   return `${prob} ⚡`;
+      if (st)                                   return `${prob} 🎯`;
+      if (g)                                    return `${prob} 🏆`;
+      if (r.stage === 'PRE_BREAKOUT')           return `${prob} 🟢`;
+      if (weak)                                 return `${prob} ⚠`;
+      if (morph === 'coiled_spring')            return `${prob} 🌀`;
+      if (mag)                                  return `${prob} 🧲`;
       return prob;
     },
     numVal: r => (r as any).ucScore ?? 0,
@@ -975,15 +978,17 @@ const COLUMNS: ColDef[] = [
       const el   = (r as any).ucElite    as boolean | undefined;
       const st   = (r as any).ucStrong   as boolean | undefined;
       const g    = (r as any).ucGoldmine as boolean | undefined;
-      const weak = (r as any).weakPBFlag as boolean | undefined;
-      const mag  = (r as any).magnetFlag as boolean | undefined;
+      const weak  = (r as any).weakPBFlag as boolean | undefined;
+      const mag   = (r as any).magnetFlag as boolean | undefined;
+      const morph = (r as any).morphType  as string  | undefined;
       if (s == null) return 'text-slate-600';
       if (el)   return 'text-purple-300 font-bold';
       if (st)   return 'text-orange-300 font-bold';
       if (g)    return 'text-yellow-300 font-bold';
-      if (r.stage === 'PRE_BREAKOUT') return 'text-lime-400 font-semibold';
-      if (weak) return 'text-amber-500 font-semibold';
-      if (mag)  return 'text-rose-400 font-semibold';
+      if (r.stage === 'PRE_BREAKOUT')        return 'text-lime-400 font-semibold';
+      if (weak)                              return 'text-amber-500 font-semibold';
+      if (morph === 'coiled_spring')         return 'text-cyan-400 font-semibold';
+      if (mag)                               return 'text-rose-400 font-semibold';
       return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',

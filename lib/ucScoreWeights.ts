@@ -54,6 +54,14 @@ export const UC_SCORE_WEIGHTS = {
   // psychological magnet: price within 3% below round-number ceiling + close_loc≥70 — spring release
   magnetFlag_pts:     4,
 
+  // Candle morphology (k-means K=5, N=1000 labeled, outcome_pct_20d>15% as UC proxy, 2026-08-12)
+  // Coiled Spring (body<25 AND wick<20): hammer/dragonfly — 34.6% UC-proxy vs 27% baseline (+7.6pp)
+  // Intraday absorption: traded down, recovered to high, no upper shadow = no distribution overhead
+  morphCoiledSpring_pts: 5,
+  // Gravestone (body<25 AND wick>35): doji/shooting star — 23.4% UC-proxy (-3.6pp below baseline)
+  // Reinforces PRE_BREAKOUT quality gate; explicit penalty for cross-stage gravestone candles
+  morphGravestone_penalty: 4,
+
   // Nifty 5d market regime multipliers (applied in page.tsx after formula blend)
   niftyBullMult:     1.10,    // Nifty 5d > +2%
   niftyNeutralMult:  1.00,
