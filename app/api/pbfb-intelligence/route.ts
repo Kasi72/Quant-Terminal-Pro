@@ -143,7 +143,9 @@ export async function GET() {
   const ws = events.map(e => decayW(e.event_date as string | null, nowMs));
 
   // ── Subsets ────────────────────────────────────────────────────────────────
-  const actionable = events.filter(e => e.classification === 'actionable');
+  const actionable   = events.filter(e => e.classification === 'actionable');
+  // thin_lock = mechanical circuit lock — can never be actionable by design; exclude from detection rate
+  const nonThinLock  = events.filter(e => e.classification !== 'thin_lock');
   const missed     = events.filter(e => e.classification === 'missed');
   const zoneOnly   = events.filter(e => e.classification === 'zone_only');
   const labeled    = events.filter(e => e.hit_t1 != null);
@@ -375,7 +377,7 @@ export async function GET() {
   return NextResponse.json({
     eventCount: n, actionableCount: actionable.length, runCount: runs.length,
     lastRunDate: runs[0]?.run_date ?? '',
-    overallDetectionRate: n > 0 ? actionable.length / n : 0,
+    overallDetectionRate: nonThinLock.length > 0 ? actionable.length / nonThinLock.length : 0,
     centroid, winnerCentroid, winnerCount, winnerCentroidReady,
     featureStdDev, stageHitCounts, paramSetStats, featureLifts, archetypeCounts, breakoutTierCounts,
     // Sprint 3

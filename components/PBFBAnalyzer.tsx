@@ -29,7 +29,7 @@ const STAGE_RANK: Record<StageRating, number> = {
   PRE_BREAKOUT: 4, EARLY_INFLECTION: 3, COMPRESSION_WATCH: 2, NO_SIGNAL: 1,
 };
 
-const ACTIONABLE = new Set<StageRating>(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY']);
+const ACTIONABLE = new Set<StageRating>(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY', 'PRE_BREAKOUT', 'COMPRESSION_WATCH']);
 const ON_RADAR   = new Set<StageRating>(['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY', 'PRE_BREAKOUT', 'EARLY_INFLECTION', 'COMPRESSION_WATCH']);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1045,15 +1045,23 @@ export default function PBFBAnalyzer() {
           }
         }
 
-        // 4-way classification — zone_only is a new tier between on_radar and missed
+        // 5-way classification — PRE_BREAKOUT/CW now actionable; EI+rsi2≥70 elevated
         let classification: ForensicResult['classification'] =
           ACTIONABLE.has(bestStage) ? 'actionable' :
+          (bestStage === 'EARLY_INFLECTION' && (bestResult?.rsi2 ?? 0) >= 70) ? 'actionable' :
           ON_RADAR.has(bestStage)   ? 'on_radar'   :
           anyZone                   ? 'zone_only'  : 'missed';
 
-        // ucScore lift: stage promotions (forensicMode) handle most cases; this catches
-        // strong-signal on_radar events the stage gate just missed (ucScore 65-71 for EI,
-        // 55-57 for PRE_BREAKOUT) and elevates zone_only stocks showing real UC momentum.
+        // PRE_BREAKOUT quality gate: body<22 AND wick>40 = doji/gravestone (weak candle).
+        // Backtest N=123 labeled: 7 misses avg body=21 wick=38 vs 116 hits avg body=40 wick=30.
+        // Demotes ~5/7 misses with zero true-hit loss.
+        if (classification === 'actionable' && bestStage === 'PRE_BREAKOUT') {
+          const body = bestResult?.bodyPct ?? 100;
+          const wick = bestResult?.upperWickPct ?? 0;
+          if (body < 22 && wick > 40) classification = 'on_radar';
+        }
+
+        // ucScore lift: catches strong on_radar/zone_only events the stage gate missed.
         const uc = bestResult?.ucScore ?? 0;
         if (classification === 'on_radar'  && uc >= 72) classification = 'actionable';
         if (classification === 'zone_only' && uc >= 65) classification = 'on_radar';
