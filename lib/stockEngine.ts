@@ -3781,6 +3781,12 @@ function computeUCScore(
   nearBreakoutTier?: string | null,   // 'A+' | 'A' | 'B' — price coiled near resistance
   archetypeType?: string | null,      // pattern type — VF/MP/CC have highest UC rates
   upperWickPct?: number | null,       // upper shadow % of range — low = no distribution
+  // Brain V2 feature set 2 — 2026-08-12
+  volDryScore?: number | null,        // avg(vol D-4:D-2) / avg(vol D-20:D-5) — accumulation quiet depth
+  volSurgeScore?: number | null,      // vol_D1 / avg(vol D-4:D-2) — surge vs quiet period (not vs 20d)
+  weeklyCloseLoc?: number | null,     // close position within last-5d pseudo-weekly range [0-100]
+  weeklyBodyPct?: number | null,      // body% of last-5d range — weekly conviction
+  magnetFlag?: boolean | null,        // price within 3% below round-number ceiling AND close_loc≥70
 ): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean } {
   // Weights sourced from lib/ucScoreWeights.ts — auto-updated monthly by scripts/uc_precision_analysis.js
   const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * W.closeLoc_pts;  // [40, 92]
@@ -3810,9 +3816,26 @@ function computeUCScore(
     : archetypeType === 'CompressionCoil' ? W.archCC_pts
     : archetypeType ? W.archOther_pts
     : 0;
+  // Vol dry+surge: rewards accumulation-then-explosion sequence vs plain volume spike.
+  // dryDepth scores how quiet the D-4:D-2 window was vs 20d baseline (deeper quiet = better float absorption).
+  // surgeStr scores the breakout surge relative to that quiet period (not 20d avg — avoids noise from trending vol).
+  let volDrySurgeComp = 0;
+  if (volDryScore != null && volSurgeScore != null) {
+    const dryDepth = Math.min(1, Math.max(0, 1 - volDryScore));          // 0→1, higher = deeper dry-up
+    const surgeStr = Math.min(1, Math.max(0, (volSurgeScore - 2) / 8));  // 2x-10x surge → 0-1
+    volDrySurgeComp = dryDepth * surgeStr * W.volDrySurge_pts;
+  }
+  // Weekly resonance: last-5d pseudo-weekly range — stock closing in top quarter with a real body
+  // = institutional follow-through confirming daily setup (multi-timeframe alignment).
+  const weeklyResComp = (weeklyCloseLoc != null && weeklyCloseLoc >= 70 && (weeklyBodyPct ?? 0) >= 25)
+    ? W.weeklyResonate_pts : 0;
+  // Psychological magnet: price within 3% below a round-number ceiling with strong daily close_loc.
+  // Round numbers act as spring targets — operators know retail eyes these levels.
+  const magnetComp = magnetFlag ? W.magnetFlag_pts : 0;
   const ucScore = Math.round(Math.min(100,
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus
-    + ztComp + vaComp + nbtComp + archComp,
+    + ztComp + vaComp + nbtComp + archComp
+    + volDrySurgeComp + weeklyResComp + magnetComp,
   ));
   // ucGoldmine: vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
@@ -4124,6 +4147,45 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         const avg5    = prev5.reduce((s, c) => s + c.v, 0) / 5;
         if (avg5 > 0) volPre5 = curVol / avg5;
       }
+      // Vol dry+surge: surge vs quiet accumulation window (D-4:D-2) rather than 20d avg.
+      // dryScore<0.7 = significant float absorption; surgeScore>4x vs quiet = operator-led breakout.
+      let volDryScore: number | undefined;
+      let volSurgeScore: number | undefined;
+      if (candles.length >= 21) {
+        const curVol   = candles[candles.length - 1].v;
+        const dryBars  = candles.slice(candles.length - 5, candles.length - 2);   // D-4, D-3, D-2
+        const baseBars = candles.slice(candles.length - 21, candles.length - 5);  // D-20 to D-5
+        const dryAvg   = dryBars.reduce((s, c) => s + c.v, 0) / dryBars.length;
+        const baseAvg  = baseBars.reduce((s, c) => s + c.v, 0) / baseBars.length;
+        if (dryAvg > 0 && baseAvg > 0) {
+          volDryScore   = dryAvg / baseAvg;
+          volSurgeScore = curVol / dryAvg;
+        }
+      }
+      // Weekly resonance: pseudo-weekly bar from last 5 trading days (before today).
+      // close_loc≥70 + body≥25 across the 5d range = institutional follow-through at weekly scale.
+      let weeklyCloseLoc: number | undefined;
+      let weeklyBodyPct: number | undefined;
+      if (candles.length >= 6) {
+        const wk = candles.slice(candles.length - 6, candles.length - 1);
+        const wH = Math.max(...wk.map(c => c.h));
+        const wL = Math.min(...wk.map(c => c.l));
+        const wO = wk[0].o;
+        const wC = wk[wk.length - 1].c;
+        if (wH > wL) {
+          weeklyCloseLoc = (wC - wL) / (wH - wL) * 100;
+          weeklyBodyPct  = Math.abs(wC - wO) / (wH - wL) * 100;
+        }
+      }
+      // Psychological magnet: nearest round-number ceiling within 3% AND close_loc≥70.
+      // Round numbers act as operator targets — approaching one with strength = spring release signal.
+      const ROUND_LVLS = [10,25,50,75,100,125,150,200,250,300,400,500,600,750,1000,1250,1500,2000,2500,3000,5000,10000];
+      const closePrice = result.lastClose ?? 0;
+      const nearRound  = ROUND_LVLS.find(lvl => lvl > closePrice) ?? null;
+      const magnetFlag = nearRound != null
+        && closePrice > 0
+        && (nearRound - closePrice) / closePrice <= 0.03
+        && (result.closeLoc ?? 0) >= 70;
       const { ucScore, ucGoldmine, ucStrong, ucElite } = computeUCScore(
         result.closeLoc ?? 50,
         (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
@@ -4138,13 +4200,22 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.priceEngine?.breakoutTier ?? null,
         result.archetypeType ?? null,
         result.upperWickPct ?? null,
+        volDryScore,
+        volSurgeScore,
+        weeklyCloseLoc,
+        weeklyBodyPct,
+        magnetFlag,
       );
       result.ucScore    = ucScore;
       result.ucGoldmine = ucGoldmine;
       result.ucStrong   = ucStrong;
       result.ucElite    = ucElite;
-      (result as any).clTrend      = clTrend;
-      (result as any).rsi2Velocity = rsi2Velocity;
+      (result as any).clTrend        = clTrend;
+      (result as any).rsi2Velocity  = rsi2Velocity;
+      (result as any).volDryScore   = volDryScore;
+      (result as any).volSurgeScore = volSurgeScore;
+      (result as any).weeklyCloseLoc= weeklyCloseLoc;
+      (result as any).magnetFlag    = magnetFlag;
       // forensicMode: multi-tier ucScore promotions to maximise detection rate.
       // Each threshold empirically grounded in Brain feature lifts:
       //   CloseLoc≥70% (48×), Body≥45% (48×), Wick≤25% (51×), ucElite precision≈78%.

@@ -46,6 +46,14 @@ export const UC_SCORE_WEIGHTS = {
   archCC_pts:        2,
   archOther_pts:     1,
 
+  // Brain V2 feature set 2 — added 2026-08-12 (manual_v4, pending labeled backtest)
+  // vol dry+surge: surge vs quiet accumulation period (not vs 20d avg) — detects operator pre-positioning
+  volDrySurge_pts:    8,
+  // weekly resonance: last-5d pseudo-weekly close_loc≥70 + body≥25 — institutional follow-through
+  weeklyResonate_pts: 6,
+  // psychological magnet: price within 3% below round-number ceiling + close_loc≥70 — spring release
+  magnetFlag_pts:     4,
+
   // Nifty 5d market regime multipliers (applied in page.tsx after formula blend)
   niftyBullMult:     1.10,    // Nifty 5d > +2%
   niftyNeutralMult:  1.00,

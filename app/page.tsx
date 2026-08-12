@@ -948,20 +948,25 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT pattern with weak candle: body&lt;22 AND wick&gt;40 (doji/gravestone). Backtest fingerprint: 7/7 misses matched this signature. Stage demoted to EARLY_INFLECTION — treat as watch, not entry.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights v4</span></div><div><div class="rt-desc">Grid-searched on 1,000 UC events (AUC 0.846): CL(22pts@40) + RSI2(16pts@30) + clTrend(18pts) + rsi2Vel(13pts) + VolBonus(12pts, 3x+) + Range(5pts) + Body(5pts). Blended with UC-XGBoost (up to 65% weight at AUC≥0.72) + Nifty regime gate + brain-similar neighbor rate (25% blend).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 58+: PB→BUY promotion threshold · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">Score ≥36 catches 75% of actionable UC stocks at 45.5% precision · PBFB S5: 68% detection, 94.7% T1 precision</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · 2026-08-12</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-sky">💧→💥 Dry+Surge</span></div><div><div class="rt-desc">Vol D-4:D-2 quiet vs D-1 explosion, relative to the quiet period (not 20d avg). Deep dry-up (dryScore&lt;0.7) then surge≥4x = operator accumulation followed by ignition. Adds up to 8pts — clean signal missed by flat vol ratio.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-indigo">📅 Weekly Rsn</span></div><div><div class="rt-desc">Last-5d pseudo-weekly range: close_loc≥70 AND body≥25 = stock closing strong at weekly scale too. Multi-timeframe alignment adds 6pts — confirms daily setup is not an isolated candle.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-rose">🧲 Magnet</span></div><div><div class="rt-desc">Price within 3% below a round-number ceiling (₹100/250/500/1000…) AND close_loc≥70. Round numbers are operator targets — approaching one with strength = spring release. Adds 4pts when active.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · Feature set 2 added 2026-08-12</div></div></div>',
     fmt: r => {
       const s    = (r as any).ucScore    as number | undefined;
       const el   = (r as any).ucElite    as boolean | undefined;
       const st   = (r as any).ucStrong   as boolean | undefined;
       const g    = (r as any).ucGoldmine as boolean | undefined;
       const weak = (r as any).weakPBFlag as boolean | undefined;
+      const mag  = (r as any).magnetFlag as boolean | undefined;
       if (s == null) return '—';
       const prob = `${calibrateUCScore(s)}%`;
-      if (el)                       return `${prob} ⚡`;
-      if (st)                       return `${prob} 🎯`;
-      if (g)                        return `${prob} 🏆`;
+      if (el)                         return `${prob} ⚡`;
+      if (st)                         return `${prob} 🎯`;
+      if (g)                          return `${prob} 🏆`;
       if (r.stage === 'PRE_BREAKOUT') return `${prob} 🟢`;
-      if (weak)                     return `${prob} ⚠`;
+      if (weak)                       return `${prob} ⚠`;
+      if (mag)                        return `${prob} 🧲`;
       return prob;
     },
     numVal: r => (r as any).ucScore ?? 0,
@@ -971,12 +976,14 @@ const COLUMNS: ColDef[] = [
       const st   = (r as any).ucStrong   as boolean | undefined;
       const g    = (r as any).ucGoldmine as boolean | undefined;
       const weak = (r as any).weakPBFlag as boolean | undefined;
+      const mag  = (r as any).magnetFlag as boolean | undefined;
       if (s == null) return 'text-slate-600';
       if (el)   return 'text-purple-300 font-bold';
       if (st)   return 'text-orange-300 font-bold';
       if (g)    return 'text-yellow-300 font-bold';
       if (r.stage === 'PRE_BREAKOUT') return 'text-lime-400 font-semibold';
       if (weak) return 'text-amber-500 font-semibold';
+      if (mag)  return 'text-rose-400 font-semibold';
       return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
