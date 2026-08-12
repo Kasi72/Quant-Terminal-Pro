@@ -20,6 +20,7 @@ interface UCCandidate {
   range_atr?: number;
   cl_trend?: number;
   rsi2_velocity?: number;
+  zone_tightness?: number;
   stage?: string;
   sector?: string;
   conviction?: number;
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       range_atr:        c.range_atr ?? null,
       cl_trend:         c.cl_trend ?? null,
       rsi2_velocity:    c.rsi2_velocity ?? null,
+      zone_tightness:   c.zone_tightness ?? null,
       stage:            c.stage ?? null,
       sector:           c.sector ?? null,
       conviction:       c.conviction ?? null,

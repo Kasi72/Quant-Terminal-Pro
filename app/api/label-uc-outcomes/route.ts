@@ -45,18 +45,24 @@ async function fetchYFChange(symbol: string): Promise<number | null> {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const targetDate = searchParams.get('date') ?? prevTradingDay(new Date().toISOString().slice(0, 10));
+  // backfill=1 labels all unlabeled dates up to (but not including) today
+  const backfill  = searchParams.get('backfill') === '1';
 
   const sb = getServiceClient();
 
-  // 1. Fetch unlabeled candidates for target_date
-  const { data: rows, error: rowErr } = await sb
+  // 1. Fetch unlabeled candidates — single date or all past unlabeled dates
+  const today = new Date().toISOString().slice(0, 10);
+  const baseQuery = sb
     .from('pbfb_uc_logger')
-    .select('id, symbol, uc_score, uc_elite, uc_strong, uc_goldmine')
-    .eq('scan_date', targetDate)
-    .is('hit_uc_next_day', null);
+    .select('id, symbol, scan_date, uc_score, uc_elite, uc_strong, uc_goldmine')
+    .is('hit_uc_next_day', null)
+    .lt('scan_date', today);   // never label today — UC outcome not settled yet
+  const { data: rows, error: rowErr } = backfill
+    ? await baseQuery
+    : await baseQuery.eq('scan_date', targetDate);
 
   if (rowErr) return NextResponse.json({ error: rowErr.message }, { status: 500 });
-  if (!rows || rows.length === 0) return NextResponse.json({ labeled: 0, date: targetDate });
+  if (!rows || rows.length === 0) return NextResponse.json({ labeled: 0, date: backfill ? 'backfill' : targetDate });
 
   const symbols = rows.map((r: { symbol: string }) => r.symbol);
 

@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/label-uc-outcomes",
-      "schedule": "30 11 * * 2-6"
+      "schedule": "30 14 * * 2-6"
     }
   ]
 }

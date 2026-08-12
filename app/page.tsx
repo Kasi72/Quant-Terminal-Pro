@@ -2791,6 +2791,9 @@ function HomePageInner() {
         confluence_score: r.confluenceScore,
         inflection_score: r.inflectionScore,
         dd52wh:           (r as any).dd52WH ?? null,
+        cl_trend:         (r as any).clTrend ?? null,
+        rsi2_velocity:    (r as any).rsi2Velocity ?? null,
+        zone_tightness:   r.zoneTightness ?? null,
       }));
     if (candidates.length === 0) return;
     fetch('/api/log-uc-scan', {
