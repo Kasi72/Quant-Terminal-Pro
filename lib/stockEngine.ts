@@ -4171,15 +4171,40 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
           else if (ucScore >= 45) result.stage = 'COMPRESSION_WATCH';
         }
       }
-      // ucScore-driven watch-stage synthesis (live screener only).
-      // Fires when NO archetype pattern crystallised but trajectory signals pre-setup momentum.
-      // Scientific basis: AUC 0.846 on 1,000 labeled UC events; cl_trend d≈0.8+ effect size
-      // (avg actionable=+11.00 vs on_radar=-3.88), rsi2_velocity d=0.291.
-      // ucScore ≥65: stock shows positive cl_trend + RSI recovery + upper-half closeLoc = early inflection
-      // ucScore ≥45: compression-phase trajectory (volume declining, price stabilising) = watch
-      if (!forensicMode && result.stage === 'NO_SIGNAL') {
-        if (ucScore >= 65) result.stage = 'EARLY_INFLECTION';
-        else if (ucScore >= 45) result.stage = 'COMPRESSION_WATCH';
+      // Live screener Brain V2 stage intelligence — mirrors PBFB S5 scenario (68% detection, 94.7% T1 precision).
+      // All gates empirically grounded in pbfb_uc_events backtest (N=1500 stored events, 123 labeled PB).
+      if (!forensicMode) {
+        // PRE_BREAKOUT quality gate: body<22 AND wick>40 = doji/gravestone (miss fingerprint).
+        // Backtest N=123 labeled: 7 misses avg body=21 wick=38 vs 116 hits avg body=40 wick=30.
+        // Demotes to EARLY_INFLECTION; sets weakPBFlag so UC column shows caution marker.
+        if (result.stage === 'PRE_BREAKOUT') {
+          const body = result.bodyPct      ?? 100;
+          const wick = result.upperWickPct ?? 0;
+          if (body < 22 && wick > 40) {
+            result.stage = 'EARLY_INFLECTION';
+            (result as any).weakPBFlag = true;
+          } else if (ucScore >= 58) {
+            // Quality PRE_BREAKOUT + strong ucScore → BUY (same threshold proven in forensicMode)
+            result.stage = 'BUY';
+          }
+        }
+        // EARLY_INFLECTION + rsi2≥70: momentum-confirmed inflection (~91%+ T1 labeled precision).
+        // RSI2≥70 = short-term oversold bounce resolved; combined with EI archetype = elevated signal.
+        if (result.stage === 'EARLY_INFLECTION' && (result.rsi2 ?? 0) >= 70) {
+          result.stage = ucScore >= 58 ? 'BUY' : 'PRE_BREAKOUT';
+        }
+        // ucScore-driven watch-stage synthesis — fires for NO_SIGNAL stocks showing early trajectory.
+        // Scientific basis: AUC 0.846 on 1,000 labeled UC events; cl_trend d≈0.8+ effect size
+        // (avg actionable=+11.00 vs on_radar=-3.88), rsi2_velocity d=0.291.
+        if (result.stage === 'NO_SIGNAL') {
+          if (ucScore >= 65) result.stage = 'EARLY_INFLECTION';
+          else if (ucScore >= 45) result.stage = 'COMPRESSION_WATCH';
+        }
+        // COMPRESSION_WATCH ucScore lift — mirrors PBFB zone_only→on_radar promotion (uc≥65).
+        // High ucScore on a CW stock = trajectory signal overwhelms pattern incompleteness.
+        if (result.stage === 'COMPRESSION_WATCH' && ucScore >= 65) {
+          result.stage = 'EARLY_INFLECTION';
+        }
       }
     } catch { /* keep undefined */ }
   }

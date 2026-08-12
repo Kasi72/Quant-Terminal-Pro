@@ -939,35 +939,44 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'ucScore', label: '🔮 UC', width: 72, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score (0-100)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score. Computed from 1,000 Upper Circuit events at D-1 (day before UC). Higher = more likely to be in UC setup zone.</div></div></div>'
+    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score (0-100) — Brain V2 Stage-Aware</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score with stage-aware intelligence applied. Computed from 1,000 UC events at D-1. Stage promotions run before display: PRE_BREAKOUT quality gate, EI+RSI2≥70 elevation, CW ucScore lift, and brain-similar neighbor re-blend for BUY/PB signals.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">⚡ Elite</span></div><div><div class="rt-desc">Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → 77.8% actionable (backtest n=27). Dual-vol surge confirms no single-period artefact. Highest precision tier.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock). Shown as 🎯 badge.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate. Trophy badge when conditions met.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights v3</span></div><div><div class="rt-desc">Grid-searched on 1,000 UC events (AUC 0.846): CL(22pts@40) + RSI2(16pts@30) + clTrend(18pts) + rsi2Vel(13pts) + VolBonus(12pts, 3x+) + Range(5pts) + Body(5pts).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">At score ≥36: catches 75% of all actionable UC stocks at 45.5% precision</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · n_before=1 day · ROC AUC 0.846 · 2026-08-05 backtest run</div></div></div>',
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-lime">🟢 PRE-BRK</span></div><div><div class="rt-desc">Stage = PRE_BREAKOUT with quality candle (body≥22 OR wick≤40). PBFB backtest N=123 labeled: 94.3% T1 precision — higher than BUY tier (88.2%). Also fires for EARLY_INFLECTION + RSI2≥70 with ucScore&lt;58 (momentum-confirmed inflection).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT pattern with weak candle: body&lt;22 AND wick&gt;40 (doji/gravestone). Backtest fingerprint: 7/7 misses matched this signature. Stage demoted to EARLY_INFLECTION — treat as watch, not entry.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights v4</span></div><div><div class="rt-desc">Grid-searched on 1,000 UC events (AUC 0.846): CL(22pts@40) + RSI2(16pts@30) + clTrend(18pts) + rsi2Vel(13pts) + VolBonus(12pts, 3x+) + Range(5pts) + Body(5pts). Blended with UC-XGBoost (up to 65% weight at AUC≥0.72) + Nifty regime gate + brain-similar neighbor rate (25% blend).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 58+: PB→BUY promotion threshold · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">Score ≥36 catches 75% of actionable UC stocks at 45.5% precision · PBFB S5: 68% detection, 94.7% T1 precision</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · 2026-08-12</div></div></div>',
     fmt: r => {
-      const s  = (r as any).ucScore   as number | undefined;
-      const el = (r as any).ucElite   as boolean | undefined;
-      const st = (r as any).ucStrong  as boolean | undefined;
-      const g  = (r as any).ucGoldmine as boolean | undefined;
+      const s    = (r as any).ucScore    as number | undefined;
+      const el   = (r as any).ucElite    as boolean | undefined;
+      const st   = (r as any).ucStrong   as boolean | undefined;
+      const g    = (r as any).ucGoldmine as boolean | undefined;
+      const weak = (r as any).weakPBFlag as boolean | undefined;
       if (s == null) return '—';
       const prob = `${calibrateUCScore(s)}%`;
-      if (el) return `${prob} ⚡`;
-      if (st) return `${prob} 🎯`;
-      return g ? `${prob} 🏆` : prob;
+      if (el)                       return `${prob} ⚡`;
+      if (st)                       return `${prob} 🎯`;
+      if (g)                        return `${prob} 🏆`;
+      if (r.stage === 'PRE_BREAKOUT') return `${prob} 🟢`;
+      if (weak)                     return `${prob} ⚠`;
+      return prob;
     },
     numVal: r => (r as any).ucScore ?? 0,
     cellClass: r => {
-      const s  = (r as any).ucScore   as number | undefined;
+      const s    = (r as any).ucScore    as number | undefined;
+      const el   = (r as any).ucElite    as boolean | undefined;
+      const st   = (r as any).ucStrong   as boolean | undefined;
+      const g    = (r as any).ucGoldmine as boolean | undefined;
+      const weak = (r as any).weakPBFlag as boolean | undefined;
       if (s == null) return 'text-slate-600';
-      const el = (r as any).ucElite   as boolean | undefined;
-      if (el) return 'text-purple-300 font-bold';
-      const st = (r as any).ucStrong  as boolean | undefined;
-      if (st) return 'text-orange-300 font-bold';
-      const g  = (r as any).ucGoldmine as boolean | undefined;
-      if (g) return 'text-yellow-300 font-bold';
+      if (el)   return 'text-purple-300 font-bold';
+      if (st)   return 'text-orange-300 font-bold';
+      if (g)    return 'text-yellow-300 font-bold';
+      if (r.stage === 'PRE_BREAKOUT') return 'text-lime-400 font-semibold';
+      if (weak) return 'text-amber-500 font-semibold';
       return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
@@ -2172,8 +2181,9 @@ function HomePageInner() {
     }
     // Item 5: Brain Vectorize similarity — batch-fetch neighborHitRate for BUY signals
     // Re-blends ucScore with instance-based "stocks with similar D-1 fingerprints hit UC at X% rate".
+    // PRE_BREAKOUT included: 94.3% T1 precision from PBFB backtest (N=123 labeled) — merits neighbor re-blend.
     const buySigsForBrain = newResults.filter(r =>
-      ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage) && r.ucScore != null
+      ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY', 'PRE_BREAKOUT'].includes(r.stage) && r.ucScore != null
     ).slice(0, 30);
     if (buySigsForBrain.length > 0 && !abortRef.current) {
       const BRAIN_BATCH = 5;
