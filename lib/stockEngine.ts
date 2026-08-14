@@ -849,7 +849,7 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
 //   CC:     TP=5%/SL=5×ATR → WR=67.3%, PF=4.10,  n=257 OOS → ACTIVE (cc_archetype_tuner 2026-08-07)
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
-  'circuit_breaker_v2',
+  // CB rescued 2026-08-14: dualTuner champion Sharpe=2.19, OOS WR=61.3% (maxHold=3, minUC=70, minT1Pct=8%)
 ]);
 
 // tpsl_optimizer v2 (2026-08-06/07, spec-restored params, 470-stock universe):
@@ -865,11 +865,12 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v2: SL+hold tuned; T1 = ATR-based (targetPct=0 → uses t1Mult)
+  optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v3: exit at T2(target7)≥4%; deployableTuner 2026-08-14: OOS WR=61.9%, Sharpe=0.33
   optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
   optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },  // MP: unchanged
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
   sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // PS v3: hold 8→5 (grid-opt 2026-08-14)
+  circuit_breaker_v2:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 3  },  // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
@@ -4118,6 +4119,28 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
           : 0;
         result.tradePromoted = isActionableStage(result.stage)
           && (result.ucScore ?? 0) >= 65
+          && _t1Pct >= 8
+          && (result.practicalOverlay?.passed ?? false);
+      } else if (paramSetKey === 'optimized_deployable_20plus') {
+        // deployableTuner 2026-08-14: minUcScore=60, minT2Pct(target7)=4%, maxHold=12 → OOS WR=61.9%, Sharpe=0.33
+        // Use target7 (T2) as effective T1 — target5 too tight (p50=2.9%); target7 p50=4.3%
+        const _pe = result.priceEngine;
+        const _t2Pct = (_pe?.target7 > 0 && _pe?.plannedEntry > 0)
+          ? ((_pe.target7 - _pe.plannedEntry) / _pe.plannedEntry) * 100
+          : 0;
+        result.tradePromoted = isActionableStage(result.stage)
+          && (result.ucScore ?? 0) >= 60
+          && _t2Pct >= 4
+          && (result.practicalOverlay?.passed ?? false);
+      } else if (paramSetKey === 'circuit_breaker_v2') {
+        // dualTuner 2026-08-14: minUcScore=70, minT1Pct=8%, maxHold=3 → OOS WR=61.3%, Sharpe=2.19
+        // CB = upper circuit candidate; T1 (target5) must be ≥8% for positive R:R
+        const _pe = result.priceEngine;
+        const _t1Pct = (_pe?.target5 > 0 && _pe?.plannedEntry > 0)
+          ? ((_pe.target5 - _pe.plannedEntry) / _pe.plannedEntry) * 100
+          : 0;
+        result.tradePromoted = isActionableStage(result.stage)
+          && (result.ucScore ?? 0) >= 70
           && _t1Pct >= 8
           && (result.practicalOverlay?.passed ?? false);
       } else if (result.practicalOverlay) {
