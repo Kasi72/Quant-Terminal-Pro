@@ -239,6 +239,21 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
         // doing so converts normal post-T1 pullbacks into false exits. T2 activates
         // the stronger target-floor/chandelier trail.
         const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : hardStop;
+        // Corporate-action guard: a single-bar drop of >50% from the entry price
+        // cannot be a real stop event — it signals a split, demerger, or data error.
+        // Log as SHIELDED and skip this bar so the trade stays open for manual review.
+        if (entry > 0 && open > 0 && open < entry * 0.5) {
+            gateLog.push({
+                day: i + 1, date: cDate, close, low: lo, stopLevel: executableStop,
+                dipPct: ((entry - open) / entry) * 100,
+                triggerType: 'gap_down',
+                gatesTested: [{ gate: 'CORPORATE ACTION', passed: false,
+                        reason: `Open ₹${open.toFixed(2)} is ${(((entry - open) / entry) * 100).toFixed(1)}% below entry ₹${entry.toFixed(2)} — likely split/demerger, not a real stop. Manual review required.` }],
+                result: 'SHIELDED',
+                stopKind: 'hard',
+            });
+            continue;
+        }
         const gapThroughHardStop = executableStop > 0 && open <= executableStop;
         const hardStopTouched = executableStop > 0 && lo <= executableStop;
         if (hardStopTouched) {
@@ -470,7 +485,8 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
 function applyValidation(trade, result) {
     const needsUpdate = trade.status === 'open' ||
         trade.status === 'hit_t1' ||
-        trade.status === 'hit_t2';
+        trade.status === 'hit_t2' ||
+        (trade.status === 'hit_t3' && !trade.closedDate);
     if (!needsUpdate)
         return trade;
     if (result.status === 'open') {

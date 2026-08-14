@@ -869,7 +869,7 @@ const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; 
   optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
   optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },  // MP: unchanged
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
-  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 8  },  // PS v2: SL+hold tuned; T1 = ATR-based
+  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // PS v3: hold 8→5 (grid-opt 2026-08-14)
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
@@ -4110,6 +4110,16 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       result.bodyGate = body >= 35;
       if (WATCHLIST_ONLY_PARAM_SETS.has(paramSetKey)) {
         result.tradePromoted = false;
+      } else if (paramSetKey === 'sniper_95plus') {
+        // Grid-opt 2026-08-14: minUcScore=65, minT1Pct=8%, maxHold=5 → OOS WR 69.6%, Sharpe 1.22
+        const _pe = result.priceEngine;
+        const _t1Pct = (_pe?.target5 > 0 && _pe?.plannedEntry > 0)
+          ? ((_pe.target5 - _pe.plannedEntry) / _pe.plannedEntry) * 100
+          : 0;
+        result.tradePromoted = isActionableStage(result.stage)
+          && (result.ucScore ?? 0) >= 65
+          && _t1Pct >= 8
+          && (result.practicalOverlay?.passed ?? false);
       } else if (result.practicalOverlay) {
         result.tradePromoted = isActionableStage(result.stage) && result.practicalOverlay.passed;
       } else if (paramSetKey === 'ors_prime_reversal') {

@@ -1,4 +1,7 @@
 "use strict";
+// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+// Proprietary and confidential. Unauthorised use or distribution is prohibited.
+// See LICENSE file in the project root for full licence terms.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QUICK_FILTERS = exports.FIVE_PCT_WIN_THRESHOLD = void 0;
 exports.generateTradeSheet = generateTradeSheet;
@@ -15,6 +18,15 @@ exports.getFivePctObjectiveR = getFivePctObjectiveR;
 exports.isLegacyT1BreakevenTrailExit = isLegacyT1BreakevenTrailExit;
 exports.isTerminalTrade = isTerminalTrade;
 exports.isTradeResolvedForWinRate = isTradeResolvedForWinRate;
+exports.isSurgicallyGateBlocked = isSurgicallyGateBlocked;
+exports.getLiveDaysHeld = getLiveDaysHeld;
+exports.computeTierTargetBreakdown = computeTierTargetBreakdown;
+exports.isStagnantTrade = isStagnantTrade;
+exports.isDeepEarlyMaeTrade = isDeepEarlyMaeTrade;
+exports.computeRollingWR = computeRollingWR;
+exports.computeEquityCurveR = computeEquityCurveR;
+exports.computeArchetypeBreakdown = computeArchetypeBreakdown;
+exports.computeMonthlyPerf = computeMonthlyPerf;
 exports.computeWinRateStats = computeWinRateStats;
 exports.computePortfolioRisk = computePortfolioRisk;
 exports.detectMarketRegime = detectMarketRegime;
@@ -114,18 +126,32 @@ function getTradeRiskPerShare(t) {
     return hardStop > 0 ? Math.max(0, t.entryPrice - hardStop) : 0;
 }
 function getTradeMfePct(t) {
-    if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0)
-        return t.mfe ?? 0;
-    if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
-        return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+    const tracked = (() => {
+        if (Number.isFinite(t.mfe) && (t.mfe ?? 0) > 0)
+            return t.mfe ?? 0;
+        if (t.entryPrice > 0 && t.highestPrice && t.highestPrice > 0) {
+            return ((t.highestPrice - t.entryPrice) / t.entryPrice) * 100;
+        }
+        if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
+            return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
+        }
+        if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
+            return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
+        }
+        return Math.max(0, t.pnlPct ?? 0);
+    })();
+    // For terminal trades, derive minimum guaranteed MFE from the targets actually hit.
+    // t.mfe may only reflect the D-day or T1-exit snapshot, not the lifetime peak.
+    if (t.entryPrice > 0) {
+        const pct = (p) => (p - t.entryPrice) / t.entryPrice * 100;
+        if (t.status === 'hit_t3' && t.target3 > 0)
+            return Math.max(tracked, pct(t.target3));
+        if (t.status === 'hit_t2' && t.target2 > 0)
+            return Math.max(tracked, pct(t.target2));
+        if (t.status === 'hit_t1' && t.target1 > 0)
+            return Math.max(tracked, pct(t.target1));
     }
-    if (t.entryPrice > 0 && t.currentPrice && t.currentPrice > 0) {
-        return Math.max(0, ((t.currentPrice - t.entryPrice) / t.entryPrice) * 100);
-    }
-    if (t.entryPrice > 0 && t.closedPrice && t.closedPrice > 0) {
-        return Math.max(0, ((t.closedPrice - t.entryPrice) / t.entryPrice) * 100);
-    }
-    return Math.max(0, t.pnlPct ?? 0);
+    return tracked;
 }
 function getTradeMfeR(t) {
     if (Number.isFinite(t.mfeR))
@@ -213,8 +239,159 @@ function isTerminalTrade(t) {
 function isTradeResolvedForWinRate(t) {
     return didReachFivePctTarget(t) || isTerminalTrade(t);
 }
+// Surgical gate: PRE_BREAKOUT in ATR explosion with conviction < 60 → disproportionate stop-out risk.
+// Excluded from win-rate/PF analytics so metrics reflect only trades that passed entry criteria.
+function isSurgicallyGateBlocked(t) {
+    return t.stage === 'PRE_BREAKOUT' && t.atrState === 'EXPLOSION' && (t.conviction ?? 100) < 60;
+}
+// Live weekday count from entryDate to today for open trades; stored daysHeld for terminal trades.
+// Fixes stale-daysHeld bug where autoValidator only updates daysHeld on next revalidation run.
+function getLiveDaysHeld(t) {
+    if (isTerminalTrade(t))
+        return t.daysHeld ?? 0;
+    const entry = t.entryDate;
+    if (!entry)
+        return t.daysHeld ?? 0;
+    const start = new Date(entry);
+    const end = new Date();
+    if (isNaN(start.getTime()))
+        return t.daysHeld ?? 0;
+    let count = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+        const d = cur.getDay();
+        if (d !== 0 && d !== 6)
+            count++;
+        cur.setDate(cur.getDate() + 1);
+    }
+    return Math.max(0, count - 1); // entry day = day 0
+}
+// ─── Tier × Target breakdown ──────────────────────────────────────────────────
+const STAGE_ORDER = ['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT', 'EARLY_INFLECTION', 'COMPRESSION_WATCH', 'NO_SIGNAL'];
+const STAGE_LABELS = {
+    ULTRA_STRONG_BUY: 'Ultra Strong Buy',
+    STRONG_BUY: 'Strong Buy',
+    BUY: 'Buy',
+    PRE_BREAKOUT: 'Pre-Breakout',
+    EARLY_INFLECTION: 'Early Inflection',
+    COMPRESSION_WATCH: 'Compression Watch',
+    NO_SIGNAL: 'No Signal',
+};
+function computeTierTargetBreakdown(trades) {
+    const groups = {};
+    for (const t of trades) {
+        const s = (t.stage && t.stage.trim()) || 'NO_SIGNAL';
+        (groups[s] ?? (groups[s] = [])).push(t);
+    }
+    // also catch any non-STAGE_ORDER values under 'Other'
+    const knownSet = new Set(STAGE_ORDER);
+    for (const key of Object.keys(groups)) {
+        if (!knownSet.has(key)) {
+            (groups['NO_SIGNAL'] ?? (groups['NO_SIGNAL'] = [])).push(...(groups[key] ?? []));
+            delete groups[key];
+        }
+    }
+    return STAGE_ORDER
+        .filter(s => groups[s]?.length)
+        .map(s => {
+        const ts = groups[s];
+        const decided = ts.filter(t => isTradeResolvedForWinRate(t) && !isSurgicallyGateBlocked(t));
+        const wins = decided.filter(didReachFivePctTarget);
+        return {
+            stage: s,
+            label: STAGE_LABELS[s] ?? s,
+            total: ts.length,
+            open: ts.filter(t => t.status === 'open').length,
+            atT1: ts.filter(t => t.status === 'hit_t1').length,
+            atT2: ts.filter(t => t.status === 'hit_t2').length,
+            atT3: ts.filter(t => t.status === 'hit_t3').length,
+            hit5: ts.filter(t => t.hit5pct).length,
+            hit7: ts.filter(t => t.hit7pct).length,
+            hit10: ts.filter(t => t.hit10pct).length,
+            stopped: ts.filter(t => t.status === 'stopped').length,
+            expired: ts.filter(t => t.status === 'expired' || t.status === 'closed_early' || t.status === 'manual_close').length,
+            decided: decided.length,
+            wins: wins.length,
+            winRate: decided.length > 0 ? (wins.length / decided.length) * 100 : 0,
+        };
+    });
+}
+// Stagnation flag: open trade held 7+ trading days with MFE < 2% = no momentum. Display-only; no auto-exit.
+function isStagnantTrade(t) {
+    if (isTerminalTrade(t))
+        return false;
+    if (t.status !== 'open')
+        return false;
+    return getLiveDaysHeld(t) >= 7 && (t.mfe ?? 0) < 2.0;
+}
+// Deep early MAE: non-terminal trade, first 5 trading days, already dipped 0.65R+. Entry quality flag.
+function isDeepEarlyMaeTrade(t) {
+    if (isTerminalTrade(t))
+        return false;
+    if (getLiveDaysHeld(t) > 5)
+        return false;
+    return getTradeMaeR(t) < -0.65;
+}
+// ─── Analytics helpers ───────────────────────────────────────────────────────
+const PARAM_KEY_LABELS = {
+    optimized_deployable_20plus: 'VF',
+    optimized_highprecision_15plus: 'CC',
+    optimized_ultraselective_8plus: 'EMA',
+    sniper_95plus: 'PS',
+    optimized_elite_10plus: 'MP',
+};
+function resolvedSorted(trades) {
+    return trades
+        .filter(isTradeResolvedForWinRate)
+        .filter(t => !isSurgicallyGateBlocked(t))
+        .sort((a, b) => (a.closedDate ?? a.entryDate ?? '').localeCompare(b.closedDate ?? b.entryDate ?? ''));
+}
+function computeRollingWR(trades, n = 10) {
+    const last = resolvedSorted(trades).slice(-n);
+    const wins = last.filter(didReachFivePctTarget).length;
+    return { winRate: last.length > 0 ? (wins / last.length) * 100 : 0, decided: last.length, wins, losses: last.length - wins };
+}
+function computeEquityCurveR(trades) {
+    let cum = 0;
+    return resolvedSorted(trades).map((t, i) => {
+        const r = getFivePctObjectiveR(t);
+        cum = Math.round((cum + r) * 100) / 100;
+        return { symbol: t.symbol.replace('.NS', ''), n: i + 1, r, cum };
+    });
+}
+function computeArchetypeBreakdown(trades) {
+    const groups = {};
+    for (const t of resolvedSorted(trades)) {
+        const raw = t.paramSetKey ?? 'Other';
+        const arch = PARAM_KEY_LABELS[raw] ?? raw.slice(0, 4).toUpperCase();
+        if (!groups[arch])
+            groups[arch] = { wins: [], losses: [] };
+        (didReachFivePctTarget(t) ? groups[arch].wins : groups[arch].losses).push(t);
+    }
+    return Object.entries(groups)
+        .map(([archetype, g]) => {
+        const decided = g.wins.length + g.losses.length;
+        const avgWinR = g.wins.length > 0 ? g.wins.reduce((s, t) => s + getFivePctObjectiveR(t), 0) / g.wins.length : 0;
+        return { archetype, wins: g.wins.length, losses: g.losses.length, decided, winRate: decided > 0 ? (g.wins.length / decided) * 100 : 0, avgWinR };
+    })
+        .sort((a, b) => b.decided - a.decided);
+}
+function computeMonthlyPerf(trades) {
+    const groups = {};
+    for (const t of resolvedSorted(trades)) {
+        const month = (t.closedDate ?? t.entryDate ?? '').slice(0, 7);
+        if (!month)
+            continue;
+        (groups[month] ?? (groups[month] = [])).push(t);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([month, ts]) => {
+        const wins = ts.filter(didReachFivePctTarget).length;
+        const totalR = ts.reduce((s, t) => s + getFivePctObjectiveR(t), 0);
+        return { month, count: ts.length, wins, losses: ts.length - wins, winRate: (wins / ts.length) * 100, totalR };
+    });
+}
 function computeWinRateStats(trades) {
-    const closed = trades.filter(isTradeResolvedForWinRate);
+    const closed = trades.filter(isTradeResolvedForWinRate).filter(t => !isSurgicallyGateBlocked(t));
     const wins = closed.filter(didReachFivePctTarget);
     const losses = closed.filter(t => !didReachFivePctTarget(t));
     const totalWinPct = wins.reduce((s, t) => s + getFivePctObjectivePnlPct(t), 0);
