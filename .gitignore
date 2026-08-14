@@ -50,3 +50,6 @@ scripts/*.err.log
 *.bak
 # Added by code-review-graph
 .code-review-graph/
+
+# Local MCP config (contains DB credentials)
+.mcp.json
