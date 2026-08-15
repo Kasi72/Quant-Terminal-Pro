@@ -448,7 +448,7 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
 export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // v13 forensic — stop-first validation: 68.3% WR, +2.08% avg, PF 2.24 (41 trades)
   optimized_deployable_20plus: {
-    name: 'Volume Footprint Scout', tag: '📊 Institutional Buying',
+    name: 'VF Scout', tag: '📊 Vol Breakout',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 50,
     maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 6.0,   // v2: 12→6 (tighter zone)
@@ -473,7 +473,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   maxExactRangeATR14 1.1→5.0, minExactVolRatio20 3.0→1.1, minCloseLoc 60→65,
   //   maxCandleRisk 12→11, minCandleQualityScore null→3 (spec alignment, broadens signal pool).
   optimized_highprecision_15plus: {
-    name: 'Compression Coil', tag: '🔄 Energy Storage',
+    name: 'CC Precision', tag: '🔄 Coil Breakout',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 85,
     maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 10, maxZoneLen: 25, maxZoneTightnessPct: 7.0,  // v2: minZone 5→10, tight 5→7
@@ -497,7 +497,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   minBodyPct 5→25, maxCandleRisk 5→10, maxPre10AvgRangeATR 1.0→0.85, maxPre10AvgVolRatio 1.0→0.90
   //   (grid-search had zeroed quality gates; restored to remove low-quality signal contamination).
   optimized_elite_10plus: {
-    name: 'Momentum Pocket', tag: '🎯 First Recovery',
+    name: 'MP Elite', tag: '🎯 Momentum Pocket',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
     maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
@@ -519,7 +519,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   maxPre10AvgRangeATR 1.3→0.75, maxPre10RedVolBias 0.8→1.1, maxCandleRisk 5→10
   //   (grid-search zeroed quality gates and over-tightened pre-zone ATR; restored spec defaults).
   optimized_ultraselective_8plus: {
-    name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
+    name: 'EMA Stack', tag: '📈 Trend Crossover',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 95,
     maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,  // v2: tight 15→12
@@ -540,7 +540,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
   // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
   ors_prime_reversal: {
-    name: 'ORS-Prime v5', tag: '↩ 96.2% OOS WR',
+    name: 'ORS Reversal', tag: '↩ 83.1% OOS WR',
     // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
     minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -582,7 +582,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   minExactVolVsPre5 3.5→2.0, maxUpperWickPct 15→35, maxPre10AvgRangeATR 1.15→0.95
   //   (quality gate zeroed by grid-search; candle risk and vol-vs-pre5 over-tightened vs spec).
   sniper_95plus: {
-    name: 'Perfect Storm', tag: '⚡ Multi-Archetype',
+    name: 'Sniper PS', tag: '⚡ Multi-Archetype',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
     maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,   // v2: unchanged
@@ -602,7 +602,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   // tpsl_optimizer (2026-08-06): redesigned as Upper Circuit Candidate (ULTRA/STRONG + near 20d high
   //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
   circuit_breaker_v2: {
-    name: 'Circuit Breaker', tag: '⚡ Upper Circuit Candidate',
+    name: 'Circuit Breaker', tag: '⚡ Upper Circuit',
     // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,

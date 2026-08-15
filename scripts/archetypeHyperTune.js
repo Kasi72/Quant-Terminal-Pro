@@ -566,11 +566,11 @@ async function main() {
   console.log('\nStep 2: Sweeping combos per set...\n');
 
   const setDefs = [
-    { name:'Set1 — Volume Footprint Scout',   ev: all.ev1, gen: genVF,  filt: filtVF  },
-    { name:'Set2 — Compression Coil',         ev: all.ev2, gen: genCC,  filt: filtCC  },
-    { name:'Set3 — Momentum Pocket',          ev: all.ev3, gen: genMP,  filt: filtMP  },
-    { name:'Set4 — EMA Stack Crossover',      ev: all.ev4, gen: genES,  filt: filtES  },
-    { name:'Set5 — Perfect Storm',            ev: all.ev5, gen: genPS,  filt: filtPS  },
+    { name:'Set1 — VF Scout',       ev: all.ev1, gen: genVF,  filt: filtVF  },
+    { name:'Set2 — CC Precision',   ev: all.ev2, gen: genCC,  filt: filtCC  },
+    { name:'Set3 — MP Elite',       ev: all.ev3, gen: genMP,  filt: filtMP  },
+    { name:'Set4 — EMA Stack',      ev: all.ev4, gen: genES,  filt: filtES  },
+    { name:'Set5 — Sniper PS',      ev: all.ev5, gen: genPS,  filt: filtPS  },
   ];
 
   const bestBySet = {};
