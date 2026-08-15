@@ -4491,11 +4491,13 @@ function HomePageInner() {
                         {reports.map(r => (
                           <div key={r.month} className="flex items-center gap-3 text-xs bg-slate-900/40 rounded px-2 py-1.5">
                             <span className="text-slate-300 font-medium w-16">{r.month}</span>
-                            <span className="text-slate-400">{r.trades} trades</span>
-                            <span className={r.winRate >= 60 ? 'text-emerald-400 font-semibold' : r.winRate >= 45 ? 'text-slate-300' : 'text-red-400'}>{r.winRate.toFixed(0)}% WR</span>
-                            <span className={r.grossPnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{r.grossPnlPct >= 0 ? '+' : ''}{r.grossPnlPct.toFixed(1)}%</span>
+                            <span className="text-slate-400">{r.trades}T</span>
+                            <span className={r.winRate >= 60 ? 'text-emerald-400 font-semibold' : r.winRate >= 45 ? 'text-slate-300' : 'text-red-400'} title="5% target win rate (consistent with headline KPI)">{r.winRate.toFixed(0)}% 5%WR</span>
+                            <span className={r.grossPnlPct >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'} title="Equity curve return for month (1% risk/trade, compounded)">{r.grossPnlPct >= 0 ? '+' : ''}{r.grossPnlPct.toFixed(1)}% eq</span>
+                            {r.avgR != null && <span className="text-slate-400" title="Average R per closed trade">{r.avgR >= 0 ? '+' : ''}{r.avgR.toFixed(1)}R</span>}
+                            {r.avgDaysHeld != null && <span className="text-slate-600">{r.avgDaysHeld}d</span>}
                             {r.bestTrade && <span className="text-slate-500">Best: {r.bestTrade.symbol} +{r.bestTrade.pnl.toFixed(1)}%</span>}
-                            {r.maxDrawdown > 0 && <span className="text-red-500 ml-auto">DD: -{r.maxDrawdown.toFixed(1)}%</span>}
+                            {r.maxDrawdown > 0 && <span className="text-red-500 ml-auto" title="Equity curve peak-to-trough drawdown within month">DD: -{r.maxDrawdown.toFixed(1)}%</span>}
                           </div>
                         ))}
                       </div>
