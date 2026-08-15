@@ -870,7 +870,7 @@ const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; 
   optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
   optimized_elite_10plus:         { targetPct: 4,  slAtrMult: 4.0, maxHoldBars: 20 },  // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
-  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // PS v3: hold 8→5 (grid-opt 2026-08-14)
+  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 5  },  // sniperExitTuner 2026-08-15: stopMult=0.8 → slAtr=2.5×0.8=2.0; OOS WR=69.6%, Sharpe=1.22, PF=1.52
   circuit_breaker_v2:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 3  },  // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
   ors_prime_reversal:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // orsTuner 2026-08-15: maxHold=5, stopMult=1.0(no tighten); OOS WR=83.1%, Sharpe=4.21
 };
