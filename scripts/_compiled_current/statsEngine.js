@@ -567,7 +567,7 @@ const SHORT_PERIODS = [3, 5, 8, 10, 12, 15];
 const LONG_PERIODS = [30, 35, 40, 45, 50, 60];
 function computeGuppySpread(candles, endIdx) {
     if (endIdx < 60) {
-        return { spreadPct: 99, compressed: false, ultraCompressed: false, compressDays: 0, cleanBullishFan: false, groupGapPct: 0, coiledRelease: false };
+        return { spreadPct: 99, compressed: false, ultraCompressed: false, compressDays: 0, cleanBullishFan: false, groupGapPct: 0, coiledRelease: false, springAlert: false, primedAlert: false };
     }
     // Pre-compute all 12 EMA arrays once — Bug 7 fix: was calling computeEMALevel (O(n)) 132× per stock
     function buildGuppyEMAArr(period) {
@@ -602,6 +602,63 @@ function computeGuppySpread(candles, endIdx) {
             compressDays++;
     }
     const coiledRelease = compressDays >= 8 && now.spreadPct <= 5.0 && cleanBullishFan && groupGapPct >= 1.0;
+    // Spring conditions checker — reusable for any bar index
+    // 7-condition sweet spot: spread<7%, accel[-20,-5%]/bar, bullCoil, vol<vol20, streak≥2, RSI2[40-80], range/ATR<1
+    function checkSpringAt(idx) {
+        if (idx < 3)
+            return false;
+        const s = spreadAt(idx);
+        if (s.spreadPct >= 7.0)
+            return false;
+        const minS = Math.min(...s.shortVals), maxL = Math.max(...s.longVals);
+        if (minS <= maxL)
+            return false; // C3: bull coil (early exit)
+        const sPrev = spreadAt(idx - 1);
+        const sPrev2 = spreadAt(idx - 2);
+        const accel = sPrev.spreadPct > 0 ? (s.spreadPct - sPrev.spreadPct) / sPrev.spreadPct * 100 : 0;
+        if (accel < -20 || accel > -5)
+            return false; // C2: accel [-20,-5%]
+        let volSum = 0, volCnt = 0;
+        for (let i = Math.max(0, idx - 20); i < idx; i++) {
+            volSum += candles[i].v;
+            volCnt++;
+        }
+        const vol20 = volCnt > 0 ? volSum / volCnt : 0;
+        if (!(vol20 > 0 && candles[idx].v < vol20))
+            return false; // C4
+        if (!(s.spreadPct < sPrev.spreadPct && sPrev.spreadPct < sPrev2.spreadPct))
+            return false; // C5: streak≥2
+        const rsiStart = Math.max(0, idx - 30);
+        let ag2 = 0, al2 = 0;
+        for (let i = rsiStart + 1; i <= rsiStart + 2 && i <= idx; i++) {
+            const d = candles[i].c - candles[i - 1].c;
+            if (d > 0)
+                ag2 += d;
+            else
+                al2 -= d;
+        }
+        ag2 /= 2;
+        al2 /= 2;
+        for (let i = rsiStart + 3; i <= idx; i++) {
+            const d = candles[i].c - candles[i - 1].c;
+            ag2 = (ag2 + (d > 0 ? d : 0)) / 2;
+            al2 = (al2 + (d < 0 ? -d : 0)) / 2;
+        }
+        const rsi2 = al2 < 1e-10 ? (ag2 < 1e-10 ? 50 : 100) : 100 - 100 / (1 + ag2 / al2);
+        if (rsi2 < 40 || rsi2 > 80)
+            return false; // C6
+        let trSum = 0;
+        const atrStart = Math.max(1, idx - 13);
+        for (let i = atrStart; i <= idx; i++) {
+            const tr = Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - candles[i - 1].c), Math.abs(candles[i].l - candles[i - 1].c));
+            trSum += tr;
+        }
+        const atr14 = idx >= 14 ? trSum / Math.min(14, idx - atrStart + 1) : 0;
+        return atr14 > 0 && (candles[idx].h - candles[idx].l) / atr14 < 1.0; // C7
+    }
+    const springAlert = checkSpringAt(endIdx);
+    // PRIMED: yesterday was spring AND today is coiledRelease — 94% WR+0 next candle OOS (n=376)
+    const primedAlert = coiledRelease && checkSpringAt(endIdx - 1);
     return {
         spreadPct: safe(now.spreadPct),
         compressed: now.spreadPct < 1.0,
@@ -610,13 +667,15 @@ function computeGuppySpread(candles, endIdx) {
         cleanBullishFan,
         groupGapPct: safe(groupGapPct),
         coiledRelease,
+        springAlert,
+        primedAlert,
     };
 }
 function computeStatsFeatures(candles, endIdx) {
     // Bounds guard
     if (endIdx < 0 || endIdx >= candles.length || candles.length < 35) {
         const c = candles.length > 0 ? candles[Math.min(Math.max(0, endIdx), candles.length - 1)].c : 0;
-        return { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: c, ema21: c, ema55: c, sma200: c, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral', candlePatternStrength: 0, statsScore: 0 };
+        return { volZScore: 0, volZSignificant: false, bbWidth: 0, bbWidthPctl: 50, bbSqueeze: false, keltnerSqueeze: false, lrSlope10: 0, lrSlopeFlat: false, autoCorr5: 0, momentumRegime: false, hurst: 0.5, hurstTrending: false, skewness20: 0, positiveSkew: false, drawdownFrom52WH: 0, pctFrom52WL: 0, sharpe20: 0, entropy10: 0, cusumSignal: false, sectorRelZ: 0, insideBars: 0, volProfileSkew: 0, garchForecast: 1.0, ttmSqueezeOn: false, ttmSqueezeFired: false, ttmMomentum: 0, ttmMomentumRising: false, rsi14: 50, cci34: 0, ema10: c, ema21: c, ema55: c, sma200: c, ema10Cross: false, ema21Cross: false, ema55Cross: false, sma200Cross: false, guppySpreadPct: 99, guppyCompressed: false, guppyUltraCompressed: false, guppyCompressDays: 0, guppyCleanBullishFan: false, guppyGroupGapPct: 0, guppyCoiledRelease: false, guppySpring: false, guppyPrimed: false, candlePattern: '—', candlePatternFull: 'Unknown', candlePatternType: 'neutral', candlePatternStrength: 0, statsScore: 0 };
     }
     const volZ = computeVolZScore(candles, endIdx);
     const bb = computeBBSqueeze(candles, endIdx);
@@ -752,6 +811,8 @@ function computeStatsFeatures(candles, endIdx) {
         guppyCleanBullishFan: guppy.cleanBullishFan,
         guppyGroupGapPct: safe(guppy.groupGapPct),
         guppyCoiledRelease: guppy.coiledRelease,
+        guppySpring: guppy.springAlert,
+        guppyPrimed: guppy.primedAlert,
         candlePattern: candlePat.short,
         candlePatternFull: candlePat.name,
         candlePatternType: candlePat.type,
