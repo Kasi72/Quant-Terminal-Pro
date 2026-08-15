@@ -516,6 +516,11 @@ const BAYES_WR: Record<string, number> = {
   EMAStack: 0.78, CircuitBreaker: 0.78, PerfectStorm: 0.75,
 };
 
+// Module-level cache for UC streak counts — updated post-scan, read by COLUMNS fmt closures.
+// Pattern: module-level var is safe here because COLUMNS fmt runs synchronously during render
+// and streak is write-once-per-scan (no concurrent mutation risk).
+let _ucStreakCache: Record<string, number> = {};
+
 const COLUMNS: ColDef[] = [
   { key: 'symbol',    label: 'Symbol',      width: 120, align: 'left',
     fmt: r => r.symbol,
@@ -938,57 +943,77 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Sizing</span></div><div><div class="rt-desc">90+: A+ (1.5% risk) · 75+: Good (1%) · 60+: Avg (0.75%) · 45+: Weak (0.5%) · &lt;45: Skip</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
-  { key: 'ucScore', label: '🔮 UC', width: 72, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score (0-100) — Brain V2 Stage-Aware</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score with stage-aware intelligence applied. Computed from 1,000 UC events at D-1. Stage promotions run before display: PRE_BREAKOUT quality gate, EI+RSI2≥70 elevation, CW ucScore lift, and brain-similar neighbor re-blend for BUY/PB signals.</div></div></div>'
+  { key: 'ucScore', label: '🔮 UC', width: 95, align: 'right',
+    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score — Brain V2 Stage-Aware + Classification</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score with stage-aware intelligence. Calibrated probability displayed (%). Blended: formula + XGBoost + Brain Vectorize neighbor rate (B:xx% suffix). Shows Brain V2 forward classification and feature confidence gauge.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">⚡ Elite</span></div><div><div class="rt-desc">Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → 77.8% actionable (backtest n=27). Dual-vol surge confirms no single-period artefact. Highest precision tier.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-lime">🟢 PRE-BRK</span></div><div><div class="rt-desc">Stage = PRE_BREAKOUT with quality candle (body≥22 OR wick≤40). PBFB backtest N=123 labeled: 94.3% T1 precision — higher than BUY tier (88.2%). Also fires for EARLY_INFLECTION + RSI2≥70 with ucScore&lt;58 (momentum-confirmed inflection).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT pattern with weak candle: body&lt;22 AND wick&gt;40 (doji/gravestone). Backtest fingerprint: 7/7 misses matched this signature. Stage demoted to EARLY_INFLECTION — treat as watch, not entry.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Weights v4</span></div><div><div class="rt-desc">Grid-searched on 1,000 UC events (AUC 0.846): CL(22pts@40) + RSI2(16pts@30) + clTrend(18pts) + rsi2Vel(13pts) + VolBonus(12pts, 3x+) + Range(5pts) + Body(5pts). Blended with UC-XGBoost (up to 65% weight at AUC≥0.72) + Nifty regime gate + brain-similar neighbor rate (25% blend).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 58+: PB→BUY promotion threshold · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">Score ≥36 catches 75% of actionable UC stocks at 45.5% precision · PBFB S5: 68% detection, 94.7% T1 precision</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-sky">💧→💥 Dry+Surge</span></div><div><div class="rt-desc">Vol D-4:D-2 quiet vs D-1 explosion, relative to the quiet period (not 20d avg). Deep dry-up (dryScore&lt;0.7) then surge≥4x = operator accumulation followed by ignition. Adds up to 8pts — clean signal missed by flat vol ratio.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-lime">🟢 PRE-BRK</span></div><div><div class="rt-desc">Stage = PRE_BREAKOUT with quality candle. PBFB backtest N=123 labeled: 94.3% T1 precision.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT with doji/gravestone candle (body&lt;22 AND wick&gt;40). 7/7 miss fingerprint — demoted to EARLY_INFLECTION.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">W· prefix</span></div><div><div class="rt-desc">Brain V2 WATCH classification — Vol≥2x AND (CL≥65 OR RSI2≥60). Mirrors "on_radar" from Brain V2 goldmine: screener noticed the setup but not yet BUY-stage. Amber color. Worth monitoring.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-sky">Z· prefix</span></div><div><div class="rt-desc">Brain V2 ZONE classification — compression detected (zoneTightness&lt;6%) but vol still quiet (&lt;2x). Mirrors "zone_only": spring loading but operator ignition not yet. Blue color.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">B:xx suffix</span></div><div><div class="rt-desc">Brain Vectorize neighbor hit rate — % of historically similar D-1 fingerprints (32-dim vector) that hit UC next day. Only shown for BUY/PRE_BREAKOUT signals once Brain worker responds. Blended 25% into score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">N/7 suffix</span></div><div><div class="rt-desc">Feature confidence gauge: count of 7 key UC discriminants firing (CL≥70, RSI2≥65, RangeATR≥1.0, Vol≥2x, DryUpSurge, WeeklyResonate, MagnetFlag). Shown when ≥4 fire and stock is not already in top emoji tier.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-rose">🔥N suffix</span></div><div><div class="rt-desc">UC streak: stock has appeared in UC watchlist (score≥35) for N consecutive trading days. Streak≥2 = persistent setup. Streak≥3 = likely operator accumulation in progress.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 58+: PB→BUY threshold · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">Score ≥36 catches 75% of actionable UC stocks at 45.5% precision · PBFB S5: 68% detection, 94.7% T1 precision</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-sky">💧→💥 Dry+Surge</span></div><div><div class="rt-desc">Vol D-4:D-2 quiet vs D-1 explosion relative to quiet period. Deep dry-up then surge≥4x = operator accumulation. Adds up to 8pts.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-indigo">📅 Weekly Rsn</span></div><div><div class="rt-desc">Last-5d pseudo-weekly range: close_loc≥70 AND body≥25 = stock closing strong at weekly scale too. Multi-timeframe alignment adds 6pts — confirms daily setup is not an isolated candle.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-rose">🧲 Magnet</span></div><div><div class="rt-desc">Price within 3% below a round-number ceiling (₹100/250/500/1000…) AND close_loc≥70. Round numbers are operator targets — approaching one with strength = spring release. Adds 4pts when active.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">🌀 Coiled</span></div><div><div class="rt-desc">Candle morphology: body&lt;25% AND upper wick&lt;20%. Hammer/dragonfly pattern — stock traded down intraday, recovered fully to high with no distribution overhead. K-means N=1,000 UC events: 34.6% UC-proxy rate vs 27% baseline (+7.6pp). Adds 5pts. Gravestone (body&lt;25 AND wick&gt;35) penalised -4pts — mirrors PRE_BREAKOUT quality gate.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Backtest</span></div><div><div class="rt-desc">1,000 UC events · D-1 · ROC AUC 0.846 · PBFB N=1500 stored events · Feature set 2 added 2026-08-12 · Morphology K-means added 2026-08-12</div></div></div>',
     fmt: r => {
-      const s     = (r as any).ucScore    as number | undefined;
+      const s         = (r as any).ucScore        as number  | undefined;
+      const el        = (r as any).ucElite        as boolean | undefined;
+      const st        = (r as any).ucStrong       as boolean | undefined;
+      const g         = (r as any).ucGoldmine     as boolean | undefined;
+      const weak      = (r as any).weakPBFlag     as boolean | undefined;
+      const mag       = (r as any).magnetFlag     as boolean | undefined;
+      const morph     = (r as any).morphType      as string  | undefined;
+      const cls       = (r as any).ucClass        as string  | undefined;
+      const hits      = (r as any).ucFeatureHits  as number  | undefined;
+      const brainRate = (r as any).neighborHitRate as number | undefined;
+      const streak    = _ucStreakCache[r.symbol] ?? 0;
+      if (s == null) return '—';
+      const prob      = `${calibrateUCScore(s)}%`;
+      // Brain Vectorize neighbor rate — only shown for BUY/PB signals once worker responds
+      const brainTag  = brainRate != null ? ` B:${Math.round(brainRate * 100)}` : '';
+      // Streak badge — shown when stock appeared in UC watchlist ≥2 consecutive trading days
+      const streakTag = streak >= 2 ? ` 🔥${streak}` : '';
+      // Feature confidence gauge — shown for mid-tier stocks (≥4 of 7 features firing)
+      const hitsTag   = (hits != null && hits >= 4 && !el && !st && !g) ? ` ${hits}/7` : '';
+      if (el)                          return `${prob} ⚡${brainTag}${streakTag}`;
+      if (st)                          return `${prob} 🎯${brainTag}${streakTag}`;
+      if (g)                           return `${prob} 🏆${brainTag}${streakTag}`;
+      if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${streakTag}`;
+      if (weak)                        return `${prob} ⚠${streakTag}`;
+      if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}`;
+      if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}`;
+      // Brain V2 classification prefixes for stocks not in top emoji tier
+      if (cls === 'WATCH')             return `W· ${prob}${hitsTag}${streakTag}`;
+      if (cls === 'ZONE')              return `Z· ${prob}${streakTag}`;
+      return `${prob}${hitsTag}${streakTag}`;
+    },
+    numVal: r => (r as any).ucScore ?? 0,
+    cellClass: r => {
+      const s     = (r as any).ucScore    as number  | undefined;
       const el    = (r as any).ucElite    as boolean | undefined;
       const st    = (r as any).ucStrong   as boolean | undefined;
       const g     = (r as any).ucGoldmine as boolean | undefined;
       const weak  = (r as any).weakPBFlag as boolean | undefined;
       const mag   = (r as any).magnetFlag as boolean | undefined;
       const morph = (r as any).morphType  as string  | undefined;
-      if (s == null) return '—';
-      const prob = `${calibrateUCScore(s)}%`;
-      if (el)                                   return `${prob} ⚡`;
-      if (st)                                   return `${prob} 🎯`;
-      if (g)                                    return `${prob} 🏆`;
-      if (r.stage === 'PRE_BREAKOUT')           return `${prob} 🟢`;
-      if (weak)                                 return `${prob} ⚠`;
-      if (morph === 'coiled_spring')            return `${prob} 🌀`;
-      if (mag)                                  return `${prob} 🧲`;
-      return prob;
-    },
-    numVal: r => (r as any).ucScore ?? 0,
-    cellClass: r => {
-      const s    = (r as any).ucScore    as number | undefined;
-      const el   = (r as any).ucElite    as boolean | undefined;
-      const st   = (r as any).ucStrong   as boolean | undefined;
-      const g    = (r as any).ucGoldmine as boolean | undefined;
-      const weak  = (r as any).weakPBFlag as boolean | undefined;
-      const mag   = (r as any).magnetFlag as boolean | undefined;
-      const morph = (r as any).morphType  as string  | undefined;
+      const cls   = (r as any).ucClass    as string  | undefined;
       if (s == null) return 'text-slate-600';
       if (el)   return 'text-purple-300 font-bold';
       if (st)   return 'text-orange-300 font-bold';
       if (g)    return 'text-yellow-300 font-bold';
-      if (r.stage === 'PRE_BREAKOUT')        return 'text-lime-400 font-semibold';
-      if (weak)                              return 'text-amber-500 font-semibold';
-      if (morph === 'coiled_spring')         return 'text-cyan-400 font-semibold';
-      if (mag)                               return 'text-rose-400 font-semibold';
+      if (r.stage === 'PRE_BREAKOUT')  return 'text-lime-400 font-semibold';
+      if (weak)                        return 'text-amber-500 font-semibold';
+      if (morph === 'coiled_spring')   return 'text-cyan-400 font-semibold';
+      if (mag)                         return 'text-rose-400 font-semibold';
+      if (cls === 'WATCH')             return 'text-amber-400 font-semibold font-mono';
+      if (cls === 'ZONE')              return 'text-sky-400 font-mono';
       return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
@@ -2820,6 +2845,32 @@ function HomePageInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ candidates, total_scan_count: results.length }),
     }).catch(() => {}); // fire-and-forget, never block UI
+
+    // UC streak tracking (Phase 3): count consecutive trading days each stock appears.
+    // Stored in localStorage so streak persists across page reloads without DB cost.
+    // A streak ≥2 = persistent setup; ≥3 = likely operator accumulation.
+    try {
+      const UC_STREAK_KEY = 'uc_streak_v1';
+      const stored: Record<string, { date: string; streak: number }> =
+        JSON.parse(localStorage.getItem(UC_STREAK_KEY) || '{}');
+      // Compute previous trading day in IST (skip weekends)
+      const ydDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      while (ydDate.getUTCDay() === 0 || ydDate.getUTCDay() === 6) {
+        ydDate.setTime(ydDate.getTime() - 24 * 60 * 60 * 1000);
+      }
+      const yStr = ydDate.toISOString().slice(0, 10);
+      const updated: Record<string, { date: string; streak: number }> = { ...stored };
+      const newStreakCache: Record<string, number> = {};
+      for (const c of candidates) {
+        const prev   = stored[c.symbol];
+        const streak = prev?.date === yStr ? prev.streak + 1 : 1;
+        updated[c.symbol]     = { date: today, streak };
+        newStreakCache[c.symbol] = streak;
+      }
+      localStorage.setItem(UC_STREAK_KEY, JSON.stringify(updated));
+      // Write to module-level cache so COLUMNS fmt closures pick it up on next render
+      _ucStreakCache = newStreakCache;
+    } catch { /* localStorage may be unavailable in some sandboxed envs */ }
   }, [results, scanning, marketRegime]);
 
   // Feature #5+#8: Adaptive auto-refresh during market hours

@@ -229,10 +229,12 @@ export interface AnalysisResult {
   // Brain V2 Goldmine (2026-08-02): UC pre-detection score from 1000 UC events (n_before=1).
   // Feature weights derived from actionable vs on_radar Cohen's d:
   //   closeLoc(d=0.55)→40pts, rsi2(d=0.43)→25pts, vol(d=0.27)→20pts, range(d=0.23)→10pts, body(d=0.17)→5pts
-  ucScore?: number;     // 0-100 composite UC probability score
-  ucGoldmine?: boolean; // Vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
-  ucStrong?: boolean;   // Vol>3x + CL>75 → 70.8% UC precision (goldmine N=24, 2026-08-11)
-  ucElite?: boolean;    // Vol>3x + CL>75 + (Body>50 OR UW<20) → 75-78% UC precision (goldmine N=18-20)
+  ucScore?: number;        // 0-100 composite UC probability score
+  ucGoldmine?: boolean;    // Vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
+  ucStrong?: boolean;      // Vol>3x + CL>75 → 70.8% UC precision (goldmine N=24, 2026-08-11)
+  ucElite?: boolean;       // Vol>3x + CL>75 + (Body>50 OR UW<20) → 75-78% UC precision (goldmine N=18-20)
+  ucClass?: 'PRIME' | 'WATCH' | 'ZONE' | 'COLD';  // Brain V2 prospective classification (mirrors actionable/on_radar/zone_only)
+  ucFeatureHits?: number;  // 0-7: count of key UC discriminant features firing (for confidence gauge)
   // ML overlay (computed once per scan, attached post-analysis)
   xgbScore?: number | null;   // XGBoost P(hit_t1) 0-1, null when model not trained
   survivalLabel?: string;     // KM "5d:38% · 10d:61%" per archetype
@@ -3790,7 +3792,7 @@ function computeUCScore(
   weeklyCloseLoc?: number | null,     // close position within last-5d pseudo-weekly range [0-100]
   weeklyBodyPct?: number | null,      // body% of last-5d range — weekly conviction
   magnetFlag?: boolean | null,        // price within 3% below round-number ceiling AND close_loc≥70
-): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean } {
+): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean; ucClass: 'PRIME' | 'WATCH' | 'ZONE' | 'COLD'; ucFeatureHits: number } {
   // Weights sourced from lib/ucScoreWeights.ts — auto-updated monthly by scripts/uc_precision_analysis.js
   const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * W.closeLoc_pts;  // [40, 92]
   const rsiComp = Math.min(1, Math.max(0, (rsi2      - 30) / 70)) * W.rsi2_pts;      // [30, 100]
@@ -3858,7 +3860,32 @@ function computeUCScore(
   //   Body>50 (marubozu) → 77.8% | UW<20 (no dist) → 75.0% | either = ~76%
   const ucElite   = volRatio20 >= 3.0 && closeLoc >= 75 &&
     (bodyPct >= 50 || ((upperWickPct ?? 100) <= 20));
-  return { ucScore, ucGoldmine, ucStrong, ucElite };
+
+  // Brain V2 prospective classification — mirrors actionable/on_radar/zone_only taxonomy.
+  // Derived from goldmine Phase 1 discriminant: actionable avg vs missed avg per feature.
+  // PRIME  = full triple-lock (Vol≥3x + CL≥75 + RSI2≥70) → matches "actionable" fingerprint
+  // WATCH  = partial qualification (Vol≥2x + strong CL or RSI2) → matches "on_radar"
+  // ZONE   = compression detected but vol still quiet → matches "zone_only"
+  // COLD   = no UC setup visible
+  const ucClass: 'PRIME' | 'WATCH' | 'ZONE' | 'COLD' =
+    (volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70)                       ? 'PRIME'
+    : (volMax >= 2.0 && (closeLoc >= 65 || rsi2 >= 60))                       ? 'WATCH'
+    : (zoneTightness != null && zoneTightness < 6.0 && volMax < 2.0)          ? 'ZONE'
+    : 'COLD';
+
+  // Count of firing key UC discriminant features (0-7): confidence gauge for borderline scores.
+  // Features match Brain V2 goldmine FAS with Cohen's d ≥ 0.2 cutoff.
+  const ucFeatureHits = [
+    closeLoc >= 70,           // CL in top 30% of range (d=0.20)
+    rsi2 >= 65,               // Short-term momentum rising (d=0.02 live but directional signal)
+    rangeATR14 >= 1.0,        // Wide-range expansion day (d=1.05 — strongest non-vol feature)
+    volMax >= 2.0,            // Vol surge ≥2x any baseline (d=1.21 strongest overall)
+    volDrySurgeComp > 0,      // Dry+surge accumulation pattern detected
+    weeklyResComp > 0,        // Multi-timeframe weekly resonance confirmed
+    !!magnetFlag,             // Psychological round-number spring
+  ].filter(Boolean).length;
+
+  return { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits };
 }
 
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
@@ -4256,7 +4283,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         && closePrice > 0
         && (nearRound - closePrice) / closePrice <= 0.03
         && (result.closeLoc ?? 0) >= 70;
-      const { ucScore, ucGoldmine, ucStrong, ucElite } = computeUCScore(
+      const { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits } = computeUCScore(
         result.closeLoc ?? 50,
         (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
         result.rsi2 ?? 50,
@@ -4276,10 +4303,12 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         weeklyBodyPct,
         magnetFlag,
       );
-      result.ucScore    = ucScore;
-      result.ucGoldmine = ucGoldmine;
-      result.ucStrong   = ucStrong;
-      result.ucElite    = ucElite;
+      result.ucScore        = ucScore;
+      result.ucGoldmine     = ucGoldmine;
+      result.ucStrong       = ucStrong;
+      result.ucElite        = ucElite;
+      result.ucClass        = ucClass;
+      result.ucFeatureHits  = ucFeatureHits;
       (result as any).clTrend        = clTrend;
       (result as any).rsi2Velocity  = rsi2Velocity;
       (result as any).volDryScore   = volDryScore;

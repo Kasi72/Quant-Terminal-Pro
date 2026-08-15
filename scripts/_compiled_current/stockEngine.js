@@ -3322,7 +3322,23 @@ magnetFlag) {
     //   Body>50 (marubozu) → 77.8% | UW<20 (no dist) → 75.0% | either = ~76%
     const ucElite = volRatio20 >= 3.0 && closeLoc >= 75 &&
         (bodyPct >= 50 || ((upperWickPct ?? 100) <= 20));
-    return { ucScore, ucGoldmine, ucStrong, ucElite };
+    // Brain V2 prospective classification — mirrors actionable/on_radar/zone_only taxonomy
+    const ucClass =
+        (volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70)              ? 'PRIME'
+        : (volMax >= 2.0 && (closeLoc >= 65 || rsi2 >= 60))              ? 'WATCH'
+        : (zoneTightness != null && zoneTightness < 6.0 && volMax < 2.0) ? 'ZONE'
+        : 'COLD';
+    // Count of firing key UC discriminant features (0-7)
+    const ucFeatureHits = [
+        closeLoc >= 70,
+        rsi2 >= 65,
+        rangeATR14 >= 1.0,
+        volMax >= 2.0,
+        volDrySurgeComp > 0,
+        weeklyResComp > 0,
+        !!magnetFlag,
+    ].filter(Boolean).length;
+    return { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits };
 }
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false) {
@@ -3718,11 +3734,13 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                 && closePrice > 0
                 && (nearRound - closePrice) / closePrice <= 0.03
                 && (result.closeLoc ?? 0) >= 70;
-            const { ucScore, ucGoldmine, ucStrong, ucElite } = computeUCScore(result.closeLoc ?? 50, result.exactVolRatio20 ?? result.volRatio20 ?? 1, result.rsi2 ?? 50, result.exactRangeATR14 ?? 1, result.bodyPct ?? 0, clTrend, rsi2Velocity, volPre5, result.zone?.zoneTightnessPct, result.exactVolVsPre5 ?? volPre5, result.priceEngine?.breakoutTier ?? null, result.archetypeType ?? null, result.upperWickPct ?? null, volDryScore, volSurgeScore, weeklyCloseLoc, weeklyBodyPct, magnetFlag);
+            const { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits } = computeUCScore(result.closeLoc ?? 50, result.exactVolRatio20 ?? result.volRatio20 ?? 1, result.rsi2 ?? 50, result.exactRangeATR14 ?? 1, result.bodyPct ?? 0, clTrend, rsi2Velocity, volPre5, result.zone?.zoneTightnessPct, result.exactVolVsPre5 ?? volPre5, result.priceEngine?.breakoutTier ?? null, result.archetypeType ?? null, result.upperWickPct ?? null, volDryScore, volSurgeScore, weeklyCloseLoc, weeklyBodyPct, magnetFlag);
             result.ucScore = ucScore;
             result.ucGoldmine = ucGoldmine;
             result.ucStrong = ucStrong;
             result.ucElite = ucElite;
+            result.ucClass = ucClass;
+            result.ucFeatureHits = ucFeatureHits;
             result.clTrend = clTrend;
             result.rsi2Velocity = rsi2Velocity;
             result.volDryScore = volDryScore;
