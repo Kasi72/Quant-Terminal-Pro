@@ -867,7 +867,7 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
   optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v3: exit at T2(target7)≥4%; deployableTuner 2026-08-14: OOS WR=61.9%, Sharpe=0.33
-  optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
+  optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 1.0, maxHoldBars: 5  },  // ccQuickTuner 2026-08-15: stopMult=0.5→slAtr=1.0; gates(stopGap≥3,T1Pct 1-25%,uc≥60); OOS PF=1.19,WR=54.4%
   optimized_elite_10plus:         { targetPct: 4,  slAtrMult: 4.0, maxHoldBars: 20 },  // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
   sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 5  },  // sniperExitTuner 2026-08-15: stopMult=0.8 → slAtr=2.5×0.8=2.0; OOS WR=69.6%, Sharpe=1.22, PF=1.52
@@ -4151,6 +4151,25 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         // eliteTuner 2026-08-15: T2AsT1=true → exit at target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, PF=3.12 (N=100)
         result.tradePromoted = isActionableStage(result.stage)
           && (result.ucScore ?? 0) >= 55
+          && (result.practicalOverlay?.passed ?? false);
+      } else if (paramSetKey === 'optimized_highprecision_15plus') {
+        // ccQuickTuner 2026-08-15: 3 structural data-quality gates exposed by cache analysis
+        // (1) stopGap≥3%: rejects sub-1% stops that halt on first candle's noise (cache p25=0.13%)
+        // (2) ccT1Pct 1–25%: rejects degenerate T1≈entry AND corrupted targets (cache p90=1286%!)
+        // (3) ucScore≥60: minimum signal quality consistent with other param sets
+        const _pe = result.priceEngine;
+        const _entry = _pe?.plannedEntry ?? 0;
+        const _stop  = _pe?.tacticalStop ?? 0;
+        const _t1    = _pe?.target5 ?? 0;
+        const _stopGapPct = (_entry > 0 && _stop > 0 && _stop < _entry)
+          ? ((_entry - _stop) / _entry) * 100 : 0;
+        const _ccT1Pct = (_entry > 0 && _t1 > _entry)
+          ? ((_t1 - _entry) / _entry) * 100 : 0;
+        result.tradePromoted = isActionableStage(result.stage)
+          && (result.ucScore ?? 0) >= 60
+          && _stopGapPct >= 3
+          && _ccT1Pct >= 1
+          && _ccT1Pct <= 25
           && (result.practicalOverlay?.passed ?? false);
       } else if (result.practicalOverlay) {
         result.tradePromoted = isActionableStage(result.stage) && result.practicalOverlay.passed;

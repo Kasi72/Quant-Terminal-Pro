@@ -166,7 +166,7 @@ function analyzeStockMulti(candles, symbol) {
 exports.PARAM_SETS = {
     // v13 forensic — stop-first validation: 68.3% WR, +2.08% avg, PF 2.24 (41 trades)
     optimized_deployable_20plus: {
-        name: 'Volume Footprint Scout', tag: '📊 Institutional Buying',
+        name: 'VF Scout', tag: '📊 Vol Breakout',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 50,
         maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 6.0, // v2: 12→6 (tighter zone)
@@ -191,7 +191,7 @@ exports.PARAM_SETS = {
     //   maxExactRangeATR14 1.1→5.0, minExactVolRatio20 3.0→1.1, minCloseLoc 60→65,
     //   maxCandleRisk 12→11, minCandleQualityScore null→3 (spec alignment, broadens signal pool).
     optimized_highprecision_15plus: {
-        name: 'Compression Coil', tag: '🔄 Energy Storage',
+        name: 'CC Precision', tag: '🔄 Coil Breakout',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 85,
         maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 10, maxZoneLen: 25, maxZoneTightnessPct: 7.0, // v2: minZone 5→10, tight 5→7
@@ -215,7 +215,7 @@ exports.PARAM_SETS = {
     //   minBodyPct 5→25, maxCandleRisk 5→10, maxPre10AvgRangeATR 1.0→0.85, maxPre10AvgVolRatio 1.0→0.90
     //   (grid-search had zeroed quality gates; restored to remove low-quality signal contamination).
     optimized_elite_10plus: {
-        name: 'Momentum Pocket', tag: '🎯 First Recovery',
+        name: 'MP Elite', tag: '🎯 Momentum Pocket',
         minAvgTurnover20: 20000000, maxATRPct14Pctl120: 60,
         maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
@@ -237,7 +237,7 @@ exports.PARAM_SETS = {
     //   maxPre10AvgRangeATR 1.3→0.75, maxPre10RedVolBias 0.8→1.1, maxCandleRisk 5→10
     //   (grid-search zeroed quality gates and over-tightened pre-zone ATR; restored spec defaults).
     optimized_ultraselective_8plus: {
-        name: 'EMA Stack Crossover', tag: '📈 Trend Flip',
+        name: 'EMA Stack', tag: '📈 Trend Crossover',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 95,
         maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0, // v2: tight 15→12
@@ -258,7 +258,7 @@ exports.PARAM_SETS = {
     // Code fix: requireRedCandle param now honoured (was hardcoded `red &&` before v2+)
     // DO NOT mix with breakout param-set logic — routes to analyzeORS() internally
     ors_prime_reversal: {
-        name: 'ORS-Prime v5', tag: '↩ 96.2% OOS WR',
+        name: 'ORS Reversal', tag: '↩ 83.1% OOS WR',
         // Breakout fields unused (set to pass-all so analyzeStock early-exits cleanly)
         minAvgTurnover20: 0, maxATRPct14Pctl120: 100,
         maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -300,7 +300,7 @@ exports.PARAM_SETS = {
     //   minExactVolVsPre5 3.5→2.0, maxUpperWickPct 15→35, maxPre10AvgRangeATR 1.15→0.95
     //   (quality gate zeroed by grid-search; candle risk and vol-vs-pre5 over-tightened vs spec).
     sniper_95plus: {
-        name: 'Perfect Storm', tag: '⚡ Multi-Archetype',
+        name: 'Sniper PS', tag: '⚡ Multi-Archetype',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 40,
         maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0, // v2: unchanged
@@ -320,7 +320,7 @@ exports.PARAM_SETS = {
     // tpsl_optimizer (2026-08-06): redesigned as Upper Circuit Candidate (ULTRA/STRONG + near 20d high
     //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
     circuit_breaker_v2: {
-        name: 'Circuit Breaker', tag: '⚡ Upper Circuit Candidate',
+        name: 'Circuit Breaker', tag: '⚡ Upper Circuit',
         // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 100,
         maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -537,7 +537,8 @@ const PRACTICAL_TRADE_OVERLAYS = {
 //   CC:     TP=5%/SL=5×ATR → WR=67.3%, PF=4.10,  n=257 OOS → ACTIVE (cc_archetype_tuner 2026-08-07)
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set([
-// CB rescued 2026-08-14: dualTuner champion Sharpe=2.19, OOS WR=61.3% (maxHold=3, minUC=70, minT1Pct=8%)
+    // CB rescued 2026-08-14: dualTuner champion Sharpe=2.19, OOS WR=61.3% (maxHold=3, minUC=70, minT1Pct=8%)
+    'optimized_ultraselective_8plus', // N too low (USB:2, SB:21 OOS) — watch-only until retune
 ]);
 // tpsl_optimizer v2 (2026-08-06/07, spec-restored params, 470-stock universe):
 //   VF:     TP=3%/SL=5×ATR  — WR=81.3%, PF=6.12,  AvgPnL=+0.85%  (OOS n=128)
@@ -553,11 +554,12 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
     optimized_deployable_20plus: { targetPct: 0, slAtrMult: 1.5, maxHoldBars: 12 }, // VF v3: exit at T2(target7)≥4%; deployableTuner 2026-08-14: OOS WR=61.9%, Sharpe=0.33
-    optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 2.0, maxHoldBars: 20 }, // CC v2: SL tuned; T1 = ATR-based
-    optimized_elite_10plus: { targetPct: 3, slAtrMult: 5.0, maxHoldBars: 20 }, // MP: unchanged
+    optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 1.0, maxHoldBars: 5 }, // ccQuickTuner 2026-08-15: stopMult=0.5→slAtr=1.0; gates(stopGap≥3,T1Pct 1-25%,uc≥60); OOS PF=1.19,WR=54.4%
+    optimized_elite_10plus: { targetPct: 4, slAtrMult: 4.0, maxHoldBars: 20 }, // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
     optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 2.0, maxHoldBars: 12 }, // EMA v2: SL+hold tuned; T1 = ATR-based
-    sniper_95plus: { targetPct: 0, slAtrMult: 2.5, maxHoldBars: 5 }, // PS v3: hold 8→5 (grid-opt 2026-08-14)
+    sniper_95plus: { targetPct: 0, slAtrMult: 2.0, maxHoldBars: 5 }, // sniperExitTuner 2026-08-15: stopMult=0.8 → slAtr=2.5×0.8=2.0; OOS WR=69.6%, Sharpe=1.22, PF=1.52
     circuit_breaker_v2: { targetPct: 0, slAtrMult: 2.5, maxHoldBars: 3 }, // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
+    ors_prime_reversal: { targetPct: 0, slAtrMult: 2.5, maxHoldBars: 5 }, // orsTuner 2026-08-15: maxHold=5, stopMult=1.0(no tighten); OOS WR=83.1%, Sharpe=4.21
 };
 function archetypeKeyFromHint(archetypeHint) {
     if (archetypeHint === 'VF')
@@ -3605,7 +3607,9 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                 const _t2Pct = (_pe?.target7 > 0 && _pe?.plannedEntry > 0)
                     ? ((_pe.target7 - _pe.plannedEntry) / _pe.plannedEntry) * 100
                     : 0;
-                result.tradePromoted = isActionableStage(result.stage)
+                // PRE_BREAKOUT also actionable for Deployable — backtest: PF 1.21, Sharpe 0.39, OOS WR 77.5%
+                const _deployStage = isActionableStage(result.stage) || result.stage === 'PRE_BREAKOUT';
+                result.tradePromoted = _deployStage
                     && (result.ucScore ?? 0) >= 60
                     && _t2Pct >= 4
                     && (result.practicalOverlay?.passed ?? false);
@@ -3620,6 +3624,12 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                 result.tradePromoted = isActionableStage(result.stage)
                     && (result.ucScore ?? 0) >= 70
                     && _t1Pct >= 8
+                    && (result.practicalOverlay?.passed ?? false);
+            }
+            else if (paramSetKey === 'optimized_elite_10plus') {
+                // eliteTuner 2026-08-15: T2AsT1=true → exit at target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, PF=3.12 (N=100)
+                result.tradePromoted = isActionableStage(result.stage)
+                    && (result.ucScore ?? 0) >= 55
                     && (result.practicalOverlay?.passed ?? false);
             }
             else if (result.practicalOverlay) {
