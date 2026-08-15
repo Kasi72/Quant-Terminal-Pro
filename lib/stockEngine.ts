@@ -850,6 +850,7 @@ const PRACTICAL_TRADE_OVERLAYS: Partial<Record<ParamSetKey, PracticalOverlayConf
 //   CB:     redesigned as Upper Circuit Candidate; screener-only, no backtest exit.
 const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
   // CB rescued 2026-08-14: dualTuner champion Sharpe=2.19, OOS WR=61.3% (maxHold=3, minUC=70, minT1Pct=8%)
+  'optimized_ultraselective_8plus', // N too low (USB:2, SB:21 OOS) — watch-only until retune
 ]);
 
 // tpsl_optimizer v2 (2026-08-06/07, spec-restored params, 470-stock universe):
@@ -867,10 +868,11 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
   optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v3: exit at T2(target7)≥4%; deployableTuner 2026-08-14: OOS WR=61.9%, Sharpe=0.33
   optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 20 },  // CC v2: SL tuned; T1 = ATR-based
-  optimized_elite_10plus:         { targetPct: 3,  slAtrMult: 5.0, maxHoldBars: 20 },  // MP: unchanged
+  optimized_elite_10plus:         { targetPct: 4,  slAtrMult: 4.0, maxHoldBars: 20 },  // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
   sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // PS v3: hold 8→5 (grid-opt 2026-08-14)
   circuit_breaker_v2:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 3  },  // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
+  ors_prime_reversal:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // orsTuner 2026-08-15: maxHold=5, stopMult=1.0(no tighten); OOS WR=83.1%, Sharpe=4.21
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
@@ -4128,7 +4130,9 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         const _t2Pct = (_pe?.target7 > 0 && _pe?.plannedEntry > 0)
           ? ((_pe.target7 - _pe.plannedEntry) / _pe.plannedEntry) * 100
           : 0;
-        result.tradePromoted = isActionableStage(result.stage)
+        // PRE_BREAKOUT also actionable for Deployable — backtest: PF 1.21, Sharpe 0.39, OOS WR 77.5%
+        const _deployStage = isActionableStage(result.stage) || result.stage === 'PRE_BREAKOUT';
+        result.tradePromoted = _deployStage
           && (result.ucScore ?? 0) >= 60
           && _t2Pct >= 4
           && (result.practicalOverlay?.passed ?? false);
@@ -4142,6 +4146,11 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         result.tradePromoted = isActionableStage(result.stage)
           && (result.ucScore ?? 0) >= 70
           && _t1Pct >= 8
+          && (result.practicalOverlay?.passed ?? false);
+      } else if (paramSetKey === 'optimized_elite_10plus') {
+        // eliteTuner 2026-08-15: T2AsT1=true → exit at target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, PF=3.12 (N=100)
+        result.tradePromoted = isActionableStage(result.stage)
+          && (result.ucScore ?? 0) >= 55
           && (result.practicalOverlay?.passed ?? false);
       } else if (result.practicalOverlay) {
         result.tradePromoted = isActionableStage(result.stage) && result.practicalOverlay.passed;
