@@ -1689,7 +1689,7 @@ function HomePageInner() {
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'open' | 'hit' | 'stopped'>('all');
   const [logStatusFilter, setLogStatusFilter] = useState<string>('all');
-  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'loss_desc' | 'status' | 'stop_dist'>('date_desc');
+  const [logSort, setLogSort] = useState<'date_desc' | 'date_asc' | 'pnl' | 'loss_desc' | 'status' | 'stop_dist' | 'targets_today'>('date_desc');
   const [cmpLoading, setCmpLoading] = useState(false);
   const [showTopPicks, setShowTopPicks] = useState(true);
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('all');
@@ -6562,6 +6562,41 @@ function HomePageInner() {
                 };
                 return dist(a) - dist(b);
               }
+              if (logSort === 'targets_today') {
+                const today = new Date().toISOString().slice(0, 10);
+                const score = (t: TrackedTrade): number => {
+                  const isToday = t.closedDate === today;
+                  const livePrice = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
+                  const livePct = (t.status === 'open' && livePrice && t.entryPrice > 0)
+                    ? (livePrice - t.entryPrice) / t.entryPrice * 100
+                    : (t.pnlPct ?? 0);
+                  // Named target hits closed today — highest priority
+                  if (isToday && t.status === 'hit_t3') return 100;
+                  if (isToday && t.status === 'hit_t2') return 90;
+                  if (isToday && t.status === 'hit_t1') return 80;
+                  // Open trades currently at/beyond named price targets
+                  if (t.status === 'open' && livePrice) {
+                    if (t.target3 > 0 && livePrice >= t.target3) return 70;
+                    if (t.target2 > 0 && livePrice >= t.target2) return 60;
+                    if (t.target1 > 0 && livePrice >= t.target1) return 50;
+                  }
+                  // Percentage milestones (open live move or closed pnlPct)
+                  if (livePct >= 10) return 40;
+                  if (livePct >= 7)  return 30;
+                  if (livePct >= 5)  return 20;
+                  return 0;
+                };
+                const sa = score(a), sb = score(b);
+                if (sa !== sb) return sb - sa;
+                // tiebreak: higher live % first
+                const pct = (t: typeof a) => {
+                  const lp = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
+                  return (t.status === 'open' && lp && t.entryPrice > 0)
+                    ? (lp - t.entryPrice) / t.entryPrice * 100
+                    : (t.pnlPct ?? 0);
+                };
+                return pct(b) - pct(a);
+              }
               return (b.entryDate ?? '').localeCompare(a.entryDate ?? '');
             });
 
@@ -6790,6 +6825,7 @@ function HomePageInner() {
                     <option value="loss_desc">Current/last % low → high</option>
                     <option value="status">Open → Hit → Closed</option>
                     <option value="stop_dist">Close to stop ↑</option>
+                    <option value="targets_today">Targets achieved today</option>
                   </select>
                 </div>
                 {/* Trade list */}
