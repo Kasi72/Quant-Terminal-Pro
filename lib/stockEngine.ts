@@ -458,7 +458,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.5, minExactVolVsPre5: 5.0,                                        // v2: vr20 1.5→2.5, vp5 2.0→5.0
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 1.5,                                        // v2: vr20 1.5→2.5, vp5 2.0→5.0; opt: vp5 5.0→1.5 (STRONG+ stage does quality work)
     minCloseLoc: 68, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0,              // v2: wick 25→18, body 50→65
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
@@ -483,9 +483,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.0, minExactVolVsPre5: 2.0,                                        // v2: vr20 1.1→2.0
-    minCloseLoc: 65, maxUpperWickPct: 22, minBodyPct: 35, maxCandleRisk: 11.0,              // v2: wick 40→22, body 25→35
-    minUltraPrecisionScore: 50, minRSI2: 50,
+    minExactVolRatio20: 2.0, minExactVolVsPre5: 1.5,                                        // v2: vr20 1.1→2.0; opt: vp5 2.0→1.5
+    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 35, maxCandleRisk: 11.0,              // v2: wick 40→22, body 25→35; opt: wick 22→20
+    minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 50→75
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: 4.0,
     forensic: {
@@ -508,8 +508,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 1.2, minExactVolVsPre5: 2.0,
-    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 25, maxCandleRisk: 10.0,
-    minUltraPrecisionScore: 45, minRSI2: 50,
+    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 45, maxCandleRisk: 10.0,              // opt: body 25→45
+    minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 45→75
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
   },
@@ -592,9 +592,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.5, minExactVolVsPre5: 3.0,                                         // v2: vr20 1.5→2.5, vp5 2.0→3.0
-    minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 55, maxCandleRisk: 11.0,               // v2: wick 35→25, body 35→55
-    minUltraPrecisionScore: 45, minRSI2: 50,
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 1.5,                                         // v2: vr20 1.5→2.5, vp5 2.0→3.0; opt: vp5 3.0→1.5
+    minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 65, maxCandleRisk: 11.0,               // v2: wick 35→25, body 35→55; opt: body 55→65
+    minUltraPrecisionScore: 75, minRSI2: 50,                                                 // opt: prec 45→75
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
   },
