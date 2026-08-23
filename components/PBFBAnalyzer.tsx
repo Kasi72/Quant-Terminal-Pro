@@ -200,6 +200,20 @@ function metricColor(v: number, lo: number, hi: number): string {
   return v >= hi ? '#4ade80' : v >= lo ? '#fbbf24' : '#f87171';
 }
 
+// ─── Brain Confidence score ───────────────────────────────────────────────────
+
+function computeBC(ucScore: number, fas: number | null, neighborHitRate: number | null, brainData: BrainData | null): number {
+  const totalEvents = brainData?.eventCount ?? 0;
+  // Brain weight: 0 when corpus thin, caps at 0.50 at 500+ events
+  const brainW = Math.min(0.50, totalEvents / 500);
+  if (brainW < 0.05) return Math.round(ucScore);
+  const fasNorm    = fas != null ? fas / 100 : 0.5;
+  const nhrNorm    = neighborHitRate != null ? neighborHitRate : (brainData?.labeledHitRate ?? 0.60);
+  const lhr        = brainData?.labeledHitRate ?? 0.60;
+  const brainScore = nhrNorm * 0.50 + fasNorm * 0.30 + lhr * 0.20;
+  return Math.round(Math.min(100, Math.max(0, (ucScore / 100 * (1 - brainW) + brainScore * brainW) * 100)));
+}
+
 // ─── Historical analogs (Vectorize nearest neighbours via brain worker) ──────
 
 interface AnalogMatch {
@@ -209,13 +223,15 @@ interface AnalogMatch {
   bestStage: string | null;
   classification: string | null;
   movePct: number | null;
+  ucScore?: number | null;
+  hitUCProxy?: boolean | null;
 }
 
 const CLASS_COLORS: Record<string, string> = {
   actionable: '#4ade80', on_radar: '#fbbf24', zone_only: '#60a5fa', missed: '#f87171', thin_lock: '#64748b',
 };
 
-function AnalogPanel({ r }: { r: ForensicResult }) {
+function AnalogPanel({ r, onHitRate }: { r: ForensicResult; onHitRate?: (rowKey: string, rate: number | null) => void }) {
   const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [matches, setMatches] = useState<AnalogMatch[]>([]);
   const [hitRate, setHitRate] = useState<number | null>(null);
@@ -233,6 +249,12 @@ function AnalogPanel({ r }: { r: ForensicResult }) {
           volRatio20: br.exactVolRatio20, volPre5: br.exactVolVsPre5, rangeATR: br.exactRangeATR14,
           rsi2: br.rsi2, zoneLen: br.zone?.windowLength ?? 0, zoneTightness: br.zone?.zoneTightnessPct ?? 0,
         },
+        ucScore: (br as any).ucScore ?? null,
+        traj: {
+          volAccel:     (br as any).volAccel     ?? null,
+          rsi2Velocity: (br as any).rsi2Velocity ?? null,
+          clTrend:      (br as any).clTrend      ?? null,
+        },
         shape: r.shapeVec,
         topK: 6,
       }),
@@ -244,6 +266,7 @@ function AnalogPanel({ r }: { r: ForensicResult }) {
         const filtered = data.matches.filter(m => !(m.symbol === r.symbol && m.score > 0.999)).slice(0, 5);
         setMatches(filtered);
         setHitRate(data.neighborHitRate);
+        onHitRate?.(`${r.symbol}-${r.date}-${r.nBefore}`, data.neighborHitRate);
         setState('ready');
       })
       .catch(() => { if (!cancelled) setState('unavailable'); });
@@ -287,6 +310,8 @@ function AnalogPanel({ r }: { r: ForensicResult }) {
                 <span className="text-[9px] font-mono text-slate-400">+{f1(Number(m.movePct))}%</span>
               )}
               <span className="text-[9px] font-mono text-purple-300">{(m.score * 100).toFixed(0)}%</span>
+              {m.hitUCProxy === true  && <span className="text-[9px] text-emerald-400 font-bold" title="Reached +8% target">✓</span>}
+              {m.hitUCProxy === false && <span className="text-[9px] text-rose-400 font-bold"    title="Did not reach +8%">✗</span>}
             </div>
           ))}
         </div>
@@ -297,7 +322,7 @@ function AnalogPanel({ r }: { r: ForensicResult }) {
 
 // ─── Expanded pre-event detail panel ─────────────────────────────────────────
 
-function ExpandedDetail({ r }: { r: ForensicResult }) {
+function ExpandedDetail({ r, onHitRate }: { r: ForensicResult; onHitRate?: (rowKey: string, rate: number | null) => void }) {
   const br = r.bestResult;
   if (!br) {
     return (
@@ -588,7 +613,7 @@ function ExpandedDetail({ r }: { r: ForensicResult }) {
       </div>
 
       {/* Full-width: nearest historical fingerprints from the brain worker */}
-      <AnalogPanel r={r} />
+      <AnalogPanel r={r} onHitRate={onHitRate} />
     </div>
   );
 }
@@ -610,6 +635,7 @@ export default function PBFBAnalyzer() {
   const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
   const [filterClass, setFilterClass] = useState<'all' | 'actionable' | 'on_radar' | 'zone_only' | 'missed' | 'thin_lock'>('all');
   const [expanded, setExpanded]       = useState<string | null>(null);
+  const [neighborHitRateMap, setNeighborHitRateMap] = useState<Record<string, number | null>>({});
   const [brainData,    setBrainData]    = useState<BrainData | null>(null);
   const [brainLoading, setBrainLoading] = useState(false);
   const [narration,    setNarration]    = useState('');
@@ -2074,6 +2100,9 @@ export default function PBFBAnalyzer() {
                         ? `Pattern DNA — similarity to ${brainData.winnerCount} T2+ winner events (winner centroid, MI-weighted, 9 features)`
                         : 'Pattern DNA — similarity to historical actionable events centroid (Brain V2)'}>
                       🧠 DNA</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-semibold text-cyan-400 uppercase tracking-wider"
+                      title="Brain Confidence — blends UC formula score + Pattern DNA alignment + neighbor analog hit rate">
+                      BC</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Param Set</th>
                     {PARAM_SET_KEYS.map(k => (
                       <th key={k} className="px-2 py-1.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -2124,6 +2153,23 @@ export default function PBFBAnalyzer() {
                               );
                             })()}
                           </td>
+                          <td className="px-2 py-1.5 text-center">
+                            {(() => {
+                              const uc = (r.bestResult as any)?.ucScore as number | null | undefined;
+                              if (uc == null) return <span className="text-slate-700 text-[9px]">—</span>;
+                              const fas = getFAS(r);
+                              const nhr = neighborHitRateMap[`${r.symbol}-${r.date}-${r.nBefore}`] ?? null;
+                              const bc = computeBC(uc, fas, nhr, brainData);
+                              const col = bc >= 75 ? '#22d3ee' : bc >= 55 ? '#facc15' : '#64748b';
+                              return (
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded"
+                                  style={{ color: col, background: `${col}14`, border: `1px solid ${col}33` }}
+                                  title={`Brain Confidence: UC=${uc} DNA=${fas?.toFixed(0) ?? '?'} Nbr=${nhr != null ? (nhr * 100).toFixed(0) + '%' : 'pending'}`}>
+                                  {bc}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="px-2 py-1.5 text-[10px] font-mono">
                             <div className="flex items-center gap-1">
                               <span className="text-slate-400">{r.bestParamSet ? PARAM_SET_LABELS[r.bestParamSet] : '—'}</span>
@@ -2159,8 +2205,8 @@ export default function PBFBAnalyzer() {
                         </tr>
                         {isExpanded && (
                           <tr className="bg-slate-900/40">
-                            <td colSpan={7 + PARAM_SET_KEYS.length + 1} className="p-0">
-                              <ExpandedDetail r={r} />
+                            <td colSpan={7 + PARAM_SET_KEYS.length + 2} className="p-0">
+                              <ExpandedDetail r={r} onHitRate={(rowKey, rate) => setNeighborHitRateMap(m => ({ ...m, [rowKey]: rate }))} />
                             </td>
                           </tr>
                         )}

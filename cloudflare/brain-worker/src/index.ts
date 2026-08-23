@@ -104,16 +104,17 @@ const SHAPE_LEN = 20;
 // 0.3 gives shape 6 effective dims — texture signal without dominating.
 const SHAPE_WEIGHT = 0.3;
 
-function toVector(f: EventFeatures, shape?: number[] | null, traj?: TrajectoryFeatures | null): number[] {
+function toVector(f: EventFeatures, shape?: number[] | null, traj?: TrajectoryFeatures | null, ucScore?: number | null): number[] {
   const v = new Array<number>(VECTOR_DIMS).fill(0);
   FEATURE_ORDER.forEach((k, i) => { v[i] = (f[k] ?? 0) / SCALES[k]; });
   if (shape && shape.length === SHAPE_LEN) {
     shape.forEach((s, i) => { v[SHAPE_OFFSET + i] = Number(s) * SHAPE_WEIGHT; });
   }
-  // dims 29-31: trajectory features (reserved → active 2026-08-02)
-  if (traj?.volAccel != null)     v[29] = Math.min(3, Math.max(0, traj.volAccel)) / 3;
-  if (traj?.rsi2Velocity != null) v[30] = (Math.min(50, Math.max(-50, traj.rsi2Velocity)) + 50) / 100;
-  if (traj?.clTrend != null)      v[31] = (Math.min(80, Math.max(-80, traj.clTrend)) + 80) / 160;
+  // dims 29-31: trajectory / meta features (active 2026-08-02)
+  if (traj?.volAccel != null) v[29] = Math.min(3, Math.max(0, traj.volAccel)) / 3;
+  // dim 30: ucScore/100 — replaces rsi2Velocity (never logged); blended formula+ML conviction
+  if (ucScore != null)        v[30] = Math.min(1, Math.max(0, ucScore / 100));
+  if (traj?.clTrend != null)  v[31] = (Math.min(80, Math.max(-80, traj.clTrend)) + 80) / 160;
   return v;
 }
 
@@ -370,7 +371,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
     const chunk = rows.slice(i, i + 100);
     await env.VECTORIZE.upsert(chunk.map(r => ({
       id: r.id,
-      values: toVector(rowToFeatures(r), r.shape_vec, rowToTrajectory(r)),
+      values: toVector(rowToFeatures(r), r.shape_vec, rowToTrajectory(r), r.uc_score),
       metadata: {
         symbol: r.symbol, run_date: r.run_date, event_date: r.event_date ?? '',
         best_stage: r.best_stage, best_param_set: r.best_param_set ?? '',
@@ -380,7 +381,7 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
         zone_shape:         r.zone_shape         ?? null,
         hit_t1:             r.hit_t1             ?? null,
         uc_score:           r.uc_score           ?? null,
-        hit_uc_proxy:       (r.hit_t1 === true && typeof r.outcome_pct_20d === 'number' && r.outcome_pct_20d > 20) ? true : (r.hit_t1 !== null ? false : null),
+        hit_uc_proxy:       r.hit_t1 === true ? true : r.hit_t1 === false ? false : null,
       },
     })));
     ingested += chunk.length;
@@ -389,8 +390,8 @@ async function ingest(env: Env): Promise<{ ingested: number }> {
 }
 
 // ── Similar: nearest historical fingerprints for a live event ───────────────
-async function similar(env: Env, features: EventFeatures, topK: number, shape?: number[] | null) {
-  const { matches } = await env.VECTORIZE.query(toVector(features, shape), {
+async function similar(env: Env, features: EventFeatures, topK: number, shape?: number[] | null, traj?: TrajectoryFeatures | null, ucScore?: number | null) {
+  const { matches } = await env.VECTORIZE.query(toVector(features, shape, traj, ucScore), {
     topK: Math.min(Math.max(topK, 1), 20),
     returnMetadata: 'all',
   });
@@ -420,15 +421,20 @@ async function similar(env: Env, features: EventFeatures, topK: number, shape?: 
 
 // ── Narrate: Llama summary of the brain state ────────────────────────────────
 async function narrate(env: Env): Promise<{ narration: string }> {
-  const events = await supabaseGet(
-    env,
-    'pbfb_uc_events?select=classification,best_stage&n_before=eq.1&order=created_at.desc&limit=500',
-  ) as { classification: string; best_stage: string }[];
+  const [rawEvents, rawBayes] = await Promise.all([
+    supabaseGet(env, 'pbfb_uc_events?select=classification,best_stage&n_before=eq.1&order=created_at.desc&limit=500'),
+    supabaseGet(env, 'archetype_bayes_wr?select=archetype,posterior_mean,live_wins,live_losses&order=posterior_mean.desc'),
+  ]);
+  const events    = rawEvents  as { classification: string; best_stage: string }[];
+  const bayesRows = rawBayes   as { archetype: string; posterior_mean: number; live_wins: number; live_losses: number }[];
 
   const total = events.length;
   const actionable = events.filter(e => e.classification === 'actionable').length;
   const stageCounts: Record<string, number> = {};
   for (const e of events) stageCounts[e.best_stage] = (stageCounts[e.best_stage] ?? 0) + 1;
+  const bayesSummary = bayesRows.length > 0
+    ? bayesRows.map(b => `${b.archetype}: ${(b.posterior_mean * 100).toFixed(0)}%WR (${b.live_wins}W/${b.live_losses}L live)`).join(', ')
+    : 'no live labeled data yet';
 
   const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
     messages: [
@@ -438,10 +444,10 @@ async function narrate(env: Env): Promise<{ narration: string }> {
       },
       {
         role: 'user',
-        content: `Last ${total} upper-circuit events (1 day before breakout): ${actionable} were caught at an actionable stage (${total > 0 ? (actionable / total * 100).toFixed(1) : 0}% detection). Stage distribution: ${JSON.stringify(stageCounts)}. Summarize the screener's current form.`,
+        content: `Last ${total} upper-circuit events (1 day before breakout): ${actionable} actionable (${total > 0 ? (actionable / total * 100).toFixed(1) : 0}% detection rate). Stage breakdown: ${JSON.stringify(stageCounts)}. Bayesian win-rates by archetype: ${bayesSummary}. Summarize screener form and which archetypes are outperforming.`,
       },
     ],
-    max_tokens: 150,
+    max_tokens: 200,
   });
 
   return { narration: result.response ?? 'No narration generated.' };
@@ -521,7 +527,7 @@ export default {
         return json(await ingest(env), 200, req, env);
       }
       if (req.method === 'POST' && pathname === '/similar') {
-        let body: { features?: EventFeatures; shape?: number[] | null; topK?: number };
+        let body: { features?: EventFeatures; shape?: number[] | null; topK?: number; traj?: TrajectoryFeatures | null; ucScore?: number | null };
         try {
           body = await readJsonWithLimit(req, MAX_REQUEST_BYTES);
         } catch (error) {
@@ -529,7 +535,7 @@ export default {
           return json({ error: message === 'payload too large' ? message : 'invalid json' }, message === 'payload too large' ? 413 : 400, req, env);
         }
         if (!body.features) return json({ error: 'features required' }, 400, req, env);
-        return json(await similar(env, body.features, body.topK ?? 10, body.shape), 200, req, env);
+        return json(await similar(env, body.features, body.topK ?? 10, body.shape, body.traj ?? null, body.ucScore ?? null), 200, req, env);
       }
       if (req.method === 'GET' && pathname === '/narrate') {
         return json(await narrate(env), 200, req, env);
