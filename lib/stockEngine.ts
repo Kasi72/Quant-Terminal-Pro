@@ -54,6 +54,7 @@ export interface ParamSet {
     minADX?: number;           // optional: ADX must be ≥ this (trending regime gate)
     minLowerWickPct?: number;  // optional: lower wick ≥ this% of range (demand absorption proof)
     maxBodyATR?: number;       // optional: body ≤ this × ATR14 (anti-extension filter)
+    minCloseLoc?: number;      // optional: close location ≥ this% (V3b CPCV: ≥45 lifts OOS PF)
     tpPct: number;             // profit target %
     slAtrMult: number;         // stop = entry − slAtrMult × ATR14
     maxHoldBars: number;       // time-stop in bars
@@ -508,7 +509,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 1.2, minExactVolVsPre5: 2.0,
-    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 45, maxCandleRisk: 10.0,              // opt: body 25→45
+    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 65, maxCandleRisk: 10.0,              // V3b CPCV: body≥65 (was 45)
     minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 45→75
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
@@ -530,7 +531,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
     minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5,                                         // v2: unchanged
-    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 55, maxCandleRisk: 10.0,               // v2: wick 35→30, body 25→55
+    minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 65, maxCandleRisk: 10.0,               // V3b CPCV: body≥65 (was 55)
     minUltraPrecisionScore: 45, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: null,
@@ -572,29 +573,31 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       minADX: 20,               // ADX ≥ 20 required (trending regime)
       minLowerWickPct: 20,      // lower tail ≥ 20% of range (demand absorption proof — backtest-validated sweet spot)
       maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
+      minCloseLoc: 45,          // V3b CPCV: closeLoc∈[45,53] → minPF=4.20 WR=96% n=25 OOS
       tpPct: 3,
       slAtrMult: 2.0,
       maxHoldBars: 12,          // backtest: ORS WR peaks at H+3 (69.6% OOS, PF 3.22); exit within 3 bars, not 5
     },
   },
-  // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
-  //    maxPre10AvgRangeATR 0.80→1.15, maxPre10RedVolBias 0.90→1.6, minExactVolRatio20 1.8→1.5,
-  //    minCloseLoc 75→65, maxUpperWickPct 20→15, minBodyPct 50→20, minVolExpRatio 2.0→1.0
-  // Phase 1 spec-restoration (2026-08-06): minUltraPrecisionScore 5→45, maxCandleRisk 16→11,
-  //   minExactVolVsPre5 3.5→2.0, maxUpperWickPct 15→35, maxPre10AvgRangeATR 1.15→0.95
-  //   (quality gate zeroed by grid-search; candle risk and vol-vs-pre5 over-tightened vs spec).
+  // ✅ V3b CPCV-validated (2026-08-23) — breadthRising regime gate + candle thresholds
+  //    Gate: breadthRising (market breadth >55% smoothed) + wick≤25 + prec≥75 + vol5≥3 + body≥0
+  //    CPCV C(9,2)=36 paths: minPF=1.38 avgPF=1.71 valid_splits=15/36 DSR_eff=0 → DEPLOY_NODSR
+  //    Flat OOS (2025-Q1+): n=11 WR=90.9% PF=2.79 avg=+2.92% stop=9.1%
+  //    NOTE: regime gate (breadth>55%) must be applied externally — only activate sniper
+  //    signals when Nifty market breadth is in bull regime (>55% stocks above EMA-50).
+  //    body≥0 = no body gate (breadth + vol5≥3 handle quality selection)
   sniper_95plus: {
     name: 'Sniper PS', tag: '⚡ Multi-Archetype',
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 40,
     maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,   // v2: unchanged
+    zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.5, minExactVolVsPre5: 1.5,                                         // v2: vr20 1.5→2.5, vp5 2.0→3.0; opt: vp5 3.0→1.5
-    minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 65, maxCandleRisk: 11.0,               // v2: wick 35→25, body 35→55; opt: body 55→65
-    minUltraPrecisionScore: 75, minRSI2: 50,                                                 // opt: prec 45→75
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 3.0,                                         // V3b: vol5≥3 (was 1.5) — key discriminator in breadth-rising regime
+    minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 0, maxCandleRisk: 11.0,               // V3b: body≥0 (was 65), wick≤25 ✓, closeLoc≥65 preserved
+    minUltraPrecisionScore: 75, minRSI2: 50,                                                 // prec≥75 ✓
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
   },
@@ -2312,6 +2315,7 @@ function analyzeORS(candles: Candle[]): AnalysisResult {
       (!orsParams.requireSwingLow || isSwLo) &&
       score >= orsParams.minOrsScore &&
       (orsParams.minADX == null || adxORS >= orsParams.minADX) &&
+      (orsParams.minCloseLoc == null || closeLoc >= orsParams.minCloseLoc) &&
       (orsParams.minLowerWickPct == null || lowerWickPct >= orsParams.minLowerWickPct) &&
       (orsParams.maxBodyATR == null || bodyAtr <= orsParams.maxBodyATR)
     );
