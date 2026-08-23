@@ -459,9 +459,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.5, minExactVolVsPre5: 1.5,                                        // v2: vr20 1.5→2.5, vp5 2.0→5.0; opt: vp5 5.0→1.5 (STRONG+ stage does quality work)
-    minCloseLoc: 68, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0,              // v2: wick 25→18, body 50→65
-    minUltraPrecisionScore: 45, minRSI2: 50,
+    minExactVolRatio20: 2.5, minExactVolVsPre5: 2.5,                                        // V4 structural: vp5 1.5→2.5 (V4 best gate; baked into engine)
+    minCloseLoc: 75, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0,              // V4 structural: closeLoc 68→75 (V4 best gate; baked into engine)
+    minUltraPrecisionScore: 75, minRSI2: 50,                                                // V4 structural: prec 45→75 (align with other sets)
     minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 6.0,
     forensic: {
@@ -484,9 +484,9 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
     minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-    minExactVolRatio20: 2.0, minExactVolVsPre5: 1.5,                                        // v2: vr20 1.1→2.0; opt: vp5 2.0→1.5
-    minCloseLoc: 65, maxUpperWickPct: 20, minBodyPct: 35, maxCandleRisk: 11.0,              // v2: wick 40→22, body 25→35; opt: wick 22→20
-    minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 50→75
+    minExactVolRatio20: 2.0, minExactVolVsPre5: 2.5,                                        // V4 structural: vp5 1.5→2.5 (cut noisy low-vol signals)
+    minCloseLoc: 72, maxUpperWickPct: 20, minBodyPct: 55, maxCandleRisk: 11.0,              // V4 structural: body 35→55 (core quality lift), closeLoc 65→72
+    minUltraPrecisionScore: 75, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
     maxCloseAboveZonePct: 4.0,
     forensic: {
@@ -3184,11 +3184,17 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     { label: 'ATR contraction ≥ 8% over 5 bars (progressive squeeze)', pass: c7, value: `${(atrContraction5d * 100).toFixed(1)}%` },
   ];
 
+  let rSum10 = 0;
+  const rStart10 = Math.max(0, endIdx - 10);
+  for (let i = rStart10; i < endIdx; i++) rSum10 += (candles[i].h - candles[i].l) / (atr14Arr[i] || 0.0001);
+  const pre10AvgRangeATR = (endIdx - rStart10) > 0 ? rSum10 / (endIdx - rStart10) : 1;
+
   return attachTuningDebug({
     ...base, stage, inflectionScore: score, confidence: score,
     avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
     volRatio20, rsi2, rsi14,
     exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+    pre10AvgRangeATR,
     signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
     ultraPrecisionScore: score, candleQualityScore: ca.qualityTier,
     priceEngine: pe,

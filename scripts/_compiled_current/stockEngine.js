@@ -174,9 +174,9 @@ exports.PARAM_SETS = {
         maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
-        minExactVolRatio20: 2.5, minExactVolVsPre5: 5.0, // v2: vr20 1.5→2.5, vp5 2.0→5.0
-        minCloseLoc: 68, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0, // v2: wick 25→18, body 50→65
-        minUltraPrecisionScore: 45, minRSI2: 50,
+        minExactVolRatio20: 2.5, minExactVolVsPre5: 2.5, // V4 structural: vp5 1.5→2.5 (V4 best gate; baked into engine)
+        minCloseLoc: 75, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0, // V4 structural: closeLoc 68→75 (V4 best gate; baked into engine)
+        minUltraPrecisionScore: 75, minRSI2: 50, // V4 structural: prec 45→75 (align with other sets)
         minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
         maxCloseAboveZonePct: 6.0,
         forensic: {
@@ -199,9 +199,9 @@ exports.PARAM_SETS = {
         maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-        minExactVolRatio20: 2.0, minExactVolVsPre5: 2.0, // v2: vr20 1.1→2.0
-        minCloseLoc: 65, maxUpperWickPct: 22, minBodyPct: 35, maxCandleRisk: 11.0, // v2: wick 40→22, body 25→35
-        minUltraPrecisionScore: 50, minRSI2: 50,
+        minExactVolRatio20: 2.0, minExactVolVsPre5: 2.5, // V4 structural: vp5 1.5→2.5 (cut noisy low-vol signals)
+        minCloseLoc: 72, maxUpperWickPct: 20, minBodyPct: 55, maxCandleRisk: 11.0, // V4 structural: body 35→55 (core quality lift), closeLoc 65→72
+        minUltraPrecisionScore: 75, minRSI2: 50,
         minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
         maxCloseAboveZonePct: 4.0,
         forensic: {
@@ -224,8 +224,8 @@ exports.PARAM_SETS = {
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.8, maxExactRangeATR14: 6.0,
         minExactVolRatio20: 1.2, minExactVolVsPre5: 2.0,
-        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 25, maxCandleRisk: 10.0,
-        minUltraPrecisionScore: 45, minRSI2: 50,
+        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 65, maxCandleRisk: 10.0, // V3b CPCV: body≥65 (was 45)
+        minUltraPrecisionScore: 75, minRSI2: 50, // opt: prec 45→75
         minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
         maxCloseAboveZonePct: 8.0,
     },
@@ -246,7 +246,7 @@ exports.PARAM_SETS = {
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
         minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5, // v2: unchanged
-        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 55, maxCandleRisk: 10.0, // v2: wick 35→30, body 25→55
+        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 65, maxCandleRisk: 10.0, // V3b CPCV: body≥65 (was 55)
         minUltraPrecisionScore: 45, minRSI2: 50,
         minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
         maxCloseAboveZonePct: null,
@@ -288,29 +288,31 @@ exports.PARAM_SETS = {
             minADX: 20, // ADX ≥ 20 required (trending regime)
             minLowerWickPct: 20, // lower tail ≥ 20% of range (demand absorption proof — backtest-validated sweet spot)
             maxBodyATR: 1.6, // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
+            minCloseLoc: 45, // V3b CPCV: closeLoc∈[45,53] → minPF=4.20 WR=96% n=25 OOS
             tpPct: 3,
             slAtrMult: 2.0,
             maxHoldBars: 12, // backtest: ORS WR peaks at H+3 (69.6% OOS, PF 3.22); exit within 3 bars, not 5
         },
     },
-    // ✅ v12-tuned — minExactVolVsPre5 1.0→3.5 (defining sniper filter), ATR pctl 50→40,
-    //    maxPre10AvgRangeATR 0.80→1.15, maxPre10RedVolBias 0.90→1.6, minExactVolRatio20 1.8→1.5,
-    //    minCloseLoc 75→65, maxUpperWickPct 20→15, minBodyPct 50→20, minVolExpRatio 2.0→1.0
-    // Phase 1 spec-restoration (2026-08-06): minUltraPrecisionScore 5→45, maxCandleRisk 16→11,
-    //   minExactVolVsPre5 3.5→2.0, maxUpperWickPct 15→35, maxPre10AvgRangeATR 1.15→0.95
-    //   (quality gate zeroed by grid-search; candle risk and vol-vs-pre5 over-tightened vs spec).
+    // ✅ V3b CPCV-validated (2026-08-23) — breadthRising regime gate + candle thresholds
+    //    Gate: breadthRising (market breadth >55% smoothed) + wick≤25 + prec≥75 + vol5≥3 + body≥0
+    //    CPCV C(9,2)=36 paths: minPF=1.38 avgPF=1.71 valid_splits=15/36 DSR_eff=0 → DEPLOY_NODSR
+    //    Flat OOS (2025-Q1+): n=11 WR=90.9% PF=2.79 avg=+2.92% stop=9.1%
+    //    NOTE: regime gate (breadth>55%) must be applied externally — only activate sniper
+    //    signals when Nifty market breadth is in bull regime (>55% stocks above EMA-50).
+    //    body≥0 = no body gate (breadth + vol5≥3 handle quality selection)
     sniper_95plus: {
         name: 'Sniper PS', tag: '⚡ Multi-Archetype',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 40,
         maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
-        zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0, // v2: unchanged
+        zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
         maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
         maxPre10HighVolCount: 0, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.6,
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.8, maxExactRangeATR14: 5.0,
-        minExactVolRatio20: 2.5, minExactVolVsPre5: 3.0, // v2: vr20 1.5→2.5, vp5 2.0→3.0
-        minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 55, maxCandleRisk: 11.0, // v2: wick 35→25, body 35→55
-        minUltraPrecisionScore: 45, minRSI2: 50,
+        minExactVolRatio20: 2.5, minExactVolVsPre5: 3.0, // V3b: vol5≥3 (was 1.5) — key discriminator in breadth-rising regime
+        minCloseLoc: 65, maxUpperWickPct: 25, minBodyPct: 0, maxCandleRisk: 11.0, // V3b: body≥0 (was 65), wick≤25 ✓, closeLoc≥65 preserved
+        minUltraPrecisionScore: 75, minRSI2: 50, // prec≥75 ✓
         minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
         maxCloseAboveZonePct: 5.0,
     },
@@ -1906,6 +1908,7 @@ function analyzeORS(candles) {
             (!orsParams.requireSwingLow || isSwLo) &&
             score >= orsParams.minOrsScore &&
             (orsParams.minADX == null || adxORS >= orsParams.minADX) &&
+            (orsParams.minCloseLoc == null || closeLoc >= orsParams.minCloseLoc) &&
             (orsParams.minLowerWickPct == null || lowerWickPct >= orsParams.minLowerWickPct) &&
             (orsParams.maxBodyATR == null || bodyAtr <= orsParams.maxBodyATR));
         return { passes, score, a14, bodyPct, upWick, lowerWickPct, bodyAtr, closeLoc, rPct, rsi2, rsi14, distE20, ddFromSwHi, zScore, vAvg20, tAvg, adxORS, c };
@@ -2692,11 +2695,17 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
         { label: 'DI+ > DI− and ADX ≥ 45 (breakout aligned)', pass: c6, value: `DI+${diPlusV.toFixed(0)} DI-${diMinusV.toFixed(0)} ADX${adxVal.toFixed(0)}` },
         { label: 'ATR contraction ≥ 8% over 5 bars (progressive squeeze)', pass: c7, value: `${(atrContraction5d * 100).toFixed(1)}%` },
     ];
+    let rSum10 = 0;
+    const rStart10 = Math.max(0, endIdx - 10);
+    for (let i = rStart10; i < endIdx; i++)
+        rSum10 += (candles[i].h - candles[i].l) / (atr14Arr[i] || 0.0001);
+    const pre10AvgRangeATR = (endIdx - rStart10) > 0 ? rSum10 / (endIdx - rStart10) : 1;
     return attachTuningDebug({
         ...base, stage, inflectionScore: score, confidence: score,
         avgTurnover20: turnover20, atrPct14: atr14 / sig.c * 100,
         volRatio20, rsi2, rsi14,
         exactRangeATR14, exactVolRatio20: volRatio20, closeLoc, upperWickPct, bodyPct,
+        pre10AvgRangeATR,
         signalRangePct: sig.c > 0 ? sigRange / sig.c * 100 : 0,
         ultraPrecisionScore: score, candleQualityScore: ca.qualityTier,
         priceEngine: pe,
@@ -3322,21 +3331,26 @@ magnetFlag) {
     //   Body>50 (marubozu) → 77.8% | UW<20 (no dist) → 75.0% | either = ~76%
     const ucElite = volRatio20 >= 3.0 && closeLoc >= 75 &&
         (bodyPct >= 50 || ((upperWickPct ?? 100) <= 20));
-    // Brain V2 prospective classification — mirrors actionable/on_radar/zone_only taxonomy
-    const ucClass =
-        (volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70)              ? 'PRIME'
-        : (volMax >= 2.0 && (closeLoc >= 65 || rsi2 >= 60))              ? 'WATCH'
-        : (zoneTightness != null && zoneTightness < 6.0 && volMax < 2.0) ? 'ZONE'
-        : 'COLD';
-    // Count of firing key UC discriminant features (0-7)
+    // Brain V2 prospective classification — mirrors actionable/on_radar/zone_only taxonomy.
+    // Derived from goldmine Phase 1 discriminant: actionable avg vs missed avg per feature.
+    // PRIME  = full triple-lock (Vol≥3x + CL≥75 + RSI2≥70) → matches "actionable" fingerprint
+    // WATCH  = partial qualification (Vol≥2x + strong CL or RSI2) → matches "on_radar"
+    // ZONE   = compression detected but vol still quiet → matches "zone_only"
+    // COLD   = no UC setup visible
+    const ucClass = (volRatio20 >= 3.0 && closeLoc >= 75 && rsi2 >= 70) ? 'PRIME'
+        : (volMax >= 2.0 && (closeLoc >= 65 || rsi2 >= 60)) ? 'WATCH'
+            : (zoneTightness != null && zoneTightness < 6.0 && volMax < 2.0) ? 'ZONE'
+                : 'COLD';
+    // Count of firing key UC discriminant features (0-7): confidence gauge for borderline scores.
+    // Features match Brain V2 goldmine FAS with Cohen's d ≥ 0.2 cutoff.
     const ucFeatureHits = [
-        closeLoc >= 70,
-        rsi2 >= 65,
-        rangeATR14 >= 1.0,
-        volMax >= 2.0,
-        volDrySurgeComp > 0,
-        weeklyResComp > 0,
-        !!magnetFlag,
+        closeLoc >= 70, // CL in top 30% of range (d=0.20)
+        rsi2 >= 65, // Short-term momentum rising (d=0.02 live but directional signal)
+        rangeATR14 >= 1.0, // Wide-range expansion day (d=1.05 — strongest non-vol feature)
+        volMax >= 2.0, // Vol surge ≥2x any baseline (d=1.21 strongest overall)
+        volDrySurgeComp > 0, // Dry+surge accumulation pattern detected
+        weeklyResComp > 0, // Multi-timeframe weekly resonance confirmed
+        !!magnetFlag, // Psychological round-number spring
     ].filter(Boolean).length;
     return { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits };
 }
@@ -3646,6 +3660,26 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                 // eliteTuner 2026-08-15: T2AsT1=true → exit at target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, PF=3.12 (N=100)
                 result.tradePromoted = isActionableStage(result.stage)
                     && (result.ucScore ?? 0) >= 55
+                    && (result.practicalOverlay?.passed ?? false);
+            }
+            else if (paramSetKey === 'optimized_highprecision_15plus') {
+                // ccQuickTuner 2026-08-15: 3 structural data-quality gates exposed by cache analysis
+                // (1) stopGap≥3%: rejects sub-1% stops that halt on first candle's noise (cache p25=0.13%)
+                // (2) ccT1Pct 1–25%: rejects degenerate T1≈entry AND corrupted targets (cache p90=1286%!)
+                // (3) ucScore≥60: minimum signal quality consistent with other param sets
+                const _pe = result.priceEngine;
+                const _entry = _pe?.plannedEntry ?? 0;
+                const _stop = _pe?.tacticalStop ?? 0;
+                const _t1 = _pe?.target5 ?? 0;
+                const _stopGapPct = (_entry > 0 && _stop > 0 && _stop < _entry)
+                    ? ((_entry - _stop) / _entry) * 100 : 0;
+                const _ccT1Pct = (_entry > 0 && _t1 > _entry)
+                    ? ((_t1 - _entry) / _entry) * 100 : 0;
+                result.tradePromoted = isActionableStage(result.stage)
+                    && (result.ucScore ?? 0) >= 60
+                    && _stopGapPct >= 3
+                    && _ccT1Pct >= 1
+                    && _ccT1Pct <= 25
                     && (result.practicalOverlay?.passed ?? false);
             }
             else if (result.practicalOverlay) {
