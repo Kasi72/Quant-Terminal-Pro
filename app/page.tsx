@@ -2244,6 +2244,12 @@ function HomePageInner() {
                   zoneLen:       r.zone?.windowLength     ?? 0,
                   zoneTightness: r.zone?.zoneTightnessPct ?? 0,
                 },
+                traj: {
+                  volAccel:     r.exactVolVsPre5          ?? null,
+                  rsi2Velocity: (r as any).rsi2Velocity   ?? null,
+                  clTrend:      (r as any).clTrend        ?? null,
+                },
+                ucScore: r.ucScore ?? null,
                 topK: 10,
               }),
               signal: AbortSignal.timeout(8_000),
