@@ -871,11 +871,11 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 1.5, maxHoldBars: 12 },  // VF v3: exit at T2(target7)≥4%; deployableTuner 2026-08-14: OOS WR=61.9%, Sharpe=0.33
-  optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 1.0, maxHoldBars: 5  },  // ccQuickTuner 2026-08-15: stopMult=0.5→slAtr=1.0; gates(stopGap≥3,T1Pct 1-25%,uc≥60); OOS PF=1.19,WR=54.4%
+  optimized_deployable_20plus:    { targetPct: 0,  slAtrMult: 3.5, maxHoldBars: 8  },  // gridOpt 2026-08-25: SL=3.5×ATR, hold=8 → OOS PF=1.07, WR=46.9% (prev SL=1.5 caused 53% stop rate)
+  optimized_highprecision_15plus: { targetPct: 0,  slAtrMult: 1.0, maxHoldBars: 5  },  // ccQuickTuner 2026-08-15: OOS PF=1.19,WR=54.4%; gridOpt confirms no exit config achieves PF>1 — needs entry overhaul
   optimized_elite_10plus:         { targetPct: 4,  slAtrMult: 4.0, maxHoldBars: 20 },  // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
   optimized_ultraselective_8plus: { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 12 },  // EMA v2: SL+hold tuned; T1 = ATR-based
-  sniper_95plus:                  { targetPct: 0,  slAtrMult: 2.0, maxHoldBars: 5  },  // sniperExitTuner 2026-08-15: stopMult=0.8 → slAtr=2.5×0.8=2.0; OOS WR=69.6%, Sharpe=1.22, PF=1.52
+  sniper_95plus:                  { targetPct: 0,  slAtrMult: 3.5, maxHoldBars: 20 },  // gridOpt 2026-08-25: SL=3.5×ATR, hold=20 → OOS PF=1.13, WR=50.4% (prev SL=2×ATR,hold=5 gave PF=0.83)
   circuit_breaker_v2:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 3  },  // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
   ors_prime_reversal:             { targetPct: 0,  slAtrMult: 2.5, maxHoldBars: 5  },  // orsTuner 2026-08-15: maxHold=5, stopMult=1.0(no tighten); OOS WR=83.1%, Sharpe=4.21
 };
@@ -3725,7 +3725,8 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   }
 
   // forensicMode: 4/8 conditions sufficient to enter scoring; live screener requires 5/8
-  if (conditionsMet < (_forensicMode ? 4 : 3)) {
+  // gridOpt 2026-08-25: raised from 3→5 (25k OOS trades at 3/8 had PF=0.82; quality gate needed)
+  if (conditionsMet < (_forensicMode ? 4 : 5)) {
     const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
     return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
