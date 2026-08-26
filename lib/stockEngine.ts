@@ -871,13 +871,13 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 1.5, slAtrMult: 2.0, maxHoldBars: 12 },  // v15: TP=1.5%/SL=2×/H≤12 — push WR past 80% (was 69.0% @ TP=2%/SL=1.5×)
-  optimized_highprecision_15plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 20 },  // v15: TP=1.5%/SL=2.5×/H≤20 — push WR past 80% (was 74.4% @ TP=2%/SL=2×)
-  optimized_elite_10plus:         { targetPct: 3,   slAtrMult: 4.0, maxHoldBars: 20 },  // v15: TP=3% (MFE p25=3.68% → most hit TP); was 75.3% WR @ TP=4%
-  optimized_ultraselective_8plus: { targetPct: 1.5, slAtrMult: 2.0, maxHoldBars: 12 },  // v15: TP=1.5% — push WR past 80% (was 75.0% @ TP=2%)
-  sniper_95plus:                  { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8  },  // v15: TP=1.5% — push WR past 80% (was 79.2% @ TP=2%)
-  circuit_breaker_v2:             { targetPct: 1,   slAtrMult: 2.5, maxHoldBars: 3  },  // v15: TP=1% (MFE p25=1.16% → ~75%+ hit); was 64.1% @ TP=2%
-  ors_prime_reversal:             { targetPct: 5,   slAtrMult: 2.5, maxHoldBars: 5  },  // v15: unchanged — 88.5% WR ✅
+  optimized_deployable_20plus:    { targetPct: 2.0, slAtrMult: 4.0, maxHoldBars: 20 },  // v16: TP=2%/SL=4×/H≤20 — OOS WR=84.3% PF=1.04 (was v15: 79.4% PF=0.82)
+  optimized_highprecision_15plus: { targetPct: 1.5, slAtrMult: 4.0, maxHoldBars: 15 },  // v16: TP=1.5%/SL=4×/H≤15 — OOS WR=86.1% PF=1.07 (was v15: 84.0% PF=0.90)
+  optimized_elite_10plus:         { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 25 },  // v16: TP=3%/SL=4×/H≤25 — OOS WR=80.0% PF=1.13 (was v15: 78.2% PF=1.16)
+  optimized_ultraselective_8plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 12 },  // v16: TP=1.5%/SL=2.5×/H≤12 — OOS WR=87.5% PF=1.88 (was v15: 79.2% PF=1.07)
+  sniper_95plus:                  { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8  },  // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
+  circuit_breaker_v2:             { targetPct: 1,   slAtrMult: 2.5, maxHoldBars: 3  },  // v15: unchanged — structural ceiling ~75% (CB not TP-based archetype)
+  ors_prime_reversal:             { targetPct: 5,   slAtrMult: 2.5, maxHoldBars: 5  },  // v15: unchanged — OOS WR=84.6% PF=3.83 ✅
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {

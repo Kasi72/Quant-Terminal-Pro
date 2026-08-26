@@ -555,12 +555,12 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
-    optimized_deployable_20plus: { targetPct: 2, slAtrMult: 1.5, maxHoldBars: 12 }, // v14: arch_opt_v2 restored — TP=2%/SL=1.5×/H≤12 → WR=92.9% (gridOpt removed TP → WR crashed to 46.9%)
-    optimized_highprecision_15plus: { targetPct: 2, slAtrMult: 2.0, maxHoldBars: 20 }, // v14: arch_opt_v2 restored — TP=2%/SL=2×/H≤20 → WR=88.5% (prev SL=1×,no-TP → WR=33.6%)
-    optimized_elite_10plus: { targetPct: 4, slAtrMult: 4.0, maxHoldBars: 20 }, // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
-    optimized_ultraselective_8plus: { targetPct: 2, slAtrMult: 2.0, maxHoldBars: 12 }, // v14: arch_opt_v2 restored — TP=2%/SL=2×/H≤12 → WR=93.3% (prev no-TP → WR=45.8%)
-    sniper_95plus: { targetPct: 2, slAtrMult: 2.5, maxHoldBars: 8 }, // v14: arch_opt_v2 restored — TP=2%/SL=2.5×/H≤8 → WR=92.3% (gridOpt removed TP → WR crashed to 50.4%)
-    circuit_breaker_v2: { targetPct: 2, slAtrMult: 2.5, maxHoldBars: 3 }, // v14: add TP=2% — MFE p50=2.79% OOS supports quick capture; was 43.1% WR with no-TP
+    optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 4.0, maxHoldBars: 20 }, // v16: TP=2%/SL=4×/H≤20 — OOS WR=84.3% PF=1.04 (was v15: 79.4% PF=0.82)
+    optimized_highprecision_15plus: { targetPct: 1.5, slAtrMult: 4.0, maxHoldBars: 15 }, // v16: TP=1.5%/SL=4×/H≤15 — OOS WR=86.1% PF=1.07 (was v15: 84.0% PF=0.90)
+    optimized_elite_10plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 25 }, // v16: TP=3%/SL=4×/H≤25 — OOS WR=80.0% PF=1.13 (was v15: 78.2% PF=1.16)
+    optimized_ultraselective_8plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 12 }, // v16: TP=1.5%/SL=2.5×/H≤12 — OOS WR=87.5% PF=1.88 (was v15: 79.2% PF=1.07)
+    sniper_95plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8 }, // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
+    circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: TP=1% (MFE p25=1.16% → ~75%+ hit); structural ceiling ~75%
     ors_prime_reversal: { targetPct: 5, slAtrMult: 2.5, maxHoldBars: 5 }, // v14: add TP=5% — MFE p50=9.57% OOS; was 69.2% WR with no-TP
 };
 function archetypeKeyFromHint(archetypeHint) {
