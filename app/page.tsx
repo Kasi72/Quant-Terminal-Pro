@@ -1911,7 +1911,7 @@ function HomePageInner() {
       setBrainInsights(bi);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newBrainScores: Record<string, any> = {};
-      const buySignals = results.filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage));
+      const buySignals = results.filter(r => r.stage !== 'NO_SIGNAL');
       for (const r of buySignals) {
         const atrInfo = detectATRState(r);
         const adj = bi.adjustScore(r, {
@@ -2486,7 +2486,7 @@ function HomePageInner() {
       const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as any);
       setBrainInsights(bi);
       const newBrainScores: Record<string, {original: number; brain: number; adjustments: Array<{factor: string; adj: number; reason: string; engine?: string}>; riskPct: number; riskLabel: string; ciLow: number; ciHigh: number; formLabel: string; formEMA: string; formTrend: string; anomalyCount: number; anomalyNote: string; priority?: number; confidence?: string; premortem?: {winRate: number; verdict: string; matches: Array<{symbol: string; conviction: number; status: string; pnlPct: number; similarity: number}>} | null}> = {};
-      const buySignals = newResults.filter(r => ['BUY','STRONG_BUY','ULTRA_STRONG_BUY'].includes(r.stage));
+      const buySignals = newResults.filter(r => r.stage !== 'NO_SIGNAL');
       console.log('[BRAIN] buySignals:', buySignals.length, buySignals.map(r => r.symbol + ':' + r.stage));
       for (const r of buySignals) {
         const cl = freshClenowMap[r.symbol];
