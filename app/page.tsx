@@ -1839,6 +1839,20 @@ function HomePageInner() {
       .catch(() => {});
   }, []);
 
+  // On-demand sparkline fetch: when a symbol is selected but candleCache lacks it
+  // (batch/cron results don't carry candle data), fetch silently so the chart renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!selectedSymbol || candleCache[selectedSymbol]) return;
+    fetchOHLCVClient(selectedSymbol)
+      .then(({ candles }) => {
+        if (candles?.length > 10) setCandleCache(prev => ({ ...prev, [selectedSymbol]: candles }));
+      })
+      .catch(() => {});
+  // candleCache intentionally omitted — avoids re-trigger after population
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSymbol]);
+
   // Persist tracked trades — Supabase cloud + localStorage mirror
   // Guard: skip until cloud load has completed to avoid wiping localStorage with []
   useEffect(() => {
