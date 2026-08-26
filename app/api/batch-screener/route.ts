@@ -118,6 +118,14 @@ export async function GET(req: NextRequest) {
     const candles = parseRaw(json);
     if (candles.length < 20) { failed++; return; }
 
+    // Stale bar check: last candle must be within 5 calendar days of session date.
+    // Rejects suspended/delisted stocks (JETAIRWAYS, FRETAIL, etc.) whose newest
+    // Yahoo bar is weeks or months old. 5-day window covers long weekends + holidays.
+    const lastCandleDate = new Date((candles[candles.length - 1].ts + 19800) * 1000).toISOString().slice(0, 10);
+    const sessionMs  = new Date(sessionDate).getTime();
+    const lastCandleMs = new Date(lastCandleDate).getTime();
+    if (sessionMs - lastCandleMs > 5 * 86400 * 1000) { failed++; return; }
+
     const result = analyzeStockMulti(candles, sym);
     fetched++;
 

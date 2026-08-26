@@ -318,7 +318,7 @@ export async function GET(req: NextRequest) {
   if (sym.startsWith('^'))                     candidates = [sym];  // index symbols are exact — no .NS/.BO variants
   else if (sym.toUpperCase().endsWith('.BO'))  candidates = [`${base}.BO`, `${base}.NS`];
   else if (sym.toUpperCase().endsWith('.NS')) candidates = [`${base}.NS`, `${base}.BO`];
-  else                                         candidates = [`${base}.NS`, `${base}.BO`, base];
+  else                                         candidates = [`${base}.NS`, `${base}.BO`];
   candidates = [...new Set(candidates)];
 
   for (const candidate of candidates) {
