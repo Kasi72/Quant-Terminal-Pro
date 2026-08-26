@@ -95,6 +95,9 @@ async function runWithConcurrency<T>(
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.get('authorization') ?? '';
+  console.log(`[batch-screener] secret_set=${!!secret} secret_len=${secret?.length ?? 0} auth_len=${auth.length} auth_prefix=${auth.slice(0,7)}`);
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
