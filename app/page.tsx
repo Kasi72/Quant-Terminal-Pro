@@ -1717,6 +1717,7 @@ function HomePageInner() {
   const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
   const [showSessions, setShowSessions] = useState(false);
   const [scanSource, setScanSource] = useState('Custom');
+  const [cronWarning, setCronWarning] = useState<{ symbols: string[]; label: string } | null>(null);
   const [batchSessionDate, setBatchSessionDate] = useState<string | null>(null);
   const [sessionDiff, setSessionDiff] = useState<SessionDiff | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -3033,7 +3034,7 @@ function HomePageInner() {
     reader.onload = ev => {
       const symbols = parseCSV(ev.target?.result as string);
       if (symbols.length > 0) {
-        runScan(symbols);
+        handleScanRequest(symbols, 'CSV upload');
       } else {
         setLastErr('No valid symbols found in CSV. Use a column named Symbol/Stock/Scrip/Ticker or any column with stock codes.');
         setErrCount(1);
@@ -3041,6 +3042,19 @@ function HomePageInner() {
     };
     reader.readAsText(file);
     e.target.value = '';
+  }, [runScan]);
+
+  // Gate manual scans post-cron: if weekday >= 21:00 IST, warn user to reload instead
+  const handleScanRequest = useCallback((symbols: string[], label = 'Custom') => {
+    const istMs = Date.now() + 19_800_000;
+    const d = new Date(istMs);
+    const dow = d.getUTCDay();
+    const secs = d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
+    if (dow >= 1 && dow <= 5 && secs >= 21 * 3600) {
+      setCronWarning({ symbols, label });
+      return;
+    }
+    runScan(symbols);
   }, [runScan]);
 
   const setColFilter = useCallback((key: string, val: string) => {
@@ -3720,7 +3734,7 @@ function HomePageInner() {
             className="h-7 px-2.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-[11px] font-medium text-white transition-colors">Demo</button>
           {lastScanSymbols.length > 0 && (
             <button disabled={scanning} data-tip={`Rescan same ${lastScanSymbols.length} stocks from last scan`} data-tip-color="green"
-              onClick={() => runScan(lastScanSymbols)}
+              onClick={() => handleScanRequest(lastScanSymbols, scanSource)}
               className="h-7 px-2.5 bg-emerald-900/40 hover:bg-emerald-900/60 disabled:opacity-40 border border-emerald-700 rounded text-[11px] font-semibold text-emerald-300 transition-colors">↻ Rescan</button>
           )}
           <button disabled={scanning} data-tip="Upload a CSV file with stock symbols (one per row)" data-tip-color="blue" onClick={() => fileInputRef.current?.click()}
@@ -3809,21 +3823,21 @@ function HomePageInner() {
         {/* Group 2: Index presets */}
         <div className="flex items-center gap-1 shrink-0">
           <select disabled={scanning} value="" data-tip="Scan stocks from Nifty broad market indices (50, 100, 200, 500, Full Equity)" data-tip-color="green"
-            onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            onChange={e => { const p = NIFTY_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); handleScanRequest([...p.symbols], p.label); } }}
             className="h-7 px-2 bg-emerald-950 hover:bg-emerald-900 disabled:opacity-40 border border-emerald-600 rounded text-[11px] font-semibold text-emerald-200 cursor-pointer focus:outline-none focus:border-emerald-400 shadow-sm"
             style={{colorScheme:'dark'}}>
             <option value="" disabled>Nifty ▾</option>
             {NIFTY_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
           <select disabled={scanning} value="" data-tip="Scan stocks from 30 NSE sectoral indices (IT, Bank, Pharma, Auto, etc.)" data-tip-color="amber"
-            onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            onChange={e => { const p = SECTOR_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); handleScanRequest([...p.symbols], p.label); } }}
             className="h-7 px-2 bg-amber-950 hover:bg-amber-900 disabled:opacity-40 border border-amber-600 rounded text-[11px] font-semibold text-amber-200 cursor-pointer focus:outline-none focus:border-amber-400 shadow-sm"
             style={{colorScheme:'dark'}}>
             <option value="" disabled>Sector ▾</option>
             {SECTOR_PRESETS.map(p => (<option key={p.key} value={p.key}>{p.label} ({p.count})</option>))}
           </select>
           <select disabled={scanning} value="" data-tip="Scan thematic & strategy indices (MNC, PSE, Growth, Value, Momentum, etc.)" data-tip-color="purple"
-            onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); runScan([...p.symbols]); } }}
+            onChange={e => { const p = THEMATIC_PRESETS.find(p => p.key === e.target.value); if (p) { setScanSource(p.label); handleScanRequest([...p.symbols], p.label); } }}
             className="h-7 px-2 bg-purple-950 hover:bg-purple-900 disabled:opacity-40 border border-purple-600 rounded text-[11px] font-semibold text-purple-200 cursor-pointer focus:outline-none focus:border-purple-400 shadow-sm"
             style={{colorScheme:'dark'}}>
             <option value="" disabled>Thematic ▾</option>
@@ -3954,13 +3968,41 @@ function HomePageInner() {
       </div>
 
       {/* ── Paste box ── */}
+      {cronWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setCronWarning(null)}>
+          <div className="bg-[#0d1117] border border-amber-600/50 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="text-amber-400 font-semibold text-sm mb-2">⚡ Cron data available</div>
+            <p className="text-slate-300 text-xs mb-1 leading-relaxed">
+              Cron ran at <span className="text-amber-300 font-mono">21:00 IST</span> — today&apos;s EOD results are cached in Supabase.
+            </p>
+            <p className="text-slate-400 text-xs mb-4 leading-relaxed">
+              Reload the page for instant results ({cronWarning.symbols.length} stocks). Fresh scan will re-fetch from Yahoo Finance (~2 min).
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 h-8 bg-amber-700 hover:bg-amber-600 rounded text-xs font-semibold text-white transition-colors">
+                ↻ Reload Page (instant)
+              </button>
+              <button
+                onClick={() => { const w = cronWarning; setCronWarning(null); setScanSource(w.label); runScan(w.symbols); }}
+                className="flex-1 h-8 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium text-slate-300 transition-colors">
+                Scan Anyway
+              </button>
+              <button onClick={() => setCronWarning(null)}
+                className="h-8 px-3 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-500 transition-colors">✕</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPasteBox && (
         <div className="flex-shrink-0 border-b border-slate-800 bg-[#0d1117] px-4 py-3 flex gap-2 items-start">
           <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
             placeholder="Paste symbols separated by commas, newlines, or semicolons (e.g. RELIANCE.NS, TCS.NS)..."
             className="flex-1 h-20 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none font-mono placeholder:text-slate-600" />
           <div className="flex flex-col gap-2">
-            <button onClick={() => { if (pasteSymbols.length > 0) { setShowPasteBox(false); setPasteText(''); runScan(pasteSymbols); } }}
+            <button onClick={() => { if (pasteSymbols.length > 0) { setShowPasteBox(false); setPasteText(''); handleScanRequest(pasteSymbols, 'Pasted symbols'); } }}
               disabled={pasteSymbols.length === 0}
               className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded text-xs font-medium text-white transition-colors">
               Scan ({pasteSymbols.length})</button>
@@ -4573,7 +4615,7 @@ function HomePageInner() {
         {activeTab === 'scanner' && (favorites.length > 0 || lastScanSymbols.length > 0) && (
           <div className="px-4 pb-1 flex items-center gap-1">
             {favorites.map(f => (
-              <button key={f.id} onClick={() => { setScanSource(f.source); runScan([...f.symbols]); }}
+              <button key={f.id} onClick={() => { setScanSource(f.source); handleScanRequest([...f.symbols], f.source); }}
                 className="px-2 py-0.5 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700 rounded text-xs text-indigo-300 transition-colors"
                 title={`${f.symbols.length} stocks · ${f.paramSet}`}>▶ {f.name}</button>
             ))}
