@@ -147,6 +147,9 @@ export async function GET(req: NextRequest) {
 
   const signals = rows.filter(r => r.best_stage !== 'NO_SIGNAL').length;
 
+  // Sweep: keep only 10 most recent session_dates, delete everything older
+  await supabase.rpc('sweep_old_scan_sessions', { keep_n: 10 });
+
   return NextResponse.json({
     ok: true,
     sessionDate,
