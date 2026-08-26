@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
     sessionDate = data.session_date as string;
   }
 
+  // Default: skip NO_SIGNAL — all real signals fit in <1000 rows, query is fast.
+  // Caller can pass stage=NO_SIGNAL explicitly if they need it.
+  const DEFAULT_EXCLUDE = ['NO_SIGNAL'];
+
   let query = supabase
     .from('daily_scan_results')
     .select('symbol, best_stage, best_param_set, inflection_score, last_close, uc_score, passed_sets, passed_count, raw_json')
@@ -43,10 +47,12 @@ export async function GET(req: NextRequest) {
     .order('inflection_score', { ascending: false });
 
   if (stageParam) {
-    const stages = stageParam.split(',').map(s => s.trim()).filter(s => ALLOWED_STAGES.has(s));
+    const stages = stageParam.split(',').map((s: string) => s.trim()).filter((s: string) => ALLOWED_STAGES.has(s));
     if (stages.length > 0) {
       query = query.in('best_stage', stages);
     }
+  } else {
+    query = query.not('best_stage', 'in', `(${DEFAULT_EXCLUDE.join(',')})`);
   }
 
   const { data, error } = await query;
