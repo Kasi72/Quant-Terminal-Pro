@@ -2392,6 +2392,14 @@ function HomePageInner() {
       }
       if (!abortRef.current) setResults([...newResults]);
     }
+    // Persist live scan results so next page load reuses them (avoids re-fetch between cron runs)
+    if (!abortRef.current && newResults.length > 0) {
+      fetch('/api/save-scan-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: newResults }),
+      }).catch(() => {});
+    }
     // Sprint 5: shadow validation log — save per-scan flow snapshot to localStorage
     try {
       const cov = sectorFlowCoverage(newResults.length, freshSectorMap);
