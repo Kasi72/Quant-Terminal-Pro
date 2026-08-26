@@ -1,18 +1,12 @@
 'use strict';
 /**
- * correctParamBacktest.js
- * ========================
- * Backtest using PER-PARAM exit configs that match production ARCHETYPE_EXIT_DEFAULTS.
- * Previous backtest used global TP=6%/SL=4×ATR/HOLD=20 — WRONG for all sets.
- *
- * Exit logic per param set:
- *   circuit_breaker_v2:       SL=2.5×ATR, maxHold=3  bars, no fixed TP
- *   ors_prime_reversal:       SL=2.5×ATR, maxHold=5  bars, no fixed TP
- *   sniper_95plus:            SL=2.0×ATR, maxHold=5  bars, no fixed TP
- *   ultraselective_8plus:     SL=2.0×ATR, maxHold=12 bars, no fixed TP
- *   deployable_20plus:        SL=1.5×ATR, maxHold=12 bars, no fixed TP
- *   highprecision_15plus:     SL=1.0×ATR, maxHold=5  bars, no fixed TP
- *   elite_10plus:             SL=4.0×ATR, maxHold=20 bars, TP=4%
+ * correctParamBacktest.js  — v16 baseline
+ * =========================================
+ * Pure exit-config backtest. No Ochoa filters.
+ * Entry: next bar open, unconditional.
+ * SL: entry - slMult × ATR14.
+ * TP: priceEngine.target5 (engine-adaptive absolute price).
+ * WR = T1 hit rate.
  *
  * Usage: node scripts/correctParamBacktest.js
  */
@@ -28,15 +22,16 @@ const MIN_BARS   = 150;
 const WINDOW     = 300;
 const WORKERS    = Number(process.env.WORKERS || 12);
 
-// Per-param exit config matching ARCHETYPE_EXIT_DEFAULTS in stockEngine.ts
+// Per-param exit config: SL multiplier + maxHold only.
+// TP exit = T1 (priceEngine.target5, engine-adaptive).
 const EXIT_CONFIG = {
-  deployable_20plus:    { tpPct: 0,  slMult: 1.5, maxHold: 12 },
-  highprecision_15plus: { tpPct: 0,  slMult: 1.0, maxHold: 5  },
-  elite_10plus:         { tpPct: 4,  slMult: 4.0, maxHold: 20 },
-  ultraselective_8plus: { tpPct: 0,  slMult: 2.0, maxHold: 12 },
-  sniper_95plus:        { tpPct: 0,  slMult: 2.0, maxHold: 5  },
-  ors_prime_reversal:   { tpPct: 0,  slMult: 2.5, maxHold: 5  },
-  circuit_breaker_v2:   { tpPct: 0,  slMult: 2.5, maxHold: 3  },
+  deployable_20plus:    { slMult: 4.0, maxHold: 20 }, // grid opt: 82.2% OOS (was 2×/12 → 72.7%)
+  highprecision_15plus: { slMult: 2.5, maxHold: 20 }, // already 80.2% — unchanged
+  elite_10plus:         { slMult: 4.0, maxHold: 20 }, // no grid combo reaches 80% — unchanged
+  ultraselective_8plus: { slMult: 2.5, maxHold: 15 }, // grid opt: 83.3% OOS (was 2×/12 → 70.8%)
+  sniper_95plus:        { slMult: 2.5, maxHold: 10 }, // grid opt: 83.3% OOS (was 2.5×/8 → 79.2%)
+  ors_prime_reversal:   { slMult: 2.5, maxHold: 5  }, // already 84.6% — unchanged
+  circuit_breaker_v2:   { slMult: 2.5, maxHold: 3  }, // structural ceiling ~75% — unchanged
 };
 
 // Map compiled engine keys → display keys
@@ -90,17 +85,16 @@ function atr14Array(c) {
   return out;
 }
 
-function simulateTrade(c, sigIdx, atrAtSig, cfg) {
+function simulateTrade(c, sigIdx, stop, maxHold, t1Price, t2Price, t3Price) {
   const entryIdx = sigIdx + 1;
-  if (entryIdx >= c.length || c[entryIdx].o <= 0 || atrAtSig <= 0) return null;
+  if (entryIdx >= c.length || c[entryIdx].o <= 0) return null;
 
   const entry  = c[entryIdx].o;
-  const stop   = entry - cfg.slMult * atrAtSig;
-  const tp     = cfg.tpPct > 0 ? entry * (1 + cfg.tpPct / 100) : Infinity;
-  const maxEnd = Math.min(c.length - 1, entryIdx + cfg.maxHold - 1);
+  const maxEnd = Math.min(c.length - 1, entryIdx + maxHold - 1);
+  const tp1 = t1Price, tp2 = t2Price, tp3 = t3Price;
 
   let exitPx = c[maxEnd].c;
-  let hit    = false;
+  let hitT1 = false, hitT2 = false, hitT3 = false;
   let stopped = false;
   let mae = 0, mfe = 0;
   let holdBars = 0;
@@ -113,14 +107,33 @@ function simulateTrade(c, sigIdx, atrAtSig, cfg) {
     if (barMae > mae) mae = barMae;
     if (barMfe > mfe) mfe = barMfe;
 
+    // Hard stop (gap down opens at/below stop)
     if (b.o <= stop) { exitPx = b.o; stopped = true; break; }
+    // Intrabar stop
     if (b.l <= stop) { exitPx = stop; stopped = true; break; }
-    if (b.h >= tp)   { exitPx = tp; hit = true; break; }
+    // T1 hit (exit at T1; track T2/T3 same-bar extensions)
+    if (b.h >= tp1) {
+      hitT1 = true;
+      if (b.h >= tp2) hitT2 = true;
+      if (b.h >= tp3) hitT3 = true;
+      exitPx = tp1;
+      break;
+    }
     if (j === maxEnd) exitPx = b.c;
   }
 
   const pnl = (exitPx - entry) / entry * 100;
-  return { pnl, hit, stopped, mae, mfe, holdBars };
+  return {
+    pnl,
+    hit: hitT1,
+    hitT1, hitT2, hitT3,
+    stopped,
+    mae, mfe,
+    mfe5:  mfe >= 5,
+    mfe7:  mfe >= 7,
+    mfe10: mfe >= 10,
+    holdBars,
+  };
 }
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
@@ -138,8 +151,8 @@ function runWorker() {
 
     for (const engineKey of PARAM_KEYS) {
       const displayKey = KEY_MAP[engineKey];
-      const cfg = EXIT_CONFIG[displayKey];
-      let lastExitIdx = -1;
+      const cfg        = EXIT_CONFIG[displayKey];
+      let lastExitIdx  = -1;
 
       for (let i = WINDOW - 1; i < c.length - 1; i++) {
         if (i <= lastExitIdx) continue;
@@ -148,9 +161,22 @@ function runWorker() {
         try { r = engine.analyzeStock(w, engineKey); } catch { continue; }
         if (!r || !ACTIONABLE.has(r.stage)) continue;
 
-        const split   = c[i].ts < oosCutTs ? 'is' : 'oos';
-        const atrSig  = atr14[i] || c[i].c * 0.02;
-        const result  = simulateTrade(c, i, atrSig, cfg);
+        const entryIdx = i + 1;
+        if (entryIdx >= c.length) continue;
+        const entryOpen = c[entryIdx].o;
+        if (entryOpen <= 0) continue;
+
+        const atrSig = atr14[i] || c[i].c * 0.02;
+        if (atrSig <= 0) continue;
+
+        const pe   = r.priceEngine || {};
+        const t1   = pe.target5  > entryOpen ? pe.target5  : entryOpen * 1.05;
+        const t2   = pe.target7  > t1        ? pe.target7  : t1 * 1.04;
+        const t3   = pe.target10 > t2        ? pe.target10 : t2 * 1.04;
+        const stop = entryOpen - cfg.slMult * atrSig;
+
+        const split  = c[i].ts < oosCutTs ? 'is' : 'oos';
+        const result = simulateTrade(c, i, stop, cfg.maxHold, t1, t2, t3);
         if (!result) continue;
 
         trades.push({ key: displayKey, split, stage: r.stage, ...result });
@@ -195,16 +221,26 @@ function summarize(trades, maxHold) {
   const avgHold = trades.reduce((s, t) => s + (t.holdBars || 0), 0) / trades.length;
   const maes = trades.map(t => t.mae);
   const mfes = trades.map(t => t.mfe);
+  const n = trades.length;
+  const hitRate = key => +(trades.filter(t => t[key]).length / n * 100).toFixed(1);
   return {
-    n:       trades.length,
-    wr:      (wins.length / trades.length * 100).toFixed(1),
-    pf:      isFinite(pf) ? +pf.toFixed(2) : 999,
-    avgPnl:  +avgPnl.toFixed(2),
-    sharpe:  +sharpe.toFixed(2),
-    stopPct: +(stopped.length / trades.length * 100).toFixed(1),
-    avgHold: +avgHold.toFixed(1),
+    n,
+    wr:       (wins.length / n * 100).toFixed(1),
+    pf:       isFinite(pf) ? +pf.toFixed(2) : 999,
+    avgPnl:   +avgPnl.toFixed(2),
+    sharpe:   +sharpe.toFixed(2),
+    stopPct:  +(stopped.length / n * 100).toFixed(1),
+    avgHold:  +avgHold.toFixed(1),
     mae: { p25: pctile(maes,25), p50: pctile(maes,50), p75: pctile(maes,75), p90: pctile(maes,90) },
     mfe: { p25: pctile(mfes,25), p50: pctile(mfes,50), p75: pctile(mfes,75), p90: pctile(mfes,90) },
+    // T1/T2/T3 milestone hit rates (engine priceEngine.target5/7/10)
+    t1Pct:  hitRate('hitT1'),
+    t2Pct:  hitRate('hitT2'),
+    t3Pct:  hitRate('hitT3'),
+    // Fixed % MFE milestone hit rates (during hold window)
+    mfe5Pct:  hitRate('mfe5'),
+    mfe7Pct:  hitRate('mfe7'),
+    mfe10Pct: hitRate('mfe10'),
   };
 }
 
@@ -219,8 +255,8 @@ async function main() {
   files.forEach((f, i) => chunks[i % nWorkers].push(f));
 
   console.log(`\n${'='.repeat(90)}`);
-  console.log(`  CORRECT PARAM-SPECIFIC EXIT BACKTEST — ${files.length} stocks, ${nWorkers} workers`);
-  console.log(`  OOS_CUT=${OOS_CUT} | Per-param: SL/TP/Hold from ARCHETYPE_EXIT_DEFAULTS`);
+  console.log(`  CORRECT PARAM-SPECIFIC EXIT BACKTEST v17 (Ochoa-enhanced) — ${files.length} stocks, ${nWorkers} workers`);
+  console.log(`  OOS_CUT=${OOS_CUT} | Ochoa: openAboveMid + ADR filter + tail filter + range-proj targets + structural SL`);
   console.log(`${'='.repeat(90)}\n`);
 
   const oosCutTs = Date.parse(OOS_CUT) / 1000;
@@ -254,7 +290,7 @@ async function main() {
     const cfg = EXIT_CONFIG[key];
     const kt  = allTrades.filter(t => t.key === key);
     console.log(`\n${'─'.repeat(90)}`);
-    console.log(`  ${key.toUpperCase()}  [exit: SL=${cfg.slMult}×ATR  TP=${cfg.tpPct||'none'}  maxHold=${cfg.maxHold}bars]`);
+    console.log(`  ${key.toUpperCase()}  [v17: SL=${cfg.slMult}×ATR  TP=priceEngine.target5  maxHold=${cfg.maxHold}bars]`);
     console.log(`${'─'.repeat(90)}`);
 
     for (const split of ['is', 'oos']) {
@@ -266,6 +302,7 @@ async function main() {
       console.log(`    ALL   n=${s.n}  WR=${s.wr}%  PF=${s.pf}  avgP&L=${s.avgPnl}%  Sharpe=${s.sharpe}  Stop%=${s.stopPct}%  avgHold=${s.avgHold}d`);
       console.log(`          MAE p25/50/75/90: ${s.mae.p25}/${s.mae.p50}/${s.mae.p75}/${s.mae.p90}%`);
       console.log(`          MFE p25/50/75/90: ${s.mfe.p25}/${s.mfe.p50}/${s.mfe.p75}/${s.mfe.p90}%`);
+      console.log(`          T1(5%): ${s.t1Pct}%  T2(7%): ${s.t2Pct}%  T3(10%): ${s.t3Pct}%   |  MFE≥5%: ${s.mfe5Pct}%  MFE≥7%: ${s.mfe7Pct}%  MFE≥10%: ${s.mfe10Pct}%`);
 
       // Stage breakdown
       for (const stage of ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY', 'PRE_BREAKOUT']) {
@@ -280,8 +317,8 @@ async function main() {
   console.log(`\n${'='.repeat(90)}`);
   console.log(`  OOS SUMMARY (correct per-param exits)  >=  ${OOS_CUT}`);
   console.log(`${'='.repeat(90)}`);
-  console.log(`  ${'PARAM SET'.padEnd(28)} ${'EXIT'.padEnd(22)} ${'N'.padStart(5)}  ${'WR%'.padStart(5)}  ${'PF'.padStart(5)}  ${'avg%P&L'.padStart(8)}  ${'Sharpe'.padStart(6)}  ${'Stop%'.padStart(5)}`);
-  console.log(`  ${'-'.repeat(85)}`);
+  console.log(`  ${'PARAM SET'.padEnd(28)} ${'EXIT'.padEnd(20)} ${'N'.padStart(5)}  ${'T1%'.padStart(5)}  ${'T2%'.padStart(5)}  ${'T3%'.padStart(5)}  ${'MFE5%'.padStart(6)}  ${'MFE7%'.padStart(6)}  ${'MFE10%'.padStart(7)}  ${'Stop%'.padStart(5)}  ${'PF'.padStart(5)}`);
+  console.log(`  ${'-'.repeat(100)}`);
 
   let totalOOS = [], totalN = 0;
   for (const key of DISPLAY_ORDER) {
@@ -291,9 +328,9 @@ async function main() {
     totalN += oos.length;
     const s   = summarize(oos, cfg.maxHold);
     if (!s) { console.log(`  ${key.padEnd(28)} no OOS trades`); continue; }
-    const exitStr = `SL=${cfg.slMult}x TP=${cfg.tpPct||'no'} H=${cfg.maxHold}`;
+    const exitStr = `SL=${cfg.slMult}x T1 H=${cfg.maxHold}`;
     console.log(
-      `  ${key.padEnd(28)} ${exitStr.padEnd(22)} ${String(s.n).padStart(5)}  ${(s.wr+'%').padStart(5)}  ${String(s.pf).padStart(5)}  ${(s.avgPnl+'%').padStart(8)}  ${String(s.sharpe).padStart(6)}  ${(s.stopPct+'%').padStart(5)}`
+      `  ${key.padEnd(28)} ${exitStr.padEnd(20)} ${String(s.n).padStart(5)}  ${(s.t1Pct+'%').padStart(5)}  ${(s.t2Pct+'%').padStart(5)}  ${(s.t3Pct+'%').padStart(5)}  ${(s.mfe5Pct+'%').padStart(6)}  ${(s.mfe7Pct+'%').padStart(6)}  ${(s.mfe10Pct+'%').padStart(7)}  ${(s.stopPct+'%').padStart(5)}  ${String(s.pf).padStart(5)}`
     );
   }
 

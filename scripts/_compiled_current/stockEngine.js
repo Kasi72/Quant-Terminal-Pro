@@ -170,15 +170,15 @@ exports.PARAM_SETS = {
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 50,
         maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 6.0, // v2: 12→6 (tighter zone)
-        maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.90,
+        maxPre10AvgVolRatio: 0.80, maxPre5AvgVolRatio: 0.90, // v14: vol10 0.90→0.80 (stricter pre-zone volume quiescence)
         maxPre10HighVolCount: 2, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.2, maxExactRangeATR14: 5.0,
-        minExactVolRatio20: 2.5, minExactVolVsPre5: 2.5, // V4 structural: vp5 1.5→2.5 (V4 best gate; baked into engine)
+        minExactVolRatio20: 2.5, minExactVolVsPre5: 3.5, // v14: vp5 2.5→3.5 (stronger volume confirmation required)
         minCloseLoc: 75, maxUpperWickPct: 18, minBodyPct: 65, maxCandleRisk: 10.0, // V4 structural: closeLoc 68→75 (V4 best gate; baked into engine)
-        minUltraPrecisionScore: 75, minRSI2: 50, // V4 structural: prec 45→75 (align with other sets)
+        minUltraPrecisionScore: 80, minRSI2: 50, // v14: prec 75→80 (higher signal quality floor)
         minVolatilityExpansionRatio: 2.0, minCandleQualityScore: 2,
-        maxCloseAboveZonePct: 6.0,
+        maxCloseAboveZonePct: 3.5, // v14: 6.0→3.5 (must break out cleanly, not extended)
         forensic: {
             maxCusumPos: 0.04,
             requireBullishPattern: true,
@@ -193,17 +193,17 @@ exports.PARAM_SETS = {
     optimized_highprecision_15plus: {
         name: 'CC Precision', tag: '🔄 Coil Breakout',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 85,
-        maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
+        maxPre10AvgRangeATR: 0.72, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1, // v14: 0.85→0.72 (stricter pre-zone calm)
         zoneRangeATRThreshold: 1.0, minZoneLen: 10, maxZoneLen: 25, maxZoneTightnessPct: 7.0, // v2: minZone 5→10, tight 5→7
         maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
         maxPre10HighVolCount: 4, highVolMultiplier: 1.35, maxPre10RedVolBias: 1.1,
         breakoutMultiplier: 1.001,
         minExactRangeATR14: 1.0, maxExactRangeATR14: 5.0,
-        minExactVolRatio20: 2.0, minExactVolVsPre5: 2.5, // V4 structural: vp5 1.5→2.5 (cut noisy low-vol signals)
-        minCloseLoc: 72, maxUpperWickPct: 20, minBodyPct: 55, maxCandleRisk: 11.0, // V4 structural: body 35→55 (core quality lift), closeLoc 65→72
+        minExactVolRatio20: 2.5, minExactVolVsPre5: 2.5, // v14: vol20 2.0→2.5 (match VF Scout threshold)
+        minCloseLoc: 78, maxUpperWickPct: 20, minBodyPct: 65, maxCandleRisk: 11.0, // v14: closeLoc 72→78 (strong upper close required)
         minUltraPrecisionScore: 75, minRSI2: 50,
-        minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
-        maxCloseAboveZonePct: 4.0,
+        minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 4, // v14: cqs 3→4 (higher candle quality bar)
+        maxCloseAboveZonePct: 2.5, // v14: 4.0→2.5 (tighter zone breakout only)
         forensic: {
             maxBodyATR: 1.6,
         },
@@ -239,15 +239,15 @@ exports.PARAM_SETS = {
     optimized_ultraselective_8plus: {
         name: 'EMA Stack', tag: '📈 Trend Crossover',
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 95,
-        maxPre10AvgRangeATR: 0.75, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1,
+        maxPre10AvgRangeATR: 0.68, maxPre10ExpansionCount: 0, expansionATRMultiplier: 1.1, // v14: 0.75→0.68 (tighter calm zone)
         zoneRangeATRThreshold: 0.95, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0, // v2: tight 15→12
         maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 0.95,
         maxPre10HighVolCount: 0, highVolMultiplier: 1.5, maxPre10RedVolBias: 1.1,
         breakoutMultiplier: 1.001,
-        minExactRangeATR14: 1.2, maxExactRangeATR14: 6.0,
-        minExactVolRatio20: 1.6, minExactVolVsPre5: 1.5, // v2: unchanged
-        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 65, maxCandleRisk: 10.0, // V3b CPCV: body≥65 (was 55)
-        minUltraPrecisionScore: 45, minRSI2: 50,
+        minExactRangeATR14: 1.5, maxExactRangeATR14: 6.0, // v14: 1.2→1.5 (stronger range expansion)
+        minExactVolRatio20: 2.2, minExactVolVsPre5: 2.2, // v14: vol20 1.6→2.2, vp5 1.5→2.2 (institutional threshold)
+        minCloseLoc: 65, maxUpperWickPct: 30, minBodyPct: 72, maxCandleRisk: 10.0, // v14: body 65→72 (stronger close conviction)
+        minUltraPrecisionScore: 68, minRSI2: 50, // v14: prec 45→68 (was far below all other sets)
         minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 3,
         maxCloseAboveZonePct: null,
     },
@@ -555,13 +555,13 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
-    optimized_deployable_20plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 8 }, // gridOpt 2026-08-25: SL=3.5×ATR, hold=8 → OOS PF=1.07, WR=46.9% (prev SL=1.5 caused 53% stop rate)
-    optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 1.0, maxHoldBars: 5 }, // ccQuickTuner 2026-08-15: OOS PF=1.19,WR=54.4%; gridOpt confirms no exit config achieves PF>1 — needs entry overhaul
+    optimized_deployable_20plus: { targetPct: 2, slAtrMult: 1.5, maxHoldBars: 12 }, // v14: arch_opt_v2 restored — TP=2%/SL=1.5×/H≤12 → WR=92.9% (gridOpt removed TP → WR crashed to 46.9%)
+    optimized_highprecision_15plus: { targetPct: 2, slAtrMult: 2.0, maxHoldBars: 20 }, // v14: arch_opt_v2 restored — TP=2%/SL=2×/H≤20 → WR=88.5% (prev SL=1×,no-TP → WR=33.6%)
     optimized_elite_10plus: { targetPct: 4, slAtrMult: 4.0, maxHoldBars: 20 }, // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
-    optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 2.0, maxHoldBars: 12 }, // EMA v2: SL+hold tuned; T1 = ATR-based
-    sniper_95plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 }, // gridOpt 2026-08-25: SL=3.5×ATR, hold=20 → OOS PF=1.13, WR=50.4% (prev SL=2×ATR,hold=5 gave PF=0.83)
-    circuit_breaker_v2: { targetPct: 0, slAtrMult: 2.5, maxHoldBars: 3 }, // CB v2 rescued: dualTuner 2026-08-14: maxHold=3, OOS WR=61.3%, Sharpe=2.19
-    ors_prime_reversal: { targetPct: 0, slAtrMult: 2.5, maxHoldBars: 5 }, // orsTuner 2026-08-15: maxHold=5, stopMult=1.0(no tighten); OOS WR=83.1%, Sharpe=4.21
+    optimized_ultraselective_8plus: { targetPct: 2, slAtrMult: 2.0, maxHoldBars: 12 }, // v14: arch_opt_v2 restored — TP=2%/SL=2×/H≤12 → WR=93.3% (prev no-TP → WR=45.8%)
+    sniper_95plus: { targetPct: 2, slAtrMult: 2.5, maxHoldBars: 8 }, // v14: arch_opt_v2 restored — TP=2%/SL=2.5×/H≤8 → WR=92.3% (gridOpt removed TP → WR crashed to 50.4%)
+    circuit_breaker_v2: { targetPct: 2, slAtrMult: 2.5, maxHoldBars: 3 }, // v14: add TP=2% — MFE p50=2.79% OOS supports quick capture; was 43.1% WR with no-TP
+    ors_prime_reversal: { targetPct: 5, slAtrMult: 2.5, maxHoldBars: 5 }, // v14: add TP=5% — MFE p50=9.57% OOS; was 69.2% WR with no-TP
 };
 function archetypeKeyFromHint(archetypeHint) {
     if (archetypeHint === 'VF')
@@ -2573,7 +2573,7 @@ function analyzeCompressionCoil(candles, skipPrecisionGate = false) {
     // CMF+OBV+Vol precision gate — hyper-tuned walk-forward: OOS WR 65% → 90.0% (n=10) / robust 67.8% (n=59)
     // Skipped when called from PerfectStorm or in forensicMode (PBFB: detect compression structure without quality filters).
     if (!skipPrecisionGate && !_forensicMode) {
-        if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', -1) ||
+        if (tech.cmf20 < tuned(key, 'minCMF20', 0.15) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) || // v14: OBV -1→0.5 (enable meaningful OBV gate)
             tech.atrPct14 < tuned(key, 'minAtrPct14', 0) ||
             volRatio20 < tuned(key, 'minGateVolRatio', 1) || tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 1) ||
             tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))
@@ -2884,7 +2884,7 @@ function analyzeEMAStack(candles) {
     // Strict EMAStack sweet spot: crossover remains fresh, but the post-signal
     // trade promotion overlay still decides whether it is auto-track eligible.
     // forensicMode: bypassed — PBFB detects EMA crossover structure regardless of quality filters.
-    if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) ||
+    if (!_forensicMode && (tech.cmf20 < tuned(key, 'minCMF20', 0.1) || tech.obvSlope10 < tuned(key, 'minOBVSlope10', 0.5) || // v14: CMF 0→0.1 (add minimum money flow)
         tech.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', -0.5) ||
         (tuned(key, 'minEMA20VsEMA50', 0) > -999 && tech.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', 0))))
         return { ...base, conditionsMet: 0, totalConditions: 6, archetypeType: 'EMAStack', archetypeConditions: 0, archetypeTotal: 6 };
@@ -2919,10 +2919,10 @@ function analyzeEMAStack(candles) {
     const ema10VsEma20 = ema20 > 0 ? (ema10 - ema20) / ema20 * 100 : 0;
     const caES = computeCandleArch(sig.o, sig.h, sig.l, sig.c, atr14);
     const c3 = ema10VsEma20 >= tuned(key, 'minEMA10VsEma20', 0.5) && caES.isGreen &&
-        caES.bodyPct >= tuned(key, 'minBodyPct', 50) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 20) &&
+        caES.bodyPct >= tuned(key, 'minBodyPct', 65) && caES.upperWickPct <= tuned(key, 'maxUpperWick', 20) && // v14: body 50→65 (align PARAM_SETS)
         caES.candleRisk <= tuned(key, 'maxCandleRisk', 8);
     // C4: Volume on crossover day ≥ 1.3× avg
-    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 1.3);
+    const c4 = volRatio20 >= tuned(key, 'minVolRatio', 2.2); // v14: 1.3→2.2 (align PARAM_SETS minExactVolRatio20)
     // C5: RSI2 ≤ 50 in last 5 bars (relaxed from 48)
     let recentlyOversold = false;
     for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
@@ -3031,7 +3031,7 @@ function analyzePerfectStorm(candles) {
         const _obv = techPS.obvSlope10;
         // PerfectStormRelaxed: one strong archetype in a clean volatility/flow regime.
         // EMA20/EMA50 alignment is intentionally disabled by default (-999).
-        if (_cmf < tuned(key, 'minCMF20', 0.1) || _obv < tuned(key, 'minOBVSlope10', 0) ||
+        if (_cmf < tuned(key, 'minCMF20', 0.05) || _obv < tuned(key, 'minOBVSlope10', 0.8) || // v14: OBV 0→0.8 (booster: 64.7% WR), CMF 0.1→0.05 (OBV does work)
             techPS.atrPct14 < tuned(key, 'minAtrPct14', 4) || techPS.atrPct14 > tuned(key, 'maxAtrPct14', 5) ||
             techPS.closeVsEMA20 < tuned(key, 'minCloseVsEMA20', 0) ||
             (tuned(key, 'minEMA20VsEMA50', -999) > -999 && techPS.ema20Vs50 < tuned(key, 'minEMA20VsEMA50', -999)))
