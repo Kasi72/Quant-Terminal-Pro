@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorizedScreenerRequest, isScreenerAuthConfigured } from '@/lib/screenerSession';
 
-const PUBLIC_PATHS = ['/login', '/api/screener-auth', '/api/nightly-update'];
+const PUBLIC_PATHS = ['/login', '/api/screener-auth', '/api/nightly-update', '/api/batch-screener', '/api/batch-results', '/api/label-uc-outcomes'];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
