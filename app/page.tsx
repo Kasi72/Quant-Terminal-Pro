@@ -1906,7 +1906,8 @@ function HomePageInner() {
 
     // ── Brain Scores (degraded — clenow/flag/coil absent, rest intact) ──
     try {
-      const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as Parameters<typeof computeBrainInsights>[1]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as any);
       setBrainInsights(bi);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newBrainScores: Record<string, any> = {};
