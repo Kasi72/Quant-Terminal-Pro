@@ -41,14 +41,10 @@ export function getMarketSessionDate(nowMs: number = Date.now()): string {
   } else if (dow === 0) {
     // Sunday → Friday
     effectiveMs -= 2 * DAY_MS;
-  } else if (secs < MARKET_CLOSE_SECS) {
-    // Weekday before 15:30:00 → previous trading day
-    effectiveMs -= DAY_MS;
-    const prevDow = new Date(effectiveMs).getUTCDay();
-    if      (prevDow === 0) effectiveMs -= 2 * DAY_MS; // landed on Sunday → Friday
-    else if (prevDow === 6) effectiveMs -= DAY_MS;      // landed on Saturday → Friday
   }
-  // else: weekday at or after 15:30:00 → today is the session date
+  // Any weekday (including pre-market / intraday): session_date = today.
+  // Today's incomplete candle is the live data the user wants.
+  // Cron at 21:00 IST overwrites with final EOD data.
 
   return new Date(effectiveMs).toISOString().slice(0, 10);
 }
