@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabaseServer';
 import { analyzeStockMulti } from '@/lib/stockEngine';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
+import { getMarketSessionDate } from '@/lib/marketSession';
 import type { Candle } from '@/lib/compute';
 
 export const dynamic = 'force-dynamic';
@@ -100,8 +101,8 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  // Session date in IST
-  const sessionDate = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  // Precise NSE/BSE session date: cron runs post-market so this always resolves to today
+  const sessionDate = getMarketSessionDate(Date.now());
 
   const preset = NIFTY_PRESETS.find(p => p.key === 'clean_nse_2026');
   if (!preset) return NextResponse.json({ error: 'clean_nse_2026 preset not found' }, { status: 500 });

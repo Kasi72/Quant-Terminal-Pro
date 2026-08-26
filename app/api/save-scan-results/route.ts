@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabaseServer';
 import { isAuthorizedScreenerRequest } from '@/lib/screenerSession';
+import { getMarketSessionDate } from '@/lib/marketSession';
 import type { AnalysisResult } from '@/lib/stockEngine';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +21,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
-  // Session date in IST
-  const sessionDate = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  // Precise NSE/BSE session date: uses market close (15:30:00 IST) as cutoff
+  const nowMs = Date.now();
+  const sessionDate = getMarketSessionDate(nowMs);
   const supabase = getServiceClient();
 
   const rows = results.map(r => ({
