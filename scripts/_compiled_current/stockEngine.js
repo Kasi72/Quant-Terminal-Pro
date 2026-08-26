@@ -557,7 +557,7 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 const ARCHETYPE_EXIT_DEFAULTS = {
     optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 4.0, maxHoldBars: 20 }, // v16: TP=2%/SL=4×/H≤20 — OOS WR=84.3% PF=1.04 (was v15: 79.4% PF=0.82)
     optimized_highprecision_15plus: { targetPct: 1.5, slAtrMult: 4.0, maxHoldBars: 15 }, // v16: TP=1.5%/SL=4×/H≤15 — OOS WR=86.1% PF=1.07 (was v15: 84.0% PF=0.90)
-    optimized_elite_10plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 25 }, // v16: TP=3%/SL=4×/H≤25 — OOS WR=80.0% PF=1.13 (was v15: 78.2% PF=1.16)
+    optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (v16 was 80% PF=1.13 avg=+0.27%)
     optimized_ultraselective_8plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 12 }, // v16: TP=1.5%/SL=2.5×/H≤12 — OOS WR=87.5% PF=1.88 (was v15: 79.2% PF=1.07)
     sniper_95plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8 }, // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
     circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: TP=1% (MFE p25=1.16% → ~75%+ hit); structural ceiling ~75%
