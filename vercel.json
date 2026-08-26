@@ -11,6 +11,10 @@
     {
       "path": "/api/label-uc-outcomes",
       "schedule": "30 14 * * 2-6"
+    },
+    {
+      "path": "/api/batch-screener",
+      "schedule": "30 15 * * 1-5"
     }
   ]
 }
