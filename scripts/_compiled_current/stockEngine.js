@@ -555,13 +555,13 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
-    optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 4.0, maxHoldBars: 20 }, // v16: TP=2%/SL=4×/H≤20 — OOS WR=84.3% PF=1.04 (was v15: 79.4% PF=0.82)
-    optimized_highprecision_15plus: { targetPct: 1.5, slAtrMult: 4.0, maxHoldBars: 15 }, // v16: TP=1.5%/SL=4×/H≤15 — OOS WR=86.1% PF=1.07 (was v15: 84.0% PF=0.90)
-    optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (v16 was 80% PF=1.13 avg=+0.27%)
-    optimized_ultraselective_8plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 12 }, // v16: TP=1.5%/SL=2.5×/H≤12 — OOS WR=87.5% PF=1.88 (was v15: 79.2% PF=1.07)
+    optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 5.0, maxHoldBars: 30 }, // v18: SL 4×→5×, H 20→30 — OOS WR=87.8% PF=1.12 avgPnL=+0.18%
+    optimized_highprecision_15plus: { targetPct: 2.5, slAtrMult: 5.0, maxHoldBars: 30 }, // v18: TP 1.5→2.5%, SL 4×→5×, H 15→30 — OOS WR=82.4% PF=1.12 avgPnL=+0.22%
+    optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87%
+    optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 }, // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅
     sniper_95plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8 }, // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
-    circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: TP=1% (MFE p25=1.16% → ~75%+ hit); structural ceiling ~75%
-    ors_prime_reversal: { targetPct: 5, slAtrMult: 2.5, maxHoldBars: 5 }, // v14: add TP=5% — MFE p50=9.57% OOS; was 69.2% WR with no-TP
+    circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: structural ceiling (CB not TP-based archetype)
+    ors_prime_reversal: { targetPct: 5, slAtrMult: 2.5, maxHoldBars: 5 }, // v15: unchanged — OOS WR=84.6% PF=3.76 ✅
 };
 function archetypeKeyFromHint(archetypeHint) {
     if (archetypeHint === 'VF')
