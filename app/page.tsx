@@ -1717,6 +1717,7 @@ function HomePageInner() {
   const [rulesChecked, setRulesChecked] = useState<Set<string>>(new Set());
   const [showSessions, setShowSessions] = useState(false);
   const [scanSource, setScanSource] = useState('Custom');
+  const [batchSessionDate, setBatchSessionDate] = useState<string | null>(null);
   const [sessionDiff, setSessionDiff] = useState<SessionDiff | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const sessionImportRef = useRef<HTMLInputElement>(null);
@@ -1819,6 +1820,22 @@ function HomePageInner() {
       else if (savedParamSet && PARAM_SET_OPTIONS.some(o => o.key === savedParamSet)) setParamSetKey(savedParamSet as ParamSetKey);
     } catch {}
     // NO localStorage.clear() fallback — never nuke tracked trades
+
+    // ─── BATCH PRE-COMPUTED RESULTS: load last night's scan on mount ───
+    fetch('/api/batch-results')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { ok: boolean; sessionDate: string; results: Array<{ raw_json: { best: AnalysisResult } | null }> } | null) => {
+        if (!data?.ok || !data.results?.length) return;
+        const batchResults: AnalysisResult[] = data.results
+          .map(row => row.raw_json?.best ?? null)
+          .filter((r): r is AnalysisResult => r !== null);
+        if (batchResults.length === 0) return;
+        setResults(batchResults);
+        setScanSource('Nightly Batch');
+        setLastScanSymbols(batchResults.map(r => r.symbol));
+        setBatchSessionDate(data.sessionDate);
+      })
+      .catch(() => {});
   }, []);
 
   // Persist tracked trades — Supabase cloud + localStorage mirror
@@ -1929,6 +1946,7 @@ function HomePageInner() {
     const skipped = dedupedSymbols.length - scanSymbols.length;
 
     abortRef.current = false;
+    setBatchSessionDate(null);
     const preScanSnapshot = resultsRef.current;
     setPreviousResults(preScanSnapshot);
     setScanning(true); scanningRef.current = true;
@@ -4348,6 +4366,16 @@ function HomePageInner() {
             <div className="h-full bg-indigo-500 rounded-full transition-all duration-200"
               style={{ width: total > 0 ? `${(progress / total) * 100}%` : '0%' }} />
           </div>
+        </div>
+      )}
+
+      {/* ── Batch banner ── */}
+      {batchSessionDate && !scanning && (
+        <div className="flex-shrink-0 border-b border-amber-900/40 bg-amber-950/20 px-4 py-1.5 flex items-center gap-2 text-xs text-amber-400">
+          <span>📅 Pre-computed: {batchSessionDate}</span>
+          <span className="text-amber-600">·</span>
+          <span className="text-amber-600">Click any preset or Rescan to fetch live data</span>
+          <button onClick={() => setBatchSessionDate(null)} className="ml-auto text-amber-700 hover:text-amber-400 transition-colors">✕</button>
         </div>
       )}
 
