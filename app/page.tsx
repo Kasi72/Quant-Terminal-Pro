@@ -1845,6 +1845,107 @@ function HomePageInner() {
     syncTradesToCloud(trackedTrades);
   }, [trackedTrades]);
 
+  // ─── BATCH BADGE REHYDRATION ─────────────────────────────────────────────────
+  // Fires once when batch results load. Computes pcaMap (pure math over
+  // AnalysisResult fields), fetches bulkFlowMap (Supabase), and runs brainScores.
+  // clenow/flag/guppyCoil/sectorFlow are skipped — they need candle data.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!batchSessionDate || results.length === 0) return;
+
+    // ── PCA Super-Score (identical weights/formula to runScan) ──
+    const pcaMeans   = [6.84, 1.34, 1.92, 2.41, 0.62, 24.18];
+    const pcaStds    = [4.92, 0.58, 1.41, 2.05, 0.21, 14.62];
+    const pcaWeights = [0.06, -0.10, -0.19, -0.07, 0.05, -0.20];
+    type PcaRow = { sym: string; score: number; cL: number; uW: number; ups: number; p10A: number; zt: number; evr20: number; evp5: number };
+    const newPcaMap: Record<string, { score: number; rank: string; pctl: number; species: string; speciesEmoji: string; candle: number; compression: number; volume: number }> = {};
+    const pcaRows: PcaRow[] = [];
+    for (const r of results) {
+      const zt = r.zone?.zoneTightnessPct ?? (r.pre10AvgRangeATR * 4);
+      const raw = [zt, r.exactRangeATR14, r.volRatio20 || 0, r.exactVolVsPre5 || 0, r.pre10AvgRangeATR, r.upperWickPct];
+      let score = 0;
+      for (let i = 0; i < 6; i++) score += pcaWeights[i] * ((raw[i] - pcaMeans[i]) / pcaStds[i]);
+      pcaRows.push({ sym: r.symbol, score, cL: r.closeLoc, uW: r.upperWickPct, ups: r.ultraPrecisionScore || 0, p10A: r.pre10AvgRangeATR, zt, evr20: r.volRatio20 || 0, evp5: r.exactVolVsPre5 || 0 });
+    }
+    const pR = (vals: number[]) => {
+      const n = vals.length;
+      if (n <= 1) return vals.map(() => 5);
+      const ord = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
+      const rank = new Array(n);
+      for (let i = 0; i < ord.length; i++) rank[ord[i]] = i / (n - 1) * 10;
+      return rank;
+    };
+    const cLR  = pR(pcaRows.map(p => p.cL));
+    const uWR  = pR(pcaRows.map(p => -p.uW));
+    const upsR = pR(pcaRows.map(p => p.ups));
+    const cpR  = pR(pcaRows.map(p => -p.p10A));
+    const ztR  = pR(pcaRows.map(p => -p.zt));
+    const vr20R = pR(pcaRows.map(p => p.evr20));
+    const vp5R  = pR(pcaRows.map(p => p.evp5));
+    const pcaWithSub = pcaRows.map((p, i) => ({ ...p, candle: (cLR[i] + uWR[i] + upsR[i]) / 3, compression: (cpR[i] + ztR[i]) / 2, volume: (vr20R[i] + vp5R[i]) / 2 }));
+    pcaWithSub.sort((a, b) => b.score - a.score);
+    for (let i = 0; i < pcaWithSub.length; i++) {
+      const { sym, score, candle, compression, volume } = pcaWithSub[i];
+      const pctl = pcaRows.length > 1 ? Math.round((1 - i / (pcaRows.length - 1)) * 100) : 50;
+      const rank = pctl >= 80 ? 'S' : pctl >= 60 ? 'A' : pctl >= 40 ? 'B' : pctl >= 20 ? 'C' : pctl >= 10 ? 'D' : 'F';
+      let species: string, speciesEmoji: string;
+      if (candle >= 7 && compression >= 6 && volume >= 6) { species = 'TRIPLE THREAT'; speciesEmoji = '⚡'; }
+      else if (volume >= 7 && compression < 5) { species = 'VOL EXPLOSION'; speciesEmoji = '🟡'; }
+      else if (compression >= 7 && volume < 5) { species = 'COMPRESSION'; speciesEmoji = '🔵'; }
+      else if (candle >= 7) { species = 'STRONG CANDLE'; speciesEmoji = '🟢'; }
+      else if (compression >= 5) { species = 'BUILDING'; speciesEmoji = '🔷'; }
+      else { species = 'DEVELOPING'; speciesEmoji = '⚪'; }
+      newPcaMap[sym] = { score: Math.round(score * 100) / 100, rank, pctl, species, speciesEmoji, candle: Math.round(candle * 10) / 10, compression: Math.round(compression * 10) / 10, volume: Math.round(volume * 10) / 10 };
+    }
+    setPcaMap(newPcaMap);
+
+    // ── Bulk Flow (Supabase read — no candles needed) ──
+    fetchBulkFlowScores(results.map(r => r.symbol))
+      .then(({ scores, health }) => { setBulkFlowMap(scores); setBulkHealth(health); })
+      .catch(() => {});
+
+    // ── Brain Scores (degraded — clenow/flag/coil absent, rest intact) ──
+    try {
+      const bi = computeBrainInsights(trackedTradesRef.current, getNSECalendarContext(fiiSellStreak) as Parameters<typeof computeBrainInsights>[1]);
+      setBrainInsights(bi);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newBrainScores: Record<string, any> = {};
+      const buySignals = results.filter(r => ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage));
+      for (const r of buySignals) {
+        const atrInfo = detectATRState(r);
+        const adj = bi.adjustScore(r, {
+          sector: getSectorTag(r.symbol), clenowScore: undefined, hasFlag: false, hasCoiled: false,
+          conviction: computeConviction(r), atrState: atrInfo.explosion ? 'EXPLOSION' : atrInfo.state,
+          candlePattern: r.stats?.candlePattern, paramSetKey: r.paramSetKey,
+        });
+        const setupQual = getSetupQuality(brainPrior, r.stage, r.paramSetKey);
+        let riskLabel = adj.sizing.label;
+        let riskPct = adj.sizing.risk;
+        if (setupQual) {
+          riskPct = Math.min(1.5, Math.round(adj.sizing.risk * setupQual.sizeMultiplier * 10) / 10);
+          riskLabel = setupQual.tier === 'ELITE'   ? `ELITE — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)`   :
+                     setupQual.tier === 'STRONG'  ? `STRONG — size ${setupQual.sizeMultiplier}× (${setupQual.expectedPnl.toFixed(1)}% avg)`  :
+                     setupQual.tier === 'GOOD'    ? `GOOD — normal size (${setupQual.expectedPnl.toFixed(1)}% avg)`                         :
+                     setupQual.tier === 'AVERAGE' ? `AVERAGE — reduce 0.75× (${setupQual.expectedPnl.toFixed(1)}% avg)`                     :
+                                                    `WEAK — half size (${setupQual.expectedPnl.toFixed(1)}% avg)`;
+        }
+        const pm = bi.premortem(r, { sector: getSectorTag(r.symbol), conviction: computeConviction(r) });
+        newBrainScores[r.symbol] = { original: adj.originalScore, brain: adj.brainScore, adjustments: adj.adjustments, riskPct, riskLabel, ciLow: adj.confidenceInterval?.low ?? 0, ciHigh: adj.confidenceInterval?.high ?? 100, formLabel: adj.form?.label || 'NEUTRAL', formEMA: (adj.form?.ema ?? 0.5).toFixed(2), formTrend: adj.form?.trend || 'STABLE', anomalyCount: adj.anomalies?.anomalyCount || 0, anomalyNote: adj.anomalies?.anomalies?.map((a: { feature: string }) => a.feature).join(', ') || '', confidence: adj.confidence, premortem: pm };
+      }
+      if (buySignals.length > 1) {
+        const extraMap: Record<string, { sector: string; atrState?: string; candlePattern?: string; conviction?: number }> = {};
+        for (const r of buySignals) {
+          const aI = detectATRState(r);
+          extraMap[r.symbol] = { sector: getSectorTag(r.symbol), atrState: aI.explosion ? 'EXPLOSION' : (aI.state ?? undefined), candlePattern: r.stats?.candlePattern ?? undefined, conviction: computeConviction(r) };
+        }
+        const ranked = bi.thompsonRank(buySignals, extraMap);
+        for (const r of ranked) { if (newBrainScores[r.symbol]) newBrainScores[r.symbol].priority = r.priority; }
+      }
+      setBrainScores(newBrainScores);
+      setBrainError('');
+    } catch { setBrainScores({}); }
+  }, [batchSessionDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // P2: Daily off-device auto-backup. The triple-redundancy above all lives
   // in the SAME browser's localStorage — clearing browser data, switching
   // devices, or an OS reinstall wipes all three copies at once. This drops
