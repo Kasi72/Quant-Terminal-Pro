@@ -411,10 +411,11 @@ function computeEdgeScore(r: AnalysisResult): number {
   return Math.round(Math.min(stats + mom + zone + vol + atr + dna + monster + conv + inf + stageTier, 100));
 }
 
-// Surgical entry gate: PRE_BREAKOUT + ATR explosion + conviction < 60 = high stop-out risk.
-// Keeps AVADHSUGAR-class setups (conv≥60) while blocking CUB-class failures (conv<60).
+// Surgical entry gate: ATR explosion + low conviction = high stop-out risk.
+// PRE_BREAKOUT exempt — backtest shows conv 0-19 bucket is the best VF Scout tier (WR=72.5%, PF=2.43).
 function isSurgicallyBlockedSignal(r: AnalysisResult): boolean {
-  return r.stage === 'PRE_BREAKOUT' && detectATRState(r).explosion && computeConviction(r) < 60;
+  if (r.stage === 'PRE_BREAKOUT') return false;
+  return detectATRState(r).explosion && computeConviction(r) < 60;
 }
 
 function safeColFmt(col: ColDef, r: AnalysisResult): string {
@@ -574,17 +575,16 @@ const COLUMNS: ColDef[] = [
     fmt: r => r.inflectionScore.toFixed(0),
     numVal: r => r.inflectionScore,
     cellClass: r => r.inflectionScore >= 80 ? 'text-green-300 font-semibold' : r.inflectionScore >= 60 ? 'text-emerald-400' : r.inflectionScore >= 40 ? 'text-yellow-300' : 'text-slate-400' },
-  { key: 'confidence', label: 'Conf%',      width: 68,  align: 'right',
-    headerTipHtml: '<div class="rt-hdr">Confidence Percentage (0-100%)</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How RELIABLE the signal classification is. Measures agreement across all 6 archetypes and consistency of the inflection score.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">90%+</span></div><div><div class="rt-desc">Very high — most param sets agree on the stage. Classification is trustworthy.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">70-89%</span></div><div><div class="rt-desc">Good — reasonable agreement. Classification is likely correct.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">50-69%</span></div><div><div class="rt-desc">Moderate — some param sets disagree. Verify with other indicators.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;50%</span></div><div><div class="rt-desc">Low — significant disagreement between param sets. Stage may change.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">Difference</span></div><div><div class="rt-desc">Conv = how GOOD the setup is. Conf% = how SURE the screener is about the classification. A stock can have high conviction but low confidence if only 1 param set passes it.</div><div class="rt-hit hit-cyan">High Conv + High Conf = strongest signal</div></div></div>',
-    fmt: r => r.confidence.toFixed(0) + '%',
-    numVal: r => r.confidence,
-    cellClass: () => 'text-slate-300' },
+  { key: 'confidence', label: 'DNA',         width: 68,  align: 'right',
+    headerTipHtml: '<div class="rt-hdr">CandleDNA Score (0-100)</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Candle quality composite — measures wick structure, close location, volume context (VSA), and Wyckoff spring depth. Independent from Infl.Score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">75+ ELITE</span></div><div><div class="rt-desc">Exceptional candle quality — strong close, absorption volume, spring structure all aligned.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">50-74 STRONG</span></div><div><div class="rt-desc">Good candle quality — most structural elements present.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">30-49 GOOD</span></div><div><div class="rt-desc">Moderate candle quality — actionable but watch for wick or volume weakness.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">&lt;30 WEAK</span></div><div><div class="rt-desc">Poor candle structure — may still work for breakout setups (PRE_BREAKOUT DNA is intentionally low).</div><div class="rt-hit hit-cyan">Use DNA alongside Conv and Infl — each scores a different dimension</div></div></div>',
+    fmt: r => (r.candleDNA?.score ?? 0).toFixed(0),
+    numVal: r => r.candleDNA?.score ?? 0,
+    cellClass: r => { const s = r.candleDNA?.score ?? 0; return s >= 75 ? 'text-green-300 font-semibold' : s >= 50 ? 'text-emerald-400' : s >= 30 ? 'text-yellow-300' : 'text-slate-400'; } },
   { key: 'confluenceScore', label: 'Confluence', width: 90, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Confluence Score (0–6)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How many of the 6 momentum archetypes fire simultaneously on this stock. Higher = stronger institutional conviction.</div></div></div>'
