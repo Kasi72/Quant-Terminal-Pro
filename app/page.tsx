@@ -4296,7 +4296,7 @@ function HomePageInner() {
                         clusterBreakdown: { deployable: { met: c.cd?.d ?? 0, total: c.cd?.dt ?? 21 }, highPrecision: { met: c.cd?.h ?? 0, total: c.cd?.ht ?? 19 }, elite: { met: c.cd?.e ?? 0, total: c.cd?.et ?? 21 }, ultraSelective: { met: c.cd?.u ?? 0, total: c.cd?.ut ?? 20 } },
                         monster: { badges: [], topProbability: 0 },
                         dayChangePct: c.dcp ?? 0,
-                        candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+                        candleDNA: { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' },
                       };});
                       setResults(restored); setShowSessions(false);
                     }} className="px-1.5 py-0.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded text-blue-300 text-xs">Restore</button>
