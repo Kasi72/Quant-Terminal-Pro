@@ -948,15 +948,16 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score with stage-aware intelligence. Calibrated probability displayed (%). Blended: formula + XGBoost + Brain Vectorize neighbor rate (B:xx% suffix). Shows Brain V2 forward classification and feature confidence gauge.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">⚡ Elite</span></div><div><div class="rt-desc">Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → 77.8% actionable (backtest n=27). Dual-vol surge confirms no single-period artefact. Highest precision tier.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock).</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) → 54-60% actionable rate.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-fuchsia-400">△ Apex</span></div><div><div class="rt-desc">ucScore ≥90 — OOS price backtest (1416 stocks, 2023-2026): WR=70.8%, PF=1.44, MFE≥8%=39.2% (N=120). Best confirmed score tier. Fuchsia color.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) — OOS backtest: WR=67.6%, PF=1.66, MFE≥8%=58.8% (N=34). Nearly 60% reach +8% intraday at some point during hold window.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-lime">🟢 PRE-BRK</span></div><div><div class="rt-desc">Stage = PRE_BREAKOUT with quality candle. PBFB backtest N=123 labeled: 94.3% T1 precision.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT with doji/gravestone candle (body&lt;22 AND wick&gt;40). 7/7 miss fingerprint — demoted to EARLY_INFLECTION.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-orange">W· prefix</span></div><div><div class="rt-desc">Brain V2 WATCH classification — Vol≥2x AND (CL≥65 OR RSI2≥60). Mirrors "on_radar" from Brain V2 goldmine: screener noticed the setup but not yet BUY-stage. Amber color. Worth monitoring.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">W· removed</span></div><div><div class="rt-desc">Brain V2 WATCH classification removed from display. OOS backtest: WATCH WR=58.5% PF=0.90 underperforms COLD WR=59.9% PF=0.99 — no predictive edge over baseline. Treated same as COLD.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-sky">Z· prefix</span></div><div><div class="rt-desc">Brain V2 ZONE classification — compression detected (zoneTightness&lt;6%) but vol still quiet (&lt;2x). Mirrors "zone_only": spring loading but operator ignition not yet. Blue color.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">B:xx suffix</span></div><div><div class="rt-desc">Brain Vectorize neighbor hit rate — % of historically similar D-1 fingerprints (32-dim vector) that hit UC next day. Only shown for BUY/PRE_BREAKOUT signals once Brain worker responds. Blended 25% into score.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">N/7 suffix</span></div><div><div class="rt-desc">Feature confidence gauge: count of 7 key UC discriminants firing (CL≥70, RSI2≥65, RangeATR≥1.0, Vol≥2x, DryUpSurge, WeeklyResonate, MagnetFlag). Shown when ≥4 fire and stock is not already in top emoji tier.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">N★ suffix</span></div><div><div class="rt-desc">Feature confluence: count of 7 key UC discriminants firing. Shown only when ≥5 fire — OOS backtest: 5 hits WR=66.7% PF=1.28, MFE≥8%=36% (N=75). Hits=4 has no edge (PF=0.91).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-rose">🔥N suffix</span></div><div><div class="rt-desc">UC streak: stock has appeared in UC watchlist (score≥35) for N consecutive trading days. Streak≥2 = persistent setup. Streak≥3 = likely operator accumulation in progress.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">70+: strong UC setup · 58+: PB→BUY threshold · 50-69: moderate · 36+: 75% recall zone · &lt;36: not in UC zone</div><div class="rt-hit hit-green">Score ≥36 catches 75% of actionable UC stocks at 45.5% precision · PBFB S5: 68% detection, 94.7% T1 precision</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">≥90 △ Apex (WR=70.8% PF=1.44) · 🏆 Goldmine flag (WR=67.6% PF=1.66) · 80-89 emerald · 70-79 ⚠ amber (worst OOS bucket: WR=57.9% PF=0.85) · 50-69 neutral · &lt;50 dim</div><div class="rt-hit hit-green">OOS 1416 stocks 2023-2026 · 70-79 range is counter-intuitively the danger zone — treated as caution in UI</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-sky">💧→💥 Dry+Surge</span></div><div><div class="rt-desc">Vol D-4:D-2 quiet vs D-1 explosion relative to quiet period. Deep dry-up then surge≥4x = operator accumulation. Adds up to 8pts.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-indigo">📅 Weekly Rsn</span></div><div><div class="rt-desc">Last-5d pseudo-weekly range: close_loc≥70 AND body≥25 = stock closing strong at weekly scale too. Multi-timeframe alignment adds 6pts — confirms daily setup is not an isolated candle.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-rose">🧲 Magnet</span></div><div><div class="rt-desc">Price within 3% below a round-number ceiling (₹100/250/500/1000…) AND close_loc≥70. Round numbers are operator targets — approaching one with strength = spring release. Adds 4pts when active.</div></div></div>'
@@ -980,17 +981,18 @@ const COLUMNS: ColDef[] = [
       const brainTag  = brainRate != null ? ` B:${Math.round(brainRate * 100)}` : '';
       // Streak badge — shown when stock appeared in UC watchlist ≥2 consecutive trading days
       const streakTag = streak >= 2 ? ` 🔥${streak}` : '';
-      // Feature confidence gauge — shown for mid-tier stocks (≥4 of 7 features firing)
-      const hitsTag   = (hits != null && hits >= 4 && !el && !st && !g) ? ` ${hits}/7` : '';
+      // Feature confluence — hits≥5 only (backtest: hits=5 WR=66.7% PF=1.28; hits=4 PF=0.91 = no edge)
+      const hitsTag   = (hits != null && hits >= 5 && !el && !st && !g) ? ` ${hits}★` : '';
       if (el)                          return `${prob} ⚡${brainTag}${streakTag}`;
       if (st)                          return `${prob} 🎯${brainTag}${streakTag}`;
       if (g)                           return `${prob} 🏆${brainTag}${streakTag}`;
+      // Apex tier: score ≥90, backtest WR=70.8% PF=1.44 MFE≥8%=39.2% (N=120 OOS)
+      if (s >= 90)                     return `${prob} △${brainTag}${streakTag}`;
       if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${streakTag}`;
       if (weak)                        return `${prob} ⚠${streakTag}`;
       if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}`;
       if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}`;
-      // Brain V2 classification prefixes for stocks not in top emoji tier
-      if (cls === 'WATCH')             return `W· ${prob}${hitsTag}${streakTag}`;
+      // ZONE class kept; WATCH class removed (backtest: WATCH PF=0.90 < COLD PF=0.99 — no edge)
       if (cls === 'ZONE')              return `Z· ${prob}${streakTag}`;
       return `${prob}${hitsTag}${streakTag}`;
     },
@@ -1008,13 +1010,19 @@ const COLUMNS: ColDef[] = [
       if (el)   return 'text-purple-300 font-bold';
       if (st)   return 'text-orange-300 font-bold';
       if (g)    return 'text-yellow-300 font-bold';
+      // Apex: ≥90 WR=70.8% PF=1.44 — best OOS bucket
+      if (s >= 90) return 'text-fuchsia-300 font-bold';
       if (r.stage === 'PRE_BREAKOUT')  return 'text-lime-400 font-semibold';
       if (weak)                        return 'text-amber-500 font-semibold';
       if (morph === 'coiled_spring')   return 'text-cyan-400 font-semibold';
       if (mag)                         return 'text-rose-400 font-semibold';
-      if (cls === 'WATCH')             return 'text-amber-400 font-semibold font-mono';
       if (cls === 'ZONE')              return 'text-sky-400 font-mono';
-      return s >= 70 ? 'text-emerald-400 font-semibold' : s >= 50 ? 'text-slate-300' : 'text-slate-500';
+      // Backtest-calibrated color scale:
+      // 80-89: ok (WR=58.9%)  70-79: danger zone (WR=57.9% PF=0.85 — worst bucket, counter-intuitive)
+      // WATCH class (PF=0.90) underperforms COLD (PF=0.99) — treat same as COLD, no special color
+      if (s >= 80) return 'text-emerald-400 font-semibold';
+      if (s >= 70) return 'text-amber-500';
+      return s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Clenow Momentum Score (125d)</div>'
