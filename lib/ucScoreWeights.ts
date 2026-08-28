@@ -23,7 +23,7 @@ export const UC_SCORE_WEIGHTS = {
   //   VolPre5=1.21, RangeATR=1.05, VolR20=0.40, CloseLoc=0.20, BodyPct=0.07, RSI2=0.02
   //   clTrend/rsi2Vel not yet logged — kept at prior manual weights until data collected
   closeLoc_pts:      20,   // d=0.20 (moderate) — slight DOWN from 22
-  rsi2_pts:          10,   // d=0.02 (near-zero live) — DOWN from 16; keep some for direction
+  rsi2_pts:          16,   // PBFB sweep 2026-08-28: F1@35 peaks at 16 (+1.38 F1 vs pts=10, +3.5pp recall, OOS PF neutral)
   clTrend_pts:       18,   // d unknown (not logged) — held at manual_v4 until next cycle
   clTrend_neutral:    9,
   rsi2Vel_pts:       13,   // d unknown (not logged) — held at manual_v4 until next cycle
