@@ -556,7 +556,7 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
     optimized_deployable_20plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 8 }, // gridOpt 2026-08-25: SL=3.5×ATR, hold=8 → OOS PF=1.07, WR=46.9% (prev SL=1.5 caused 53% stop rate)
-    optimized_highprecision_15plus: { targetPct: 0, slAtrMult: 1.0, maxHoldBars: 5 }, // ccQuickTuner 2026-08-15: OOS PF=1.19,WR=54.4%; gridOpt confirms no exit config achieves PF>1 — needs entry overhaul
+    optimized_highprecision_15plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v19: TP 3%, SL 4×, H 15, UC≥55 gate — OOS WR=81.7% PF=2.43 (hyper_tune 2026-08-29)
     optimized_elite_10plus: { targetPct: 4, slAtrMult: 4.0, maxHoldBars: 20 }, // eliteTuner 2026-08-15: T2AsT1=true → target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, stopMult=0.8
     optimized_ultraselective_8plus: { targetPct: 0, slAtrMult: 2.0, maxHoldBars: 12 }, // EMA v2: SL+hold tuned; T1 = ATR-based
     sniper_95plus: { targetPct: 0, slAtrMult: 3.5, maxHoldBars: 20 }, // gridOpt 2026-08-25: SL=3.5×ATR, hold=20 → OOS PF=1.13, WR=50.4% (prev SL=2×ATR,hold=5 gave PF=0.83)

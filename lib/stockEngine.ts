@@ -874,14 +874,14 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   PS:  TP=2%/SL=2.5×ATR/H≤8d  — WR=92.3%, PF30=9.53, PF40=2.09, AvgPnL=+1.62% (OOS n=52)
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
-const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 2.0, slAtrMult: 5.0, maxHoldBars: 30 },  // v18: SL 4×→5×, H 20→30 — OOS WR=87.8% PF=1.12 avgPnL=+0.18% (v16: PF=1.04)
-  optimized_highprecision_15plus: { targetPct: 2.5, slAtrMult: 5.0, maxHoldBars: 30 },  // v18: TP 1.5→2.5%, SL 4×→5×, H 15→30 — OOS WR=82.4% PF=1.12 avgPnL=+0.22% (v16: PF=1.04)
-  optimized_elite_10plus:         { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 },  // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
-  optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 },  // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
-  sniper_95plus:                  { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8  },  // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
-  circuit_breaker_v2:             { targetPct: 1,   slAtrMult: 2.5, maxHoldBars: 3  },  // v15: unchanged — structural ceiling (CB not TP-based archetype)
-  ors_prime_reversal:             { targetPct: 5,   slAtrMult: 2.5, maxHoldBars: 5  },  // v15: unchanged — OOS WR=84.6% PF=3.76 ✅
+const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number; minUCScore?: number }>> = {
+  optimized_deployable_20plus:    { targetPct: 2.0, slAtrMult: 5.0, maxHoldBars: 30 },              // v18: SL 4×→5×, H 20→30 — OOS WR=87.8% PF=1.12 avgPnL=+0.18% (v16: PF=1.04)
+  optimized_highprecision_15plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v19: TP 2.5→3%, SL 5×→4×, H 30→15, UC≥55 gate — OOS WR=81.7% PF=2.43 (hyper_tune 2026-08-29)
+  optimized_elite_10plus:         { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 },              // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
+  optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 },              // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
+  sniper_95plus:                  { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8  },              // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
+  circuit_breaker_v2:             { targetPct: 1,   slAtrMult: 2.5, maxHoldBars: 3  },              // v15: unchanged — structural ceiling (CB not TP-based archetype)
+  ors_prime_reversal:             { targetPct: 5,   slAtrMult: 2.5, maxHoldBars: 5  },              // v15: unchanged — OOS WR=84.6% PF=3.76 ✅
 };
 
 function archetypeKeyFromHint(archetypeHint: string): ParamSetKey | null {
@@ -899,6 +899,10 @@ function tunedExit(key: ParamSetKey | null, name: 'targetPct' | 'slAtrMult' | 'm
   if (typeof injected === 'number' && Number.isFinite(injected)) return injected;
   const defaults = ARCHETYPE_EXIT_DEFAULTS[key];
   return defaults ? defaults[name] : fallback;
+}
+
+export function getArchetypeExitDefaults(key: ParamSetKey) {
+  return ARCHETYPE_EXIT_DEFAULTS[key] ?? null;
 }
 
 function evaluatePracticalTradeOverlay(

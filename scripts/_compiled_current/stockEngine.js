@@ -555,12 +555,12 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
-    optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 5.0, maxHoldBars: 30 }, // v18: SL 4×→5×, H 20→30 — OOS WR=87.8% PF=1.12 avgPnL=+0.18%
-    optimized_highprecision_15plus: { targetPct: 2.5, slAtrMult: 5.0, maxHoldBars: 30 }, // v18: TP 1.5→2.5%, SL 4×→5×, H 15→30 — OOS WR=82.4% PF=1.12 avgPnL=+0.22%
-    optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87%
-    optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 }, // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅
+    optimized_deployable_20plus: { targetPct: 2.0, slAtrMult: 5.0, maxHoldBars: 30 }, // v18: SL 4×→5×, H 20→30 — OOS WR=87.8% PF=1.12 avgPnL=+0.18% (v16: PF=1.04)
+    optimized_highprecision_15plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v19: TP 2.5→3%, SL 5×→4×, H 30→15, UC≥55 gate — OOS WR=81.7% PF=2.43 (hyper_tune 2026-08-29)
+    optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
+    optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 }, // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
     sniper_95plus: { targetPct: 1.5, slAtrMult: 2.5, maxHoldBars: 8 }, // v15: unchanged — OOS WR=87.5% PF=2.94 ✅
-    circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: structural ceiling (CB not TP-based archetype)
+    circuit_breaker_v2: { targetPct: 1, slAtrMult: 2.5, maxHoldBars: 3 }, // v15: unchanged — structural ceiling (CB not TP-based archetype)
     ors_prime_reversal: { targetPct: 5, slAtrMult: 2.5, maxHoldBars: 5 }, // v15: unchanged — OOS WR=84.6% PF=3.76 ✅
 };
 function archetypeKeyFromHint(archetypeHint) {
@@ -1524,8 +1524,8 @@ function evaluateForensicOverlay(params, candleDNA, advanced, stats) {
             checks.push({ label, pass, value });
     };
     add(forensic.minCandleDnaScore !== undefined && forensic.minCandleDnaScore !== null, `CandleDNA ≥ ${forensic.minCandleDnaScore}`, candleDNA.score >= (forensic.minCandleDnaScore ?? 0), candleDNA.score.toFixed(0));
-    add(forensic.minCandleDnaCloseQuality !== undefined && forensic.minCandleDnaCloseQuality !== null, `DNA close quality ≥ ${forensic.minCandleDnaCloseQuality}`, candleDNA.wickCleanliness >= (forensic.minCandleDnaCloseQuality ?? 0), candleDNA.wickCleanliness.toFixed(0));
-    add(forensic.minCandleDnaLowerTail !== undefined && forensic.minCandleDnaLowerTail !== null, `DNA lower-tail support ≥ ${forensic.minCandleDnaLowerTail}`, candleDNA.rangeExpansion >= (forensic.minCandleDnaLowerTail ?? 0), candleDNA.rangeExpansion.toFixed(0));
+    add(forensic.minCandleDnaCloseQuality !== undefined && forensic.minCandleDnaCloseQuality !== null, `DNA close quality ≥ ${forensic.minCandleDnaCloseQuality}`, candleDNA.closeLocationQuality >= (forensic.minCandleDnaCloseQuality ?? 0), candleDNA.closeLocationQuality.toFixed(0));
+    add(forensic.minCandleDnaLowerTail !== undefined && forensic.minCandleDnaLowerTail !== null, `DNA lower-tail support ≥ ${forensic.minCandleDnaLowerTail}`, candleDNA.supportTailQuality >= (forensic.minCandleDnaLowerTail ?? 0), candleDNA.supportTailQuality.toFixed(0));
     add(forensic.maxBodyATR !== undefined && forensic.maxBodyATR !== null, `Body/ATR ≤ ${forensic.maxBodyATR}`, candleDNA.bodyATR <= (forensic.maxBodyATR ?? Infinity), candleDNA.bodyATR.toFixed(2));
     add(forensic.maxUpperToLowerWickRatio !== undefined && forensic.maxUpperToLowerWickRatio !== null, `Upper/lower wick ≤ ${forensic.maxUpperToLowerWickRatio}`, candleDNA.upperToLowerWickRatio <= (forensic.maxUpperToLowerWickRatio ?? Infinity), candleDNA.upperToLowerWickRatio.toFixed(2));
     add(forensic.minMarubozuScore !== undefined && forensic.minMarubozuScore !== null, `Marubozu score ≥ ${forensic.minMarubozuScore}`, candleDNA.marubozuScore >= (forensic.minMarubozuScore ?? 0), candleDNA.marubozuScore.toFixed(0));
@@ -1784,7 +1784,7 @@ function analyzeORS(candles) {
         clusterBreakdown: { deployable: { met: 0, total: 0 }, highPrecision: { met: 0, total: 0 }, elite: { met: 0, total: 0 }, ultraSelective: { met: 0, total: 0 }, sniper: { met: 0, total: 0 }, orsReversal: { met: 0, total: 10, score, confirmed: false } },
         monster: { badges: [], topProbability: 0 },
         dayChangePct: 0,
-        candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+        candleDNA: { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' },
         orsScore: score, ddFromSwingHigh: 0, distFromEMA20: 0, zScore252: 0, orsConfirmed: false,
     });
     const orsParams = exports.PARAM_SETS['ors_prime_reversal'].ors;
@@ -2288,7 +2288,7 @@ function archetypeBase(candles, key) {
         clusterBreakdown: { deployable: { met: 0, total: 0 }, highPrecision: { met: 0, total: 0 }, elite: { met: 0, total: 0 }, ultraSelective: { met: 0, total: 0 }, sniper: { met: 0, total: 0 } },
         monster: { badges: [], topProbability: 0 },
         dayChangePct: n > 1 ? (sig.c - candles[n - 2].c) / candles[n - 2].c * 100 : 0,
-        candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+        candleDNA: { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' },
         archetypeType: 'Breakout',
     };
 }
@@ -3393,7 +3393,7 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
         clusterBreakdown: { deployable: { met: 0, total: 21 }, highPrecision: { met: 0, total: 19 }, elite: { met: 0, total: 21 }, ultraSelective: { met: 0, total: 20 }, sniper: { met: 0, total: 21 } },
         monster: { badges: [], topProbability: 0 },
         dayChangePct: 0,
-        candleDNA: { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' },
+        candleDNA: { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' },
     });
     // Momentum Archetype dispatchers — each set has its own inflection detector
     _forensicMode = forensicMode;
@@ -3935,11 +3935,11 @@ function detectMonster(candles, endIdx, result) {
 function detectCandleDNA(candles, endIdx, atr14) {
     const sig = candles[endIdx];
     if (!sig || atr14 <= 0) {
-        return { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' };
+        return { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' };
     }
     const rng = sig.h - sig.l;
     if (rng <= 0) {
-        return { score: 0, bodyStrength: 0, wickCleanliness: 0, rangeExpansion: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, tier: 'WEAK' };
+        return { score: 0, upperWickQuality: 0, closeLocationQuality: 0, supportTailQuality: 0, volumeContextScore: 0, bodyATR: 0, upperToLowerWickRatio: 0, marubozuScore: 0, volumeRatio: 0, springDepth: 0, predecessorScore: 0, tier: 'WEAK' };
     }
     const bodySize = Math.abs(sig.c - sig.o);
     const upperWickAbs = sig.h - Math.max(sig.c, sig.o);
@@ -3997,18 +3997,68 @@ function detectCandleDNA(candles, endIdx, atr14) {
         supportTail = 8;
     else if (lowerWickATR > 0.08)
         supportTail = 4;
-    const score = Math.min(100, upperWickQuality + closeQuality + supportTail);
-    // Tier thresholds lowered: ELITE≥70 (was 75), STRONG≥50 (was 55), GOOD≥30 (was 35).
-    // NEW ELITE averages +4.73% avg20d vs OLD ELITE +0.91% — formula confirmed superior.
+    // ── VSA Volume Layer (Phase 2) ────────────────────────────────────────────
+    // Wyckoff effort-vs-result: high vol + tight result = absorption/accumulation.
+    // volumeContextScore: -5 to +20. Backtest gate: validate after deploy.
+    const avgVol20 = endIdx >= 20
+        ? candles.slice(endIdx - 20, endIdx).reduce((s, c) => s + (c.v || 0), 0) / 20
+        : (sig.v || 0);
+    const volumeRatio = avgVol20 > 0 ? safe((sig.v || 0) / avgVol20) : 1;
+    let volumeContextScore = 0;
+    if (volumeRatio > 1.5 && bodyATR < 0.35 && avgCL3 > 65) {
+        volumeContextScore = 20; // stopping volume / absorption: high vol, tight body, closes high
+    }
+    else if (volumeRatio > 1.2 && lowerWickATR > 0.20) {
+        volumeContextScore = 15; // demand absorption: high vol on lower tail
+    }
+    else if (volumeRatio > 1.0 && upperWickATR < 0.05) {
+        volumeContextScore = 10; // confirmed strength: above-avg vol, clean close
+    }
+    else if (volumeRatio < 0.7) {
+        volumeContextScore = -5; // no demand: thin vol = weak conviction
+    }
+    // ── Wyckoff Spring (Phase 3) ─────────────────────────────────────────────
+    // Signal bar dips below 10-bar low then closes back above it.
+    const lookback = Math.min(10, endIdx);
+    const recent10Low = endIdx >= 1
+        ? Math.min(...candles.slice(Math.max(0, endIdx - lookback), endIdx).map(c => c.l))
+        : sig.l;
+    const springDepth = (sig.l < recent10Low && sig.c > recent10Low)
+        ? safe((recent10Low - sig.l) / atr14)
+        : 0;
+    // ── Predecessor Context (Phase 3) ────────────────────────────────────────
+    // Wyckoff spring depth + bearish-predecessor engulf context. Range: 0–20.
+    let predecessorScore = 0;
+    if (springDepth > 0.5) {
+        predecessorScore = 20; // deep spring: strong accumulation under support
+    }
+    else if (springDepth > 0) {
+        predecessorScore = 15; // shallow spring: still valid Wyckoff signal
+    }
+    // Bearish predecessor engulf bonus: prior candle red, current green, size ≥80% of prior
+    if (endIdx >= 1) {
+        const prev = candles[endIdx - 1];
+        const prevBodySize = Math.abs(prev.c - prev.o);
+        const curBodySize = Math.abs(sig.c - sig.o);
+        if (prev.c < prev.o && sig.c > sig.o && curBodySize >= prevBodySize * 0.8) {
+            predecessorScore = Math.min(20, predecessorScore + 5);
+        }
+    }
+    const score = Math.min(100, Math.max(0, upperWickQuality + closeQuality + supportTail + volumeContextScore + predecessorScore));
+    // Tier thresholds: ELITE≥70, STRONG≥50, GOOD≥30.
     const tier = score >= 70 ? 'ELITE' : score >= 50 ? 'STRONG' : score >= 30 ? 'GOOD' : 'WEAK';
     return {
         score,
-        bodyStrength: upperWickQuality, // repurposed: upper wick quality (0-40)
-        wickCleanliness: closeQuality, // repurposed: close location quality (0-35)
-        rangeExpansion: supportTail, // repurposed: support tail quality (0-25)
+        upperWickQuality,
+        closeLocationQuality: closeQuality,
+        supportTailQuality: supportTail,
+        volumeContextScore,
         bodyATR: safe(bodyATR),
         upperToLowerWickRatio: safe(upperToLowerWickRatio),
         marubozuScore: safe(marubozuScore),
+        volumeRatio,
+        springDepth,
+        predecessorScore,
         tier,
     };
 }
@@ -4294,7 +4344,7 @@ function generateDemoData(paramSetKey, count = 25) {
             },
             monster: { badges: [], topProbability: 0 },
             dayChangePct: rnd(seed + 70, -4, 6),
-            candleDNA: { score: Math.round(rnd(seed + 71, isActionable ? 50 : 15, isActionable ? 95 : 60)), bodyStrength: Math.round(rnd(seed + 72, 0, 35)), wickCleanliness: Math.round(rnd(seed + 73, 0, 35)), rangeExpansion: Math.round(rnd(seed + 74, 0, 30)), bodyATR: rnd(seed + 75, 0.3, 2.0), upperToLowerWickRatio: rnd(seed + 76, 0.2, 2.0), marubozuScore: rnd(seed + 77, 40, 95), tier: isActionable ? 'STRONG' : 'GOOD' },
+            candleDNA: { score: Math.round(rnd(seed + 71, isActionable ? 50 : 15, isActionable ? 95 : 60)), upperWickQuality: Math.round(rnd(seed + 72, 0, 40)), closeLocationQuality: Math.round(rnd(seed + 73, 0, 35)), supportTailQuality: Math.round(rnd(seed + 74, 0, 25)), volumeContextScore: Math.round(rnd(seed + 79, 0, 20)), bodyATR: rnd(seed + 75, 0.3, 2.0), upperToLowerWickRatio: rnd(seed + 76, 0.2, 2.0), marubozuScore: rnd(seed + 77, 40, 95), volumeRatio: rnd(seed + 78, 0.5, 2.5), springDepth: 0, predecessorScore: 0, tier: isActionable ? 'STRONG' : 'GOOD' },
             advanced: {
                 utbotMode: isActionable ? (rnd(seed + 90, 0, 1) > 0.4 ? 'BOTH' : 'PRECISION') : 'NONE',
                 utbotBarsAgo: isActionable ? Math.round(rnd(seed + 91, 0, 2)) : 99,

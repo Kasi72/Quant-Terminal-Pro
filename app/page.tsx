@@ -52,7 +52,7 @@ import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
   analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
-  computeSelfAdaptiveTrend,
+  computeSelfAdaptiveTrend, getArchetypeExitDefaults,
   type AnalysisResult, type ParamSetKey, type StageRating, type Candle,
   type SelfAdaptiveTrendResult,
 } from '@/lib/stockEngine';
@@ -3090,6 +3090,13 @@ function HomePageInner() {
 
     // Surgical gate: suppress PRE_BREAKOUT + EXPLOSION + conviction<60 from display
     rows = rows.filter(r => !isSurgicallyBlockedSignal(r));
+
+    // Param-level minUCScore gate (e.g. CC Precision requires UC≥55 for PF=2.43)
+    rows = rows.filter(r => {
+      const exitCfg = getArchetypeExitDefaults(r.paramSetKey);
+      const minUC = exitCfg?.minUCScore ?? 0;
+      return minUC === 0 || ((r as any).ucScore ?? 0) >= minUC;
+    });
 
     // Quick filter (#8)
     if (quickFilter !== 'all') {
