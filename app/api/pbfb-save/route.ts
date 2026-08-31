@@ -3,8 +3,9 @@ import { getServiceClient } from '@/lib/supabaseServer';
 import { isAuthorizedScreenerRequest } from '@/lib/screenerSession';
 
 // Node.js serverless runtime: 4.5 MB body limit vs 1 MB edge limit
-const MAX_BODY_BYTES = 4_000_000;
-const MAX_EVENTS_PER_RUN = 10_000;
+// Raised from 4 MB → 8 MB: 141-stock Chartink day pushed payload ~5-6 MB (2026-08-31)
+const MAX_BODY_BYTES = 8_000_000;
+const MAX_EVENTS_PER_RUN = 20_000;
 
 interface EventPayload {
   symbol:          string;
