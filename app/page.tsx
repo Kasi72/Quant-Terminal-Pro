@@ -6778,7 +6778,7 @@ function HomePageInner() {
                 return dist(a) - dist(b);
               }
               if (logSort === 'targets_today') {
-                const today = new Date().toISOString().slice(0, 10);
+                const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10); // IST
                 const score = (t: TrackedTrade): number => {
                   const isToday = t.closedDate === today;
                   const livePrice = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
@@ -7113,6 +7113,20 @@ function HomePageInner() {
                               </div>
                             )
                         }
+                        {logSort === 'targets_today' && (() => {
+                          const todayIST = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+                          const hitToday = t.closedDate === todayIST && (t.status === 'hit_t1' || t.status === 'hit_t2' || t.status === 'hit_t3');
+                          if (hitToday) {
+                            const tgt = t.status === 'hit_t3' ? 'T3' : t.status === 'hit_t2' ? 'T2' : 'T1';
+                            return <div className="text-[9px] font-bold text-emerald-300 bg-emerald-950/50 rounded px-1 mt-0.5">✓ {tgt} achieved today</div>;
+                          }
+                          const lp = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
+                          if (t.status === 'open' && lp) {
+                            const tgt = t.target3 > 0 && lp >= t.target3 ? 'T3' : t.target2 > 0 && lp >= t.target2 ? 'T2' : t.target1 > 0 && lp >= t.target1 ? 'T1' : null;
+                            if (tgt) return <div className="text-[9px] font-bold text-amber-300 mt-0.5">● Live at {tgt}</div>;
+                          }
+                          return null;
+                        })()}
                       </button>
                       {/* Delete button — appears on hover, owner-only */}
                       {isOwner && (
