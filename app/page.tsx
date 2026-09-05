@@ -6778,24 +6778,32 @@ function HomePageInner() {
                 return dist(a) - dist(b);
               }
               if (logSort === 'targets_today') {
-                const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10); // IST
+                const todayIST = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+                // todayHitRank: highest target hit today per trade (3=T3, 2=T2, 1=T1, 0=none)
+                // Uses targetLog (per-bar hit records) — reliable for both partial and full exits
+                const todayHitRank = (t: TrackedTrade): number => {
+                  const hits = (t.targetLog ?? []).filter(e => e.date === todayIST);
+                  if (hits.some(e => e.target === 'T3')) return 3;
+                  if (hits.some(e => e.target === 'T2')) return 2;
+                  if (hits.some(e => e.target === 'T1')) return 1;
+                  return 0;
+                };
                 const score = (t: TrackedTrade): number => {
-                  const isToday = t.closedDate === today;
+                  const rank = todayHitRank(t);
+                  if (rank === 3) return 100;
+                  if (rank === 2) return 90;
+                  if (rank === 1) return 80;
                   const livePrice = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
                   const livePct = (t.status === 'open' && livePrice && t.entryPrice > 0)
                     ? (livePrice - t.entryPrice) / t.entryPrice * 100
                     : (t.pnlPct ?? 0);
-                  // Named target hits closed today — highest priority
-                  if (isToday && t.status === 'hit_t3') return 100;
-                  if (isToday && t.status === 'hit_t2') return 90;
-                  if (isToday && t.status === 'hit_t1') return 80;
-                  // Open trades currently at/beyond named price targets
+                  // Open trades currently at/beyond a named price target
                   if (t.status === 'open' && livePrice) {
                     if (t.target3 > 0 && livePrice >= t.target3) return 70;
                     if (t.target2 > 0 && livePrice >= t.target2) return 60;
                     if (t.target1 > 0 && livePrice >= t.target1) return 50;
                   }
-                  // Percentage milestones (open live move or closed pnlPct)
+                  // Percentage milestones
                   if (livePct >= 10) return 40;
                   if (livePct >= 7)  return 30;
                   if (livePct >= 5)  return 20;
@@ -7115,10 +7123,19 @@ function HomePageInner() {
                         }
                         {logSort === 'targets_today' && (() => {
                           const todayIST = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
-                          const hitToday = t.closedDate === todayIST && (t.status === 'hit_t1' || t.status === 'hit_t2' || t.status === 'hit_t3');
-                          if (hitToday) {
-                            const tgt = t.status === 'hit_t3' ? 'T3' : t.status === 'hit_t2' ? 'T2' : 'T1';
-                            return <div className="text-[9px] font-bold text-emerald-300 bg-emerald-950/50 rounded px-1 mt-0.5">✓ {tgt} achieved today</div>;
+                          const hitsToday = (t.targetLog ?? []).filter(e => e.date === todayIST);
+                          if (hitsToday.length > 0) {
+                            // Show all targets hit today, highest first (T3 > T2 > T1)
+                            const labels = ['T3', 'T2', 'T1'].filter(tgt => hitsToday.some(e => e.target === tgt));
+                            return (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {labels.map(tgt => (
+                                  <span key={tgt} className="text-[9px] font-bold text-emerald-200 bg-emerald-900/60 border border-emerald-700 px-1 py-0.5 rounded leading-none">
+                                    ✓ {tgt} today
+                                  </span>
+                                ))}
+                              </div>
+                            );
                           }
                           const lp = t.symbol === logSymbol && cmpData?.price ? cmpData.price : t.currentPrice;
                           if (t.status === 'open' && lp) {
