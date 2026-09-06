@@ -37,6 +37,8 @@ export interface ParamSet {
   minUltraPrecisionScore: number; minRSI2: number;
   minVolatilityExpansionRatio: number | null; minCandleQualityScore: number | null;
   maxCloseAboveZonePct: number | null;
+  minPriorRunUpPct?: number | null;   // Q5: prior run-up from local low to zone top ≥ this %
+  minZonePivotCount?: number | null;  // Q4: distinct zone top pivot rejections ≥ this count
   forensic?: ForensicOverlay | null;
   // ORS-Reversal specific (undefined on all breakout sets)
   ors?: {
@@ -121,6 +123,7 @@ export interface ZoneInfo {
   zoneHigh: number; zoneLow: number; zoneATRRatio: number;
   zoneTightnessPct: number; windowLength: number;
   zoneShape?: 'FLAT' | 'ASCENDING' | 'DESCENDING';
+  zoneStart?: number;
 }
 
 export interface PriceEngine {
@@ -212,6 +215,8 @@ export interface AnalysisResult {
   // null       — no gate applicable
   hitRateGate?: 'PREMIUM' | 'STANDARD' | null;
   adx14?: number;   // ADX(14) at signal bar — used by hitRateGate
+  priorRunUpPct?: number;    // Q5: % gain from 60-bar local low to zone top before zone
+  zonePivotCount?: number;   // Q4: distinct zone top pivot rejections inside zone
   // Round 5 backtested findings (OOS 75%+ hit-rate gates)
   // bodyGate: bodyPct ≥ 35 — the single strongest universal quality filter discovered
   // (EMAStack+body ≥50%breadth: OOS n=12 75.0% PF=2.64 · PerfectStorm+body: OOS n=12 75.0% PF=2.94)
@@ -517,6 +522,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 45→75
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
+    minZonePivotCount: 2,                                                                    // Q4: OOS +12.1pp WR (66.7% vs 54.5%, n=12, Wilson lo 43.4%)
   },
   // ✅ Grid-optimised v13 — 1616-stock sweep, n=294, WR=56.8%, Wilson=51.09%, PF=1.933
   // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
@@ -604,6 +610,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 75, minRSI2: 50,                                                 // prec≥75 ✓
     minVolatilityExpansionRatio: 1.0, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 5.0,
+    minPriorRunUpPct: 10,                                                                    // Q5: OOS +16.7pp WR (83.3% vs 66.7%, n=12, Wilson lo 60.1%)
   },
   // Discriminant-analysis design: case-control study 6,339 circuit events vs 31,695 controls.
   // Backtest (cb_backtest.js): recall 15%, precision 0.36% OOS, lift 1.3× vs 0.27% base rate.
@@ -1213,6 +1220,7 @@ function findCompressionZone(
   let bestProximity = Infinity;
   let bestTightness = Infinity;
   let bestLength = 0;
+  let bestZoneStart = 0;
 
   const searchStart = Math.max(0, endIdx - 60);
 
@@ -1267,6 +1275,7 @@ function findCompressionZone(
         bestProximity = proximity;
         bestTightness = zoneTightnessPct;
         bestLength = len;
+        bestZoneStart = s;
         bestZone = {
           zoneHigh,
           zoneLow,
@@ -1274,6 +1283,7 @@ function findCompressionZone(
           zoneTightnessPct,
           windowLength: len,
           zoneShape,
+          zoneStart: s,
         };
       }
     }
@@ -3312,6 +3322,28 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
 
   if (conditionsMet < 2) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
 
+  // Q4 — Zone Pivot Count: compression zone must have ≥2 distinct rejections at zone top
+  // OOS walk-forward 2026: +12.1pp WR for E10 (66.7% vs 54.5%, n=12, Wilson lo 43.4%)
+  const P4 = PARAM_SETS[key];
+  let zonePivotCount = 0;
+  let q4Pass = true;
+  if (P4.minZonePivotCount != null) {
+    const zoneE10 = findCompressionZone(candles, atr14Arr, P4, endIdx);
+    if (zoneE10 && zoneE10.zoneStart != null) {
+      const proximityThresh = zoneE10.zoneHigh * 0.995;
+      const retraceLevel    = zoneE10.zoneHigh * 0.992;
+      for (let i = zoneE10.zoneStart; i < endIdx - 1; i++) {
+        if (candles[i].h >= proximityThresh) {
+          for (let j = i + 1; j <= Math.min(endIdx, i + 5); j++) {
+            if (candles[j].l < retraceLevel) { zonePivotCount++; break; }
+          }
+        }
+      }
+      q4Pass = zonePivotCount >= P4.minZonePivotCount;
+    }
+  }
+  if (!q4Pass) return attachTuningDebug({ ...base, conditionsMet, totalConditions: 6, archetypeType: 'MomentumPocket', archetypeConditions: conditionsMet, archetypeTotal: 6 }, tuning);
+
   // Phase-2 weights: logistic regression on 60-stock NIFTY dataset (22K signals, 5% target label)
   // c5 (volume ≥1.5×) top predictor (+3.1% WR delta) → 39 pts; c6 (DI+>DI-) strong (+2.4%) → 25 pts
   // c1 (≥15% below 52W high) showed -1.5% delta → floor 3 pts; c4 (closeLoc) near-zero → 3 pts
@@ -3337,6 +3369,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
     { label: 'Volume ≥ 2.0× avg on recovery', pass: c4, value: `${volRatio20.toFixed(1)}×` },
     { label: 'RSI14 in recovery zone (40-60)', pass: c5, value: rsi14.toFixed(1) },
     { label: 'DI+ > DI−, crossed ≤3 bars ago, ADX ≥ 30 (trend launch)', pass: c6, value: `BSC=${bscMP === 99 ? 'none' : bscMP} ADX${adxVal.toFixed(0)}` },
+    ...(P4.minZonePivotCount != null ? [{ label: `Zone pivot rejections ≥${P4.minZonePivotCount} at zone top (Q4 base integrity)`, pass: q4Pass, value: `${zonePivotCount} pivot${zonePivotCount !== 1 ? 's' : ''}` }] : []),
   ];
 
   return attachTuningDebug({
@@ -3355,6 +3388,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
     archetypeType: 'MomentumPocket',
     archetypeConditions: conditionsMet,
     archetypeTotal: 6,
+    zonePivotCount,
   }, tuning);
 }
 
@@ -3567,6 +3601,27 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const tuning = { ...techPS, adx: adxValPS, quality: caPS.qualityTier, candleRisk: caPS.candleRisk, fires: fires.length, fireScores: fires.map(f => f.r.inflectionScore) };
   if (fires.length < tuned(key, 'minFires', 1)) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 }, tuning);
 
+  // Q5 — Prior Run-Up Qualifier: stock must have risen ≥10% from 60-bar local low to zone top
+  // Implements Minervini Stage 2 requirement — flat bases off lows are low-conviction.
+  // OOS walk-forward 2026: +16.7pp WR for SNP (83.3% vs 66.7%, n=12, Wilson lo 60.1%)
+  const P5 = PARAM_SETS[key];
+  let priorRunUpPct = 0;
+  let q5Pass = true;
+  if (P5.minPriorRunUpPct != null) {
+    const atr14ArrPS = computeATR14(candles);
+    const zonePS = findCompressionZone(candles, atr14ArrPS, P5, endIdx);
+    if (zonePS && zonePS.zoneStart != null) {
+      const lb = Math.max(0, zonePS.zoneStart - 60);
+      let localLow = Infinity;
+      for (let i = lb; i < zonePS.zoneStart; i++) {
+        if (candles[i].l < localLow) localLow = candles[i].l;
+      }
+      priorRunUpPct = localLow < Infinity && localLow > 0 ? (zonePS.zoneHigh - localLow) / localLow * 100 : 0;
+      q5Pass = priorRunUpPct >= P5.minPriorRunUpPct;
+    }
+  }
+  if (!q5Pass) return attachTuningDebug({ ...base, archetypeType: 'PerfectStorm', archetypeConditions: fires.length, archetypeTotal: 4 }, tuning);
+
   // Pick best individual result for price engine / metrics
   const stageRank: Record<StageRating, number> = { ULTRA_STRONG_BUY: 5, STRONG_BUY: 4, BUY: 3, PRE_BREAKOUT: 2, EARLY_INFLECTION: 1, COMPRESSION_WATCH: 0, NO_SIGNAL: 0 };
   const best = fires.reduce((a, b) => stageRank[b.r.stage] > stageRank[a.r.stage] ? b : a);
@@ -3595,6 +3650,7 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
     { label: 'Compression Coil fires', pass: fires.some(f => f.name === 'CompressionCoil'), value: fires.some(f => f.name === 'CompressionCoil') ? `Score ${cc.inflectionScore}` : 'NO' },
     { label: 'Momentum Pocket fires', pass: fires.some(f => f.name === 'MomentumPocket'), value: fires.some(f => f.name === 'MomentumPocket') ? `Score ${mp.inflectionScore}` : 'NO' },
     { label: 'EMA Stack fires', pass: fires.some(f => f.name === 'EMAStack'), value: fires.some(f => f.name === 'EMAStack') ? `Score ${ema.inflectionScore}` : 'NO' },
+    ...(P5.minPriorRunUpPct != null ? [{ label: `Prior run-up ≥${P5.minPriorRunUpPct}% from 60-bar low to zone top (Stage 2 Q5)`, pass: q5Pass, value: priorRunUpPct > 0 ? `${priorRunUpPct.toFixed(1)}%` : 'no zone' }] : []),
   ];
 
   return attachTuningDebug({
@@ -3611,6 +3667,7 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
     archetypeType: 'PerfectStorm',
     archetypeConditions: fires.length,
     archetypeTotal: 4,
+    priorRunUpPct,
   }, tuning);
 }
 
