@@ -512,7 +512,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     name: 'MP Elite', tag: '🎯 Momentum Pocket',
     minAvgTurnover20: 20_000_000, maxATRPct14Pctl120: 60,
     maxPre10AvgRangeATR: 0.85, maxPre10ExpansionCount: 2, expansionATRMultiplier: 1.1,
-    zoneRangeATRThreshold: 1.0, minZoneLen: 8, maxZoneLen: 25, maxZoneTightnessPct: 12.0,
+    zoneRangeATRThreshold: 1.0, minZoneLen: 6, maxZoneLen: 25, maxZoneTightnessPct: 12.0,  // ZL6: OOS WR 75% Wilson 46.0% (n=8) vs ZL8 37.6%
     maxPre10AvgVolRatio: 0.90, maxPre5AvgVolRatio: 1.10,
     maxPre10HighVolCount: 2, highVolMultiplier: 1.2, maxPre10RedVolBias: 1.1,
     breakoutMultiplier: 1.001,
@@ -522,7 +522,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 75, minRSI2: 50,                                                // opt: prec 45→75
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 2,
     maxCloseAboveZonePct: 8.0,
-    minZonePivotCount: 2,                                                                    // Q4: OOS +12.1pp WR (66.7% vs 54.5%, n=12, Wilson lo 43.4%)
+    minZonePivotCount: 2,                                                                    // Q4: ZL6+Q4 OOS WR 75% Wilson 46.0% n=8 (vs baseline 37.6%)
   },
   // ✅ Grid-optimised v13 — 1616-stock sweep, n=294, WR=56.8%, Wilson=51.09%, PF=1.933
   // ✅ ChatGPT forensic v12 — 1616-stock sweep, n=54, WR=70.4%, Wilson=57.2%, PF=3.656
