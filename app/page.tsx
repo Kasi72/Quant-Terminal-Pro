@@ -3201,6 +3201,7 @@ function HomePageInner() {
     const monsterBadgeType = r.monster?.badges?.[0]?.type;
 
     const trade: TrackedTrade = {
+      id: crypto.randomUUID(),
       symbol: r.symbol, stage: r.stage, entryPrice: r.priceEngine.plannedEntry,
       entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10), stopLoss: r.priceEngine.tacticalStop < r.priceEngine.plannedEntry ? r.priceEngine.tacticalStop : 0,
       target1: r.priceEngine.target5, target2: r.priceEngine.target7,
@@ -3225,7 +3226,7 @@ function HomePageInner() {
   }
 
   function removeTrade(trade: TrackedTrade) {
-    deleteTradeFromCloud(trade.symbol);
+    deleteTradeFromCloud(trade.symbol, trade.id);
     setTrackedTrades(prev => prev.filter(t => t !== trade));
   }
 

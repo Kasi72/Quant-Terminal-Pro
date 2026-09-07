@@ -110,6 +110,7 @@ export function tradeSheetToClipboard(ts: TradeSheet): string {
 // ─── #2: Win Rate Tracker ────────────────────────────────────────────────────
 
 export interface TrackedTrade {
+  id?: string;       // UUID row id — set on creation, round-tripped through cloud sync
   symbol: string;
   stage: StageRating;
   entryPrice: number;
@@ -271,6 +272,28 @@ export function getTradeMaeR(t: TrackedTrade): number {
 
 export function didReachFivePctTarget(t: TrackedTrade): boolean {
   return getTradeMfePct(t) >= FIVE_PCT_WIN_THRESHOLD;
+}
+
+// Blended P&L matching the backtest simulator's partial-exit model (50%@T1, 30%@T2, 20%@T3).
+// Use this to compare live trade outcomes with backtest WR/PF on an apples-to-apples basis.
+export function computeWeightedExitPnl(t: TrackedTrade): number {
+  const entry = t.entryPrice;
+  if (!entry || entry <= 0) return t.pnlPct ?? 0;
+  const pctOf = (price: number) => price > 0 ? (price - entry) / entry * 100 : 0;
+  const actual = t.pnlPct ?? 0;
+  switch (t.status) {
+    case 'hit_t3':
+      return 0.5 * pctOf(t.target1) + 0.3 * pctOf(t.target2) + 0.2 * pctOf(t.target3);
+    case 'hit_t2':
+      // 50% exited at T1, 30% at T2, 20% at actual close (trail/stop/manual after T2)
+      return 0.5 * pctOf(t.target1) + 0.3 * pctOf(t.target2) + 0.2 * actual;
+    case 'hit_t1':
+      // 50% exited at T1, remaining 50% at actual close
+      return 0.5 * pctOf(t.target1) + 0.5 * actual;
+    default:
+      // stopped / expired / manual_close / closed_early — no partial exits reached
+      return actual;
+  }
 }
 
 // Canonical return for analytics whose stated outcome is "did price reach +5%?".

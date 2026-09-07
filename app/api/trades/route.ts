@@ -74,7 +74,7 @@ export async function PUT(req: NextRequest) {
   const db = getServiceClient();
   const { error } = await db
     .from('tracked_trades')
-    .upsert(trades.map(tradeToRow), { onConflict: 'user_id,symbol', ignoreDuplicates: false });
+    .upsert(trades.map(tradeToRow), { onConflict: 'id', ignoreDuplicates: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, stored: trades.length });
@@ -86,10 +86,16 @@ export async function DELETE(req: NextRequest) {
   const ownerDenied = await requireOwnerToken(req);
   if (ownerDenied) return ownerDenied;
 
+  const tradeId = req.nextUrl.searchParams.get('id');
   const symbol = req.nextUrl.searchParams.get('symbol');
   const db = getServiceClient();
   let query = db.from('tracked_trades').delete().eq('user_id', TRADE_USER_ID);
-  if (symbol) {
+  if (tradeId) {
+    if (!/^[0-9a-f-]{36}$/.test(tradeId)) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
+    query = query.eq('id', tradeId);
+  } else if (symbol) {
     if (!/^[A-Z0-9._&-]{1,30}$/.test(symbol)) {
       return NextResponse.json({ error: 'Invalid symbol' }, { status: 400 });
     }

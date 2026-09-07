@@ -105,10 +105,13 @@ async function waitForSyncIdle(): Promise<void> {
   while (_activeSync) await _activeSync;
 }
 
-// Delete one trade from cloud
-export async function deleteTradeFromCloud(symbol: string): Promise<void> {
+// Delete one trade from cloud — prefer id-based delete when available
+export async function deleteTradeFromCloud(symbol: string, tradeId?: string): Promise<void> {
+  const param = tradeId
+    ? `id=${encodeURIComponent(tradeId)}`
+    : `symbol=${encodeURIComponent(symbol)}`;
   try {
-    const res = await fetch(`/api/trades?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
+    const res = await fetch(`/api/trades?${param}`, { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
     if (!res.ok) {
       const body = await res.json().catch(() => ({} as { error?: string }));
       console.error('[tradeSync] delete failed:', symbol, body.error ?? res.statusText);

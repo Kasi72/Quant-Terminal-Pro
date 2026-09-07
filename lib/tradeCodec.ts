@@ -83,6 +83,7 @@ export function isPlausibleTrade(value: unknown): value is TrackedTrade {
 
 export function tradeToRow(t: TrackedTrade): TrackedTradeRow {
   return {
+    ...(t.id ? { id: t.id } : {}),
     user_id: TRADE_USER_ID,
     symbol: t.symbol,
     stage: t.stage,
@@ -121,6 +122,7 @@ export function rowToTrade(row: TrackedTradeRow): TrackedTrade {
   const base = ((row.raw_json ?? {}) as Partial<TrackedTrade>) || {};
   return {
     ...base,
+    id: typeof row.id === 'string' && row.id ? row.id : base.id,
     symbol: safeString(row.symbol, base.symbol),
     status: safeString(row.status, base.status) as TrackedTrade['status'],
     stage: safeString(row.stage, base.stage) as TrackedTrade['stage'],
