@@ -558,7 +558,7 @@ export function computeWinRateStats(trades: TrackedTrade[]): WinRateStats {
     wins: wins.length,
     losses: losses.length,
     fivePctWins: wins.length,
-    open: trades.filter(t => !isTerminalTrade(t)).length,
+    open: trades.filter(t => !isTradeResolvedForWinRate(t)).length,
     hitT1: trades.filter(t => t.status === 'hit_t1').length,
     hitT2: trades.filter(t => t.status === 'hit_t2').length,
     hitT3: trades.filter(t => t.status === 'hit_t3').length,

@@ -1936,6 +1936,19 @@ function HomePageInner() {
       .catch(() => {});
   }, []);
 
+  // Re-fetch tracked trades from cloud when the tab regains focus (picks up outcome labels
+  // written by the daily brain trainer / label-uc-outcomes API without requiring a full reload).
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      loadTradesFromCloud().then(cloudTrades => {
+        if (cloudTrades && cloudTrades.length > 0) setTrackedTrades(cloudTrades);
+      }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   // On-demand sparkline fetch: when a symbol is selected but candleCache lacks it
   // (batch/cron results don't carry candle data), fetch silently so the chart renders.
   // eslint-disable-next-line react-hooks/exhaustive-deps
