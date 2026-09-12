@@ -36,7 +36,17 @@ try {
     Add-Content $logFile "[ERROR] uc_score_exact_gate.js: $_"
 }
 
-# 3. Rolling precision tracker — drift detection per DNA clause
+# 3. False negative miner — study winners that escaped current DNA filter
+Add-Content $logFile "`n--- false_negative_miner.js ---"
+try {
+    $out = & node "$root\scripts\false_negative_miner.js" 2>&1
+    Add-Content $logFile $out
+    Add-Content $logFile "[OK] false_negative_miner.js completed"
+} catch {
+    Add-Content $logFile "[ERROR] false_negative_miner.js: $_"
+}
+
+# 4. Rolling precision tracker — drift detection per DNA clause
 Add-Content $logFile "`n--- rolling_precision_tracker.js ---"
 try {
     $out = & node "$root\scripts\rolling_precision_tracker.js" 2>&1
@@ -46,7 +56,17 @@ try {
     Add-Content $logFile "[ERROR] rolling_precision_tracker.js: $_"
 }
 
-# 4. Auto-apply improvements — patch code + git commit + deploy if stats warrant
+# 5. Pattern similarity engine — rebuild winner clusters → Supabase
+Add-Content $logFile "`n--- pattern_similarity_engine.js ---"
+try {
+    $out = & node "$root\scripts\pattern_similarity_engine.js" 2>&1
+    Add-Content $logFile $out
+    Add-Content $logFile "[OK] pattern_similarity_engine.js completed"
+} catch {
+    Add-Content $logFile "[ERROR] pattern_similarity_engine.js: $_"
+}
+
+# 6. Auto-apply improvements — patch code + git commit + deploy if stats warrant
 Add-Content $logFile "`n--- auto_apply_improvements.js ---"
 try {
     $out = & node "$root\scripts\auto_apply_improvements.js" 2>&1

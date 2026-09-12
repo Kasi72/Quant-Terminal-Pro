@@ -522,6 +522,38 @@ const BAYES_WR: Record<string, number> = {
 // and streak is write-once-per-scan (no concurrent mutation risk).
 let _ucStreakCache: Record<string, number> = {};
 
+// Winner cluster centroids fetched from Supabase uc_brain_config at page mount.
+// Updated nightly by pattern_similarity_engine.js → no deploy needed.
+type WinnerClusterDim = { feature: string; ts_field: string; value: number };
+type WinnerCluster = { id: number; centroid_raw: WinnerClusterDim[]; centroid_norm: number[]; norm_stats: { feature: string; min: number; max: number; range: number }[]; threshold_for_membership: number; precision_in_cluster: number | null; n_cluster_total: number };
+type WinnerClusters = { clusters: WinnerCluster[]; dims: { db: string; ts: string; weight: number }[] } | null;
+let _winnerClusters: WinnerClusters = null;
+
+// Returns 0-100 similarity of stock `r` to nearest winner cluster centroid.
+// 100 = identical to centroid, 0 = further than threshold distance.
+function computeSimPct(r: Record<string, unknown>, clusters: WinnerClusters): number {
+  if (!clusters?.clusters?.length || !clusters.dims?.length) return 0;
+  const dims = clusters.dims;
+  let best = 0;
+  for (const cl of clusters.clusters) {
+    if (!cl.centroid_norm?.length || !cl.norm_stats?.length) continue;
+    let dist2 = 0;
+    for (let j = 0; j < dims.length; j++) {
+      const stat = cl.norm_stats[j];
+      if (!stat || stat.range === 0) continue;
+      const raw = r[dims[j].ts] as number ?? 0;
+      const norm = (raw - stat.min) / stat.range;
+      const diff = (norm - cl.centroid_norm[j]) * dims[j].weight;
+      dist2 += diff * diff;
+    }
+    const dist = Math.sqrt(dist2);
+    const thr  = cl.threshold_for_membership ?? 0.35;
+    const sim  = Math.max(0, 1 - dist / thr) * 100;
+    if (sim > best) best = sim;
+  }
+  return Math.round(best);
+}
+
 const COLUMNS: ColDef[] = [
   { key: 'symbol',    label: 'Symbol',      width: 120, align: 'left',
     fmt: r => r.symbol,
@@ -1056,6 +1088,23 @@ const COLUMNS: ColDef[] = [
       if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             n++;
       return n >= 2 ? 'text-emerald-300 font-bold font-mono text-center'
            : n === 1 ? 'text-amber-400 font-mono text-center'
+           : 'text-slate-600 font-mono text-center';
+    } },
+  { key: 'simScore', label: '🧠 SIM', width: 60, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">🧠 Winner Similarity Score</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">How closely this stock matches the 5 historical winner archetypes (k-means clusters of all ≥5% next-day gainers). Updated nightly from labeled data — no deploy needed.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">≥65</span></div><div><div class="rt-desc">High similarity to a proven winning pattern. Strong confirmation signal regardless of DNA clause count.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">40–64</span></div><div><div class="rt-desc">Moderate resemblance. Use alongside DNA and ucScore.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">0–39</span></div><div><div class="rt-desc">Low similarity to past winners. Proceed with caution.</div></div></div>',
+    fmt: r => {
+      const sim = computeSimPct(r as unknown as Record<string, unknown>, _winnerClusters);
+      return sim > 0 ? sim + '%' : '—';
+    },
+    numVal: r => computeSimPct(r as unknown as Record<string, unknown>, _winnerClusters),
+    cellClass: r => {
+      const sim = computeSimPct(r as unknown as Record<string, unknown>, _winnerClusters);
+      return sim >= 65 ? 'text-emerald-300 font-bold font-mono text-center'
+           : sim >= 40 ? 'text-amber-400 font-mono text-center'
            : 'text-slate-600 font-mono text-center';
     } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
@@ -1863,6 +1912,12 @@ function HomePageInner() {
       else if (savedParamSet && PARAM_SET_OPTIONS.some(o => o.key === savedParamSet)) setParamSetKey(savedParamSet as ParamSetKey);
     } catch {}
     // NO localStorage.clear() fallback — never nuke tracked trades
+
+    // ─── WINNER CLUSTERS: fetch nightly-updated pattern memory from Supabase ───
+    fetch('/api/brain-config?key=winner_clusters')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: WinnerClusters | null) => { if (data?.clusters?.length) _winnerClusters = data; })
+      .catch(() => {});
 
     // ─── BATCH PRE-COMPUTED RESULTS: load last night's scan on mount ───
     fetch('/api/batch-results')
