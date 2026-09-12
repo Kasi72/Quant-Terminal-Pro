@@ -3003,6 +3003,19 @@ function HomePageInner() {
           guppy_coiled_release:  r.stats?.guppyCoiledRelease ?? null,
           guppy_clean_bullish_fan: r.stats?.guppyCleanBullishFan ?? null,
           guppy_group_gap_pct:   r.stats?.guppyGroupGapPct ?? null,
+          // Migration 014 — ML + screener signals
+          xgb_score:                  r.xgbScore ?? null,
+          candle_dna_score:           r.candleDNA?.score ?? null,
+          candle_dna_tier:            r.candleDNA?.tier ?? null,
+          near_breakout_tier:         r.nearBreakoutTier ?? null,
+          near_breakout_pct:          r.nearBreakoutPct < 99 ? r.nearBreakoutPct : null,
+          archetype_type:             r.archetypeType ?? null,
+          bayes_wr:                   (BAYES_WR[r.archetypeType ?? ''] ?? null),
+          stats_score:                r.stats?.statsScore ?? null,
+          momentum_score:             r.momentum?.momentumScore ?? null,
+          rs_nifty20:                 r.momentum?.rsNifty20 ?? null,
+          volatility_expansion_ratio: r.volatilityExpansionRatio > 0 ? r.volatilityExpansionRatio : null,
+          ultra_precision_score:      r.ultraPrecisionScore > 0 ? r.ultraPrecisionScore : null,
         };
       });
     if (candidates.length === 0) return;

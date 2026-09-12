@@ -128,9 +128,19 @@ const FEATURES = [
   { key: 'day_chg_pct',    label: 'DayChg%',          dir: 'mid',  desc: 'Day change % (contaminated for UC target, valid for 5pct)' },
   { key: 'conviction',     label: 'Conviction',       dir: 'high', desc: 'Brain conviction score' },
   // NEW features (stored but never mined before)
-  { key: 'inflection_score',  label: 'InflectionScore',  dir: 'high', desc: 'Brain V2 inflection score — quality of setup geometry' },
-  { key: 'confluence_score',  label: 'ConfluenceScore',  dir: 'high', desc: 'Multi-signal confluence count (more signals = higher score)' },
-  { key: 'bayesWR',           label: 'BayesianWR',       dir: 'high', desc: 'Archetype Bayesian posterior win rate (from archetype_bayes_wr table)' },
+  { key: 'inflection_score',          label: 'InflectionScore',    dir: 'high', desc: 'Brain V2 inflection score — quality of setup geometry' },
+  { key: 'confluence_score',          label: 'ConfluenceScore',    dir: 'high', desc: 'Multi-signal confluence count (more signals = higher score)' },
+  { key: 'bayesWR',                   label: 'BayesianWR(stage)',  dir: 'high', desc: 'Stage-matched Bayesian posterior WR (from archetype_bayes_wr table)' },
+  // Migration 014 — ML + screener signals
+  { key: 'xgb_score',                 label: 'XGBscore',           dir: 'high', desc: 'XGBoost P(hit_t1) 0-1 — ML model output' },
+  { key: 'candle_dna_score',          label: 'CandleDNA',          dir: 'high', desc: 'CandleDNA composite score 0-100' },
+  { key: 'near_breakout_pct',         label: 'NearBrkPct',         dir: 'low',  desc: '% distance from breakout resistance (low=imminent)' },
+  { key: 'bayes_wr',                  label: 'BayesWR(archetype)', dir: 'high', desc: 'Archetype Bayesian WR stored at scan (correct join)' },
+  { key: 'stats_score',               label: 'StatsScore',         dir: 'high', desc: 'Statistical composite 0-100 (Hurst/Sharpe/CCI/VolZ)' },
+  { key: 'momentum_score',            label: 'MomentumScore',      dir: 'high', desc: 'Momentum composite 0-100' },
+  { key: 'rs_nifty20',                label: 'RSNifty20',          dir: 'high', desc: 'Relative strength vs Nifty 20D (>1.05=outperforming)' },
+  { key: 'volatility_expansion_ratio',label: 'VolExpRatio',        dir: 'high', desc: 'Current range / ATR14 (expansion after compression)' },
+  { key: 'ultra_precision_score',     label: 'UltraPrecision',     dir: 'high', desc: 'UPS composite precision score' },
 ];
 
 // ── Categorical features (separate analysis) ───────────────────────────────────
@@ -139,9 +149,13 @@ const CATEGORICAL_FEATURES = [
   { key: 'stage',        label: 'Stage',       desc: 'Brain V2 archetype stage classification' },
   { key: 'morph_type',   label: 'MorphType',   desc: 'Candle morphology type' },
   { key: 'market_regime',label: 'MarketRegime', desc: 'Market regime at scan date' },
-  { key: 'uc_goldmine',  label: 'UCGoldmine',  desc: 'UC Goldmine tier flag' },
-  { key: 'uc_elite',     label: 'UCElite',     desc: 'UC Elite tier flag' },
-  { key: 'uc_strong',    label: 'UCStrong',    desc: 'UC Strong tier flag' },
+  { key: 'uc_goldmine',      label: 'UCGoldmine',     desc: 'UC Goldmine tier flag' },
+  { key: 'uc_elite',        label: 'UCElite',        desc: 'UC Elite tier flag' },
+  { key: 'uc_strong',       label: 'UCStrong',       desc: 'UC Strong tier flag' },
+  // Migration 014 categoricals
+  { key: 'archetype_type',  label: 'ArchetypeType',  desc: 'VolumeFootprint/CompressionCoil/MomentumPocket/EMAStack/PerfectStorm' },
+  { key: 'near_breakout_tier', label: 'NearBrkTier', desc: 'IMMINENT/NEAR/WATCH/EARLY/null' },
+  { key: 'candle_dna_tier', label: 'CandleDNATier',  desc: 'ELITE/STRONG/GOOD/WEAK' },
 ];
 
 // ── Threshold sweep ────────────────────────────────────────────────────────────
@@ -259,7 +273,10 @@ async function main() {
     'rsi2,rsi2_velocity,cl_trend,zone_tightness,dd52wh,uc_score,day_chg_pct,' +
     'conviction,inflection_score,confluence_score,' +
     'stage,morph_type,market_regime,' +
-    'uc_elite,uc_strong,uc_goldmine' +
+    'uc_elite,uc_strong,uc_goldmine,' +
+    'xgb_score,candle_dna_score,candle_dna_tier,near_breakout_tier,near_breakout_pct,' +
+    'archetype_type,bayes_wr,stats_score,momentum_score,rs_nifty20,' +
+    'volatility_expansion_ratio,ultra_precision_score' +
     '&hit_uc_next_day=not.is.null&order=scan_date.asc'
   );
 
@@ -281,9 +298,10 @@ async function main() {
     console.warn(`  Warning: could not load bayesian WR: ${e.message}`);
   }
 
-  // Enrich rows with bayesWR via stage lookup
+  // Enrich rows with bayesWR via archetype_type (correct key) or stage fallback
   for (const r of all) {
-    r.bayesWR = bayesMap[r.stage] != null ? bayesMap[r.stage] * 100 : null;
+    const key = r.archetype_type ?? r.stage;
+    r.bayesWR = bayesMap[key] != null ? bayesMap[key] * 100 : null;
   }
 
   const labeled = all.filter(r => r[TC.needsCol] != null);

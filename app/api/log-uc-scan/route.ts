@@ -38,6 +38,19 @@ interface UCCandidate {
   guppy_coiled_release?: boolean | null;
   guppy_clean_bullish_fan?: boolean | null;
   guppy_group_gap_pct?: number | null;
+  // Migration 014 — ML + screener signals
+  xgb_score?: number | null;
+  candle_dna_score?: number | null;
+  candle_dna_tier?: string | null;
+  near_breakout_tier?: string | null;
+  near_breakout_pct?: number | null;
+  archetype_type?: string | null;
+  bayes_wr?: number | null;
+  stats_score?: number | null;
+  momentum_score?: number | null;
+  rs_nifty20?: number | null;
+  volatility_expansion_ratio?: number | null;
+  ultra_precision_score?: number | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -85,6 +98,19 @@ export async function POST(req: NextRequest) {
       guppy_coiled_release:  c.guppy_coiled_release ?? null,
       guppy_clean_bullish_fan: c.guppy_clean_bullish_fan ?? null,
       guppy_group_gap_pct:   c.guppy_group_gap_pct ?? null,
+      // Migration 014 — ML + screener signals
+      xgb_score:                  c.xgb_score ?? null,
+      candle_dna_score:           c.candle_dna_score ?? null,
+      candle_dna_tier:            c.candle_dna_tier ?? null,
+      near_breakout_tier:         c.near_breakout_tier ?? null,
+      near_breakout_pct:          c.near_breakout_pct ?? null,
+      archetype_type:             c.archetype_type ?? null,
+      bayes_wr:                   c.bayes_wr ?? null,
+      stats_score:                c.stats_score ?? null,
+      momentum_score:             c.momentum_score ?? null,
+      rs_nifty20:                 c.rs_nifty20 ?? null,
+      volatility_expansion_ratio: c.volatility_expansion_ratio ?? null,
+      ultra_precision_score:      c.ultra_precision_score ?? null,
     }));
 
     const { error, count } = await sb
