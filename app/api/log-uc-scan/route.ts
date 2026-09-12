@@ -30,6 +30,14 @@ interface UCCandidate {
   inflection_score?: number | null;
   dd52wh?: number | null;
   market_regime?: string | null;
+  guppy_spread_pct?: number | null;
+  guppy_compressed?: boolean | null;
+  guppy_ultra_compressed?: boolean | null;
+  guppy_compress_days?: number | null;
+  guppy_primed?: boolean | null;
+  guppy_coiled_release?: boolean | null;
+  guppy_clean_bullish_fan?: boolean | null;
+  guppy_group_gap_pct?: number | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -67,8 +75,16 @@ export async function POST(req: NextRequest) {
       inflection_score: c.inflection_score ?? null,
       dd52wh:           c.dd52wh ?? null,
       market_regime:    c.market_regime ?? null,
-      morph_type:       c.morph_type ?? null,
-      total_scan_count: total_scan_count ?? null,
+      morph_type:            c.morph_type ?? null,
+      total_scan_count:      total_scan_count ?? null,
+      guppy_spread_pct:      c.guppy_spread_pct ?? null,
+      guppy_compressed:      c.guppy_compressed ?? null,
+      guppy_ultra_compressed: c.guppy_ultra_compressed ?? null,
+      guppy_compress_days:   c.guppy_compress_days ?? null,
+      guppy_primed:          c.guppy_primed ?? null,
+      guppy_coiled_release:  c.guppy_coiled_release ?? null,
+      guppy_clean_bullish_fan: c.guppy_clean_bullish_fan ?? null,
+      guppy_group_gap_pct:   c.guppy_group_gap_pct ?? null,
     }));
 
     const { error, count } = await sb

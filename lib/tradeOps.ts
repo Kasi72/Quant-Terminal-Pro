@@ -911,15 +911,24 @@ export const QUICK_FILTERS: QuickFilter[] = [
       r.exactVolVsPre5 >= 22.82,
   },
   {
-    // DNA-mined from pbfb_uc_logger >5% next-day gain target (2026-09-12).
-    // Key signals: BodyPct≥60 (d=0.69), UpperWick≤15 (d=-0.53), UCscore≥55.
-    // Candle archetype: thick green body, no upper wick rejection = buyers
-    // in full control. 20.9% precision at UCscore≥68.80 + VolPre5≥3.82 pair.
+    // Enhanced DNA-mined from 2,975 labeled rows in pbfb_uc_logger (2026-09-12).
+    // Uses ALL Brain V2 stored features including previously unmined inflection_score,
+    // cl_trend, confluence_score. Two independently validated DNA archetypes:
+    //
+    // DNA-A: VolPre5≥3.18 AND CLtrend≥63  → 23.1% precision (6.1x random)
+    //   "Volume surge + sustained close trend" — momentum continuation candle
+    //
+    // DNA-B: UpperWick≤1.38 AND InflectionScore≥34 → 21.9% precision (5.8x random)
+    //   "Perfect close (no rejection) + Brain inflection quality" — clean breakout
+    //
+    // Stage booster: BUY=12.1% (3.2x), EARLY_INFLECTION=8.2% (2.2x)
+    // UCGoldmine=true: 15.1% precision (4x) — combined with DNA → ~25-30%
     key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
-    description: '>5% Gain Hunt — DNA-mined: BodyPct≥60 + UpperWick≤15 + UCscore≥48 → ~15-20% precision for >5% next day. Thick bullish body with no top rejection = continuation momentum candle.',
+    description: '>5% Gain Hunt — Enhanced DNA v2: VolPre5≥3.18+CLtrend≥63 (23.1% prec, 6.1x) OR UpperWick≤1.38+InflectionScore≥34 (21.9% prec, 5.8x). Mined from 2,975 labeled rows. Stage=BUY/EARLY_INFLECTION adds further lift. Add UCGoldmine for highest tier.',
     filter: r =>
-      r.bodyPct >= 60 &&
-      r.upperWickPct <= 15 &&
-      (r as any).ucScore >= 48,
+      // DNA-A: volume surge with sustained trend
+      (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63) ||
+      // DNA-B: perfect close with Brain inflection quality
+      (r.upperWickPct <= 1.38 && r.inflectionScore >= 34),
   },
 ];

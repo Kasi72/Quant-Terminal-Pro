@@ -2994,6 +2994,15 @@ function HomePageInner() {
           cl_trend:         (r as any).clTrend         ?? null,
           rsi2_velocity:    (r as any).rsi2Velocity    ?? null,
           zone_tightness:   (r as any).zoneTightness   ?? null,
+          // Guppy GMMA compression state (migration 013) — stored for DNA mining
+          guppy_spread_pct:      r.stats?.guppySpreadPct < 99 ? r.stats.guppySpreadPct : null,
+          guppy_compressed:      r.stats?.guppyCompressed ?? null,
+          guppy_ultra_compressed: r.stats?.guppyUltraCompressed ?? null,
+          guppy_compress_days:   r.stats?.guppyCompressDays > 0 ? r.stats.guppyCompressDays : null,
+          guppy_primed:          r.stats?.guppyPrimed ?? null,
+          guppy_coiled_release:  r.stats?.guppyCoiledRelease ?? null,
+          guppy_clean_bullish_fan: r.stats?.guppyCleanBullishFan ?? null,
+          guppy_group_gap_pct:   r.stats?.guppyGroupGapPct ?? null,
         };
       });
     if (candidates.length === 0) return;
