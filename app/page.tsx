@@ -7635,7 +7635,7 @@ function HomePageInner() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-bold text-slate-200 tracking-wider">🔬 Trade Auto Validation</h2>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.length} active (open/T1/T2) · {closed.length} decided for 5% WR · {terminal.length} terminal · Partial exit (50/30/20)</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{all.length} trades · {open.filter(t => t.status === 'open').length} open · {open.filter(t => t.status === 'hit_t1').length}×T1 · {open.filter(t => t.status === 'hit_t2').length}×T2 runners · {closed.length} decided for 5% WR · {terminal.length} terminal · Partial exit (50/30/20)</div>
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-slate-600">Level 3 Bar-by-bar · Stop before target</div>
@@ -7917,7 +7917,7 @@ function HomePageInner() {
                       <div key={i} className={`rounded-lg border px-3 py-2 text-center ${o.color}`}>
                         <div className="text-2xl font-bold">{o.count}</div>
                         <div className="text-[10px] uppercase tracking-wider opacity-70">{o.label}</div>
-                        {o.count > 0 && <div className="text-[10px] font-mono mt-0.5">{o.profit >= 0 ? '+' : ''}{o.profit.toFixed(1)}%</div>}
+                        {o.count > 0 && <div className="text-[10px] font-mono mt-0.5">{(o.profit/o.count) >= 0 ? '+' : ''}{(o.profit/o.count).toFixed(1)}% avg</div>}
                       </div>
                     ))}
                   </div>

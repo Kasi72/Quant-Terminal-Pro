@@ -637,7 +637,7 @@ export function computeRollingStats(
     wins:            wins.length,
     losses:          losses.length,
     winRate:         closed.length > 0 ? (wins.length / closed.length) * 100 : 0,
-    avgMFE:          wins.length   > 0 ? wins.reduce((s, t)   => s + getTradeMfePct(t), 0) / wins.length   : 0,
+    avgMFE:          closed.length > 0 ? closed.reduce((s, t) => s + getTradeMfePct(t), 0) / closed.length : 0,
     avgMAE:          maeTrades.length > 0 ? maeTrades.reduce((s, t) => s + getTradeMaePct(t), 0) / maeTrades.length : 0,
     avgTimeToTarget: wins.length   > 0 ? wins.reduce((s, t)   => s + (t.daysHeld ?? 0), 0) / wins.length  : 0,
   };
