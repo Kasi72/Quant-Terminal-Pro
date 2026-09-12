@@ -1024,6 +1024,40 @@ const COLUMNS: ColDef[] = [
       if (s >= 70) return 'text-amber-500';
       return s >= 50 ? 'text-slate-300' : 'text-slate-500';
     } },
+  { key: 'dnaMatch', label: '🧬 DNA', width: 72, align: 'center',
+    headerTipHtml: '<div class="rt-hdr">🧬 >5% Hunt DNA Match</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-emerald">What</span></div><div><div class="rt-desc">Which statistically mined DNA clause(s) fired for this stock. Derived from 2,975 labeled rows (2026-09-12). Each clause independently predicts >5% next-day gain at 15–23% precision (4–6× random).</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">A · 23.1%</span></div><div><div class="rt-desc">VolPre5 ≥ 3.18 AND CLTrend ≥ 63 — volume surge with sustained trend. 6.1× lift. Strongest clause.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-purple">B · 21.9%</span></div><div><div class="rt-desc">UpperWick ≤ 1.38% AND InflectionScore ≥ 34 — perfect close with Brain inflection quality. 5.8× lift.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-yellow">C · 15.1%</span></div><div><div class="rt-desc">UCGoldmine flag = true — Brain composite quality gate. 4.0× lift.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">D · 20.0%</span></div><div><div class="rt-desc">VolPre5 ≥ 3.18 AND InflectionScore ≥ 34 — volume surge + Brain inflection geometry. 5.3× lift.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-neon">Multi</span></div><div><div class="rt-desc">2+ clauses firing simultaneously = higher conviction. Green = 2+ clauses. Amber = 1 clause. Dash = none.</div></div></div>',
+    fmt: r => {
+      const clauses: string[] = [];
+      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           clauses.push('A');
+      if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               clauses.push('B');
+      if ((r as any).ucGoldmine === true)                                   clauses.push('C');
+      if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             clauses.push('D');
+      return clauses.length > 0 ? clauses.join('·') : '—';
+    },
+    numVal: r => {
+      let n = 0;
+      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           n++;
+      if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               n++;
+      if ((r as any).ucGoldmine === true)                                   n++;
+      if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             n++;
+      return n;
+    },
+    cellClass: r => {
+      let n = 0;
+      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           n++;
+      if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               n++;
+      if ((r as any).ucGoldmine === true)                                   n++;
+      if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             n++;
+      return n >= 2 ? 'text-emerald-300 font-bold font-mono text-center'
+           : n === 1 ? 'text-amber-400 font-mono text-center'
+           : 'text-slate-600 font-mono text-center';
+    } },
   { key: 'clenow', label: 'Clenow', width: 75, align: 'right',
     headerTipHtml: '<div class="rt-hdr">Clenow Momentum Score (125d)</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">Formula</span></div><div><div class="rt-desc">Annualized exp. regression slope × R² (trend smoothness). Higher = stronger AND smoother momentum.</div></div></div>'
@@ -2946,7 +2980,8 @@ function HomePageInner() {
   }, [paramSetKey, scanAll, lookback, niftyCandles, scanSource]);
 
   // UC Candidate Logger — fires once per scan after scanning = false
-  // Sends ucScore ≥ 35 stocks to /api/log-uc-scan for 30-day precision tracking
+  // Sends ucScore ≥ 58 stocks to /api/log-uc-scan for 30-day precision tracking
+  // Gate 58 = statistically derived via CART Gini + Chow structural break + 8-method consensus (2026-09-12)
   useEffect(() => {
     if (scanning) return;
     // Gate: NSE is closed on weekends — skip to avoid polluting labeled dataset with 0-hit rows
@@ -2964,7 +2999,7 @@ function HomePageInner() {
     const isLockedCandle = (r: AnalysisResult) => r.bodyPct === 0 && r.upperWickPct === 0;
 
     const candidates = results
-      .filter(r => ((r as any).ucScore as number | undefined) != null && ((r as any).ucScore as number) >= 35)
+      .filter(r => ((r as any).ucScore as number | undefined) != null && ((r as any).ucScore as number) >= 58)
       .map(r => {
         const locked = isLockedCandle(r);
         return {
