@@ -803,7 +803,7 @@ export function computeParamSensitivity(r: AnalysisResult): ParamSensitivity[] {
 
 // ─── #8: Quick Filter Presets ────────────────────────────────────────────────
 
-export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'momAlert' | 'eliteSignal' | 'all';
+export type QuickFilterKey = 'ready' | 'tomorrow' | 'strongest' | 'safe' | 'momAlert' | 'eliteSignal' | 'ucLockHunt' | 'momHunt5pct' | 'all';
 
 export interface QuickFilter {
   key: QuickFilterKey;
@@ -898,5 +898,28 @@ export const QUICK_FILTERS: QuickFilter[] = [
         r.paramSetKey === 'optimized_elite_10plus' ||
         r.paramSetKey === 'sniper_95plus'
       )),
+  },
+  {
+    // DNA-mined from 10,166 labeled rows in pbfb_uc_logger (2026-09-12).
+    // VolPre5>=22.82 → 13.7% precision (15.4x random). Pair with ucGoldmine
+    // tier → ~20%+ precision. Target: consecutive UC lock (stock already in
+    // circuit or near-circuit, surges again next day on volume acceleration).
+    key: 'ucLockHunt', label: 'UC Lock Hunt', emoji: '🔒',
+    description: 'UC Lock Hunt — DNA-mined: VolVsPre5≥22.82 + Goldmine tier → ~20% precision for upper circuit next day (15×random). Volume acceleration is the key signal.',
+    filter: r =>
+      (r as any).ucGoldmine === true &&
+      r.exactVolVsPre5 >= 22.82,
+  },
+  {
+    // DNA-mined from pbfb_uc_logger >5% next-day gain target (2026-09-12).
+    // Key signals: BodyPct≥60 (d=0.69), UpperWick≤15 (d=-0.53), UCscore≥55.
+    // Candle archetype: thick green body, no upper wick rejection = buyers
+    // in full control. 20.9% precision at UCscore≥68.80 + VolPre5≥3.82 pair.
+    key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
+    description: '>5% Gain Hunt — DNA-mined: BodyPct≥60 + UpperWick≤15 + UCscore≥48 → ~15-20% precision for >5% next day. Thick bullish body with no top rejection = continuation momentum candle.',
+    filter: r =>
+      r.bodyPct >= 60 &&
+      r.upperWickPct <= 15 &&
+      (r as any).ucScore >= 48,
   },
 ];

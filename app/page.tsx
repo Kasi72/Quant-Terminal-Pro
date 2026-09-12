@@ -3908,7 +3908,7 @@ function HomePageInner() {
         {/* Group 4: Quick filters */}
         <div className="flex items-center gap-1 shrink-0">
           {results.length > 0 && (() => {
-            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan', momAlert: 'orange', eliteSignal: 'yellow' };
+            const qfColors: Record<string, string> = { all: 'blue', ready: 'green', tomorrow: 'yellow', strongest: 'orange', safe: 'cyan', momAlert: 'orange', eliteSignal: 'yellow', ucLockHunt: 'purple', momHunt5pct: 'green' };
             return QUICK_FILTERS.map(qf => (
               <button key={qf.key} onClick={() => setQuickFilter(quickFilter === qf.key ? 'all' : qf.key)}
                 data-tip={qf.description} data-tip-color={qfColors[qf.key] ?? 'blue'}
