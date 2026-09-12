@@ -913,22 +913,29 @@ export const QUICK_FILTERS: QuickFilter[] = [
   {
     // Enhanced DNA-mined from 2,975 labeled rows in pbfb_uc_logger (2026-09-12).
     // Uses ALL Brain V2 stored features including previously unmined inflection_score,
-    // cl_trend, confluence_score. Two independently validated DNA archetypes:
+    // cl_trend, confluence_score, uc tier flags. Four independently validated archetypes:
     //
-    // DNA-A: VolPre5≥3.18 AND CLtrend≥63  → 23.1% precision (6.1x random)
+    // DNA-A: VolPre5≥3.18 AND CLtrend≥63         → 23.1% precision (6.1x)
     //   "Volume surge + sustained close trend" — momentum continuation candle
     //
-    // DNA-B: UpperWick≤1.38 AND InflectionScore≥34 → 21.9% precision (5.8x random)
+    // DNA-B: UpperWick≤1.38 AND InflectionScore≥34 → 21.9% precision (5.8x)
     //   "Perfect close (no rejection) + Brain inflection quality" — clean breakout
     //
-    // Stage booster: BUY=12.1% (3.2x), EARLY_INFLECTION=8.2% (2.2x)
-    // UCGoldmine=true: 15.1% precision (4x) — combined with DNA → ~25-30%
+    // DNA-C: UCGoldmine=true                       → 15.1% precision (4.0x)
+    //   "Brain tier-1 quality gate" — high composite UC score + tight candle anatomy
+    //
+    // DNA-D: VolPre5≥3.18 AND InflectionScore≥34   → 20.0% precision (5.3x)
+    //   "Volume surge + Brain inflection" — acceleration into quality geometry
     key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
-    description: '>5% Gain Hunt — Enhanced DNA v2: VolPre5≥3.18+CLtrend≥63 (23.1% prec, 6.1x) OR UpperWick≤1.38+InflectionScore≥34 (21.9% prec, 5.8x). Mined from 2,975 labeled rows. Stage=BUY/EARLY_INFLECTION adds further lift. Add UCGoldmine for highest tier.',
+    description: '>5% Gain Hunt — 4-clause DNA filter mined from 2,975 labeled rows: DNA-A 23.1%, DNA-B 21.9%, DNA-C(UCGoldmine) 15.1%, DNA-D 20.0%. OR union recall ~18-20%, avg precision >20% (5.3x+ random).',
     filter: r =>
-      // DNA-A: volume surge with sustained trend
+      // DNA-A: volume surge with sustained trend (23.1% prec, 6.1x)
       (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63) ||
-      // DNA-B: perfect close with Brain inflection quality
-      (r.upperWickPct <= 1.38 && r.inflectionScore >= 34),
+      // DNA-B: perfect close with Brain inflection quality (21.9% prec, 5.8x)
+      (r.upperWickPct <= 1.38 && r.inflectionScore >= 34) ||
+      // DNA-C: UC Goldmine tier flag — Brain quality composite gate (15.1% prec, 4.0x)
+      (r as any).ucGoldmine === true ||
+      // DNA-D: volume surge + Brain inflection geometry (20.0% prec, 5.3x)
+      (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34),
   },
 ];
