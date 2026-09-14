@@ -3922,10 +3922,15 @@ function computeUCScore(
   const morphComp = (bodyPct < 25 && uw < 20) ?  W.morphCoiledSpring_pts
     : (bodyPct < 25 && uw > 35)                ? -W.morphGravestone_penalty
     : 0;
+  // Continuous upper-wick component (v3 backtest 2026-09-14): clean close (low wick) = no distribution.
+  // Range [0, 30] flipped — applies to all stocks; morphComp handles body<25 extremes categorically.
+  const uwContinuousComp = upperWickPct != null
+    ? Math.min(1, Math.max(0, (30 - upperWickPct) / 30)) * W.upperWick_pts
+    : W.upperWick_neutral;
   const ucScore = Math.round(Math.min(100,
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus
     + ztComp + vaComp + nbtComp + archComp
-    + volDrySurgeComp + weeklyResComp + magnetComp + morphComp,
+    + volDrySurgeComp + weeklyResComp + magnetComp + morphComp + uwContinuousComp,
   ));
   // ucGoldmine: vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
