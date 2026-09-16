@@ -1,4 +1,4 @@
-// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+﻿// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
 // Proprietary and confidential. Unauthorised use or distribution is prohibited.
 // See LICENSE file in the project root for full licence terms.
 
@@ -911,31 +911,34 @@ export const QUICK_FILTERS: QuickFilter[] = [
       r.exactVolVsPre5 >= 22.82,
   },
   {
-    // Enhanced DNA-mined from 2,975 labeled rows in pbfb_uc_logger (2026-09-12).
-    // Uses ALL Brain V2 stored features including previously unmined inflection_score,
-    // cl_trend, confluence_score, uc tier flags. Four independently validated archetypes:
+    // DNA retune 2026-09-16 on 3,506 labeled rows (base rate 3.39%). Five archetypes:
     //
-    // DNA-A: VolPre5≥3.18 AND CLtrend≥63         → 23.1% precision (6.1x)
-    //   "Volume surge + sustained close trend" — momentum continuation candle
+    // DNA-A: VolPre5>=4.5 AND CLtrend>=63                      -> 33.3% prec (9.8x)
+    //   vol threshold raised from 3.18 -- filters distribution-spike noise
     //
-    // DNA-B: UpperWick≤1.38 AND InflectionScore≥34 → 21.9% precision (5.8x)
-    //   "Perfect close (no rejection) + Brain inflection quality" — clean breakout
+    // DNA-B: UpperWick<=1.38 AND InflectionScore>=34            -> 20.6% prec (6.1x)
+    //   unchanged -- still strongest consistent clause
     //
-    // DNA-C: UCGoldmine=true                       → 15.1% precision (4.0x)
-    //   "Brain tier-1 quality gate" — high composite UC score + tight candle anatomy
+    // DNA-C: UCGoldmine=true AND BodyPct>=35                   -> 25.6% prec (7.6x)
+    //   body gate added -- was 14.6% without it; same 10 winners, 57 FP removed
     //
-    // DNA-D: VolPre5≥3.18 AND InflectionScore≥34   → 20.0% precision (5.3x)
-    //   "Volume surge + Brain inflection" — acceleration into quality geometry
+    // DNA-D: VolPre5>=4.0 AND InflScore>=34 AND BodyPct>=40      -> 20.0% prec (5.9x)
+    //   vol+body gates tightened -- eliminates low-body vol spikes
+    //
+    // DNA-E: CloseLoc>=80 AND VolPre5>=2 AND BodyPct>=40         -> 20.0% prec (5.9x)
+    //   new 2026-09-16 -- stealth close-to-high pattern: strong body, closes at top
     key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
-    description: '>5% Gain Hunt — 4-clause DNA filter mined from 2,975 labeled rows: DNA-A 23.1%, DNA-B 21.9%, DNA-C(UCGoldmine) 15.1%, DNA-D 20.0%. OR union recall ~18-20%, avg precision >20% (5.3x+ random).',
+    description: '>5% Gain Hunt — 5-clause DNA (retune 2026-09-16, 3,506 rows): A 33.3%, B 20.6%, C 25.6%, D 20.0%, E 20.0%. All 5.9x+ random.',
     filter: r =>
-      // DNA-A: volume surge with sustained trend (23.1% prec, 6.1x)
-      (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63) ||
-      // DNA-B: perfect close with Brain inflection quality (21.9% prec, 5.8x)
+      // DNA-A: vol surge + sustained trend (33.3% prec, 9.8x) -- vol>=4.5 tighter
+      (r.exactVolVsPre5 >= 4.5 && (r as any).clTrend >= 63) ||
+      // DNA-B: perfect close + Brain inflection (20.6% prec, 6.1x) -- unchanged
       (r.upperWickPct <= 1.38 && r.inflectionScore >= 34) ||
-      // DNA-C: UC Goldmine tier flag — Brain quality composite gate (15.1% prec, 4.0x)
-      (r as any).ucGoldmine === true ||
-      // DNA-D: volume surge + Brain inflection geometry (20.0% prec, 5.3x)
-      (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34),
+      // DNA-C: UCGoldmine + body quality gate (25.6% prec, 7.6x) -- +11pp vs no body filter
+      ((r as any).ucGoldmine === true && (r as any).bodyPct >= 35) ||
+      // DNA-D: vol surge + Brain inflection + body quality (20.0% prec, 5.9x)
+      (r.exactVolVsPre5 >= 4.0 && r.inflectionScore >= 34 && (r as any).bodyPct >= 40) ||
+      // DNA-E: stealth close-to-high (20.0% prec, 5.9x) -- new 2026-09-16
+      ((r as any).closeLoc >= 80 && r.exactVolVsPre5 >= 2 && (r as any).bodyPct >= 40),
   },
 ];

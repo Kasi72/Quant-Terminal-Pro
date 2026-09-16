@@ -82,6 +82,7 @@ import {
 } from '@/lib/tradeSync';
 import { inferXgbScore } from '@/lib/xgbInfer';
 import { inferUCXgb, getUCXgbMeta } from '@/lib/ucXgbInfer';
+import { inferUCLoggerXgb, getUCLoggerXgbMeta } from '@/lib/ucLoggerXgbInfer';
 import { calibrateUCScore } from '@/lib/ucCalibration';
 import { formatSurvivalLabel } from '@/lib/survivalInfer';
 import {
@@ -684,10 +685,10 @@ const COLUMNS: ColDef[] = [
     numVal: r => r.priceEngine.breakoutTier === 'A+' ? 3 : r.priceEngine.breakoutTier === 'A' ? 2 : 1,
     cellClass: r => r.priceEngine.breakoutTier === 'A+' ? 'text-emerald-400 font-bold bg-green-900/30 px-1 rounded' : r.priceEngine.breakoutTier === 'A' ? 'text-blue-400 font-semibold' : 'text-slate-600' },
   { key: 'xgbScore', label: 'XGB%', width: 56, align: 'center',
-    headerTipHtml: '<div class="rt-hdr">XGBoost Hit-T1 Probability</div><div class="rt-row"><div><span class="rt-badge bg-neon">What</span></div><div><div class="rt-desc">ML model (200 trees, AUC=0.857) trained on 3,718 labeled outcomes. Predicts P(stock hits +8% within 20 bars). Top features: close location, vol ratio, RSI-2.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">≥70%</span></div><div><div class="rt-desc">High confidence — model agrees signal is actionable.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">55-70%</span></div><div><div class="rt-desc">Moderate — signal marginal on ML features.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">—</span></div><div><div class="rt-desc">Model not yet retrained (run train_xgb_score.py monthly).</div></div></div>',
-    fmt: r => r.xgbScore != null ? `${Math.round(r.xgbScore * 100)}%` : '—',
-    numVal: r => r.xgbScore ?? 0,
-    cellClass: r => r.xgbScore == null ? 'text-slate-600' : r.xgbScore >= 0.70 ? 'text-emerald-400 font-bold' : r.xgbScore >= 0.55 ? 'text-yellow-400' : 'text-red-400' },
+    headerTipHtml: '<div class="rt-hdr">UC Logger XGBoost — P(+5% next day)</div><div class="rt-row"><div><span class="rt-badge bg-neon">What</span></div><div><div class="rt-desc">ML model trained on pbfb_uc_logger with direct next-day +5% label (AUC=0.77). Captures escape archetype (oversold doji) the DNA clauses miss. Auto-retrains monthly.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">≥70%</span></div><div><div class="rt-desc">High confidence — model expects ≥5% next-day move.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-yellow">55-70%</span></div><div><div class="rt-desc">Moderate — signal exists but below conviction threshold.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">—</span></div><div><div class="rt-desc">Model not yet trained (run node scripts/train_uc_xgb_js.js).</div></div></div>',
+    fmt: r => (r as any).loggerXgbScore != null ? `${Math.round((r as any).loggerXgbScore * 100)}%` : r.xgbScore != null ? `${Math.round(r.xgbScore * 100)}%` : '—',
+    numVal: r => (r as any).loggerXgbScore ?? r.xgbScore ?? 0,
+    cellClass: r => { const s = (r as any).loggerXgbScore ?? r.xgbScore; return s == null ? 'text-slate-600' : s >= 0.70 ? 'text-emerald-400 font-bold' : s >= 0.55 ? 'text-yellow-400' : 'text-red-400'; } },
   { key: 'survivalProb', label: '5d·10d', width: 88, align: 'center',
     headerTipHtml: '<div class="rt-hdr">Survival Probability — Time to +5%</div><div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Kaplan-Meier empirical probability of reaching +5% by day 5 and day 10, per archetype. Fitted on 672 historical signal outcomes from NIFTY ALL1783 CSVs.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-emerald">High</span></div><div><div class="rt-desc">MomentumPocket and VolumeFootprint archetypes historically reach +5% fastest.</div></div></div><div class="rt-row"><div><span class="rt-badge bg-dim">Use</span></div><div><div class="rt-desc">Higher 5d% = expect faster move. Size accordingly or use tighter holding window.</div></div></div>',
     fmt: r => r.survivalLabel ?? '—',
@@ -2339,9 +2340,25 @@ function HomePageInner() {
           archetype_enc: archEnc,
         });
         result.survivalLabel = formatSurvivalLabel(result.archetypeType);
-        // UC blend: formula + XGBoost. Weight shifts toward XGB as model AUC improves.
-        // AUC thresholds: <0.65 → 40% XGB; 0.65-0.71 → 50%; ≥0.72 → 65% XGB.
-        const ucXgbSource = ucXgbPred ?? result.xgbScore;
+        // Logger XGB: trained directly on next_day_chg_pct>=5 (pbfb_uc_logger). AUC=0.7734.
+        const loggerXgbPred = inferUCLoggerXgb({
+          vol_pre5:         result.exactVolVsPre5,
+          cl_trend:         (result as any).clTrend,
+          inflection_score: result.inflectionScore,
+          upper_wick_pct:   result.upperWickPct,
+          uc_score:         result.ucScore ?? 0,
+          body_pct:         result.bodyPct,
+          close_loc:        result.closeLoc,
+          rsi2:             result.rsi2,
+          range_atr:        result.exactRangeATR14,
+          momentum_score:   (result as any).momentumScore,
+        });
+        (result as any).loggerXgbScore = loggerXgbPred;
+        // UC blend: average both UC models when both available; fall back to generic xgbScore.
+        const bestUCXgb = loggerXgbPred != null && ucXgbPred != null
+          ? (loggerXgbPred + ucXgbPred) / 2
+          : loggerXgbPred ?? ucXgbPred;
+        const ucXgbSource = bestUCXgb ?? result.xgbScore;
         if (ucXgbSource != null && result.ucScore != null) {
           const xgbAUC = getUCXgbMeta()?.auc ?? 0;
           const xgbW   = xgbAUC >= 0.72 ? 0.65 : xgbAUC >= 0.65 ? 0.50 : 0.40;

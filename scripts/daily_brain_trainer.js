@@ -8,6 +8,7 @@
  *   2. Pattern similarity engine  — rebuild winner clusters → Supabase
  *   3. False negative miner       — study escaped winners → propose DNA-E/F
  *   4. Daily precision snapshot   — detect fast drift (7d/14d/30d per clause)
+ *   5. UC Logger XGBoost retrain  — pure-JS gradient boosting on pbfb_uc_logger
  *
  * No code patching here — that stays in monthly auto_apply_improvements.js.
  * This is the daily observation + learning layer only.
@@ -74,16 +75,19 @@ async function labelOutcomes() {
 }
 
 // DNA clause tests — in sync with tradeOps.ts
+// DNA retune 2026-09-16 — keep in sync with tradeOps.ts and false_negative_miner.js
 const DNA_CLAUSES = [
-  { id:'A', test: r => r.vol_pre5 >= 3.18 && r.cl_trend >= 63 },
+  { id:'A', test: r => r.vol_pre5 >= 4.5  && r.cl_trend >= 63 },
   { id:'B', test: r => r.upper_wick_pct <= 1.38 && r.inflection_score >= 34 },
-  { id:'C', test: r => r.uc_goldmine === true },
-  { id:'D', test: r => r.vol_pre5 >= 3.18 && r.inflection_score >= 34 },
+  { id:'C', test: r => r.uc_goldmine === true && r.body_pct >= 35 },
+  { id:'D', test: r => r.vol_pre5 >= 4.0  && r.inflection_score >= 34 && r.body_pct >= 40 },
+  { id:'E', test: r => (r.close_loc||0) >= 80 && r.vol_pre5 >= 2 && r.body_pct >= 40 },
   { id:'ANY', test: r =>
-      (r.vol_pre5 >= 3.18 && r.cl_trend >= 63) ||
+      (r.vol_pre5 >= 4.5  && r.cl_trend >= 63) ||
       (r.upper_wick_pct <= 1.38 && r.inflection_score >= 34) ||
-      r.uc_goldmine === true ||
-      (r.vol_pre5 >= 3.18 && r.inflection_score >= 34) },
+      (r.uc_goldmine === true && r.body_pct >= 35) ||
+      (r.vol_pre5 >= 4.0  && r.inflection_score >= 34 && r.body_pct >= 40) ||
+      ((r.close_loc||0) >= 80 && r.vol_pre5 >= 2 && r.body_pct >= 40) },
 ];
 
 // Step 4: Daily precision snapshot (fast drift detection, 7d/14d/30d)
@@ -204,6 +208,18 @@ async function main() {
     }
   } catch(e) {
     log(`  ERR: daily precision snapshot failed: ${e.message?.slice(0,100)}`);
+  }
+
+  // Step 5: UC Logger XGBoost retrain (pure JS, no Python needed)
+  try {
+    log('Step 5: UC Logger XGBoost retrain...');
+    const { main: trainXgb } = require('./train_uc_xgb_js');
+    const xgbResult = await trainXgb();
+    if (xgbResult) {
+      log(`  XGB retrain done: test_auc=${xgbResult.test_auc.toFixed(4)} prec@10%=${(xgbResult.prec_top10pct*100).toFixed(1)}% n_train=${xgbResult.n_train}`);
+    }
+  } catch(e) {
+    log(`  ERR: XGB retrain failed: ${e.message?.slice(0,100)}`);
   }
 
   log('Daily brain trainer complete.\n');
