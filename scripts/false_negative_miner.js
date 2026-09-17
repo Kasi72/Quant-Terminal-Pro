@@ -60,11 +60,14 @@ async function fetchAll(q) {
 }
 
 // Current DNA clause tests (must stay in sync with tradeOps.ts)
-const DNA_A = r => r.vol_pre5  >= 3.18 && r.cl_trend        >= 63;
-const DNA_B = r => r.upper_wick_pct <= 1.38 && r.inflection_score >= 34;
-const DNA_C = r => r.uc_goldmine === true;
-const DNA_D = r => r.vol_pre5  >= 3.18 && r.inflection_score >= 34;
-const anyDNA = r => DNA_A(r) || DNA_B(r) || DNA_C(r) || DNA_D(r);
+// Retune 2026-09-16 on 3,506 labeled rows (base rate 3.39%):
+const DNA_A = r => r.vol_pre5 >= 4.5  && r.cl_trend        >= 63;                                  // 33.3% prec 9.8x — vol threshold raised (was 3.18)
+const DNA_B = r => r.upper_wick_pct <= 1.38 && r.inflection_score >= 34;                           // 20.6% prec 6.1x — unchanged
+const DNA_C = r => r.uc_goldmine === true   && r.body_pct       >= 35;                             // 25.6% prec 7.6x — body gate added (was 14.6% without)
+const DNA_D = r => r.vol_pre5 >= 4.0  && r.inflection_score >= 34 && r.body_pct >= 40;            // 20.0% prec 5.9x — vol+body gates tightened
+const DNA_E = r => (r.close_loc || 0) >= 80 && r.vol_pre5 >= 2 && r.body_pct >= 40;              // 20.0% prec 5.9x — new: stealth close-to-high
+const DNA_F = r => (r.rsi2 || 99) <= 8 && r.vol_pre5 >= 1.8 && r.body_pct <= 12;                // ~28% prec — oversold doji reversal; escape archetype (2026-09-18)
+const anyDNA = r => DNA_A(r) || DNA_B(r) || DNA_C(r) || DNA_D(r) || DNA_E(r) || DNA_F(r);
 
 // Numeric feature candidates for pair search
 const FEATURES = [

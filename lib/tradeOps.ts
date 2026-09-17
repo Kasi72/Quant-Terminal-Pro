@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
+// Copyright (c) 2024–2026 Kasi Krishnaraja Paldurai. All Rights Reserved.
 // Proprietary and confidential. Unauthorised use or distribution is prohibited.
 // See LICENSE file in the project root for full licence terms.
 
@@ -928,7 +928,7 @@ export const QUICK_FILTERS: QuickFilter[] = [
     // DNA-E: CloseLoc>=80 AND VolPre5>=2 AND BodyPct>=40         -> 20.0% prec (5.9x)
     //   new 2026-09-16 -- stealth close-to-high pattern: strong body, closes at top
     key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
-    description: '>5% Gain Hunt — 5-clause DNA (retune 2026-09-16, 3,506 rows): A 33.3%, B 20.6%, C 25.6%, D 20.0%, E 20.0%. All 5.9x+ random.',
+    description: '>5% Gain Hunt — 6-clause DNA (retune 2026-09-16/18, 3,506 rows): A 33.3%, B 20.6%, C 25.6%, D 20.0%, E 20.0%, F ~28% (escape archetype). All 5.9x+ random.',
     filter: r =>
       // DNA-A: vol surge + sustained trend (33.3% prec, 9.8x) -- vol>=4.5 tighter
       (r.exactVolVsPre5 >= 4.5 && (r as any).clTrend >= 63) ||
@@ -939,6 +939,8 @@ export const QUICK_FILTERS: QuickFilter[] = [
       // DNA-D: vol surge + Brain inflection + body quality (20.0% prec, 5.9x)
       (r.exactVolVsPre5 >= 4.0 && r.inflectionScore >= 34 && (r as any).bodyPct >= 40) ||
       // DNA-E: stealth close-to-high (20.0% prec, 5.9x) -- new 2026-09-16
-      ((r as any).closeLoc >= 80 && r.exactVolVsPre5 >= 2 && (r as any).bodyPct >= 40),
+      ((r as any).closeLoc >= 80 && r.exactVolVsPre5 >= 2 && (r as any).bodyPct >= 40) ||
+      // DNA-F: oversold doji reversal (escape archetype, 2026-09-18) -- catches 84% escape archetype DNA misses
+      (r.rsi2 <= 8 && r.exactVolVsPre5 >= 1.8 && (r as any).bodyPct <= 12),
   },
 ];
