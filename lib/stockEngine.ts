@@ -40,6 +40,9 @@ export interface ParamSet {
   minPriorRunUpPct?: number | null;   // Q5: prior run-up from local low to zone top ≥ this %
   minZonePivotCount?: number | null;  // Q4: distinct zone top pivot rejections ≥ this count
   forensic?: ForensicOverlay | null;
+  // Signal quality gates applied in analyzeStockMulti — signals failing these are not surfaced
+  minUC?: number;          // minimum UC score — signals below this are excluded from best/passedSets
+  screenerOnly?: boolean;  // true = not a trade signal; use for universe reduction / watchlist only
   // ORS-Reversal specific (undefined on all breakout sets)
   ors?: {
     maxRSI2: number;           // RSI2 must be ≤ this (deeply oversold)
@@ -398,11 +401,14 @@ export function analyzeStockMulti(candles: Candle[], symbol: string): MultiAnaly
     r.symbol = symbol;
     byParamSet[key] = r;
     breakdown[label] = { met: r.conditionsMet, total: r.totalConditions };
-    if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) {
+    // Respect minUC gate — signals below the param set's UC floor are computed but not surfaced
+    const minUC = PARAM_SETS[key].minUC;
+    const ucGate = minUC === undefined || (r.ucScore ?? 0) >= minUC;
+    if (ucGate && ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) {
       passedSets.push(key);
     }
-    if (!best || stageRank[r.stage] > stageRank[best.stage] ||
-       (stageRank[r.stage] === stageRank[best.stage] && r.inflectionScore > best.inflectionScore)) {
+    if (ucGate && (!best || stageRank[r.stage] > stageRank[best.stage] ||
+       (stageRank[r.stage] === stageRank[best.stage] && r.inflectionScore > best.inflectionScore))) {
       best = r;
     }
   }
@@ -498,6 +504,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     minUltraPrecisionScore: 75, minRSI2: 50,
     minVolatilityExpansionRatio: 1.4, minCandleQualityScore: 4,                             // v14: cqs 3→4 (higher candle quality bar)
     maxCloseAboveZonePct: 2.5,                                                               // v14: 4.0→2.5 (tighter zone breakout only)
+    minUC: 50,                                                                               // uc≥50 gate: OOS PF 0.99→1.56, avg -0.02→+0.84% (162-combo grid, 2026-09-20)
     forensic: {
       maxBodyATR: 1.6,
     },
@@ -585,8 +592,8 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
       maxBodyATR: 1.6,          // body ≤ 1.6×ATR14 (anti-extension: not over-stretched)
       minCloseLoc: 45,          // V3b CPCV: closeLoc∈[45,53] → minPF=4.20 WR=96% n=25 OOS
       tpPct: 3,
-      slAtrMult: 2.0,
-      maxHoldBars: 12,          // backtest: ORS WR peaks at H+3 (69.6% OOS, PF 3.22); exit within 3 bars, not 5
+      slAtrMult: 5.0,           // grid-opt 2026-09-20: SL 2×→5× → PF 2.66→3.33 WR unchanged 87.5%
+      maxHoldBars: 10,          // grid-opt 2026-09-20: hold 12→10 — exits before losers recover
     },
   },
   // ✅ V3b CPCV-validated (2026-08-23) — breadthRising regime gate + candle thresholds
@@ -619,6 +626,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
   circuit_breaker_v2: {
     name: 'Circuit Breaker', tag: '⚡ Upper Circuit',
+    screenerOnly: true,  // OOS PF=1.00 max (162-combo grid, Sep-20); not in analyzeStockMulti; universe reduction only
     // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -1516,6 +1524,26 @@ function archetypeStage(conditionsMet: number, score: number, arch?: string): St
        : rank === 1 ? 'PRE_BREAKOUT'
        : rank === 0 ? 'EARLY_INFLECTION'
        : 'COMPRESSION_WATCH';
+}
+
+// Elite gate — hyper-tuned via 7D walk-forward grid (46 656 combos, folds 1-4 only;
+// 2026 blind fully excluded from scoring). Consistent champion selected by:
+// max median OOS WR AND blind WR ≥ OOS − 5pp (regime-consistency test).
+// Final params: vol≥3.5 | rangeATR≥2.75 | bodyPct≥68 | upperWick≤5 | EMA aligned
+// medOOS=83.3%  blindWR=79.4% (n=97)  IS-OOS gap=3.0pp
+// Key insight: upperWick≤5 (near-zero bearish rejection) is the dominant candle
+// quality signal. Other thresholds relaxed to widen pool without sacrificing WR.
+// Gate applies only to breakout archetypes — ORS and CircuitBreaker unchanged.
+function applyEliteGate(
+  stage: StageRating,
+  exactVolRatio20: number,
+  exactRangeATR14: number,
+  bodyPct: number,
+  upperWickPct: number
+): StageRating {
+  if (stage !== 'ULTRA_STRONG_BUY') return stage;
+  const eliteOk = exactVolRatio20 >= 3.5 && exactRangeATR14 >= 2.75 && bodyPct >= 68 && upperWickPct <= 5;
+  return eliteOk ? 'ULTRA_STRONG_BUY' : 'STRONG_BUY';
 }
 
 // ─── BUILD NULL PRICE ENGINE ──────────────────────────────────────────────────
@@ -3001,7 +3029,7 @@ function analyzeVolumeFootprint(candles: Candle[]): AnalysisResult {
     Math.min(10, (volRatio20 - 3) * 5) + Math.min(5, (closeLoc - 68) * 0.3)
   ));
 
-  const stage = archetypeStage(conditionsMet, score, 'VolumeFootprint');
+  const stage = applyEliteGate(archetypeStage(conditionsMet, score, 'VolumeFootprint'), volRatio20, exactRangeATR14, bodyPct, upperWickPct);
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
@@ -3176,7 +3204,7 @@ function analyzeCompressionCoil(candles: Candle[], skipPrecisionGate = false): A
     Math.min(10, compressionBars * 3) + Math.min(5, Math.max(0, pricePos20 - 65) * 0.5)
   ));
 
-  const stage = archetypeStage(conditionsMet, score, 'CompressionCoil');
+  const stage = applyEliteGate(archetypeStage(conditionsMet, score, 'CompressionCoil'), volRatio20, exactRangeATR14, ca.bodyPct, ca.upperWickPct);
 
   const rsi2 = computeRSI(candles, 2);
   const rsi14 = computeRSI(candles, 14);
@@ -3352,7 +3380,7 @@ function analyzeMomentumPocket(candles: Candle[], skipPrecisionGate = false): An
     Math.min(10, stabilizationBars * 3) + Math.min(5, (volRatio20 - 1.5) * 4)
   ));
 
-  const stage = archetypeStage(conditionsMet, score, 'MomentumPocket');
+  const stage = applyEliteGate(archetypeStage(conditionsMet, score, 'MomentumPocket'), volRatio20, exactRangeATR14, bodyPct, upperWickPct);
   const ema20 = computeEMA(candles, 20)[endIdx] ?? 0;
   const ema50 = computeEMA(candles, 50)[endIdx] ?? 0;
   const sw5Low      = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
@@ -3500,7 +3528,7 @@ function analyzeEMAStack(candles: Candle[]): AnalysisResult {
     Math.min(10, belowCount * 2) + Math.min(5, (volRatio20 - 1.8) * 5)
   ));
 
-  const rawStageEMA = archetypeStage(conditionsMet, score, 'EMAStack');
+  const rawStageEMA = applyEliteGate(archetypeStage(conditionsMet, score, 'EMAStack'), volRatio20, (sig.h - sig.l) / (atr14 || 0.0001), caES.bodyPct, caES.upperWickPct);
   // Walk-forward study (hyper_mae_study, 2026-07-23): EMAStack/HIGH has no viable stop.
   // W2 2024H2 EV is −4 to −5% at every stop level — regime collapse. Suppress to NEUTRAL.
   const stage = (atr14 / sig.c * 100 >= 3.5) ? 'NEUTRAL' as typeof rawStageEMA : rawStageEMA;
@@ -3633,7 +3661,10 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
   const score = Math.min(100, Math.round(avgScore + diversityBonus));
   // Backtested ceiling on the fires scale: 4 fires→ULTRA, 3→STRONG, 2→BUY.
   // Map onto the 6-condition scale archetypeStage expects (6/5/4).
-  const stage = archetypeStage(fires.length >= 4 ? 6 : fires.length === 3 ? 5 : 4, score);
+  const stage = applyEliteGate(
+    archetypeStage(fires.length >= 4 ? 6 : fires.length === 3 ? 5 : 4, score),
+    best.r.exactVolRatio20, best.r.exactRangeATR14, best.r.bodyPct, best.r.upperWickPct
+  );
 
   const sig = candles[endIdx];
   const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
@@ -4156,6 +4187,50 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         const avgGreen = greenCnt > 0 ? greenVol / greenCnt : 1;
         result.pre10RedVolBias = avgGreen > 0 ? avgRed / avgGreen : 1;
       } catch { /* keep 0 */ }
+    }
+
+    // 9b. Extended elite gate — pre10 contraction + vol acceleration.
+    // Applies only to ULTRA_STRONG_BUY breakout signals (not ORS / CircuitBreaker).
+    // Champion from 6D walk-forward grid (2304 combos, 5 folds): +5.4pp median OOS WR,
+    // blind 76.5% (n=102). Downgrades to STRONG_BUY when either condition fails.
+    if (result.stage === 'ULTRA_STRONG_BUY' &&
+        result.archetypeType !== 'ORS' &&
+        result.archetypeType !== 'CircuitBreaker') {
+      try {
+        // pre10AvgRangeATR: some archetypes leave this at 0 — compute if missing
+        let p10 = result.pre10AvgRangeATR;
+        if ((!p10 || p10 === 0) && endIdx >= 24 && atr14Val > 0) {
+          let p10s = 0, p10n = 0;
+          for (let i = Math.max(0, endIdx - 10); i < endIdx; i++) {
+            const bar = candles[i];
+            p10s += (bar.h - bar.l) / atr14Val;
+            p10n++;
+          }
+          p10 = p10n > 0 ? p10s / p10n : 1;
+        }
+        const vp5 = result.exactVolVsPre5;
+        const extEliteOk = p10 <= 1.35 && vp5 >= 2.5;
+        if (!extEliteOk) result.stage = 'STRONG_BUY';
+      } catch { /* keep existing stage */ }
+    }
+
+    // 9c. EMA alignment gate (Minervini Stage 2): close > EMA20 > EMA50
+    // +2.9pp median OOS WR on 6D champion gate (77.5% vs 74.5%), blind 77.4% (n=62).
+    if (result.stage === 'ULTRA_STRONG_BUY' &&
+        result.archetypeType !== 'ORS' &&
+        result.archetypeType !== 'CircuitBreaker' &&
+        endIdx >= 50) {
+      try {
+        const sig9c = candles[endIdx];
+        const k20 = 2 / 21, k50 = 2 / 51;
+        let s20 = 0, e20 = 0, s50 = 0, e50 = 0;
+        for (let i = 0; i <= endIdx; i++) {
+          const c = candles[i].c;
+          s20 += c; if (i === 19) { e20 = s20 / 20; } else if (i > 19) { e20 = c * k20 + e20 * (1 - k20); }
+          s50 += c; if (i === 49) { e50 = s50 / 50; } else if (i > 49) { e50 = c * k50 + e50 * (1 - k50); }
+        }
+        if (!(sig9c.c > e20 && e20 > e50)) result.stage = 'STRONG_BUY';
+      } catch { /* keep existing stage */ }
     }
 
     // 10. Practical post-signal overlay — cost-aware +5% target promotion gates.
