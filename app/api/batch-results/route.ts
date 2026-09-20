@@ -58,10 +58,22 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
+  // Sort ULTRA_STRONG_BUY by jev quality score when present; others keep inflection_score order.
+  const results = (data ?? []).sort((a, b) => {
+    const aJev = (a.raw_json as Record<string, unknown>)?.jevScore as { quality?: number } | undefined;
+    const bJev = (b.raw_json as Record<string, unknown>)?.jevScore as { quality?: number } | undefined;
+    if (a.best_stage === 'ULTRA_STRONG_BUY' && b.best_stage === 'ULTRA_STRONG_BUY') {
+      const aQ = aJev?.quality ?? -1;
+      const bQ = bJev?.quality ?? -1;
+      if (aQ !== bQ) return bQ - aQ;
+    }
+    return (b.inflection_score ?? 0) - (a.inflection_score ?? 0);
+  });
+
   return NextResponse.json({
     ok: true,
     sessionDate,
-    count: data?.length ?? 0,
-    results: data ?? [],
+    count: results.length,
+    results,
   });
 }

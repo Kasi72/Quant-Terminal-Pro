@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabaseServer';
 import { analyzeStockMulti } from '@/lib/stockEngine';
+import { scoreSignalBatch } from '@/lib/jevScorer';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { getMarketSessionDate } from '@/lib/marketSession';
 import type { Candle } from '@/lib/compute';
@@ -143,6 +144,18 @@ export async function GET(req: NextRequest) {
       raw_json:        result,
     });
   });
+
+  // Jev quality scoring — ULTRA_STRONG_BUY signals only (typically 5–20/session).
+  // Scores embedded in raw_json.jevScore; gracefully skipped if API key absent.
+  const ultraRows = rows.filter(r => r.best_stage === 'ULTRA_STRONG_BUY');
+  if (ultraRows.length > 0) {
+    const ultraResults = ultraRows.map(r => (r.raw_json as { best: import('@/lib/stockEngine').AnalysisResult }).best);
+    const jevScores = await scoreSignalBatch(ultraResults);
+    for (const row of ultraRows) {
+      const s = jevScores.get(row.symbol as string);
+      if (s) row.raw_json = { ...(row.raw_json as object), jevScore: s };
+    }
+  }
 
   // Upsert to Supabase in batches of 100
   let upserted = 0;
