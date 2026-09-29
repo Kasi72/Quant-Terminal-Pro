@@ -987,7 +987,9 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT with doji/gravestone candle (body&lt;22 AND wick&gt;40). 7/7 miss fingerprint — demoted to EARLY_INFLECTION.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">W· removed</span></div><div><div class="rt-desc">Brain V2 WATCH classification removed from display. OOS backtest: WATCH WR=58.5% PF=0.90 underperforms COLD WR=59.9% PF=0.99 — no predictive edge over baseline. Treated same as COLD.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-sky">Z· prefix</span></div><div><div class="rt-desc">Brain V2 ZONE classification — compression detected (zoneTightness&lt;6%) but vol still quiet (&lt;2x). Mirrors "zone_only": spring loading but operator ignition not yet. Blue color.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-teal">B:xx suffix</span></div><div><div class="rt-desc">Brain Vectorize neighbor hit rate — % of historically similar D-1 fingerprints (32-dim vector) that hit UC next day. Only shown for BUY/PRE_BREAKOUT signals once Brain worker responds. Blended 25% into score.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-violet">🎖 PRE-UC</span></div><div><div class="rt-desc">ucScore 70–89 (not Elite/Strong/Goldmine/Apex) — pbfb_uc_events N=32 hit_t1=100%: near-certain UC event imminent. OOS price backtest shows 70-79 as caution (WR=57.9%), but event-level precision is highest in this tier.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔔 CW</span></div><div><div class="rt-desc">Stage = COMPRESSION_WATCH — volatility compression detected. Spring loading before breakout ignition. Watch for BUY stage trigger in 1-3 sessions.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-teal">B:xx suffix</span></div><div><div class="rt-desc">Brain Vectorize neighbor hit rate — % of historically similar D-1 fingerprints (32-dim vector) that hit UC next day. Only shown for BUY/PRE_BREAKOUT signals once Brain worker responds.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-slate">N★ suffix</span></div><div><div class="rt-desc">Feature confluence: count of 7 key UC discriminants firing. Shown only when ≥5 fire — OOS backtest: 5 hits WR=66.7% PF=1.28, MFE≥8%=36% (N=75). Hits=4 has no edge (PF=0.91).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-rose">🔥N suffix</span></div><div><div class="rt-desc">UC streak: stock has appeared in UC watchlist (score≥35) for N consecutive trading days. Streak≥2 = persistent setup. Streak≥3 = likely operator accumulation in progress.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">Tiers</span></div><div><div class="rt-desc">≥90 △ Apex (WR=70.8% PF=1.44) · 🏆 Goldmine flag (WR=67.6% PF=1.66) · 80-89 emerald · 70-79 ⚠ amber (worst OOS bucket: WR=57.9% PF=0.85) · 50-69 neutral · &lt;50 dim</div><div class="rt-hit hit-green">OOS 1416 stocks 2023-2026 · 70-79 range is counter-intuitively the danger zone — treated as caution in UI</div></div></div>'
@@ -1008,6 +1010,7 @@ const COLUMNS: ColDef[] = [
       const hits      = (r as any).ucFeatureHits  as number  | undefined;
       const brainRate = (r as any).neighborHitRate as number | undefined;
       const streak    = _ucStreakCache[r.symbol] ?? 0;
+      const wrWarn    = (r as any).symbolWRSuppressed as boolean | undefined;
       if (s == null) return '—';
       const prob      = `${calibrateUCScore(s)}%`;
       // Brain Vectorize neighbor rate — only shown for BUY/PB signals once worker responds
@@ -1016,18 +1019,29 @@ const COLUMNS: ColDef[] = [
       const streakTag = streak >= 2 ? ` 🔥${streak}` : '';
       // Feature confluence — hits≥5 only (backtest: hits=5 WR=66.7% PF=1.28; hits=4 PF=0.91 = no edge)
       const hitsTag   = (hits != null && hits >= 5 && !el && !st && !g) ? ` ${hits}★` : '';
-      if (el)                          return `${prob} ⚡${brainTag}${streakTag}`;
-      if (st)                          return `${prob} 🎯${brainTag}${streakTag}`;
-      if (g)                           return `${prob} 🏆${brainTag}${streakTag}`;
+      // Brain V3 goldmine: chronic-loser WR warn (brainPrior live N≥15 WR<30%)
+      const wrTag     = wrWarn ? ' ⚠WR' : '';
+      // cl_trend velocity: strong momentum up/down vs 2 bars ago
+      const clt       = r.clTrend;
+      const cltTag    = clt != null ? (clt >= 20 ? ' ↑CL' : clt <= -20 ? ' ↓CL' : '') : '';
+      // RSI2 warning for PRE_BREAKOUT: RSI2<45 = premature, not oversold enough yet
+      const rsiWarn   = (r.stage === 'PRE_BREAKOUT' && r.rsi2 < 45) ? ' ↓R' : '';
+      if (el)                          return `${prob} ⚡${brainTag}${streakTag}${cltTag}${wrTag}`;
+      if (st)                          return `${prob} 🎯${brainTag}${streakTag}${cltTag}${wrTag}`;
+      if (g)                           return `${prob} 🏆${brainTag}${streakTag}${cltTag}${wrTag}`;
       // Apex tier: score ≥90, backtest WR=70.8% PF=1.44 MFE≥8%=39.2% (N=120 OOS)
-      if (s >= 90)                     return `${prob} △${brainTag}${streakTag}`;
-      if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${streakTag}`;
-      if (weak)                        return `${prob} ⚠${streakTag}`;
-      if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}`;
-      if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}`;
+      if (s >= 90)                     return `${prob} △${brainTag}${streakTag}${cltTag}${wrTag}`;
+      if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${rsiWarn}${streakTag}${cltTag}${wrTag}`;
+      if (weak)                        return `${prob} ⚠${streakTag}${wrTag}`;
+      if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}${cltTag}${wrTag}`;
+      if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}${cltTag}${wrTag}`;
       // ZONE class kept; WATCH class removed (backtest: WATCH PF=0.90 < COLD PF=0.99 — no edge)
-      if (cls === 'ZONE')              return `Z· ${prob}${streakTag}`;
-      return `${prob}${hitsTag}${streakTag}`;
+      if (cls === 'ZONE')              return `Z· ${prob}${streakTag}${wrTag}`;
+      // COMPRESSION_WATCH stage: spring loading, watch for BUY in 1-3 sessions
+      if (r.stage === 'COMPRESSION_WATCH') return `${prob} 🔔${streakTag}${cltTag}${wrTag}`;
+      // Brain V3 goldmine: uc≥70 = near-certain UC event (pbfb_uc_events N=32 hit_t1=100%)
+      if (s >= 70)                     return `${prob} 🎖${streakTag}${cltTag}${wrTag}`;
+      return `${prob}${hitsTag}${streakTag}${cltTag}${wrTag}`;
     },
     numVal: r => (r as any).ucScore ?? 0,
     cellClass: r => {
@@ -1064,29 +1078,37 @@ const COLUMNS: ColDef[] = [
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">B · 21.9%</span></div><div><div class="rt-desc">UpperWick ≤ 1.38% AND InflectionScore ≥ 34 — perfect close with Brain inflection quality. 5.8× lift.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-yellow">C · 15.1%</span></div><div><div class="rt-desc">UCGoldmine flag = true — Brain composite quality gate. 4.0× lift.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">D · 20.0%</span></div><div><div class="rt-desc">VolPre5 ≥ 3.18 AND InflectionScore ≥ 34 — volume surge + Brain inflection geometry. 5.3× lift.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-lime">E · 17%</span></div><div><div class="rt-desc">CloseLoc ≥ 80 AND VolPre5 ≥ 2.0 AND Body ≥ 40% — institutional close strength + volume. Range trending up into close.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-red">F · ORS</span></div><div><div class="rt-desc">RSI2 ≤ 8 AND VolPre5 ≥ 1.8 AND Body ≤ 12% — oversold reversal fingerprint (ORS-like). Extreme washout + recovery candle.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Multi</span></div><div><div class="rt-desc">2+ clauses firing simultaneously = higher conviction. Green = 2+ clauses. Amber = 1 clause. Dash = none.</div></div></div>',
     fmt: r => {
       const clauses: string[] = [];
-      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           clauses.push('A');
+      if (r.exactVolVsPre5 >= 3.18 && (r.clTrend ?? -999) >= 63)          clauses.push('A');
       if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               clauses.push('B');
       if ((r as any).ucGoldmine === true)                                   clauses.push('C');
       if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             clauses.push('D');
+      if (r.closeLoc >= 80 && r.exactVolVsPre5 >= 2.0 && r.bodyPct >= 40) clauses.push('E');
+      if (r.rsi2 <= 8 && r.exactVolVsPre5 >= 1.8 && r.bodyPct <= 12)      clauses.push('F');
       return clauses.length > 0 ? clauses.join('·') : '—';
     },
     numVal: r => {
       let n = 0;
-      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           n++;
+      if (r.exactVolVsPre5 >= 3.18 && (r.clTrend ?? -999) >= 63)          n++;
       if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               n++;
       if ((r as any).ucGoldmine === true)                                   n++;
       if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             n++;
+      if (r.closeLoc >= 80 && r.exactVolVsPre5 >= 2.0 && r.bodyPct >= 40) n++;
+      if (r.rsi2 <= 8 && r.exactVolVsPre5 >= 1.8 && r.bodyPct <= 12)      n++;
       return n;
     },
     cellClass: r => {
       let n = 0;
-      if (r.exactVolVsPre5 >= 3.18 && (r as any).clTrend >= 63)           n++;
+      if (r.exactVolVsPre5 >= 3.18 && (r.clTrend ?? -999) >= 63)          n++;
       if (r.upperWickPct <= 1.38 && r.inflectionScore >= 34)               n++;
       if ((r as any).ucGoldmine === true)                                   n++;
       if (r.exactVolVsPre5 >= 3.18 && r.inflectionScore >= 34)             n++;
+      if (r.closeLoc >= 80 && r.exactVolVsPre5 >= 2.0 && r.bodyPct >= 40) n++;
+      if (r.rsi2 <= 8 && r.exactVolVsPre5 >= 1.8 && r.bodyPct <= 12)      n++;
       return n >= 2 ? 'text-emerald-300 font-bold font-mono text-center'
            : n === 1 ? 'text-amber-400 font-mono text-center'
            : 'text-slate-600 font-mono text-center';
@@ -1820,6 +1842,13 @@ function HomePageInner() {
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
+  const [journalSubTab, setJournalSubTab] = useState<'trades' | 'calendar' | 'missed'>('trades');
+  const [reflectTrade, setReflectTrade] = useState<TrackedTrade | null>(null);
+  const [reflectText, setReflectText] = useState('');
+  const [reflectLoading, setReflectLoading] = useState(false);
+  const [selectedJournalTrade, setSelectedJournalTrade] = useState<TrackedTrade | null>(null);
+  const [missedEvents, setMissedEvents] = useState<{symbol:string;event_date:string;uc_score:number;outcome_pct_5d:number|null;hit_t1:boolean|null;best_stage:string}[]>([]);
+  const [missedLoaded, setMissedLoaded] = useState(false);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
   const abortRef = useRef(false);
@@ -2354,25 +2383,20 @@ function HomePageInner() {
           momentum_score:   (result as any).momentumScore,
         });
         (result as any).loggerXgbScore = loggerXgbPred;
-        // UC blend: average both UC models when both available; fall back to generic xgbScore.
-        const bestUCXgb = loggerXgbPred != null && ucXgbPred != null
-          ? (loggerXgbPred + ucXgbPred) / 2
-          : loggerXgbPred ?? ucXgbPred;
-        const ucXgbSource = bestUCXgb ?? result.xgbScore;
-        if (ucXgbSource != null && result.ucScore != null) {
-          const xgbAUC = getUCXgbMeta()?.auc ?? 0;
-          const xgbW   = xgbAUC >= 0.72 ? 0.65 : xgbAUC >= 0.65 ? 0.50 : 0.40;
-          const blended = Math.round(Math.min(100, (1 - xgbW) * result.ucScore + xgbW * ucXgbSource * 100));
-          result.ucScore = blended;
-          if (['NO_SIGNAL', 'EARLY_INFLECTION', 'COMPRESSION_WATCH'].includes(result.stage)) {
-            result.stage = blended >= 65 ? 'EARLY_INFLECTION' : blended >= 45 ? 'COMPRESSION_WATCH' : 'NO_SIGNAL';
-          }
-        }
+        // XGBoost RETIRED 2026-09-24: uc_logger_xgb_report AUC=0.5804, Prec@top10%=2.2% < 3.4% base rate — anti-predictive.
+        // loggerXgbScore kept on result for future audit/retrain. ucScore stays as pure formula output.
+        void loggerXgbPred; void ucXgbPred;
         // Item 7: apply Nifty market regime multiplier after formula+XGB blend
         if (niftyRegimeMult !== 1.0 && result.ucScore != null) {
           result.ucScore = Math.min(100, Math.round(result.ucScore * niftyRegimeMult));
         }
         newResults.push(result);
+        // Brain V3 goldmine: symbol-level WR blacklist from live brainPrior trade history
+        { const _sd = (brainPrior.bySymbol as Record<string, {n: number; wr: number; avgPnl: number}>)[result.symbol];
+          if (_sd && _sd.n >= 15 && _sd.wr < 30) {
+            (result as any).symbolWRSuppressed = true;
+            (result as any).symbolWRStats = { n: _sd.n, wr: _sd.wr, avgPnl: _sd.avgPnl };
+          } }
         // #8: Alert sound on new BUY signal (compare against snapshot taken before setResults([]))
         if (['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(result.stage)) {
           const prevStage = preScanSnapshot.find(p => p.symbol === result.symbol)?.stage;
@@ -5367,245 +5391,654 @@ function HomePageInner() {
         {/* ── Journal Tab ── */}
         {activeTab === 'journal' && (
           <div className="flex-1 overflow-auto p-4 space-y-3">
-            {/* Header */}
-            <div className="flex items-center gap-2">
+            {/* Header + sub-tabs */}
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">📝 Trade Journal</h2>
-              <span className="text-xs text-slate-600 ml-auto">{trackedTrades.length} trades</span>
-            </div>
-
-            {/* Filter bar */}
-            <div className="flex items-center gap-2 flex-wrap bg-slate-800/40 rounded-lg p-2 border border-slate-700/40">
-              <input
-                type="text"
-                placeholder="Search symbol / sector…"
-                value={journalFilter.search}
-                onChange={e => setJournalFilter(f => ({...f, search: e.target.value}))}
-                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 w-40 focus:outline-none focus:border-indigo-500"
-              />
-              <select
-                value={journalFilter.status}
-                onChange={e => setJournalFilter(f => ({...f, status: e.target.value}))}
-                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="ALL">All Status</option>
-                <option value="open">Open</option>
-                <option value="hit_t1">✓ T1 Hit</option>
-                <option value="hit_t2">✓ T2 Hit</option>
-                <option value="hit_t3">✓ T3 Hit</option>
-                <option value="stopped">Stopped</option>
-                <option value="expired">Expired</option>
-                <option value="manual_close">Manual</option>
-                <option value="closed_early">Early Exit</option>
-                <option disabled value="">──────────</option>
-                <option value="hit_5pct">≥5% MFE Hit</option>
-                <option value="hit_7pct">≥7% MFE Hit</option>
-                <option value="hit_10pct">≥10% MFE Hit</option>
-              </select>
-              <select
-                value={journalFilter.stage}
-                onChange={e => setJournalFilter(f => ({...f, stage: e.target.value}))}
-                className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="ALL">All Stages</option>
-                {[...new Set(trackedTrades.map(t => t.stage).filter(Boolean))].sort().map(s => (
-                  <option key={s} value={s}>{STAGE_CONFIG[s as StageRating]?.label ?? s}</option>
+              <div className="flex gap-1 ml-3">
+                {(['trades', 'calendar', 'missed'] as const).map(st => (
+                  <button key={st} onClick={() => setJournalSubTab(st)}
+                    className={`text-xs px-3 py-0.5 rounded-full border transition-colors ${journalSubTab === st ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'}`}>
+                    {st === 'trades' ? 'Trades' : st === 'calendar' ? 'P&L Calendar' : 'Missed Signals'}
+                  </button>
                 ))}
-              </select>
-              {(journalFilter.search || journalFilter.status !== 'ALL' || journalFilter.stage !== 'ALL') && (
-                <button
-                  onClick={() => setJournalFilter({status: 'ALL', stage: 'ALL', search: ''})}
-                  className="text-xs text-amber-500 hover:text-amber-300 px-2 py-1 rounded border border-amber-800/40 bg-amber-900/20"
-                >✕ Clear filters</button>
-              )}
-              <span className="text-[11px] text-slate-600 ml-auto">
-                {(() => {
-                  let ct = trackedTrades;
-                  if (journalFilter.search) ct = ct.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
-                  if (journalFilter.status !== 'ALL') {
-                    if (journalFilter.status === 'hit_5pct') ct = ct.filter(t => getTradeMfePct(t) >= 5);
-                    else if (journalFilter.status === 'hit_7pct') ct = ct.filter(t => getTradeMfePct(t) >= 7);
-                    else if (journalFilter.status === 'hit_10pct') ct = ct.filter(t => getTradeMfePct(t) >= 10);
-                    else ct = ct.filter(t => t.status === journalFilter.status);
-                  }
-                  if (journalFilter.stage !== 'ALL') ct = ct.filter(t => t.stage === journalFilter.stage);
-                  return `${ct.length} / ${trackedTrades.length} rows`;
-                })()}
-              </span>
+              </div>
+              <span className="text-xs text-slate-600 ml-auto">{trackedTrades.length} trades tracked</span>
             </div>
 
-            {/* Pending reviews (compact chips) */}
+            {/* Feature 1: Edge Score Stat Tiles */}
             {(() => {
-              const pending = trackedTrades.filter(t => t.status !== 'open' && !reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate));
-              if (pending.length === 0) return null;
+              const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+              const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
+              const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+              const wr = closed.length ? (wins.length / closed.length * 100) : 0;
+              const grossWin = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
+              const grossLoss = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
+              const pf = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
+              const avgWinner = wins.length ? grossWin / wins.length : 0;
+              const daysArr = closed.filter(t => (t.daysHeld ?? 0) > 0).map(t => t.daysHeld ?? 0);
+              const avgHold = daysArr.length ? daysArr.reduce((a, b) => a + b, 0) / daysArr.length : 0;
+              const sortedClosed = [...closed].sort((a, b) => (a.closedDate ?? '').localeCompare(b.closedDate ?? ''));
+              let streak = 0;
+              for (let i = sortedClosed.length - 1; i >= 0; i--) {
+                const w = (sortedClosed[i].pnlPct ?? 0) > 0;
+                if (i === sortedClosed.length - 1) { streak = w ? 1 : -1; continue; }
+                if ((streak > 0 && w) || (streak < 0 && !w)) { streak += streak > 0 ? 1 : -1; } else break;
+              }
               return (
-                <div className="bg-amber-900/10 border border-amber-800/30 rounded-lg p-2">
-                  <div className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider mb-1.5">Pending Reviews ({pending.length})</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {pending.slice(-10).reverse().map((t, i) => (
-                      <button key={i} onClick={() => {
-                        const notes = prompt(`${t.symbol} — what happened? What did you learn?`);
-                        if (notes) {
-                          const review: TradeReview = { symbol: t.symbol, date: t.closedDate ?? '', outcome: t.status, pnlPct: t.pnlPct ?? 0, notes: '', lessons: notes };
-                          const updated = [...reviews, review]; setReviews(updated); saveReviews(updated);
-                        }
-                      }} className="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2 py-0.5 flex items-center gap-1 transition-colors">
-                        <span className="font-mono text-slate-300">{t.symbol.replace('.NS','').replace('.BO','')}</span>
-                        {t.pnlPct != null && <span className={t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span>}
-                        <span className="text-amber-600">+</span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {([
+                    ['Win Rate',      closed.length ? wr.toFixed(1)+'%' : '—',                      wr >= 60 ? 'text-emerald-400' : wr >= 50 ? 'text-amber-400' : 'text-red-400'],
+                    ['Profit Factor', closed.length ? (pf >= 99 ? '∞' : pf.toFixed(2)) : '—',       pf >= 2 ? 'text-emerald-400' : pf >= 1 ? 'text-amber-400' : 'text-red-400'],
+                    ['Avg Winner',    wins.length ? '+'+avgWinner.toFixed(1)+'%' : '—',              'text-emerald-400'],
+                    ['Streak',        sortedClosed.length ? (streak > 0 ? '+'+streak+'W' : streak+'L') : '—', streak > 0 ? 'text-emerald-400' : streak < 0 ? 'text-red-400' : 'text-slate-400'],
+                    ['Avg Hold',      daysArr.length ? avgHold.toFixed(1)+'d' : '—',                 'text-slate-300'],
+                  ] as [string, string, string][]).map(([label, val, cls]) => (
+                    <div key={label} className="bg-slate-800/50 border border-slate-700/40 rounded-lg p-2.5 text-center">
+                      <div className={`text-lg font-bold font-mono ${cls}`}>{val}</div>
+                      <div className="text-[10px] text-slate-600 uppercase tracking-wide mt-0.5">{label}</div>
+                    </div>
+                  ))}
                 </div>
               );
             })()}
 
-            {/* Sortable / filterable main table */}
-            <div className="overflow-auto max-h-[62vh] border border-slate-800/50 rounded-lg">
-              <table className="w-full text-xs whitespace-nowrap">
-                <thead className="sticky top-0 z-10 bg-[#0d1117]">
-                  <tr className="border-b border-slate-700 text-slate-500">
-                    {([
-                      ['symbol',     'Symbol',    'text-left'],
-                      ['stage',      'Stage',     'text-left'],
-                      ['entryDate',  'Entry Dt',  'text-left'],
-                      ['closedDate', 'Exit Dt',   'text-left'],
-                      ['status',     'Status',    'text-center'],
-                      ['entryPrice', 'Entry ₹',   'text-right'],
-                      ['closedPrice','Exit ₹',    'text-right'],
-                      ['pnlPct',     'P&L%',      'text-right'],
-                      ['pnlR',       'P&L-R',     'text-right'],
-                      ['mfe',        'MFE%',      'text-right'],
-                      ['mae',        'MAE%',      'text-right'],
-                      ['daysHeld',   'Days',      'text-right'],
-                      ['sector',     'Sector',    'text-left'],
-                      ['conviction', 'Conv',      'text-right'],
-                    ] as [string,string,string][]).map(([col, label, align]) => (
-                      <th
-                        key={col}
-                        onClick={() => setJournalSort(s => ({col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
-                        className={`px-2 py-1.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors ${align}`}
-                      >
-                        {label} <span className={journalSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{journalSort.col === col ? (journalSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
-                      </th>
+            {/* ─── Trades sub-tab ─── */}
+            {journalSubTab === 'trades' && (
+              <>
+                {/* Filter bar */}
+                <div className="flex items-center gap-2 flex-wrap bg-slate-800/40 rounded-lg p-2 border border-slate-700/40">
+                  <input type="text" placeholder="Search symbol / sector…" value={journalFilter.search}
+                    onChange={e => setJournalFilter(f => ({...f, search: e.target.value}))}
+                    className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 w-40 focus:outline-none focus:border-indigo-500" />
+                  <select value={journalFilter.status} onChange={e => setJournalFilter(f => ({...f, status: e.target.value}))}
+                    className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500">
+                    <option value="ALL">All Status</option>
+                    <option value="open">Open</option>
+                    <option value="hit_t1">✓ T1 Hit</option>
+                    <option value="hit_t2">✓ T2 Hit</option>
+                    <option value="hit_t3">✓ T3 Hit</option>
+                    <option value="stopped">Stopped</option>
+                    <option value="expired">Expired</option>
+                    <option value="manual_close">Manual</option>
+                    <option value="closed_early">Early Exit</option>
+                  </select>
+                  <select value={journalFilter.stage} onChange={e => setJournalFilter(f => ({...f, stage: e.target.value}))}
+                    className="bg-slate-900 text-slate-300 text-xs px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indigo-500">
+                    <option value="ALL">All Stages</option>
+                    {[...new Set(trackedTrades.map(t => t.stage).filter(Boolean))].sort().map(s => (
+                      <option key={s} value={s}>{STAGE_CONFIG[s as StageRating]?.label ?? s}</option>
                     ))}
-                    <th className="px-2 py-1.5 font-medium text-left">Review</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    let rows = [...trackedTrades];
-                    if (journalFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
-                    if (journalFilter.status !== 'ALL') {
-                      if (journalFilter.status === 'hit_5pct') rows = rows.filter(t => getTradeMfePct(t) >= 5);
-                      else if (journalFilter.status === 'hit_7pct') rows = rows.filter(t => getTradeMfePct(t) >= 7);
-                      else if (journalFilter.status === 'hit_10pct') rows = rows.filter(t => getTradeMfePct(t) >= 10);
-                      else rows = rows.filter(t => t.status === journalFilter.status);
-                    }
-                    if (journalFilter.stage !== 'ALL') rows = rows.filter(t => t.stage === journalFilter.stage);
+                  </select>
+                  {(journalFilter.search || journalFilter.status !== 'ALL' || journalFilter.stage !== 'ALL') && (
+                    <button onClick={() => setJournalFilter({status: 'ALL', stage: 'ALL', search: ''})}
+                      className="text-xs text-amber-500 hover:text-amber-300 px-2 py-1 rounded border border-amber-800/40 bg-amber-900/20">✕ Clear</button>
+                  )}
+                  <span className="text-[11px] text-slate-600 ml-auto">
+                    {(() => {
+                      let ct = trackedTrades;
+                      if (journalFilter.search) ct = ct.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
+                      if (journalFilter.status !== 'ALL') ct = ct.filter(t => t.status === journalFilter.status);
+                      if (journalFilter.stage !== 'ALL') ct = ct.filter(t => t.stage === journalFilter.stage);
+                      return `${ct.length} / ${trackedTrades.length} rows`;
+                    })()}
+                  </span>
+                </div>
 
-                    rows.sort((a, b) => {
-                      const mult = journalSort.dir === 'asc' ? 1 : -1;
-                      const pick = (t: TrackedTrade): number | string => {
-                        switch (journalSort.col) {
-                          case 'symbol':     return t.symbol;
-                          case 'stage':      return t.stage ?? '';
-                          case 'entryDate':  return t.entryDate ?? '';
-                          case 'closedDate': return t.closedDate ?? '';
-                          case 'status':     return t.status;
-                          case 'entryPrice': return t.entryPrice ?? 0;
-                          case 'closedPrice':return t.closedPrice ?? 0;
-                          case 'pnlPct':     return t.pnlPct ?? -9999;
-                          case 'pnlR':       return t.pnlR ?? -9999;
-                          case 'mfe':        return getTradeMfePct(t);
-                          case 'mae':        return getTradeMaePct(t);
-                          case 'daysHeld':   return t.daysHeld ?? 0;
-                          case 'sector':     return t.sector ?? '';
-                          case 'conviction': return t.conviction ?? 0;
-                          default:           return '';
-                        }
-                      };
-                      const av = pick(a), bv = pick(b);
-                      if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
-                      return ((av as number) - (bv as number)) * mult;
-                    });
-
-                    const sCfg: Record<string, {label: string; cls: string}> = {
-                      open:         {label: 'OPEN',  cls: 'text-blue-400'},
-                      hit_t1:       {label: '✓ T1',  cls: 'text-emerald-400'},
-                      hit_t2:       {label: '✓ T2',  cls: 'text-emerald-300'},
-                      hit_t3:       {label: '✓ T3',  cls: 'text-yellow-300'},
-                      stopped:      {label: 'STOP',  cls: 'text-red-400'},
-                      expired:      {label: 'EXP',   cls: 'text-amber-400'},
-                      manual_close: {label: 'MAN',   cls: 'text-slate-400'},
-                      closed_early: {label: 'EXIT',  cls: 'text-cyan-400'},
-                    };
-
-                    if (rows.length === 0) return (
-                      <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-600">No trades match filters</td></tr>
-                    );
-
-                    return rows.map((t, i) => {
-                      const sc = sCfg[t.status] ?? {label: t.status, cls: 'text-slate-500'};
-                      const stg = STAGE_CONFIG[t.stage as StageRating];
-                      const mfePct = getTradeMfePct(t);
-                      const maePct = getTradeMaePct(t);
-                      const rev = reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate);
-                      return (
-                        <tr key={t.symbol + i} className="border-b border-slate-800/40 hover:bg-slate-800/25 transition-colors">
-                          <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol.replace('.NS','').replace('.BO','')}</td>
-                          <td className={`px-2 py-1.5 ${stg?.color ?? 'text-slate-500'}`}>{stg?.label ?? t.stage}</td>
-                          <td className="px-2 py-1.5 font-mono text-slate-500">{t.entryDate}</td>
-                          <td className="px-2 py-1.5 font-mono text-slate-500">{t.closedDate ?? '—'}</td>
-                          <td className={`px-2 py-1.5 text-center font-bold text-[10px] ${sc.cls}`}>{sc.label}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono font-semibold ${(t.pnlPct ?? 0) > 0 ? 'text-emerald-400' : (t.pnlPct ?? 0) < 0 ? 'text-red-400' : 'text-slate-600'}`}>
-                            {t.pnlPct != null ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
-                          </td>
-                          <td className={`px-2 py-1.5 text-right font-mono ${(t.pnlR ?? 0) > 0 ? 'text-emerald-300' : (t.pnlR ?? 0) < 0 ? 'text-red-300' : 'text-slate-600'}`}>
-                            {t.pnlR != null ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
-                          </td>
-                          <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
-                          <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
-                          <td className="px-2 py-1.5 text-slate-500 max-w-[80px] truncate" title={t.sector}>{t.sector ?? '—'}</td>
-                          <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
-                          <td className="px-2 py-1.5 min-w-[120px]">
-                            {t.status !== 'open' && (rev ? (
-                              <span className="text-slate-500 text-[10px]" title={rev.lessons}>✍ {rev.lessons.slice(0, 28)}{rev.lessons.length > 28 ? '…' : ''}</span>
-                            ) : (
-                              <button onClick={() => {
-                                const notes = prompt(`${t.symbol} — what happened? What did you learn?`);
-                                if (notes) {
-                                  const review: TradeReview = { symbol: t.symbol, date: t.closedDate ?? '', outcome: t.status, pnlPct: t.pnlPct ?? 0, notes: '', lessons: notes };
-                                  const updated = [...reviews, review]; setReviews(updated); saveReviews(updated);
-                                }
-                              }} className="text-amber-600 hover:text-amber-400 text-[10px] transition-colors">+ Review</button>
-                            ))}
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Lessons learned */}
-            {reviews.length > 0 && (
-              <div className="bg-slate-800/40 rounded-lg p-3">
-                <div className="text-xs text-slate-500 font-semibold mb-2">Lessons Learned ({reviews.length})</div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {reviews.slice().reverse().map((r, i) => (
-                    <div key={i} className="text-xs bg-slate-900/40 rounded px-2 py-1.5">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-slate-300">{r.symbol}</span>
-                        <span className={r.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct.toFixed(1)}%</span>
-                        <span className="text-slate-600">{r.date}</span>
+                {/* Pending reviews chips (Feature 3: open AI Reflect modal) */}
+                {(() => {
+                  const pending = trackedTrades.filter(t => t.status !== 'open' && !reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate));
+                  if (pending.length === 0) return null;
+                  return (
+                    <div className="bg-amber-900/10 border border-amber-800/30 rounded-lg p-2">
+                      <div className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider mb-1.5">Pending Reviews ({pending.length})</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pending.slice(-10).reverse().map((t, i) => (
+                          <button key={i} onClick={() => { setReflectTrade(t); setReflectText(t.notes ?? ''); }}
+                            className="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2 py-0.5 flex items-center gap-1 transition-colors">
+                            <span className="font-mono text-slate-300">{t.symbol.replace(/\.(NS|BO)$/i, '')}</span>
+                            {t.pnlPct != null && <span className={t.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span>}
+                            <span className="text-indigo-400">✦AI</span>
+                          </button>
+                        ))}
                       </div>
-                      <div className="text-slate-400 leading-relaxed">{r.lessons}</div>
                     </div>
-                  ))}
+                  );
+                })()}
+
+                {/* Sortable main table (Feature 5: click row = detail panel) */}
+                <div className="overflow-auto max-h-[50vh] border border-slate-800/50 rounded-lg">
+                  <table className="w-full text-xs whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-[#0d1117]">
+                      <tr className="border-b border-slate-700 text-slate-500">
+                        {([
+                          ['symbol',     'Symbol',   'text-left'],
+                          ['stage',      'Stage',    'text-left'],
+                          ['entryDate',  'Entry Dt', 'text-left'],
+                          ['closedDate', 'Exit Dt',  'text-left'],
+                          ['status',     'Status',   'text-center'],
+                          ['entryPrice', 'Entry ₹',  'text-right'],
+                          ['closedPrice','Exit ₹',   'text-right'],
+                          ['pnlPct',     'P&L%',     'text-right'],
+                          ['pnlR',       'P&L-R',    'text-right'],
+                          ['mfe',        'MFE%',     'text-right'],
+                          ['mae',        'MAE%',     'text-right'],
+                          ['daysHeld',   'Days',     'text-right'],
+                          ['sector',     'Sector',   'text-left'],
+                          ['conviction', 'Conv',     'text-right'],
+                        ] as [string,string,string][]).map(([col, label, align]) => (
+                          <th key={col} onClick={() => setJournalSort(s => ({col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc'}))}
+                            className={`px-2 py-1.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors ${align}`}>
+                            {label} <span className={journalSort.col === col ? 'text-indigo-400' : 'text-slate-700'}>{journalSort.col === col ? (journalSort.dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          </th>
+                        ))}
+                        <th className="px-2 py-1.5 font-medium text-left">Review</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        let rows = [...trackedTrades];
+                        if (journalFilter.search) rows = rows.filter(t => t.symbol.toLowerCase().includes(journalFilter.search.toLowerCase()) || (t.sector ?? '').toLowerCase().includes(journalFilter.search.toLowerCase()));
+                        if (journalFilter.status !== 'ALL') rows = rows.filter(t => t.status === journalFilter.status);
+                        if (journalFilter.stage !== 'ALL') rows = rows.filter(t => t.stage === journalFilter.stage);
+                        rows.sort((a, b) => {
+                          const mult = journalSort.dir === 'asc' ? 1 : -1;
+                          const pick = (t: TrackedTrade): number | string => {
+                            switch (journalSort.col) {
+                              case 'symbol':     return t.symbol;
+                              case 'stage':      return t.stage ?? '';
+                              case 'entryDate':  return t.entryDate ?? '';
+                              case 'closedDate': return t.closedDate ?? '';
+                              case 'status':     return t.status;
+                              case 'entryPrice': return t.entryPrice ?? 0;
+                              case 'closedPrice':return t.closedPrice ?? 0;
+                              case 'pnlPct':     return t.pnlPct ?? -9999;
+                              case 'pnlR':       return t.pnlR ?? -9999;
+                              case 'mfe':        return getTradeMfePct(t);
+                              case 'mae':        return getTradeMaePct(t);
+                              case 'daysHeld':   return t.daysHeld ?? 0;
+                              case 'sector':     return t.sector ?? '';
+                              case 'conviction': return t.conviction ?? 0;
+                              default:           return '';
+                            }
+                          };
+                          const av = pick(a), bv = pick(b);
+                          if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * mult;
+                          return ((av as number) - (bv as number)) * mult;
+                        });
+                        const sCfg: Record<string, {label: string; cls: string}> = {
+                          open:         {label: 'OPEN', cls: 'text-blue-400'},
+                          hit_t1:       {label: '✓T1',  cls: 'text-emerald-400'},
+                          hit_t2:       {label: '✓T2',  cls: 'text-emerald-300'},
+                          hit_t3:       {label: '✓T3',  cls: 'text-yellow-300'},
+                          stopped:      {label: 'STOP', cls: 'text-red-400'},
+                          expired:      {label: 'EXP',  cls: 'text-amber-400'},
+                          manual_close: {label: 'MAN',  cls: 'text-slate-400'},
+                          closed_early: {label: 'EXIT', cls: 'text-cyan-400'},
+                        };
+                        if (rows.length === 0) return (
+                          <tr><td colSpan={15} className="px-3 py-10 text-center text-slate-600">No trades match filters</td></tr>
+                        );
+                        return rows.map((t, i) => {
+                          const sc = sCfg[t.status] ?? {label: t.status, cls: 'text-slate-500'};
+                          const stg = STAGE_CONFIG[t.stage as StageRating];
+                          const mfePct = getTradeMfePct(t);
+                          const maePct = getTradeMaePct(t);
+                          const rev = reviews.find(r => r.symbol === t.symbol && r.date === t.closedDate);
+                          const isSelected = selectedJournalTrade?.symbol === t.symbol && selectedJournalTrade?.entryDate === t.entryDate;
+                          return (
+                            <tr key={t.symbol + i}
+                              onClick={() => setSelectedJournalTrade(isSelected ? null : t)}
+                              className={`border-b border-slate-800/40 hover:bg-slate-800/30 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-900/20' : ''}`}>
+                              <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{t.symbol.replace(/\.(NS|BO)$/i, '')}</td>
+                              <td className={`px-2 py-1.5 ${stg?.color ?? 'text-slate-500'}`}>{stg?.label ?? t.stage}</td>
+                              <td className="px-2 py-1.5 font-mono text-slate-500">{t.entryDate}</td>
+                              <td className="px-2 py-1.5 font-mono text-slate-500">{t.closedDate ?? '—'}</td>
+                              <td className={`px-2 py-1.5 text-center font-bold text-[10px] ${sc.cls}`}>{sc.label}</td>
+                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">₹{t.entryPrice.toFixed(0)}</td>
+                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">{t.closedPrice ? `₹${t.closedPrice.toFixed(0)}` : '—'}</td>
+                              <td className={`px-2 py-1.5 text-right font-mono font-semibold ${(t.pnlPct ?? 0) > 0 ? 'text-emerald-400' : (t.pnlPct ?? 0) < 0 ? 'text-red-400' : 'text-slate-600'}`}>
+                                {t.pnlPct != null ? `${t.pnlPct >= 0 ? '+' : ''}${t.pnlPct.toFixed(1)}%` : '—'}
+                              </td>
+                              <td className={`px-2 py-1.5 text-right font-mono ${(t.pnlR ?? 0) > 0 ? 'text-emerald-300' : (t.pnlR ?? 0) < 0 ? 'text-red-300' : 'text-slate-600'}`}>
+                                {t.pnlR != null ? `${t.pnlR >= 0 ? '+' : ''}${t.pnlR.toFixed(1)}R` : '—'}
+                              </td>
+                              <td className={`px-2 py-1.5 text-right font-mono ${mfePct > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>{mfePct > 0 ? `+${mfePct.toFixed(1)}%` : '—'}</td>
+                              <td className={`px-2 py-1.5 text-right font-mono ${maePct < 0 ? 'text-red-400' : 'text-slate-600'}`}>{maePct < 0 ? `${maePct.toFixed(1)}%` : '—'}</td>
+                              <td className="px-2 py-1.5 text-right text-slate-500">{t.daysHeld ?? '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-500 max-w-[80px] truncate" title={t.sector}>{t.sector ?? '—'}</td>
+                              <td className="px-2 py-1.5 text-right text-slate-400">{t.conviction ?? '—'}</td>
+                              <td className="px-2 py-1.5 min-w-[100px]" onClick={e => e.stopPropagation()}>
+                                {t.status !== 'open' && (rev ? (
+                                  <span className="text-slate-500 text-[10px]" title={rev.lessons}>✍ {rev.lessons.slice(0, 28)}{rev.lessons.length > 28 ? '…' : ''}</span>
+                                ) : (
+                                  <button onClick={() => { setReflectTrade(t); setReflectText(t.notes ?? ''); }}
+                                    className="text-indigo-500 hover:text-indigo-300 text-[10px] transition-colors">✦ AI Review</button>
+                                ))}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Feature 5: Trade Detail Panel (brainPrior context) */}
+                {selectedJournalTrade && (() => {
+                  const t = selectedJournalTrade;
+                  const sym = t.symbol.replace(/\.(NS|BO)$/i, '');
+                  type BpType = {bySymbol?: Record<string,{n:number;wr:number;avgPnl:number}>; byParamSet?: Record<string,{n:number;label:string;wr:number;avgPnl:number;medPnl:number}>; byStage?: Record<string,{n:number;wr:number;avgPnl:number}>};
+                  const bp = brainPrior as BpType;
+                  const symStats = bp.bySymbol?.[sym] ?? bp.bySymbol?.[t.symbol];
+                  const psStats = t.paramSetKey ? bp.byParamSet?.[t.paramSetKey] : null;
+                  const stgStats = t.stage ? bp.byStage?.[t.stage] : null;
+                  return (
+                    <div className="bg-slate-800/40 border border-indigo-800/30 rounded-lg p-3 text-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-indigo-300">{sym} — Brain Context</span>
+                        <button onClick={() => setSelectedJournalTrade(null)} className="text-slate-600 hover:text-slate-400 text-base leading-none">✕</button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className={`bg-slate-900/60 rounded p-2 ${!symStats ? 'opacity-40' : ''}`}>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5">Symbol Edge</div>
+                          {symStats ? (
+                            <div className="space-y-1">
+                              <div className="flex justify-between"><span className="text-slate-500">Trades</span><span className="font-mono text-slate-300">{symStats.n}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Win Rate</span><span className={`font-mono ${symStats.wr >= 0.6 ? 'text-emerald-400' : 'text-amber-400'}`}>{(symStats.wr * 100).toFixed(0)}%</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Avg P&L</span><span className={`font-mono ${symStats.avgPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{symStats.avgPnl >= 0 ? '+' : ''}{symStats.avgPnl.toFixed(1)}%</span></div>
+                            </div>
+                          ) : <div className="text-slate-700">No data</div>}
+                        </div>
+                        <div className={`bg-slate-900/60 rounded p-2 ${!psStats ? 'opacity-40' : ''}`}>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5">Setup Edge</div>
+                          {psStats ? (
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-slate-400 truncate mb-0.5" title={psStats.label}>{psStats.label}</div>
+                              <div className="flex justify-between"><span className="text-slate-500">WR</span><span className={`font-mono ${psStats.wr >= 0.6 ? 'text-emerald-400' : 'text-amber-400'}`}>{(psStats.wr * 100).toFixed(0)}%</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Med P&L</span><span className={`font-mono ${psStats.medPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{psStats.medPnl >= 0 ? '+' : ''}{psStats.medPnl.toFixed(1)}%</span></div>
+                            </div>
+                          ) : <div className="text-slate-700">No data</div>}
+                        </div>
+                        <div className={`bg-slate-900/60 rounded p-2 ${!stgStats ? 'opacity-40' : ''}`}>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5">Stage Edge</div>
+                          {stgStats ? (
+                            <div className="space-y-1">
+                              <div className="flex justify-between"><span className="text-slate-500">Trades</span><span className="font-mono text-slate-300">{stgStats.n}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">WR</span><span className={`font-mono ${stgStats.wr >= 0.6 ? 'text-emerald-400' : 'text-amber-400'}`}>{(stgStats.wr * 100).toFixed(0)}%</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Avg P&L</span><span className={`font-mono ${stgStats.avgPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stgStats.avgPnl >= 0 ? '+' : ''}{stgStats.avgPnl.toFixed(1)}%</span></div>
+                            </div>
+                          ) : <div className="text-slate-700">No data</div>}
+                        </div>
+                      </div>
+                      {t.notes && (
+                        <div className="mt-2 text-slate-400 bg-slate-900/40 rounded p-2 leading-relaxed text-[11px]">{t.notes}</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Feature 6: Sector / Stage bar charts */}
+                {trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null).length >= 5 && (() => {
+                  const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                  const sectorMap: Record<string, {wins:number;total:number;pnlSum:number}> = {};
+                  for (const t of closed) {
+                    const s = (t.sector ?? 'Unknown').slice(0, 20);
+                    if (!sectorMap[s]) sectorMap[s] = {wins: 0, total: 0, pnlSum: 0};
+                    sectorMap[s].total++;
+                    if ((t.pnlPct ?? 0) > 0) sectorMap[s].wins++;
+                    sectorMap[s].pnlSum += (t.pnlPct ?? 0);
+                  }
+                  const sectors = Object.entries(sectorMap)
+                    .map(([k, v]) => [k, {...v, avgPnl: v.pnlSum / v.total}] as [string, {wins:number;total:number;pnlSum:number;avgPnl:number}])
+                    .sort((a, b) => b[1].avgPnl - a[1].avgPnl).slice(0, 8);
+                  const stageMap: Record<string, {wins:number;total:number}> = {};
+                  for (const t of closed) {
+                    const s = t.stage ?? 'Unknown';
+                    if (!stageMap[s]) stageMap[s] = {wins: 0, total: 0};
+                    stageMap[s].total++;
+                    if ((t.pnlPct ?? 0) > 0) stageMap[s].wins++;
+                  }
+                  const stages = Object.entries(stageMap).sort((a, b) => b[1].total - a[1].total);
+                  const maxAvgPnl = Math.max(...sectors.map(([, v]) => Math.abs(v.avgPnl)), 1);
+                  const BAR_H = 14, GAP = 4, LW = 88, BW = 130;
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Avg P&L by Sector</div>
+                        <svg width={LW + BW + 36} height={Math.max(sectors.length * (BAR_H + GAP), 20)} className="overflow-visible">
+                          {sectors.map(([name, v], i) => {
+                            const ratio = v.avgPnl / maxAvgPnl;
+                            const w = Math.max(Math.abs(ratio) * BW, 1);
+                            const x = ratio >= 0 ? LW : LW - w;
+                            const col = v.avgPnl >= 0 ? '#34d399' : '#f87171';
+                            return (
+                              <g key={name} transform={`translate(0,${i * (BAR_H + GAP)})`}>
+                                <text x={LW - 4} y={BAR_H * 0.78} textAnchor="end" fill="#64748b" fontSize="9">{name.slice(0, 13)}</text>
+                                <rect x={x} y={0} width={w} height={BAR_H} fill={col} opacity={0.8} rx={2} />
+                                <text x={ratio >= 0 ? x + w + 2 : x - 2} y={BAR_H * 0.78} textAnchor={ratio >= 0 ? 'start' : 'end'} fill={col} fontSize="9" fontFamily="monospace">{v.avgPnl >= 0 ? '+' : ''}{v.avgPnl.toFixed(1)}%</text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                      <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-3">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Win Rate by Stage</div>
+                        <svg width={LW + BW + 60} height={Math.max(stages.length * (BAR_H + GAP), 20)} className="overflow-visible">
+                          {stages.map(([name, v], i) => {
+                            const wr = v.wins / v.total;
+                            const w = Math.max(wr * BW, 1);
+                            const col = wr >= 0.65 ? '#34d399' : wr >= 0.5 ? '#fbbf24' : '#f87171';
+                            const lbl = STAGE_CONFIG[name as StageRating]?.label ?? name;
+                            return (
+                              <g key={name} transform={`translate(0,${i * (BAR_H + GAP)})`}>
+                                <text x={LW - 4} y={BAR_H * 0.78} textAnchor="end" fill="#64748b" fontSize="9">{lbl.slice(0, 13)}</text>
+                                <rect x={LW} y={0} width={w} height={BAR_H} fill={col} opacity={0.8} rx={2} />
+                                <text x={LW + w + 3} y={BAR_H * 0.78} textAnchor="start" fill={col} fontSize="9" fontFamily="monospace">{(wr * 100).toFixed(0)}% ({v.total})</text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Lessons Learned */}
+                {reviews.length > 0 && (
+                  <div className="bg-slate-800/40 rounded-lg p-3">
+                    <div className="text-xs text-slate-500 font-semibold mb-2">Lessons Learned ({reviews.length})</div>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {reviews.slice().reverse().map((r, i) => (
+                        <div key={i} className="text-xs bg-slate-900/40 rounded px-2 py-1.5">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-mono text-slate-300">{r.symbol}</span>
+                            <span className={r.pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct.toFixed(1)}%</span>
+                            <span className="text-slate-600">{r.date}</span>
+                          </div>
+                          <div className="text-slate-400 leading-relaxed">{r.lessons}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── Feature 2: P&L Calendar ─── */}
+            {journalSubTab === 'calendar' && (() => {
+              const closed = trackedTrades.filter(t => t.status !== 'open' && t.closedDate && t.pnlPct != null);
+              const pnlByDay: Record<string, number> = {};
+              for (const t of closed) {
+                const d = t.closedDate!;
+                pnlByDay[d] = (pnlByDay[d] ?? 0) + (t.pnlPct ?? 0);
+              }
+              const today = new Date();
+              const oldestDate = new Date(today); oldestDate.setDate(today.getDate() - 83);
+              const startDow = (oldestDate.getDay() + 6) % 7;
+              const startOfGrid = new Date(oldestDate); startOfGrid.setDate(oldestDate.getDate() - startDow);
+              const cells: {date: string; pnl: number | null; faded: boolean}[] = [];
+              const cur = new Date(startOfGrid);
+              while (cur <= today) {
+                const ds = cur.toISOString().slice(0, 10);
+                cells.push({date: ds, pnl: pnlByDay[ds] ?? null, faded: cur < oldestDate});
+                cur.setDate(cur.getDate() + 1);
+              }
+              const nCols = Math.ceil(cells.length / 7);
+              const maxPnl = Math.max(...Object.values(pnlByDay).map(Math.abs), 1);
+              const todayStr = today.toISOString().slice(0, 10);
+              const CELL = 20, GAP = 3;
+              const monthly: Record<string, {wins:number;total:number;pnl:number}> = {};
+              for (const t of closed) {
+                const mo = t.closedDate!.slice(0, 7);
+                if (!monthly[mo]) monthly[mo] = {wins: 0, total: 0, pnl: 0};
+                monthly[mo].total++;
+                if ((t.pnlPct ?? 0) > 0) monthly[mo].wins++;
+                monthly[mo].pnl += (t.pnlPct ?? 0);
+              }
+              const months = Object.entries(monthly).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+              return (
+                <div className="space-y-3">
+                  <div className="text-[10px] text-slate-500">Last 84 days · each cell = 1 day · green = profit, red = loss, dark = no trade</div>
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-4 overflow-x-auto">
+                    <div className="flex gap-[3px]">
+                      <div className="flex flex-col gap-[3px] mr-1">
+                        {['M','T','W','T','F','S','S'].map((d, i) => (
+                          <div key={i} style={{width: 10, height: CELL, lineHeight: `${CELL}px`, fontSize: 9, color: '#475569', textAlign: 'center'}}>{d}</div>
+                        ))}
+                      </div>
+                      {Array.from({length: nCols}).map((_, wk) => (
+                        <div key={wk} className="flex flex-col gap-[3px]">
+                          {Array.from({length: 7}).map((_, dow) => {
+                            const idx = wk * 7 + dow;
+                            if (idx >= cells.length) return <div key={dow} style={{width: CELL, height: CELL}} />;
+                            const {date, pnl, faded} = cells[idx];
+                            const isToday = date === todayStr;
+                            let bg = faded ? 'transparent' : '#1e293b';
+                            if (!faded && pnl !== null) {
+                              const intensity = Math.min(Math.abs(pnl) / maxPnl, 1);
+                              const alpha = (0.25 + intensity * 0.75).toFixed(2);
+                              bg = pnl > 0 ? `rgba(52,211,153,${alpha})` : `rgba(248,113,113,${alpha})`;
+                            }
+                            return (
+                              <div key={dow}
+                                style={{width: CELL, height: CELL, backgroundColor: bg, borderRadius: 3,
+                                  border: isToday ? '1.5px solid #6366f1' : '1px solid transparent',
+                                  opacity: faded ? 0 : 1}}
+                                title={faded ? '' : `${date}: ${pnl != null ? (pnl >= 0 ? '+' : '') + pnl.toFixed(1) + '%' : 'no trade'}`}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-500">
+                      <div className="flex items-center gap-1"><div style={{width:10,height:10,backgroundColor:'rgba(52,211,153,0.9)',borderRadius:2}}/> Profit</div>
+                      <div className="flex items-center gap-1"><div style={{width:10,height:10,backgroundColor:'rgba(248,113,113,0.9)',borderRadius:2}}/> Loss</div>
+                      <div className="flex items-center gap-1"><div style={{width:10,height:10,backgroundColor:'#1e293b',borderRadius:2}}/> No trade</div>
+                      <span className="ml-auto">{Object.keys(pnlByDay).length} active trade days</span>
+                    </div>
+                  </div>
+                  {months.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {months.map(([mo, v]) => (
+                        <div key={mo} className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-2.5 text-xs">
+                          <div className="text-slate-500 text-[10px] mb-0.5">{mo}</div>
+                          <div className={`font-mono font-semibold text-sm ${v.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v.pnl >= 0 ? '+' : ''}{v.pnl.toFixed(1)}%</div>
+                          <div className="text-slate-600 text-[10px]">{v.wins}/{v.total} wins · {v.total > 0 ? ((v.wins / v.total) * 100).toFixed(0) + '% WR' : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ─── Feature 4: Missed Signals ─── */}
+            {journalSubTab === 'missed' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-slate-500">Strong UC signals (goldmine/strong) last 90d — compare against your journal</div>
+                  {!missedLoaded && (
+                    <button
+                      onClick={async () => {
+                        setMissedLoaded(true);
+                        try {
+                          const r = await fetch('/api/missed-signals');
+                          if (r.ok) {
+                            const d = await r.json() as {events?: {symbol:string;event_date:string;uc_score:number;outcome_pct_5d:number|null;hit_t1:boolean|null;best_stage:string}[]};
+                            setMissedEvents(d.events ?? []);
+                          }
+                        } catch { /* silent fail */ }
+                      }}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-800/50 bg-indigo-900/20 px-3 py-1 rounded transition-colors">
+                      Load Signals
+                    </button>
+                  )}
+                </div>
+                {missedLoaded && missedEvents.length === 0 && (
+                  <div className="text-center text-slate-600 py-12 text-xs">No strong signals found in last 90 days, or still loading…</div>
+                )}
+                {missedEvents.length > 0 && (
+                  <div className="overflow-auto max-h-[60vh] border border-slate-800/50 rounded-lg">
+                    <table className="w-full text-xs whitespace-nowrap">
+                      <thead className="sticky top-0 bg-[#0d1117] border-b border-slate-700">
+                        <tr className="text-slate-500">
+                          <th className="px-2 py-1.5 text-left font-medium">Symbol</th>
+                          <th className="px-2 py-1.5 text-left font-medium">Date</th>
+                          <th className="px-2 py-1.5 text-right font-medium">UC Score</th>
+                          <th className="px-2 py-1.5 text-left font-medium">Stage</th>
+                          <th className="px-2 py-1.5 text-right font-medium">5d P&L</th>
+                          <th className="px-2 py-1.5 text-center font-medium">T1 Hit</th>
+                          <th className="px-2 py-1.5 text-center font-medium">In Journal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {missedEvents.map((e, i) => {
+                          const inJournal = trackedTrades.some(t =>
+                            t.symbol.replace(/\.(NS|BO)$/i, '') === e.symbol && (t.entryDate ?? '') >= e.event_date
+                          );
+                          return (
+                            <tr key={i} className={`border-b border-slate-800/40 hover:bg-slate-800/20 ${inJournal ? '' : 'opacity-90'}`}>
+                              <td className="px-2 py-1.5 font-mono text-slate-200 font-semibold">{e.symbol}</td>
+                              <td className="px-2 py-1.5 font-mono text-slate-500">{e.event_date}</td>
+                              <td className="px-2 py-1.5 text-right font-mono text-amber-400">{e.uc_score?.toFixed(1) ?? '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-400">{e.best_stage ?? '—'}</td>
+                              <td className={`px-2 py-1.5 text-right font-mono ${(e.outcome_pct_5d ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {e.outcome_pct_5d != null ? `${e.outcome_pct_5d >= 0 ? '+' : ''}${e.outcome_pct_5d.toFixed(1)}%` : '—'}
+                              </td>
+                              <td className={`px-2 py-1.5 text-center font-semibold ${e.hit_t1 === true ? 'text-emerald-400' : e.hit_t1 === false ? 'text-red-500' : 'text-slate-600'}`}>
+                                {e.hit_t1 === true ? '✓' : e.hit_t1 === false ? '✗' : '?'}
+                              </td>
+                              <td className={`px-2 py-1.5 text-center ${inJournal ? 'text-emerald-400' : 'text-slate-700'}`}>{inJournal ? '✓' : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── Feature 3: AI Reflection Modal ─── */}
+            {reflectTrade && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                onClick={e => { if (e.target === e.currentTarget && !reflectLoading) { setReflectTrade(null); setReflectText(''); } }}>
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-200">{reflectTrade.symbol.replace(/\.(NS|BO)$/i, '')} — Trade Review</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {reflectTrade.entryDate} → {reflectTrade.closedDate ?? 'open'} · {reflectTrade.status}
+                        {reflectTrade.pnlPct != null ? ` · ${reflectTrade.pnlPct >= 0 ? '+' : ''}${reflectTrade.pnlPct.toFixed(1)}%` : ''}
+                      </div>
+                    </div>
+                    {!reflectLoading && (
+                      <button onClick={() => { setReflectTrade(null); setReflectText(''); }} className="text-slate-600 hover:text-slate-400 text-xl leading-none ml-3">✕</button>
+                    )}
+                  </div>
+                  <textarea
+                    value={reflectText}
+                    onChange={e => { if (!reflectLoading) setReflectText(e.target.value); }}
+                    readOnly={reflectLoading}
+                    placeholder="Click ✦ AI Reflect for an AI-generated reflection, or type your notes here…"
+                    rows={6}
+                    className={`w-full bg-slate-800 text-slate-300 text-xs rounded border px-3 py-2 focus:outline-none resize-none ${reflectLoading ? 'border-indigo-600/60 cursor-wait opacity-80' : 'border-slate-700 focus:border-indigo-500'}`}
+                  />
+                  {reflectLoading && (
+                    <div className="text-[10px] text-indigo-400 animate-pulse">✦ AI reflecting…</div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      disabled={reflectLoading}
+                      onClick={async () => {
+                        setReflectLoading(true);
+                        setReflectText('');
+                        const mfePct = getTradeMfePct(reflectTrade);
+                        const maePct = getTradeMaePct(reflectTrade);
+                        try {
+                          const res = await fetch('/api/trade-reflect', {
+                            method: 'POST',
+                            headers: {'content-type': 'application/json'},
+                            body: JSON.stringify({
+                              symbol: reflectTrade.symbol,
+                              status: reflectTrade.status,
+                              pnlPct: reflectTrade.pnlPct,
+                              stage: reflectTrade.stage,
+                              entryDate: reflectTrade.entryDate,
+                              closedDate: reflectTrade.closedDate,
+                              daysHeld: reflectTrade.daysHeld,
+                              mfePct: mfePct > 0 ? mfePct : undefined,
+                              maePct: maePct < 0 ? maePct : undefined,
+                            }),
+                          });
+                          if (!res.ok || !res.body) {
+                            setReflectText('AI not available — add ANTHROPIC_API_KEY to .env.local to enable this feature.');
+                            setReflectLoading(false);
+                            return;
+                          }
+                          const reader = res.body.getReader();
+                          const dec = new TextDecoder();
+                          let buf = '', out = '';
+                          while (true) {
+                            const {done, value} = await reader.read();
+                            if (done) break;
+                            buf += dec.decode(value, {stream: true});
+                            const lines = buf.split('\n');
+                            buf = lines.pop() ?? '';
+                            for (const line of lines) {
+                              if (!line.startsWith('data: ')) continue;
+                              const raw = line.slice(6);
+                              if (raw === '[DONE]') continue;
+                              try {
+                                const j = JSON.parse(raw) as {type?: string; delta?: {type?: string; text?: string}};
+                                if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') {
+                                  out += j.delta.text ?? '';
+                                  setReflectText(out);
+                                }
+                              } catch { /* skip malformed line */ }
+                            }
+                          }
+                        } catch {
+                          setReflectText('Error connecting to AI. You can type your notes manually below.');
+                        }
+                        setReflectLoading(false);
+                      }}
+                      className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs py-1.5 rounded transition-colors">
+                      {reflectLoading ? '…reflecting' : '✦ AI Reflect'}
+                    </button>
+                    <button
+                      disabled={reflectLoading || !reflectText.trim()}
+                      onClick={() => {
+                        const text = reflectText.trim();
+                        if (!text) return;
+                        const updated = trackedTrades.map(t =>
+                          (t.symbol === reflectTrade.symbol && t.entryDate === reflectTrade.entryDate)
+                            ? {...t, notes: text} : t
+                        );
+                        setTrackedTrades(updated);
+                        syncTradesToCloud(updated).catch(() => {});
+                        const review: TradeReview = {
+                          symbol: reflectTrade.symbol,
+                          date: reflectTrade.closedDate ?? '',
+                          outcome: reflectTrade.status,
+                          pnlPct: reflectTrade.pnlPct ?? 0,
+                          notes: '',
+                          lessons: text,
+                        };
+                        const updatedRevs = [
+                          ...reviews.filter(r => !(r.symbol === reflectTrade.symbol && r.date === (reflectTrade.closedDate ?? ''))),
+                          review,
+                        ];
+                        setReviews(updatedRevs);
+                        saveReviews(updatedRevs);
+                        setReflectTrade(null);
+                        setReflectText('');
+                      }}
+                      className="flex-1 bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 text-emerald-200 text-xs py-1.5 rounded transition-colors">
+                      Save & Close
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -5628,7 +6061,7 @@ function HomePageInner() {
                   <div className="flex items-center gap-2 mb-2.5">
                     <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">🧠 Brain v2 · Trading Intelligence</h2>
                     {brainPrior && (
-                      <span className="text-[9px] text-slate-600 ml-auto">prior: {brainPrior.total} trades · updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
+                      <span className="text-[9px] text-slate-600 ml-auto">prior: {(brainPrior as any).totalTrades ?? (brainPrior as any).total} trades · updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
                     )}
                   </div>
                   <div className="grid grid-cols-5 gap-2">
@@ -5914,7 +6347,7 @@ function HomePageInner() {
               return (
                 <div className="bg-slate-800/40 rounded-lg p-3">
                   <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Setup Quality Matrix — Avg P&L by Stage × Param Set</div>
-                  <div className="text-[10px] text-slate-600 mb-2">Prior backtest · {brainPrior?.total ?? '—'} trades · empty = no historical data for that combo</div>
+                  <div className="text-[10px] text-slate-600 mb-2">Prior backtest · {(brainPrior as any).totalTrades ?? (brainPrior as any).total ?? '—'} trades · empty = no historical data for that combo</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -5970,7 +6403,7 @@ function HomePageInner() {
             {(() => {
               if (!brainPrior?.byParamSet) return null;
               const rows = Object.entries(brainPrior.byParamSet)
-                .map(([key, s]: [string, {n:number,wr:number,avgPnl:number,medPnl:number}]) => ({key, label: (brainPrior.paramLabels as Record<string,string>)?.[key] ?? key, ...s}))
+                .map(([key, s]: [string, {n:number,label:string,wr:number,avgPnl:number,medPnl:number}]) => ({key, ...s, label: s.label ?? key}))
                 .sort((a, b) => b.avgPnl - a.avgPnl);
               const maxPnl = Math.max(...rows.map(r => r.avgPnl));
               return (
@@ -6246,7 +6679,7 @@ function HomePageInner() {
             {/* Legend */}
             <div className="bg-slate-800/20 rounded-lg px-3 py-2 text-[10px] text-slate-600 space-y-0.5">
               <div><span className="text-slate-500 font-semibold">Signal Command:</span> Ranks current BUY signals by composite score (brain + backtest expected P&L). Size up on ELITE tier setups.</div>
-              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from the {brainPrior?.total ?? '—'}-trade bundled prior. Exact sparse combos are dimmed; fallback estimates are marked with ~.</div>
+              <div><span className="text-slate-500 font-semibold">Setup Matrix:</span> Expected P&L per Stage × Param Set from the {(brainPrior as any).totalTrades ?? (brainPrior as any).total ?? '—'}-trade bundled prior. Exact sparse combos are dimmed; fallback estimates are marked with ~.</div>
               <div><span className="text-slate-500 font-semibold">RS Rank:</span> Mansfield Relative Strength percentile (0-100). Above 70 = leader, below 30 = laggard. Only buy RS leaders.</div>
               <div><span className="text-slate-500 font-semibold">TF Align:</span> DW = Daily + Weekly breakout confirmed (highest probability). D = Daily only (weekly still compressing).</div>
               <div><span className="text-slate-500 font-semibold">Sector Rotation:</span> Green = money flowing in + signals appearing. Red = money leaving. Trade WITH sector momentum.</div>
