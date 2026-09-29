@@ -109,8 +109,8 @@ function forensicPasses(r, f = {}) {
   const dna = r.candleDNA || {}, adv = r.advanced || {}, st = r.stats || {};
   const vals = {
     candleDnaScore: dna.score ?? 0,
-    candleDnaCloseQuality: dna.wickCleanliness ?? 0,
-    candleDnaLowerTail: dna.rangeExpansion ?? 0,
+    candleDnaCloseQuality: dna.closeLocationQuality ?? 0,
+    candleDnaLowerTail: dna.supportTailQuality ?? 0,
     bodyATR: dna.bodyATR ?? 0,
     upperToLowerWickRatio: dna.upperToLowerWickRatio ?? 99,
     marubozuScore: dna.marubozuScore ?? 0,

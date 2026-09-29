@@ -187,7 +187,8 @@ async function main() {
     const allMatrixNorm = allLabeled.map(r => DIMS.map(d => {
       const v = r[d.db];
       const fv = v != null ? parseFloat(v) : 0;
-      return (fv - stats[j=DIMS.findIndex(x=>x.db===d.db)].min) / stats[j].range;
+      const idx = DIMS.findIndex(x=>x.db===d.db);
+      return (fv - stats[idx].min) / stats[idx].range;
     }));
     const threshold = 0.35; // normalized distance to consider "in cluster"
     const clusterMembers = allLabeled.filter((_, i) => weightedDist(allMatrixNorm[i], centNorm) <= threshold);

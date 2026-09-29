@@ -161,7 +161,7 @@ function collectWorker(files, config) {
           exactVolVsPre5: r.exactVolVsPre5, closeLoc: r.closeLoc, upperWickPct: r.upperWickPct, bodyPct: r.bodyPct, signalRangePct: r.signalRangePct,
           ultraPrecisionScore: r.ultraPrecisionScore, rsi2: r.rsi2, volatilityExpansionRatio: r.volatilityExpansionRatio, candleQualityScore: r.candleQualityScore,
           closeAboveZonePct: r.zone && r.zone.zoneHigh > 0 ? ((candles[i].c - r.zone.zoneHigh) / r.zone.zoneHigh) * 100 : 999,
-          candleDnaScore: dna.score ?? 0, candleDnaCloseQuality: dna.wickCleanliness ?? 0, candleDnaLowerTail: dna.rangeExpansion ?? 0, bodyATR: dna.bodyATR ?? 0,
+          candleDnaScore: dna.score ?? 0, candleDnaCloseQuality: dna.closeLocationQuality ?? 0, candleDnaLowerTail: dna.supportTailQuality ?? 0, bodyATR: dna.bodyATR ?? 0,
           upperToLowerWickRatio: dna.upperToLowerWickRatio ?? 99, marubozuScore: dna.marubozuScore ?? 0,
           advScore: adv.advScore ?? 0, fer20: adv.fer20 ?? 0, cusumPos: adv.cusumPos ?? 0, mwcScore: adv.mwcScore ?? 0, tram: adv.tram ?? 0,
           cleanMom: adv.cleanMom ?? 0, durationRatio: adv.durationRatio ?? 0, vram: adv.vram ?? 0, pic: adv.pic ?? 0, utbotBarsAgo: adv.utbotBarsAgo ?? 99,

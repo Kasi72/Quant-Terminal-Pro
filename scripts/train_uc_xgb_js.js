@@ -25,6 +25,18 @@ const env = Object.fromEntries(
 const SUPA_URL = env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPA_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 
+// ── Seeded PRNG (Mulberry32) — deterministic runs ────────────────────────────
+const RANDOM_SEED = 31337;
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let z = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    z = z + Math.imul(z ^ z >>> 7, 61 | z) ^ z;
+    return ((z ^ z >>> 14) >>> 0) / 4294967296;
+  };
+}
+Math.random = mulberry32(RANDOM_SEED);
+
 // ── Hyperparameters ──────────────────────────────────────────────────────────
 const N_ESTIMATORS  = 80;   // CV showed peak test AUC ~round 50-70; cap here to avoid overfit
 const MAX_DEPTH     = 3;
@@ -65,6 +77,8 @@ const ALL_FEATURES = [
   'clean_close',    // (100-upper_wick_pct) * close_loc/100  — rejection-free high close
   'oversold_surge', // vol_pre5 / max(rsi2, 1)  — volume while oversold (escape archetype)
   'uc_vol_gate',    // uc_score * vol_pre5 / 100  — UC quality × volume momentum
+  // ema_low_pct (feature 15) deferred: needs pbfb_uc_logger column backfill for full coverage
+  // before adding to XGB (35.6% missing causes imputation bias; AUC drops 0.77→0.44)
 ];
 
 function buildRow(r) {
@@ -219,7 +233,7 @@ async function main() {
   console.log(`Labeled rows: ${allRows.length}`);
 
   // Build feature matrix and labels
-  const X      = allRows.map(buildRow);
+  const X      = allRows.map(r => buildRow(r));
   const Y      = allRows.map(r => r.next_day_chg_pct >= 5 ? 1 : 0);
   const dates  = allRows.map(r => r.scan_date);
   const N      = X.length;
@@ -376,3 +390,19 @@ async function main() {
 
 module.exports = { main };
 if(require.main===module) main().catch(e=>{console.error(e.message);process.exit(1);});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

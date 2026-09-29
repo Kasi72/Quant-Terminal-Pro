@@ -247,6 +247,8 @@ export interface AnalysisResult {
   // ML overlay (computed once per scan, attached post-analysis)
   xgbScore?: number | null;   // XGBoost P(hit_t1) 0-1, null when model not trained
   survivalLabel?: string;     // KM "5d:38% · 10d:61%" per archetype
+  clTrend?: number;           // close_loc[today] - close_loc[2 bars ago] — range momentum velocity (XGB d=0.424)
+  dnaFiringClauses?: string[]; // Brain V3 goldmine: DNA clauses A-F firing
 }
 
 export interface CandleDNA {
@@ -4465,7 +4467,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       result.ucElite        = ucElite;
       result.ucClass        = ucClass;
       result.ucFeatureHits  = ucFeatureHits;
-      (result as any).clTrend        = clTrend;
+      result.clTrend                 = clTrend;
       (result as any).rsi2Velocity  = rsi2Velocity;
       (result as any).volDryScore   = volDryScore;
       (result as any).volSurgeScore = volSurgeScore;
