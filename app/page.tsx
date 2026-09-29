@@ -1933,8 +1933,24 @@ function HomePageInner() {
         // Cloud error — fall back to localStorage, don't attempt re-seed (may be transient)
         migrateTrades(loadTradesFromLocal());
       } else if (cloudTrades.length > 0) {
-        // Cloud has authoritative data
-        migrateTrades(cloudTrades);
+        // Cloud has data. Also check localStorage for open trades that saved locally
+        // but whose PUT hadn't completed before the tab was closed (e.g. user tracked
+        // and closed within milliseconds). Only recover status=open, no closedDate trades
+        // so intentionally removed/closed trades don't resurface.
+        const local = loadTradesFromLocal();
+        const cloudKeys = new Set(cloudTrades.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
+        const localOnlyOpen = local.filter(t =>
+          !cloudKeys.has(`${t.symbol}_${t.entryDate ?? ''}`) &&
+          t.status === 'open' && !t.closedDate && t.entryPrice > 0
+        );
+        if (localOnlyOpen.length > 0) {
+          // Trades in local but not cloud — recover them and re-upload
+          const recovered = [...cloudTrades, ...localOnlyOpen];
+          migrateTrades(recovered);
+          syncTradesToCloud(recovered);
+        } else {
+          migrateTrades(cloudTrades);
+        }
       } else {
         // Cloud healthy but empty — seed from localStorage if available (new device onboarding)
         const local = loadTradesFromLocal();
@@ -3461,7 +3477,12 @@ function HomePageInner() {
       maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
-    setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
+    // Build new list explicitly so we can sync immediately without waiting for React batch
+    const newTradesList = [...trackedTradesRef.current.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade];
+    setTrackedTrades(newTradesList);
+    // Immediate sync: saveToLocal() runs synchronously inside syncTradesToCloud before the PUT.
+    // This guarantees the trade is in localStorage even if the tab is closed before the 1s debounce fires.
+    syncTradesToCloud(newTradesList);
     // AI Trade Plan — fires async after track, populates notes if empty
     (async () => {
       try {
@@ -3479,9 +3500,12 @@ function HomePageInner() {
         if (res.ok) {
           const d = await res.json();
           if (d.plan) {
-            setTrackedTrades(prev => prev.map(t =>
+            // Use ref (always current) to compute updated list and sync immediately
+            const withPlan = trackedTradesRef.current.map(t =>
               t.id === trade.id && !t.notes ? { ...t, notes: `[AI Plan] ${d.plan}` } : t
-            ));
+            );
+            setTrackedTrades(withPlan);
+            syncTradesToCloud(withPlan);
           }
         }
       } catch { /* non-fatal */ }
