@@ -2039,6 +2039,34 @@ function HomePageInner() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
+  // Flush trades to localStorage + fire a keepalive PUT before the page unloads.
+  // This covers the case where the user closes the tab before the 1s debounce fires
+  // (e.g. tracked 8 stocks then immediately closed). localStorage write is synchronous
+  // and guaranteed; keepalive fetch survives page close at the browser level.
+  useEffect(() => {
+    const flush = () => {
+      if (!tradesLoadedRef.current) return;
+      const trades = trackedTradesRef.current;
+      if (trades.length === 0) return;
+      // Synchronous localStorage write — always completes before page unloads
+      const json = JSON.stringify(trades);
+      try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
+      try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
+      // keepalive: true — browser continues this request even after page is closed
+      const ownerToken = localStorage.getItem('qtp_owner_token') ?? '';
+      try {
+        fetch('/api/trades', {
+          method: 'PUT',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'X-Owner-Token': ownerToken },
+          body: json,
+        });
+      } catch { /* non-fatal — localStorage is the guaranteed backup */ }
+    };
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, []);
+
   // On-demand sparkline fetch: when a symbol is selected but candleCache lacks it
   // (batch/cron results don't carry candle data), fetch silently so the chart renders.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3477,12 +3505,8 @@ function HomePageInner() {
       maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
-    // Build new list explicitly so we can sync immediately without waiting for React batch
-    const newTradesList = [...trackedTradesRef.current.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade];
-    setTrackedTrades(newTradesList);
-    // Immediate sync: saveToLocal() runs synchronously inside syncTradesToCloud before the PUT.
-    // This guarantees the trade is in localStorage even if the tab is closed before the 1s debounce fires.
-    syncTradesToCloud(newTradesList);
+    // Functional update: each rapid track sees the accumulated prev (not stale ref)
+    setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
     // AI Trade Plan — fires async after track, populates notes if empty
     (async () => {
       try {
@@ -3500,12 +3524,9 @@ function HomePageInner() {
         if (res.ok) {
           const d = await res.json();
           if (d.plan) {
-            // Use ref (always current) to compute updated list and sync immediately
-            const withPlan = trackedTradesRef.current.map(t =>
+            setTrackedTrades(prev => prev.map(t =>
               t.id === trade.id && !t.notes ? { ...t, notes: `[AI Plan] ${d.plan}` } : t
-            );
-            setTrackedTrades(withPlan);
-            syncTradesToCloud(withPlan);
+            ));
           }
         }
       } catch { /* non-fatal */ }
