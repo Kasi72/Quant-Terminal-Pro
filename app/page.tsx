@@ -1849,6 +1849,23 @@ function HomePageInner() {
   const [selectedJournalTrade, setSelectedJournalTrade] = useState<TrackedTrade | null>(null);
   const [missedEvents, setMissedEvents] = useState<{symbol:string;event_date:string;uc_score:number;outcome_pct_5d:number|null;hit_t1:boolean|null;best_stage:string}[]>([]);
   const [missedLoaded, setMissedLoaded] = useState(false);
+  // AI Journal state
+  const [aiCoachOpen, setAiCoachOpen] = useState(false);
+  const [aiCoachText, setAiCoachText] = useState('');
+  const [aiCoachLoading, setAiCoachLoading] = useState(false);
+  const [aiLessonsOpen, setAiLessonsOpen] = useState(false);
+  const [aiLessonsText, setAiLessonsText] = useState('');
+  const [aiLessonsLoading, setAiLessonsLoading] = useState(false);
+  const [journalNlQuery, setJournalNlQuery] = useState('');
+  const [journalNlResult, setJournalNlResult] = useState<{indices: number[]; reason: string} | null>(null);
+  const [journalNlLoading, setJournalNlLoading] = useState(false);
+  const [tradeGrades, setTradeGrades] = useState<Record<string, {grade: string; reason: string; edgeUsed: string}>>({});
+  const [gradingKey, setGradingKey] = useState<string | null>(null);
+  const [explainSignal, setExplainSignal] = useState<{symbol:string;event_date:string;uc_score:number;outcome_pct_5d:number|null;hit_t1:boolean|null;best_stage:string} | null>(null);
+  const [explainText, setExplainText] = useState('');
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [streakAdviceText, setStreakAdviceText] = useState('');
+  const [streakAdviceLoading, setStreakAdviceLoading] = useState(false);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
   const abortRef = useRef(false);
@@ -5402,7 +5419,13 @@ function HomePageInner() {
                   </button>
                 ))}
               </div>
-              <span className="text-xs text-slate-600 ml-auto">{trackedTrades.length} trades tracked</span>
+              <div className="flex gap-1.5 ml-auto items-center">
+                <button onClick={() => { setAiCoachOpen(true); setAiCoachText(''); }}
+                  className="text-[10px] text-violet-400 hover:text-violet-200 border border-violet-800/50 bg-violet-900/20 px-2 py-0.5 rounded transition-colors">📊 Coach Report</button>
+                <button onClick={() => { setAiLessonsOpen(true); setAiLessonsText(''); }}
+                  className="text-[10px] text-amber-400 hover:text-amber-200 border border-amber-800/50 bg-amber-900/20 px-2 py-0.5 rounded transition-colors">💡 Lessons</button>
+                <span className="text-xs text-slate-600">{trackedTrades.length} trades</span>
+              </div>
             </div>
 
             {/* Feature 1: Edge Score Stat Tiles */}
@@ -5425,20 +5448,63 @@ function HomePageInner() {
                 if ((streak > 0 && w) || (streak < 0 && !w)) { streak += streak > 0 ? 1 : -1; } else break;
               }
               return (
-                <div className="grid grid-cols-5 gap-2">
-                  {([
-                    ['Win Rate',      closed.length ? wr.toFixed(1)+'%' : '—',                      wr >= 60 ? 'text-emerald-400' : wr >= 50 ? 'text-amber-400' : 'text-red-400'],
-                    ['Profit Factor', closed.length ? (pf >= 99 ? '∞' : pf.toFixed(2)) : '—',       pf >= 2 ? 'text-emerald-400' : pf >= 1 ? 'text-amber-400' : 'text-red-400'],
-                    ['Avg Winner',    wins.length ? '+'+avgWinner.toFixed(1)+'%' : '—',              'text-emerald-400'],
-                    ['Streak',        sortedClosed.length ? (streak > 0 ? '+'+streak+'W' : streak+'L') : '—', streak > 0 ? 'text-emerald-400' : streak < 0 ? 'text-red-400' : 'text-slate-400'],
-                    ['Avg Hold',      daysArr.length ? avgHold.toFixed(1)+'d' : '—',                 'text-slate-300'],
-                  ] as [string, string, string][]).map(([label, val, cls]) => (
-                    <div key={label} className="bg-slate-800/50 border border-slate-700/40 rounded-lg p-2.5 text-center">
-                      <div className={`text-lg font-bold font-mono ${cls}`}>{val}</div>
-                      <div className="text-[10px] text-slate-600 uppercase tracking-wide mt-0.5">{label}</div>
+                <>
+                  <div className="grid grid-cols-5 gap-2">
+                    {([
+                      ['Win Rate',      closed.length ? wr.toFixed(1)+'%' : '—',                      wr >= 60 ? 'text-emerald-400' : wr >= 50 ? 'text-amber-400' : 'text-red-400'],
+                      ['Profit Factor', closed.length ? (pf >= 99 ? '∞' : pf.toFixed(2)) : '—',       pf >= 2 ? 'text-emerald-400' : pf >= 1 ? 'text-amber-400' : 'text-red-400'],
+                      ['Avg Winner',    wins.length ? '+'+avgWinner.toFixed(1)+'%' : '—',              'text-emerald-400'],
+                      ['Streak',        sortedClosed.length ? (streak > 0 ? '+'+streak+'W' : streak+'L') : '—', streak > 0 ? 'text-emerald-400' : streak < 0 ? 'text-red-400' : 'text-slate-400'],
+                      ['Avg Hold',      daysArr.length ? avgHold.toFixed(1)+'d' : '—',                 'text-slate-300'],
+                    ] as [string, string, string][]).map(([label, val, cls]) => (
+                      <div key={label} className="bg-slate-800/50 border border-slate-700/40 rounded-lg p-2.5 text-center">
+                        <div className={`text-lg font-bold font-mono ${cls}`}>{val}</div>
+                        <div className="text-[10px] text-slate-600 uppercase tracking-wide mt-0.5">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Streak Advisor — auto-trigger when losing streak ≥ 3 */}
+                  {streak <= -3 && (
+                    <div className="bg-red-900/15 border border-red-800/30 rounded-lg p-3 flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="text-xs text-red-400 font-semibold mb-1">⚠️ {Math.abs(streak)}-trade losing streak detected</div>
+                        {streakAdviceText ? (
+                          <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{streakAdviceText}</div>
+                        ) : (
+                          <div className="text-[11px] text-slate-500">Get AI risk analysis before the next trade.</div>
+                        )}
+                      </div>
+                      {!streakAdviceText && (
+                        <button disabled={streakAdviceLoading} onClick={async () => {
+                          setStreakAdviceLoading(true); setStreakAdviceText('');
+                          const streakTrades = sortedClosed.slice(-Math.abs(streak)).map(t => ({
+                            symbol: t.symbol, stage: t.stage ?? '', status: t.status,
+                            pnlPct: t.pnlPct ?? 0, daysHeld: t.daysHeld ?? 0, maePct: getTradeMaePct(t),
+                          }));
+                          try {
+                            const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
+                              body: JSON.stringify({ mode: 'streak_advice', streak, streakTrades }) });
+                            if (res.ok) {
+                              const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                              while (true) {
+                                const {done, value} = await reader.read(); if (done) break;
+                                buf += dec.decode(value, {stream: true});
+                                const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                                for (const line of lines) {
+                                  if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw === '[DONE]') continue;
+                                  try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') setStreakAdviceText(p => p + (j.delta?.text ?? '')); } catch {}
+                                }
+                              }
+                            }
+                          } catch { /* silent */ }
+                          setStreakAdviceLoading(false);
+                        }} className="shrink-0 text-[10px] text-red-400 hover:text-red-200 border border-red-800/50 bg-red-900/20 px-2 py-1 rounded transition-colors disabled:opacity-40">
+                          {streakAdviceLoading ? '⋯' : '⚡ Analyse'}
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               );
             })()}
 
@@ -5483,6 +5549,60 @@ function HomePageInner() {
                     })()}
                   </span>
                 </div>
+
+                {/* NL Search bar */}
+                <div className="flex gap-2 items-center bg-slate-800/30 border border-slate-700/30 rounded-lg px-2 py-1.5">
+                  <span className="text-[10px] text-indigo-400 shrink-0">🔍 Ask AI:</span>
+                  <input
+                    type="text"
+                    value={journalNlQuery}
+                    onChange={e => setJournalNlQuery(e.target.value)}
+                    onKeyDown={async e => {
+                      if (e.key !== 'Enter' || !journalNlQuery.trim() || journalNlLoading) return;
+                      setJournalNlLoading(true); setJournalNlResult(null);
+                      const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                      const tradeSummaries = closed.map(t => ({
+                        symbol: t.symbol, stage: t.stage ?? '', status: t.status,
+                        pnlPct: t.pnlPct ?? 0, daysHeld: t.daysHeld ?? 0,
+                        sector: t.sector ?? '', entryDate: t.entryDate ?? '',
+                        mfePct: getTradeMfePct(t), maePct: getTradeMaePct(t), notes: t.notes ?? '',
+                      }));
+                      try {
+                        const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
+                          body: JSON.stringify({ mode: 'search_trades', query: journalNlQuery, trades: tradeSummaries }) });
+                        if (res.ok) {
+                          const reader = res.body!.getReader(); const dec = new TextDecoder();
+                          let buf = '', out = '';
+                          while (true) {
+                            const {done, value} = await reader.read(); if (done) break;
+                            buf += dec.decode(value, {stream: true});
+                            const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                            for (const line of lines) {
+                              if (!line.startsWith('data: ')) continue;
+                              const raw = line.slice(6); if (raw === '[DONE]') continue;
+                              try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') out += j.delta.text ?? ''; } catch {}
+                            }
+                          }
+                          try {
+                            const parsed = JSON.parse(out.match(/\{[\s\S]*\}/)?.[0] ?? '{}') as {indices?: number[]; reason?: string};
+                            setJournalNlResult({ indices: parsed.indices ?? [], reason: parsed.reason ?? out });
+                          } catch { setJournalNlResult({ indices: [], reason: out }); }
+                        }
+                      } catch { /* silent */ }
+                      setJournalNlLoading(false);
+                    }}
+                    placeholder="e.g. trades where I exited too early · press Enter"
+                    className="flex-1 bg-transparent text-xs text-slate-300 placeholder-slate-600 focus:outline-none"
+                  />
+                  {journalNlLoading && <span className="text-[10px] text-indigo-400 animate-pulse">searching…</span>}
+                  {journalNlResult && <button onClick={() => { setJournalNlResult(null); setJournalNlQuery(''); }} className="text-[10px] text-slate-600 hover:text-slate-400">✕</button>}
+                </div>
+                {journalNlResult && (
+                  <div className="bg-indigo-900/15 border border-indigo-800/30 rounded px-3 py-2 text-xs">
+                    <span className="text-indigo-400 font-semibold">{journalNlResult.indices.length} match{journalNlResult.indices.length !== 1 ? 'es' : ''}</span>
+                    <span className="text-slate-400 ml-2">{journalNlResult.reason}</span>
+                  </div>
+                )}
 
                 {/* Pending reviews chips (Feature 3: open AI Reflect modal) */}
                 {(() => {
@@ -5673,6 +5793,55 @@ function HomePageInner() {
                       {t.notes && (
                         <div className="mt-2 text-slate-400 bg-slate-900/40 rounded p-2 leading-relaxed text-[11px]">{t.notes}</div>
                       )}
+                      {/* AI Grade */}
+                      {(() => {
+                        const gKey = `${t.symbol}|${t.entryDate}`;
+                        const g = tradeGrades[gKey];
+                        const grading = gradingKey === gKey;
+                        const gradeColor: Record<string,string> = {A:'text-emerald-400',B:'text-blue-400',C:'text-amber-400',D:'text-red-400'};
+                        return (
+                          <div className="mt-2 flex items-center gap-3">
+                            {g ? (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className={`font-bold text-lg ${gradeColor[g.grade] ?? 'text-slate-400'}`}>{g.grade}</span>
+                                <span className="text-slate-400">{g.reason}</span>
+                                <span className={`text-[10px] ${g.edgeUsed === 'yes' ? 'text-emerald-500' : 'text-red-500'}`}>Edge used: {g.edgeUsed}</span>
+                              </div>
+                            ) : (
+                              <button disabled={grading} onClick={async () => {
+                                setGradingKey(gKey);
+                                try {
+                                  const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
+                                    body: JSON.stringify({ mode: 'grade_trade', trade: {
+                                      symbol: t.symbol, stage: t.stage, status: t.status,
+                                      pnlPct: t.pnlPct ?? 0, daysHeld: t.daysHeld ?? 0,
+                                      mfePct: getTradeMfePct(t), maePct: getTradeMaePct(t),
+                                      conviction: t.conviction ?? 5, notes: t.notes ?? '',
+                                    }}) });
+                                  if (res.ok) {
+                                    const reader = res.body!.getReader(); const dec = new TextDecoder();
+                                    let buf = '', out = '';
+                                    while (true) {
+                                      const {done, value} = await reader.read(); if (done) break;
+                                      buf += dec.decode(value, {stream: true});
+                                      const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                                      for (const line of lines) {
+                                        if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw === '[DONE]') continue;
+                                        try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') out += j.delta.text ?? ''; } catch {}
+                                      }
+                                    }
+                                    const gradeMatch = out.match(/GRADE:\s*([A-D])/); const reasonMatch = out.match(/REASON:\s*(.+)/); const edgeMatch = out.match(/EDGE_USED:\s*(yes|no)/i);
+                                    if (gradeMatch) setTradeGrades(prev => ({...prev, [gKey]: { grade: gradeMatch[1], reason: reasonMatch?.[1] ?? '', edgeUsed: edgeMatch?.[1]?.toLowerCase() ?? '?' }}));
+                                  }
+                                } catch { /* silent */ }
+                                setGradingKey(null);
+                              }} className="text-[10px] text-slate-500 hover:text-violet-300 border border-slate-700 hover:border-violet-700 px-2 py-0.5 rounded transition-colors disabled:opacity-40">
+                                {grading ? '⋯ grading' : '✦ AI Grade'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -5890,6 +6059,7 @@ function HomePageInner() {
                           <th className="px-2 py-1.5 text-right font-medium">5d P&L</th>
                           <th className="px-2 py-1.5 text-center font-medium">T1 Hit</th>
                           <th className="px-2 py-1.5 text-center font-medium">In Journal</th>
+                          <th className="px-2 py-1.5 text-left font-medium">AI</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5910,6 +6080,10 @@ function HomePageInner() {
                                 {e.hit_t1 === true ? '✓' : e.hit_t1 === false ? '✗' : '?'}
                               </td>
                               <td className={`px-2 py-1.5 text-center ${inJournal ? 'text-emerald-400' : 'text-slate-700'}`}>{inJournal ? '✓' : '—'}</td>
+                              <td className="px-2 py-1.5">
+                                <button onClick={() => { setExplainSignal(e); setExplainText(''); }}
+                                  className="text-[10px] text-indigo-500 hover:text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded transition-colors">✦ Explain</button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -5917,6 +6091,162 @@ function HomePageInner() {
                     </table>
                   </div>
                 )}
+                {/* Signal Explain Modal */}
+                {explainSignal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                    onClick={e2 => { if (e2.target === e2.currentTarget && !explainLoading) { setExplainSignal(null); setExplainText(''); } }}>
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-sm mx-4 shadow-2xl space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-semibold text-slate-200">{explainSignal.symbol} — Signal Analysis</div>
+                          <div className="text-[10px] text-slate-500">{explainSignal.event_date} · UC {explainSignal.uc_score?.toFixed(1)} · {explainSignal.best_stage}</div>
+                        </div>
+                        {!explainLoading && <button onClick={() => { setExplainSignal(null); setExplainText(''); }} className="text-slate-600 hover:text-slate-400 text-xl">✕</button>}
+                      </div>
+                      {explainText ? (
+                        <div className="text-xs text-slate-300 leading-relaxed">{explainText}</div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button disabled={explainLoading} onClick={async () => {
+                            setExplainLoading(true); setExplainText('');
+                            try {
+                              const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
+                                body: JSON.stringify({ mode: 'explain_missed', signal: explainSignal }) });
+                              if (res.ok) {
+                                const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                                while (true) {
+                                  const {done, value} = await reader.read(); if (done) break;
+                                  buf += dec.decode(value, {stream: true});
+                                  const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                                  for (const line of lines) {
+                                    if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw === '[DONE]') continue;
+                                    try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') setExplainText(p => p + (j.delta?.text ?? '')); } catch {}
+                                  }
+                                }
+                              }
+                            } catch { /* silent */ }
+                            setExplainLoading(false);
+                          }} className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 text-white text-xs py-1.5 rounded">
+                            {explainLoading ? '⋯ analysing' : '✦ Explain this signal'}
+                          </button>
+                        </div>
+                      )}
+                      {explainLoading && <div className="text-[10px] text-indigo-400 animate-pulse">✦ Analysing…</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── AI Coach Report Modal ─── */}
+            {aiCoachOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                onClick={e => { if (e.target === e.currentTarget && !aiCoachLoading) { setAiCoachOpen(false); } }}>
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-lg mx-4 shadow-2xl space-y-3 max-h-[80vh] flex flex-col">
+                  <div className="flex items-center justify-between shrink-0">
+                    <div className="font-semibold text-violet-300">📊 AI Coach Report</div>
+                    {!aiCoachLoading && <button onClick={() => setAiCoachOpen(false)} className="text-slate-600 hover:text-slate-400 text-xl">✕</button>}
+                  </div>
+                  {aiCoachText ? (
+                    <div className="text-xs text-slate-300 leading-relaxed overflow-y-auto flex-1 whitespace-pre-wrap">{aiCoachText}</div>
+                  ) : (
+                    <div className="text-xs text-slate-500">Generate a full coaching report from your trade history.</div>
+                  )}
+                  {aiCoachLoading && <div className="text-[10px] text-violet-400 animate-pulse shrink-0">✦ Generating report…</div>}
+                  {!aiCoachText && (
+                    <button disabled={aiCoachLoading} onClick={async () => {
+                      setAiCoachLoading(true); setAiCoachText('');
+                      const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                      const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
+                      const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+                      const wr = closed.length ? wins.length / closed.length : 0;
+                      const grossWin = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
+                      const grossLoss = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
+                      const pf = grossLoss > 0 ? grossWin / grossLoss : 99;
+                      const avgPnl = closed.length ? (grossWin - grossLoss) / closed.length : 0;
+                      const avgWin = wins.length ? grossWin / wins.length : 0;
+                      const avgLoss = losses.length ? -grossLoss / losses.length : 0;
+                      const sectorMap: Record<string, number> = {};
+                      for (const t of closed) { const s = t.sector ?? 'Unknown'; sectorMap[s] = (sectorMap[s] ?? 0) + (t.pnlPct ?? 0); }
+                      const sectors = Object.entries(sectorMap).sort((a,b) => b[1]-a[1]);
+                      const stageMap: Record<string, {w:number;n:number}> = {};
+                      for (const t of closed) { const s = t.stage ?? '?'; if (!stageMap[s]) stageMap[s]={w:0,n:0}; stageMap[s].n++; if ((t.pnlPct??0)>0) stageMap[s].w++; }
+                      const bestStage = Object.entries(stageMap).sort((a,b) => (b[1].w/b[1].n)-(a[1].w/a[1].n))[0]?.[0] ?? 'N/A';
+                      const avgHold = closed.filter(t=>(t.daysHeld??0)>0).reduce((s,t)=>s+(t.daysHeld??0),0) / Math.max(1, closed.filter(t=>(t.daysHeld??0)>0).length);
+                      const sortedC = [...closed].sort((a,b)=>(a.closedDate??'').localeCompare(b.closedDate??''));
+                      let streak = 0;
+                      for (let i = sortedC.length-1; i>=0; i--) {
+                        const w = (sortedC[i].pnlPct??0)>0;
+                        if (i===sortedC.length-1){streak=w?1:-1;continue;}
+                        if((streak>0&&w)||(streak<0&&!w)){streak+=streak>0?1:-1;}else break;
+                      }
+                      const recentTrades = [...closed].sort((a,b)=>(b.closedDate??'').localeCompare(a.closedDate??'')).slice(0,20).map(t=>({symbol:t.symbol,stage:t.stage??'',status:t.status,pnlPct:t.pnlPct??0,daysHeld:t.daysHeld??0}));
+                      try {
+                        const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ mode: 'coach_report', period: 'overall history',
+                          stats: { totalTrades: closed.length, wr, pf: Math.min(pf, 99), avgPnl, avgWin, avgLoss, streakInfo: streak > 0 ? `+${streak}W` : `${streak}L`, topSector: sectors[0]?.[0] ?? 'N/A', worstSector: sectors[sectors.length-1]?.[0] ?? 'N/A', bestStage, avgHold }, recentTrades }) });
+                        if (res.ok) {
+                          const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                          while (true) {
+                            const {done, value} = await reader.read(); if (done) break;
+                            buf += dec.decode(value, {stream: true});
+                            const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                            for (const line of lines) {
+                              if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
+                              try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiCoachText(p=>p+(j.delta?.text??'')); } catch {}
+                            }
+                          }
+                        }
+                      } catch { /* silent */ }
+                      setAiCoachLoading(false);
+                    }} className="shrink-0 bg-violet-800 hover:bg-violet-700 disabled:opacity-40 text-white text-xs py-1.5 rounded transition-colors">
+                      {aiCoachLoading ? '⋯ analysing' : '📊 Generate Report'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── AI Lessons Modal ─── */}
+            {aiLessonsOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                onClick={e => { if (e.target === e.currentTarget && !aiLessonsLoading) { setAiLessonsOpen(false); } }}>
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-lg mx-4 shadow-2xl space-y-3 max-h-[80vh] flex flex-col">
+                  <div className="flex items-center justify-between shrink-0">
+                    <div className="font-semibold text-amber-300">💡 AI Lesson Synthesizer</div>
+                    {!aiLessonsLoading && <button onClick={() => setAiLessonsOpen(false)} className="text-slate-600 hover:text-slate-400 text-xl">✕</button>}
+                  </div>
+                  {aiLessonsText ? (
+                    <div className="text-xs text-slate-300 leading-relaxed overflow-y-auto flex-1 whitespace-pre-wrap">{aiLessonsText}</div>
+                  ) : (
+                    <div className="text-xs text-slate-500">Synthesizes patterns from all your trade notes and reviews.</div>
+                  )}
+                  {aiLessonsLoading && <div className="text-[10px] text-amber-400 animate-pulse shrink-0">✦ Synthesizing lessons…</div>}
+                  {!aiLessonsText && (
+                    <button disabled={aiLessonsLoading} onClick={async () => {
+                      setAiLessonsLoading(true); setAiLessonsText('');
+                      const notes = trackedTrades.map(t => t.notes).filter((n): n is string => Boolean(n));
+                      try {
+                        const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
+                          body: JSON.stringify({ mode: 'synthesize_lessons', notes, reviews: reviews.map(r=>({symbol:r.symbol,outcome:r.outcome,lessons:r.lessons})) }) });
+                        if (res.ok) {
+                          const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                          while (true) {
+                            const {done, value} = await reader.read(); if (done) break;
+                            buf += dec.decode(value, {stream: true});
+                            const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                            for (const line of lines) {
+                              if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
+                              try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiLessonsText(p=>p+(j.delta?.text??'')); } catch {}
+                            }
+                          }
+                        }
+                      } catch { /* silent */ }
+                      setAiLessonsLoading(false);
+                    }} className="shrink-0 bg-amber-800 hover:bg-amber-700 disabled:opacity-40 text-white text-xs py-1.5 rounded transition-colors">
+                      {aiLessonsLoading ? '⋯ synthesizing' : '💡 Synthesize Lessons'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
