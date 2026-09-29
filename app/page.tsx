@@ -5448,10 +5448,72 @@ function HomePageInner() {
                 ))}
               </div>
               <div className="flex gap-1.5 ml-auto items-center">
-                <button onClick={() => { setAiCoachOpen(true); setAiCoachText(''); }}
-                  className="text-[10px] text-violet-400 hover:text-violet-200 border border-violet-800/50 bg-violet-900/20 px-2 py-0.5 rounded transition-colors">📊 Coach Report</button>
-                <button onClick={() => { setAiLessonsOpen(true); setAiLessonsText(''); }}
-                  className="text-[10px] text-amber-400 hover:text-amber-200 border border-amber-800/50 bg-amber-900/20 px-2 py-0.5 rounded transition-colors">💡 Lessons</button>
+                <button disabled={aiCoachLoading} onClick={async () => {
+                  if (aiCoachLoading) return;
+                  setAiCoachOpen(true); setAiCoachText(''); setAiCoachLoading(true);
+                  const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
+                  const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
+                  const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
+                  const wr = closed.length ? wins.length / closed.length : 0;
+                  const grossWin = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
+                  const grossLoss = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
+                  const pf = grossLoss > 0 ? grossWin / grossLoss : 99;
+                  const avgPnl = closed.length ? (grossWin - grossLoss) / closed.length : 0;
+                  const avgWin = wins.length ? grossWin / wins.length : 0;
+                  const avgLoss = losses.length ? -grossLoss / losses.length : 0;
+                  const sectorMap: Record<string, number> = {};
+                  for (const t of closed) { const s = t.sector ?? 'Unknown'; sectorMap[s] = (sectorMap[s] ?? 0) + (t.pnlPct ?? 0); }
+                  const sectors = Object.entries(sectorMap).sort((a,b) => b[1]-a[1]);
+                  const stageMap: Record<string, {w:number;n:number}> = {};
+                  for (const t of closed) { const s = t.stage ?? '?'; if (!stageMap[s]) stageMap[s]={w:0,n:0}; stageMap[s].n++; if ((t.pnlPct??0)>0) stageMap[s].w++; }
+                  const bestStage = Object.entries(stageMap).sort((a,b) => (b[1].w/b[1].n)-(a[1].w/a[1].n))[0]?.[0] ?? 'N/A';
+                  const avgHold = closed.filter(t=>(t.daysHeld??0)>0).reduce((s,t)=>s+(t.daysHeld??0),0) / Math.max(1, closed.filter(t=>(t.daysHeld??0)>0).length);
+                  const sortedC = [...closed].sort((a,b)=>(a.closedDate??'').localeCompare(b.closedDate??''));
+                  let streak = 0;
+                  for (let i = sortedC.length-1; i>=0; i--) {
+                    const w = (sortedC[i].pnlPct??0)>0;
+                    if (i===sortedC.length-1){streak=w?1:-1;continue;}
+                    if((streak>0&&w)||(streak<0&&!w)){streak+=streak>0?1:-1;}else break;
+                  }
+                  const recentTrades = [...closed].sort((a,b)=>(b.closedDate??'').localeCompare(a.closedDate??'')).slice(0,20).map(t=>({symbol:t.symbol,stage:t.stage??'',status:t.status,pnlPct:t.pnlPct??0,daysHeld:t.daysHeld??0}));
+                  try {
+                    const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ mode: 'coach_report', period: 'overall history', stats: { totalTrades: closed.length, wr, pf: Math.min(pf,99), avgPnl, avgWin, avgLoss, streakInfo: streak>0?`+${streak}W`:`${streak}L`, topSector: sectors[0]?.[0]??'N/A', worstSector: sectors[sectors.length-1]?.[0]??'N/A', bestStage, avgHold }, recentTrades }) });
+                    if (res.ok) {
+                      const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                      while (true) {
+                        const {done, value} = await reader.read(); if (done) break;
+                        buf += dec.decode(value, {stream: true});
+                        const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                        for (const line of lines) {
+                          if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
+                          try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiCoachText(p=>p+(j.delta?.text??'')); } catch {}
+                        }
+                      }
+                    } else { const err = await res.text().catch(()=>''); setAiCoachText(`⚠ API error ${res.status}: ${err || 'Check ANTHROPIC_API_KEY in Vercel env vars'}`); }
+                  } catch (e) { setAiCoachText(`⚠ Error: ${e instanceof Error ? e.message : 'Failed to connect'}`); }
+                  setAiCoachLoading(false);
+                }} className="text-[10px] text-violet-400 hover:text-violet-200 border border-violet-800/50 bg-violet-900/20 px-2 py-0.5 rounded transition-colors disabled:opacity-40">📊 Coach Report</button>
+                <button disabled={aiLessonsLoading} onClick={async () => {
+                  if (aiLessonsLoading) return;
+                  setAiLessonsOpen(true); setAiLessonsText(''); setAiLessonsLoading(true);
+                  const notes = trackedTrades.map(t => t.notes).filter((n): n is string => Boolean(n));
+                  try {
+                    const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ mode: 'synthesize_lessons', notes, reviews: reviews.map(r=>({symbol:r.symbol,outcome:r.outcome,lessons:r.lessons})) }) });
+                    if (res.ok) {
+                      const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
+                      while (true) {
+                        const {done, value} = await reader.read(); if (done) break;
+                        buf += dec.decode(value, {stream: true});
+                        const lines = buf.split('\n'); buf = lines.pop() ?? '';
+                        for (const line of lines) {
+                          if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
+                          try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiLessonsText(p=>p+(j.delta?.text??'')); } catch {}
+                        }
+                      }
+                    } else { const err = await res.text().catch(()=>''); setAiLessonsText(`⚠ API error ${res.status}: ${err || 'Check ANTHROPIC_API_KEY in Vercel env vars'}`); }
+                  } catch (e) { setAiLessonsText(`⚠ Error: ${e instanceof Error ? e.message : 'Failed to connect'}`); }
+                  setAiLessonsLoading(false);
+                }} className="text-[10px] text-amber-400 hover:text-amber-200 border border-amber-800/50 bg-amber-900/20 px-2 py-0.5 rounded transition-colors disabled:opacity-40">💡 Lessons</button>
                 <span className="text-xs text-slate-600">{trackedTrades.length} trades</span>
               </div>
             </div>
@@ -6175,61 +6237,12 @@ function HomePageInner() {
                     <div className="font-semibold text-violet-300">📊 AI Coach Report</div>
                     {!aiCoachLoading && <button onClick={() => setAiCoachOpen(false)} className="text-slate-600 hover:text-slate-400 text-xl">✕</button>}
                   </div>
+                  {aiCoachLoading && <div className="text-[10px] text-violet-400 animate-pulse shrink-0">✦ Generating report…</div>}
                   {aiCoachText ? (
                     <div className="text-xs text-slate-300 leading-relaxed overflow-y-auto flex-1 whitespace-pre-wrap">{aiCoachText}</div>
-                  ) : (
-                    <div className="text-xs text-slate-500">Generate a full coaching report from your trade history.</div>
-                  )}
-                  {aiCoachLoading && <div className="text-[10px] text-violet-400 animate-pulse shrink-0">✦ Generating report…</div>}
-                  {!aiCoachText && (
-                    <button disabled={aiCoachLoading} onClick={async () => {
-                      setAiCoachLoading(true); setAiCoachText('');
-                      const closed = trackedTrades.filter(t => t.status !== 'open' && t.pnlPct != null);
-                      const wins = closed.filter(t => (t.pnlPct ?? 0) > 0);
-                      const losses = closed.filter(t => (t.pnlPct ?? 0) <= 0);
-                      const wr = closed.length ? wins.length / closed.length : 0;
-                      const grossWin = wins.reduce((s, t) => s + (t.pnlPct ?? 0), 0);
-                      const grossLoss = Math.abs(losses.reduce((s, t) => s + (t.pnlPct ?? 0), 0));
-                      const pf = grossLoss > 0 ? grossWin / grossLoss : 99;
-                      const avgPnl = closed.length ? (grossWin - grossLoss) / closed.length : 0;
-                      const avgWin = wins.length ? grossWin / wins.length : 0;
-                      const avgLoss = losses.length ? -grossLoss / losses.length : 0;
-                      const sectorMap: Record<string, number> = {};
-                      for (const t of closed) { const s = t.sector ?? 'Unknown'; sectorMap[s] = (sectorMap[s] ?? 0) + (t.pnlPct ?? 0); }
-                      const sectors = Object.entries(sectorMap).sort((a,b) => b[1]-a[1]);
-                      const stageMap: Record<string, {w:number;n:number}> = {};
-                      for (const t of closed) { const s = t.stage ?? '?'; if (!stageMap[s]) stageMap[s]={w:0,n:0}; stageMap[s].n++; if ((t.pnlPct??0)>0) stageMap[s].w++; }
-                      const bestStage = Object.entries(stageMap).sort((a,b) => (b[1].w/b[1].n)-(a[1].w/a[1].n))[0]?.[0] ?? 'N/A';
-                      const avgHold = closed.filter(t=>(t.daysHeld??0)>0).reduce((s,t)=>s+(t.daysHeld??0),0) / Math.max(1, closed.filter(t=>(t.daysHeld??0)>0).length);
-                      const sortedC = [...closed].sort((a,b)=>(a.closedDate??'').localeCompare(b.closedDate??''));
-                      let streak = 0;
-                      for (let i = sortedC.length-1; i>=0; i--) {
-                        const w = (sortedC[i].pnlPct??0)>0;
-                        if (i===sortedC.length-1){streak=w?1:-1;continue;}
-                        if((streak>0&&w)||(streak<0&&!w)){streak+=streak>0?1:-1;}else break;
-                      }
-                      const recentTrades = [...closed].sort((a,b)=>(b.closedDate??'').localeCompare(a.closedDate??'')).slice(0,20).map(t=>({symbol:t.symbol,stage:t.stage??'',status:t.status,pnlPct:t.pnlPct??0,daysHeld:t.daysHeld??0}));
-                      try {
-                        const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ mode: 'coach_report', period: 'overall history',
-                          stats: { totalTrades: closed.length, wr, pf: Math.min(pf, 99), avgPnl, avgWin, avgLoss, streakInfo: streak > 0 ? `+${streak}W` : `${streak}L`, topSector: sectors[0]?.[0] ?? 'N/A', worstSector: sectors[sectors.length-1]?.[0] ?? 'N/A', bestStage, avgHold }, recentTrades }) });
-                        if (res.ok) {
-                          const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
-                          while (true) {
-                            const {done, value} = await reader.read(); if (done) break;
-                            buf += dec.decode(value, {stream: true});
-                            const lines = buf.split('\n'); buf = lines.pop() ?? '';
-                            for (const line of lines) {
-                              if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
-                              try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiCoachText(p=>p+(j.delta?.text??'')); } catch {}
-                            }
-                          }
-                        }
-                      } catch { /* silent */ }
-                      setAiCoachLoading(false);
-                    }} className="shrink-0 bg-violet-800 hover:bg-violet-700 disabled:opacity-40 text-white text-xs py-1.5 rounded transition-colors">
-                      {aiCoachLoading ? '⋯ analysing' : '📊 Generate Report'}
-                    </button>
-                  )}
+                  ) : !aiCoachLoading ? (
+                    <div className="text-xs text-slate-500">Close and click "📊 Coach Report" again to regenerate.</div>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -6243,37 +6256,12 @@ function HomePageInner() {
                     <div className="font-semibold text-amber-300">💡 AI Lesson Synthesizer</div>
                     {!aiLessonsLoading && <button onClick={() => setAiLessonsOpen(false)} className="text-slate-600 hover:text-slate-400 text-xl">✕</button>}
                   </div>
+                  {aiLessonsLoading && <div className="text-[10px] text-amber-400 animate-pulse shrink-0">✦ Synthesizing lessons…</div>}
                   {aiLessonsText ? (
                     <div className="text-xs text-slate-300 leading-relaxed overflow-y-auto flex-1 whitespace-pre-wrap">{aiLessonsText}</div>
-                  ) : (
-                    <div className="text-xs text-slate-500">Synthesizes patterns from all your trade notes and reviews.</div>
-                  )}
-                  {aiLessonsLoading && <div className="text-[10px] text-amber-400 animate-pulse shrink-0">✦ Synthesizing lessons…</div>}
-                  {!aiLessonsText && (
-                    <button disabled={aiLessonsLoading} onClick={async () => {
-                      setAiLessonsLoading(true); setAiLessonsText('');
-                      const notes = trackedTrades.map(t => t.notes).filter((n): n is string => Boolean(n));
-                      try {
-                        const res = await fetch('/api/ai-journal', { method: 'POST', headers: {'content-type':'application/json'},
-                          body: JSON.stringify({ mode: 'synthesize_lessons', notes, reviews: reviews.map(r=>({symbol:r.symbol,outcome:r.outcome,lessons:r.lessons})) }) });
-                        if (res.ok) {
-                          const reader = res.body!.getReader(); const dec = new TextDecoder(); let buf = '';
-                          while (true) {
-                            const {done, value} = await reader.read(); if (done) break;
-                            buf += dec.decode(value, {stream: true});
-                            const lines = buf.split('\n'); buf = lines.pop() ?? '';
-                            for (const line of lines) {
-                              if (!line.startsWith('data: ')) continue; const raw = line.slice(6); if (raw==='[DONE]') continue;
-                              try { const j = JSON.parse(raw) as {type?:string;delta?:{type?:string;text?:string}}; if (j.type==='content_block_delta'&&j.delta?.type==='text_delta') setAiLessonsText(p=>p+(j.delta?.text??'')); } catch {}
-                            }
-                          }
-                        }
-                      } catch { /* silent */ }
-                      setAiLessonsLoading(false);
-                    }} className="shrink-0 bg-amber-800 hover:bg-amber-700 disabled:opacity-40 text-white text-xs py-1.5 rounded transition-colors">
-                      {aiLessonsLoading ? '⋯ synthesizing' : '💡 Synthesize Lessons'}
-                    </button>
-                  )}
+                  ) : !aiLessonsLoading ? (
+                    <div className="text-xs text-slate-500">Close and click "💡 Lessons" again to regenerate.</div>
+                  ) : null}
                 </div>
               </div>
             )}
