@@ -1989,7 +1989,32 @@ function HomePageInner() {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
       loadTradesFromCloud().then(cloudTrades => {
-        if (cloudTrades && cloudTrades.length > 0) setTrackedTrades(cloudTrades);
+        if (!cloudTrades || cloudTrades.length === 0) return;
+        setTrackedTrades(prev => {
+          // Merge: keep local trades not yet synced to cloud; apply brain-trainer
+          // outcome labels from cloud into matching local trades.
+          const cloudByKey = new Map(cloudTrades.map(t => [`${t.symbol}_${t.entryDate ?? ''}`, t]));
+          const localByKey = new Set(prev.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
+          const merged = prev.map(t => {
+            const cloud = cloudByKey.get(`${t.symbol}_${t.entryDate ?? ''}`);
+            if (!cloud) return t; // local-only (unsynced recent add) — keep
+            return {
+              ...cloud,          // cloud is authoritative for brain-trainer labels
+              status: t.status,  // local status is authoritative (validated locally)
+              currentPrice: t.currentPrice ?? cloud.currentPrice,
+              cmpDate: t.cmpDate ?? cloud.cmpDate,
+              highestPrice: Math.max(t.highestPrice ?? 0, cloud.highestPrice ?? 0) || undefined,
+              mfe: Math.max(t.mfe ?? 0, cloud.mfe ?? 0) || undefined,
+              mae: Math.max(t.mae ?? 0, cloud.mae ?? 0) || undefined,
+              closedDate: t.closedDate ?? cloud.closedDate,
+              closedPrice: t.closedPrice ?? cloud.closedPrice,
+              pnlPct: t.pnlPct ?? cloud.pnlPct,
+            };
+          });
+          // Trades in cloud but not local — add (e.g. added from another device)
+          const cloudOnlyTrades = cloudTrades.filter(t => !localByKey.has(`${t.symbol}_${t.entryDate ?? ''}`));
+          return [...merged, ...cloudOnlyTrades];
+        });
       }).catch(() => {});
     };
     document.addEventListener('visibilitychange', onVisible);
@@ -2012,9 +2037,12 @@ function HomePageInner() {
 
   // Persist tracked trades — Supabase cloud + localStorage mirror
   // Guard: skip until cloud load has completed to avoid wiping localStorage with []
+  // Debounce 1 s: rapid additions (e.g. multi-stock adds) fire concurrent PUTs that race;
+  // the earlier PUT (missing the last trade) can land after the later one and clobber cloud.
   useEffect(() => {
     if (!tradesLoadedRef.current) return;
-    syncTradesToCloud(trackedTrades);
+    const timer = setTimeout(() => syncTradesToCloud(trackedTrades), 1000);
+    return () => clearTimeout(timer);
   }, [trackedTrades]);
 
   // ─── BATCH BADGE REHYDRATION ─────────────────────────────────────────────────
