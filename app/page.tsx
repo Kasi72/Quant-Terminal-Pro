@@ -1866,6 +1866,8 @@ function HomePageInner() {
   const [explainLoading, setExplainLoading] = useState(false);
   const [streakAdviceText, setStreakAdviceText] = useState('');
   const [streakAdviceLoading, setStreakAdviceLoading] = useState(false);
+  const [scanBrief, setScanBrief] = useState('');
+  const [scanBriefLoading, setScanBriefLoading] = useState(false);
   const [selectedRowIdx, setSelectedRowIdx] = useState(-1);
 
   const abortRef = useRef(false);
@@ -2610,6 +2612,32 @@ function HomePageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ results: newResults }),
       }).catch(() => {});
+    }
+    // AI Post-Scan Market Brief — fires once after scan completes, non-blocking
+    if (!abortRef.current && newResults.length > 0) {
+      setScanBrief('');
+      setScanBriefLoading(true);
+      const topSignals = newResults
+        .filter(r => ['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY'].includes(r.stage))
+        .slice(0, 5)
+        .map(r => `${r.symbol.replace(/\.(NS|BO)$/i, '')}[${r.stage.replace('_BUY','').replace('ULTRA_STRONG','ULTRA').replace('STRONG','STR')}] cv:${computeConviction(r)}`);
+      const sectorCounts: Record<string, number> = {};
+      for (const r of newResults) { const s = getSectorTag(r.symbol); sectorCounts[s] = (sectorCounts[s] ?? 0) + 1; }
+      const topSectors = Object.entries(sectorCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([s]) => s);
+      fetch('/api/ai-journal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'scan_brief',
+          totalSignals: newResults.length,
+          buySignals: topSignals.length,
+          topSignals,
+          sectors: topSectors,
+          regime: marketRegime?.label ?? 'Unknown',
+        }),
+      }).then(async res => {
+        if (res.ok) { const d = await res.json(); setScanBrief(d.brief ?? ''); }
+      }).catch(() => {}).finally(() => setScanBriefLoading(false));
     }
     // Sprint 5: shadow validation log — save per-scan flow snapshot to localStorage
     try {
@@ -3434,6 +3462,30 @@ function HomePageInner() {
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
     setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
+    // AI Trade Plan — fires async after track, populates notes if empty
+    (async () => {
+      try {
+        const res = await fetch('/api/ai-journal', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'trade_plan',
+            symbol: trade.symbol, stage: trade.stage,
+            entry: trade.entryPrice, target1: trade.target1, stopLoss: trade.stopLoss,
+            sector: trade.sector, conviction: trade.conviction, edgeScore: trade.edgeScore,
+            regime: trade.regimeAtEntry,
+          }),
+        });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.plan) {
+            setTrackedTrades(prev => prev.map(t =>
+              t.id === trade.id && !t.notes ? { ...t, notes: `[AI Plan] ${d.plan}` } : t
+            ));
+          }
+        }
+      } catch { /* non-fatal */ }
+    })();
   }
 
   function removeTrade(trade: TrackedTrade) {
@@ -4258,6 +4310,20 @@ function HomePageInner() {
         <div className="flex-shrink-0 border-b border-emerald-700 bg-emerald-950/70 px-4 py-2 flex items-center gap-2">
           <span className="text-emerald-400 font-bold text-sm">📌 Auto-tracked {autoTrackCount} new signal{autoTrackCount > 1 ? 's' : ''}</span>
           <span className="text-emerald-600 text-xs">→ open in Tracker to review</span>
+        </div>
+      )}
+
+      {/* ── AI POST-SCAN MARKET BRIEF ── */}
+      {scanBriefLoading && (
+        <div className="flex-shrink-0 border-b border-indigo-900 bg-indigo-950/30 px-4 py-1.5 flex items-center gap-2">
+          <span className="text-indigo-500 text-xs animate-pulse">⚡ Generating market brief…</span>
+        </div>
+      )}
+      {scanBrief && !scanBriefLoading && (
+        <div className="flex-shrink-0 border-b border-indigo-900 bg-indigo-950/30 px-4 py-1.5 flex items-center gap-2">
+          <span className="text-indigo-400 text-xs font-semibold shrink-0">⚡ Brief:</span>
+          <span className="text-indigo-200 text-xs flex-1">{scanBrief}</span>
+          <button onClick={() => setScanBrief('')} className="text-indigo-700 hover:text-indigo-400 text-xs shrink-0 ml-1">×</button>
         </div>
       )}
 

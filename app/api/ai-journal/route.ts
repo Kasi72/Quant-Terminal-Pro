@@ -190,5 +190,64 @@ Be firm. Under 200 words. No fluff.`;
     return streamFromAnthropic(apiKey, prompt, 350);
   }
 
+  // ── Scan Brief ────────────────────────────────────────────────────────────────
+  if (mode === 'scan_brief') {
+    const totalSignals = (body.totalSignals as number) ?? 0;
+    const buySignals = (body.buySignals as number) ?? 0;
+    const topSignals = (body.topSignals as string[]) ?? [];
+    const sectors = (body.sectors as string[]) ?? [];
+    const regime = (body.regime as string) ?? 'Unknown';
+
+    const prompt = `You are a market analyst. Summarize this NSE stock scan in 2 crisp sentences for a swing trader.
+
+Scan results: ${totalSignals} total signals, ${buySignals} actionable BUY/STRONG/ULTRA setups
+Top setups: ${topSignals.join(', ') || 'none'}
+Top sectors: ${sectors.join(', ') || 'broad market'}
+Market regime: ${regime}
+
+Write exactly 2 sentences: (1) sector/signal concentration insight, (2) regime context + what to watch. Max 200 chars total. Pure prose, no bullet points, no labels.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 120, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
+    const data = await res.json() as { content: { type: string; text: string }[] };
+    const brief = data.content?.[0]?.text?.trim() ?? '';
+    return new Response(JSON.stringify({ brief }), { headers: { 'content-type': 'application/json' } });
+  }
+
+  // ── Trade Plan ────────────────────────────────────────────────────────────────
+  if (mode === 'trade_plan') {
+    const symbol = body.symbol as string;
+    const stage = body.stage as string;
+    const entry = body.entry as number;
+    const target1 = body.target1 as number;
+    const stopLoss = body.stopLoss as number;
+    const sector = (body.sector as string) ?? '';
+    const conviction = (body.conviction as number) ?? 0;
+    const edgeScore = (body.edgeScore as number) ?? 0;
+    const regime = (body.regime as string) ?? 'Unknown';
+    const rr = stopLoss > 0 && entry > stopLoss ? ((target1 - entry) / (entry - stopLoss)).toFixed(1) : 'N/A';
+
+    const prompt = `Generate a 1-sentence trade plan (max 180 chars) for this swing trade setup:
+
+${symbol} [${stage}] sector:${sector} regime:${regime}
+Entry:${entry} T1:${target1} Stop:${stopLoss} R:R=${rr} Conviction:${conviction}/10 EdgeScore:${edgeScore}
+
+One sentence: WHY this setup has edge + HOW to manage it (key level to hold above / exit signal). Under 180 chars. No prefix labels, no symbol repetition.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 80, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
+    const data = await res.json() as { content: { type: string; text: string }[] };
+    const plan = data.content?.[0]?.text?.trim() ?? '';
+    return new Response(JSON.stringify({ plan }), { headers: { 'content-type': 'application/json' } });
+  }
+
   return new Response(JSON.stringify({ error: `Unknown mode: ${mode}` }), { status: 400 });
 }
