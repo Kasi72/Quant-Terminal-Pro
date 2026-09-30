@@ -2059,7 +2059,7 @@ function HomePageInner() {
           method: 'PUT',
           keepalive: true,
           headers: { 'Content-Type': 'application/json', 'X-Owner-Token': ownerToken },
-          body: json,
+          body: JSON.stringify({ trades }),
         });
       } catch { /* non-fatal — localStorage is the guaranteed backup */ }
     };
@@ -3505,8 +3505,16 @@ function HomePageInner() {
       maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
-    // Functional update: each rapid track sees the accumulated prev (not stale ref)
-    setTrackedTrades(prev => [...prev.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade]);
+    // Build next state from ref (not React state) so rapid multi-track accumulates correctly
+    // even before React re-renders. Update ref + localStorage synchronously BEFORE setTrackedTrades
+    // so beforeunload always captures the latest trades regardless of React's render timing.
+    const next = [...trackedTradesRef.current.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade];
+    trackedTradesRef.current = next;
+    try { const j = JSON.stringify(next); localStorage.setItem('qtp_tracked_trades', j); localStorage.setItem('qtp_tracked_trades_backup', j); } catch {}
+    setTrackedTrades(next);
+    // Immediate fire-and-forget cloud sync — don't rely on 1s debounce alone since user
+    // could close the tab before debounce fires. syncTradesToCloud serializes concurrent calls.
+    syncTradesToCloud(next);
     // AI Trade Plan — fires async after track, populates notes if empty
     (async () => {
       try {
