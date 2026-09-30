@@ -36,15 +36,15 @@ Trade details:
 
 Be direct. Focus on process and edge, not just outcome.`;
 
+  const anthropicHdrs: Record<string, string> = { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  const wsId = process.env.ANTHROPIC_WORKSPACE_ID;
+  if (wsId) anthropicHdrs['anthropic-workspace-id'] = wsId;
+
   let anthropicRes: Response;
   try {
     anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: anthropicHdrs,
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 350,

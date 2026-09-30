@@ -2,10 +2,17 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
+function anthropicHeaders(apiKey: string): Record<string, string> {
+  const h: Record<string, string> = { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  const wsId = process.env.ANTHROPIC_WORKSPACE_ID;
+  if (wsId) h['anthropic-workspace-id'] = wsId;
+  return h;
+}
+
 async function streamFromAnthropic(apiKey: string, prompt: string, maxTokens = 500): Promise<Response> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    headers: anthropicHeaders(apiKey),
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: maxTokens,
@@ -209,7 +216,7 @@ Write exactly 2 sentences: (1) sector/signal concentration insight, (2) regime c
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 120, messages: [{ role: 'user', content: prompt }] }),
     });
     if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
@@ -240,7 +247,7 @@ One sentence: WHY this setup has edge + HOW to manage it (key level to hold abov
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      headers: anthropicHeaders(apiKey),
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 80, messages: [{ role: 'user', content: prompt }] }),
     });
     if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
