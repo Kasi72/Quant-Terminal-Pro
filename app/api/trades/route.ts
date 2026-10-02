@@ -43,8 +43,6 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const denied = await requireAuth(req);
   if (denied) return denied;
-  const ownerDenied = await requireOwnerToken(req);
-  if (ownerDenied) return ownerDenied;
 
   const declaredLength = Number(req.headers.get('content-length') ?? 0);
   if (declaredLength > MAX_BODY_BYTES) {

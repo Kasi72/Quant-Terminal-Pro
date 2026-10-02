@@ -34,15 +34,15 @@ const ALL7 = [
   { key: 'optimized_deployable_20plus',    label: 'VF Scout',       tp: 5, sl: 5.0, maxHold: 20,
     stages: new Set(['PRE_BREAKOUT']) },                                        // was tp:8 sl:4 → PF 1.94→2.68 WR 66→83%
   { key: 'optimized_highprecision_15plus', label: 'CC Precision',   tp: 3, sl: 2.5, maxHold: 20,
-    stages: new Set(['PRE_BREAKOUT']) },                                        // uc≥50 gate in engine: PF 0.99→1.56 (N=167)
+    stages: new Set(['PRE_BREAKOUT']), ucMin: 50 },                            // ucMin≥50: PF 0.99→1.56 N=167 (+granular_optimize 2026-10-02)
   { key: 'optimized_elite_10plus',         label: 'MP Elite',       tp: 3, sl: 5.0, maxHold: 15,
-    stages: new Set(['PRE_BREAKOUT']) },                                        // was tp:5 sl:3 h:20 → PF 0.94→1.29 WR 64→75%
+    stages: new Set(['STRONG_BUY','PRE_BREAKOUT']) },                          // drop BUY: SB(PF 1.95)+PB(PF 1.27) vs BUY drag(PF 1.27 N=200)
   { key: 'optimized_ultraselective_8plus', label: 'EMA Stack',      tp: 3, sl: 5.0, maxHold: 20,
     stages: new Set(['PRE_BREAKOUT']) },                                        // was sl:4 → PF 1.49→1.84 WR unchanged
   { key: 'sniper_95plus',                  label: 'Sniper PS',      tp: 4, sl: 5.0, maxHold: 15,
-    stages: new Set(['BUY','STRONG_BUY','ULTRA_STRONG_BUY','PRE_BREAKOUT']) }, // was tp:5 h:20 → PF 1.35→1.85 WR 74→79%
+    stages: new Set(['BUY','STRONG_BUY','ULTRA_STRONG_BUY','PRE_BREAKOUT']), ucMin: 70 }, // ucMin≥70: WR 79→82% PF 1.85→2.61
   { key: 'ors_prime_reversal',             label: 'ORS Reversal',   tp: 3, sl: 5.0, maxHold: 10,
-    stages: new Set(['BUY','STRONG_BUY','ULTRA_STRONG_BUY','PRE_BREAKOUT','EARLY_INFLECTION']) }, // was sl:2 h:12 → PF 2.66→3.33 WR unchanged
+    stages: new Set(['BUY','STRONG_BUY','ULTRA_STRONG_BUY','PRE_BREAKOUT']) }, // drop EI: WR 88→97% PF 3.33→7.60 N=29
   { key: 'circuit_breaker_v2',             label: 'Cir.Breaker',    tp: 6, sl: 5.0, maxHold: 20,
     stages: new Set(['BUY','STRONG_BUY','ULTRA_STRONG_BUY','PRE_BREAKOUT']),
     screenerOnly: true }, // ⚠ SCREENER ONLY — PF=1.00 max (162-combo grid); not in live trade pipeline
@@ -136,6 +136,7 @@ if(!isMainThread){
         let r;
         try{r=engine.analyzeStock(w,ps.key);}catch{continue;}
         if(!r||!ps.stages.has(r.stage))continue;
+        if(ps.ucMin&&(r.ucScore??0)<ps.ucMin)continue;
         const atrSig=atr14[i]||c[i].c*0.02;
         const out=simResult(c,i,atrSig,ps.tp,ps.sl,ps.maxHold);
         if(!out)continue;

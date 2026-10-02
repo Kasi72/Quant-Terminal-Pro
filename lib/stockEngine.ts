@@ -4333,8 +4333,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
           && _t1Pct >= 8
           && (result.practicalOverlay?.passed ?? false);
       } else if (paramSetKey === 'optimized_elite_10plus') {
-        // eliteTuner 2026-08-15: T2AsT1=true → exit at target7(~4.3%); OOS WR=95.2%, Sharpe=3.12, PF=3.12 (N=100)
-        result.tradePromoted = isActionableStage(result.stage)
+        // backtest 2026-10-02: BUY stage PF=1.27 drags; SB PF=1.95. Gate to SB+USB only.
+        result.tradePromoted = (result.stage === 'STRONG_BUY' || result.stage === 'ULTRA_STRONG_BUY')
           && (result.ucScore ?? 0) >= 55
           && (result.practicalOverlay?.passed ?? false);
       } else if (paramSetKey === 'optimized_highprecision_15plus') {

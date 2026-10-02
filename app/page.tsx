@@ -6438,7 +6438,9 @@ function HomePageInner() {
                             }),
                           });
                           if (!res.ok || !res.body) {
-                            setReflectText('AI not available — add ANTHROPIC_API_KEY to .env.local to enable this feature.');
+                            let errMsg = `API error ${res.status}`;
+                            try { const e = await res.json(); errMsg = e.error ?? errMsg; } catch {}
+                            setReflectText(`⚠ ${errMsg}`);
                             setReflectLoading(false);
                             return;
                           }
