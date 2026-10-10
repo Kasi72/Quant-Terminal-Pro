@@ -892,7 +892,7 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set<ParamSetKey>([
 //   EMA: TP=2%/SL=2.0×ATR/H≤12d — WR=93.3%, PF30=5.80, PF40=2.35, AvgPnL=+1.50% (OOS n=30)
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; slAtrMult: number; maxHoldBars: number; minUCScore?: number }>> = {
-  optimized_deployable_20plus:    { targetPct: 3.0, slAtrMult: 1.5, maxHoldBars: 12 },              // v20: TP 2→3%, SL 5×→1.5×, H 30→12 — tpsl_v2 TP=3% PF=6.12; arch_opt SL=1.5× PF=7.03; R:R 0.19→1.0 (was v18: PF=1.12)
+  optimized_deployable_20plus:    { targetPct: 5.0, slAtrMult: 5.0, maxHoldBars: 20 },              // v21: TP 2→5% — improvement_scan open-entry PF=2.22 avg=+2.28% (v20 SL=1.5× was wrong: PF=0.93; TP=2% v18 was wrong: PF=1.12)
   optimized_highprecision_15plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v19: TP 2.5→3%, SL 5×→4×, H 30→15, UC≥55 gate — OOS WR=81.7% PF=2.43 (hyper_tune 2026-08-29)
   optimized_elite_10plus:         { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 },              // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
   optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 },              // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
@@ -2931,6 +2931,15 @@ function archetypePriceEngine(entry: number, atr14: number, sw5Low = 0, archetyp
     sw5LowAtEntry: sw5Low,
     atr14AtEntry: atr14,
   };
+}
+
+// ── Dynamic SL: breakeven lock helper ──
+// Once price closes above entry + 1×ATR, the stop moves to entry (breakeven).
+// Call on each new close bar; returned value replaces the displayed stopLoss.
+export function computeDynamicSL(
+  entry: number, currentClose: number, atr14: number, initialSL: number
+): number {
+  return currentClose > entry + atr14 ? entry : initialSL;
 }
 
 // ── Archetype 1: Volume Footprint Scout (Set: optimized_deployable_20plus) ──

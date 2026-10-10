@@ -13,6 +13,7 @@ exports.getTradeMfeR = getTradeMfeR;
 exports.getTradeMaePct = getTradeMaePct;
 exports.getTradeMaeR = getTradeMaeR;
 exports.didReachFivePctTarget = didReachFivePctTarget;
+exports.computeWeightedExitPnl = computeWeightedExitPnl;
 exports.getFivePctObjectivePnlPct = getFivePctObjectivePnlPct;
 exports.getFivePctObjectiveR = getFivePctObjectiveR;
 exports.isLegacyT1BreakevenTrailExit = isLegacyT1BreakevenTrailExit;
@@ -182,6 +183,28 @@ function getTradeMaeR(t) {
 }
 function didReachFivePctTarget(t) {
     return getTradeMfePct(t) >= exports.FIVE_PCT_WIN_THRESHOLD;
+}
+// Blended P&L matching the backtest simulator's partial-exit model (50%@T1, 30%@T2, 20%@T3).
+// Use this to compare live trade outcomes with backtest WR/PF on an apples-to-apples basis.
+function computeWeightedExitPnl(t) {
+    const entry = t.entryPrice;
+    if (!entry || entry <= 0)
+        return t.pnlPct ?? 0;
+    const pctOf = (price) => price > 0 ? (price - entry) / entry * 100 : 0;
+    const actual = t.pnlPct ?? 0;
+    switch (t.status) {
+        case 'hit_t3':
+            return 0.5 * pctOf(t.target1) + 0.3 * pctOf(t.target2) + 0.2 * pctOf(t.target3);
+        case 'hit_t2':
+            // 50% exited at T1, 30% at T2, 20% at actual close (trail/stop/manual after T2)
+            return 0.5 * pctOf(t.target1) + 0.3 * pctOf(t.target2) + 0.2 * actual;
+        case 'hit_t1':
+            // 50% exited at T1, remaining 50% at actual close
+            return 0.5 * pctOf(t.target1) + 0.5 * actual;
+        default:
+            // stopped / expired / manual_close / closed_early — no partial exits reached
+            return actual;
+    }
 }
 // Canonical return for analytics whose stated outcome is "did price reach +5%?".
 // Winners are valued at the pre-declared +5% exit, never at their later MFE.
@@ -438,7 +461,7 @@ function computeWinRateStats(trades) {
         wins: wins.length,
         losses: losses.length,
         fivePctWins: wins.length,
-        open: trades.filter(t => !isTerminalTrade(t)).length,
+        open: trades.filter(t => t.status === 'open').length,
         hitT1: trades.filter(t => t.status === 'hit_t1').length,
         hitT2: trades.filter(t => t.status === 'hit_t2').length,
         hitT3: trades.filter(t => t.status === 'hit_t3').length,
@@ -746,5 +769,48 @@ exports.QUICK_FILTERS = [
             (r.stage === 'STRONG_BUY' && (r.paramSetKey === 'optimized_highprecision_15plus' ||
                 r.paramSetKey === 'optimized_elite_10plus' ||
                 r.paramSetKey === 'sniper_95plus')),
+    },
+    {
+        // DNA-mined from 10,166 labeled rows in pbfb_uc_logger (2026-09-12).
+        // VolPre5>=22.82 → 13.7% precision (15.4x random). Pair with ucGoldmine
+        // tier → ~20%+ precision. Target: consecutive UC lock (stock already in
+        // circuit or near-circuit, surges again next day on volume acceleration).
+        key: 'ucLockHunt', label: 'UC Lock Hunt', emoji: '🔒',
+        description: 'UC Lock Hunt — DNA-mined: VolVsPre5≥22.82 + Goldmine tier → ~20% precision for upper circuit next day (15×random). Volume acceleration is the key signal.',
+        filter: r => r.ucGoldmine === true &&
+            r.exactVolVsPre5 >= 22.82,
+    },
+    {
+        // DNA retune 2026-09-16 on 3,506 labeled rows (base rate 3.39%). Five archetypes:
+        //
+        // DNA-A: VolPre5>=4.5 AND CLtrend>=63                      -> 33.3% prec (9.8x)
+        //   vol threshold raised from 3.18 -- filters distribution-spike noise
+        //
+        // DNA-B: UpperWick<=1.38 AND InflectionScore>=34            -> 20.6% prec (6.1x)
+        //   unchanged -- still strongest consistent clause
+        //
+        // DNA-C: UCGoldmine=true AND BodyPct>=35                   -> 25.6% prec (7.6x)
+        //   body gate added -- was 14.6% without it; same 10 winners, 57 FP removed
+        //
+        // DNA-D: VolPre5>=4.0 AND InflScore>=34 AND BodyPct>=40      -> 20.0% prec (5.9x)
+        //   vol+body gates tightened -- eliminates low-body vol spikes
+        //
+        // DNA-E: CloseLoc>=80 AND VolPre5>=2 AND BodyPct>=40         -> 20.0% prec (5.9x)
+        //   new 2026-09-16 -- stealth close-to-high pattern: strong body, closes at top
+        key: 'momHunt5pct', label: '>5% Hunt', emoji: '🎯',
+        description: '>5% Gain Hunt — 6-clause DNA (retune 2026-09-16/18, 3,506 rows): A 33.3%, B 20.6%, C 25.6%, D 20.0%, E 20.0%, F ~28% (escape archetype). All 5.9x+ random.',
+        filter: r => 
+        // DNA-A: vol surge + sustained trend (33.3% prec, 9.8x) -- vol>=4.5 tighter
+        (r.exactVolVsPre5 >= 4.5 && r.clTrend >= 63) ||
+            // DNA-B: perfect close + Brain inflection (20.6% prec, 6.1x) -- unchanged
+            (r.upperWickPct <= 1.38 && r.inflectionScore >= 34) ||
+            // DNA-C: UCGoldmine + body quality gate (25.6% prec, 7.6x) -- +11pp vs no body filter
+            (r.ucGoldmine === true && r.bodyPct >= 35) ||
+            // DNA-D: vol surge + Brain inflection + body quality (20.0% prec, 5.9x)
+            (r.exactVolVsPre5 >= 4.0 && r.inflectionScore >= 34 && r.bodyPct >= 40) ||
+            // DNA-E: stealth close-to-high (20.0% prec, 5.9x) -- new 2026-09-16
+            (r.closeLoc >= 80 && r.exactVolVsPre5 >= 2 && r.bodyPct >= 40) ||
+            // DNA-F: oversold doji reversal (escape archetype, 2026-09-18) -- catches 84% escape archetype DNA misses
+            (r.rsi2 <= 8 && r.exactVolVsPre5 >= 1.8 && r.bodyPct <= 12),
     },
 ];
