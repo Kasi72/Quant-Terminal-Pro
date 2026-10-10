@@ -160,8 +160,8 @@ function calcStats(sigs, tpPct, slAtr, maxHold, opts = {}) {
   const results = sigs.map(s => simFC(s.candles, tpPct, slAtr, s.atr, maxHold, opts)).filter(Boolean);
   const N = results.length;
   if (!N) return { N: 0, wr: 0, pf: 0, avg: 0 };
-  const wins = results.filter(r => r.hitTP);
-  const losses = results.filter(r => !r.hitTP);
+  const wins = results.filter(r => r.pnl > 0);
+  const losses = results.filter(r => r.pnl <= 0);
   const grossW = wins.reduce((a, r) => a + r.pnl, 0);
   const grossL = losses.reduce((a, r) => a + Math.abs(r.pnl), 0);
   return {

@@ -2481,14 +2481,17 @@ function HomePageInner() {
         if (niftyRegimeMult !== 1.0 && result.ucScore != null) {
           result.ucScore = Math.min(100, Math.round(result.ucScore * niftyRegimeMult));
         }
-        // RS gate: archetype-specific relative-strength filters (OOS 2023-2026, N=1415)
-        // VF Scout RS>5%:  PF 2.22→2.62 (+18%), WR 78.5%→81.4%, loses 5/107 signals
-        // EMA Stack RS>3%: PF 0.54→5.19, WR 73.3%→80.0%, N=10 (small sample)
-        // Gate skipped when nifty data unavailable (default rsNifty20=1.0 would wrongly suppress)
+        // RS gate (research_remaining.js, OOS 2023-26). Skipped without Nifty data: default rsNifty20=1.0 would suppress everything.
+        // EMA Stack needs rs>=1.0: PF 0.55→1.87, positive in both train (<2025) and test (>=2025). Stricter rs>=1.03 tested worse (PF 1.13).
         if (niftyData && niftyData.length > 20) {
           const rs = result.momentum.rsNifty20;
           if (result.archetypeType === 'VolumeFootprint' && result.stage === 'PRE_BREAKOUT' && rs < 1.05) return;
-          if (result.archetypeType === 'EMAStack' && rs < 1.03) return;
+          if (result.archetypeType === 'EMAStack' && rs < 1.0) return;
+        }
+        // CC Precision PRE_BREAKOUT has no OOS edge: 504 signals, every exit/feature gate tuned on 2023-24 is negative on 2025-26. Watch-only.
+        if (result.paramSetKey === 'optimized_highprecision_15plus' && result.archetypeType === 'CompressionCoil' && result.stage === 'PRE_BREAKOUT') {
+          result.stage = 'EARLY_INFLECTION';
+          (result as any).ccWatchOnly = true;
         }
         newResults.push(result);
         // Brain V3 goldmine: symbol-level WR blacklist from live brainPrior trade history
