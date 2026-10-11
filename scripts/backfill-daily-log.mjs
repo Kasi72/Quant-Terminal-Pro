@@ -10,6 +10,7 @@ import {
   primaryTradeEventType,
   summarizeTradeEvents,
 } from '../lib/tradeEvents.ts';
+import { canonicalNseSymbol } from '../lib/symbolCrossref.ts';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +38,8 @@ if (!SUPABASE_KEY) { console.error('SUPABASE_SERVICE_ROLE_KEY not found in .env.
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchYahoo(rawSym) {
-  const sym = rawSym.includes('.') || rawSym.startsWith('^') ? rawSym : `${rawSym}.NS`;
+  const canon = canonicalNseSymbol(rawSym);
+  const sym = canon.includes('.') || canon.startsWith('^') ? canon : `${canon}.NS`;
   for (const host of YF_HOSTS) {
     try {
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1y&includePrePost=false`;

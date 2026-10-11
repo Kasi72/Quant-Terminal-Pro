@@ -3,6 +3,7 @@ import { getServiceClient } from '@/lib/supabaseServer';
 import { isLegacyT1BreakevenTrailExit, isTerminalTrade, type TrackedTrade } from '@/lib/tradeOps';
 import { validateTrade, applyValidation } from '@/lib/autoValidator';
 import { deriveTradeEventRows, primaryTradeEventType, summarizeTradeEvents } from '@/lib/tradeEvents';
+import { canonicalNseSymbol } from '@/lib/symbolCrossref';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -506,7 +507,8 @@ export async function GET(req: NextRequest) {
 
     const processTrade_ = async (trade: TrackedTrade) => {
       try {
-        const sym = trade.symbol.includes('.') ? trade.symbol : `${trade.symbol}.NS`;
+        const canon = canonicalNseSymbol(trade.symbol);
+        const sym = canon.includes('.') ? canon : `${canon}.NS`;
         const fetched = await tryFetchWithRetry(sym);
         if (!fetched.ok || !fetched.data) {
           // Terminal trades (stopped/expired) don't need fresh data — demote to warning
