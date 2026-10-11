@@ -22,7 +22,7 @@ const envVars = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const SUPABASE_URL  = 'https://cmkfqlppbwyrhjmooqbq.supabase.co';
+const SUPABASE_URL  = envVars.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY  = envVars.SUPABASE_SERVICE_ROLE_KEY;
 const USER_ID       = 'drkkr';
 const YF_HOSTS      = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
@@ -36,7 +36,8 @@ if (!SUPABASE_KEY) { console.error('SUPABASE_SERVICE_ROLE_KEY not found in .env.
 
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function fetchYahoo(sym) {
+async function fetchYahoo(rawSym) {
+  const sym = rawSym.includes('.') || rawSym.startsWith('^') ? rawSym : `${rawSym}.NS`;
   for (const host of YF_HOSTS) {
     try {
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1y&includePrePost=false`;
