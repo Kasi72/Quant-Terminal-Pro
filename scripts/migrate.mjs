@@ -20,7 +20,8 @@ for (const line of envContent.split(/\r?\n/)) {
 const PAT = env.SUPABASE_ACCESS_TOKEN;
 if (!PAT) throw new Error('SUPABASE_ACCESS_TOKEN missing from .env.local');
 
-const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || env.SUPABASE_PROJECT_REF || 'cmkfqlppbwyrhjmooqbq';
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || env.SUPABASE_PROJECT_REF;
+if (!PROJECT_REF) throw new Error('SUPABASE_PROJECT_REF missing from .env.local');
 console.log(`  project ${PROJECT_REF}`);
 const API = `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`;
 

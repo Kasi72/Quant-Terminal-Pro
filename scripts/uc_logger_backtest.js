@@ -14,8 +14,11 @@
 
 'use strict';
 
-const SUPABASE_URL = 'https://cmkfqlppbwyrhjmooqbq.supabase.co';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const localEnv = Object.fromEntries(
+  require('fs').readFileSync(require('path').join(__dirname, '..', '.env.local'), 'utf8').split(/\r?\n/)
+    .map(l => l.match(/^\s*([A-Z0-9_]+)\s*=(.*)$/)).filter(Boolean).map(m => [m[1], m[2].trim()]));
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || localEnv.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || localEnv.SUPABASE_SERVICE_ROLE_KEY;
 if (!SERVICE_KEY) { console.error('Set SUPABASE_SERVICE_ROLE_KEY env var'); process.exit(1); }
 const APPLY        = process.argv.includes('--apply');
 
