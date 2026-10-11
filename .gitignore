@@ -53,3 +53,4 @@ scripts/*.err.log
 
 # Local MCP config (contains DB credentials)
 .mcp.json
+.mcp.json.bak*
