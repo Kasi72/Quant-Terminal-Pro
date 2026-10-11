@@ -141,7 +141,8 @@ export async function GET(req: NextRequest) {
       uc_score:        result.best.ucScore ?? null,
       passed_sets:     result.passedSets,
       passed_count:    result.passedCount,
-      raw_json:        result,
+      // byParamSet (~85% of the size) is never read back; storing it filled the free-tier disk.
+      raw_json:        { best: result.best, passedSets: result.passedSets, passedCount: result.passedCount, lastClose: result.lastClose },
     });
   });
 

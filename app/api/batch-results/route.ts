@@ -40,11 +40,18 @@ export async function GET(req: NextRequest) {
   // Caller can pass stage=NO_SIGNAL explicitly if they need it.
   const DEFAULT_EXCLUDE = ['NO_SIGNAL'];
 
+  // Paged: Vercel caps function responses at 4.5 MB and a full session of results exceeds it.
+  // Only the fields the screener restores are extracted from raw_json (not per-param-set copies).
+  const offset = Math.max(0, Number(searchParams.get('offset')) || 0);
+  const limit = Math.min(500, Math.max(1, Number(searchParams.get('limit')) || 250));
+
   let query = supabase
     .from('daily_scan_results')
-    .select('symbol, best_stage, best_param_set, inflection_score, last_close, uc_score, passed_sets, passed_count, raw_json')
+    .select('symbol, best_stage, best_param_set, inflection_score, last_close, uc_score, passed_sets, passed_count, best:raw_json->best, jevScore:raw_json->jevScore')
     .eq('session_date', sessionDate)
-    .order('inflection_score', { ascending: false });
+    .order('inflection_score', { ascending: false, nullsFirst: false })
+    .order('symbol', { ascending: true })
+    .range(offset, offset + limit - 1);
 
   if (stageParam) {
     const stages = stageParam.split(',').map((s: string) => s.trim()).filter((s: string) => ALLOWED_STAGES.has(s));
@@ -58,21 +65,13 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  // Sort ULTRA_STRONG_BUY by jev quality score when present; others keep inflection_score order.
-  const results = (data ?? []).sort((a, b) => {
-    const aJev = (a.raw_json as Record<string, unknown>)?.jevScore as { quality?: number } | undefined;
-    const bJev = (b.raw_json as Record<string, unknown>)?.jevScore as { quality?: number } | undefined;
-    if (a.best_stage === 'ULTRA_STRONG_BUY' && b.best_stage === 'ULTRA_STRONG_BUY') {
-      const aQ = aJev?.quality ?? -1;
-      const bQ = bJev?.quality ?? -1;
-      if (aQ !== bQ) return bQ - aQ;
-    }
-    return (b.inflection_score ?? 0) - (a.inflection_score ?? 0);
-  });
+  const results = (data ?? []).map(({ best, jevScore, ...row }) => ({ ...row, raw_json: { best, jevScore } }));
 
   return NextResponse.json({
     ok: true,
     sessionDate,
+    offset,
+    limit,
     count: results.length,
     results,
   });

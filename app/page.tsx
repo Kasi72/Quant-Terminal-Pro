@@ -1984,21 +1984,40 @@ function HomePageInner() {
       .then((data: WinnerClusters | null) => { if (data?.clusters?.length) _winnerClusters = data; })
       .catch(() => {});
 
-    // ─── BATCH PRE-COMPUTED RESULTS: load last night's scan on mount ───
-    fetch('/api/batch-results')
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { ok: boolean; sessionDate: string; results: Array<{ raw_json: { best: AnalysisResult } | null }> } | null) => {
-        if (!data?.ok || !data.results?.length) return;
-        const batchResults: AnalysisResult[] = data.results
-          .map(row => row.raw_json?.best ?? null)
-          .filter((r): r is AnalysisResult => r !== null);
-        if (batchResults.length === 0) return;
-        setResults(batchResults);
-        setScanSource('Nightly Batch');
-        setLastScanSymbols(batchResults.map(r => r.symbol));
-        setBatchSessionDate(data.sessionDate);
-      })
-      .catch(() => {});
+    // ─── SAVED RESULTS: restore the latest saved session (nightly batch or your last scan) on mount ───
+    // Fetched in pages: Vercel caps a function response at 4.5 MB.
+    (async () => {
+      type BatchRow = { best_stage: string; inflection_score: number | null; raw_json: { best: AnalysisResult | null; jevScore?: { quality?: number } | null } };
+      const PAGE = 250;
+      const rows: BatchRow[] = [];
+      let sessionDate: string | null = null;
+      for (let offset = 0; offset < 10_000; offset += PAGE) {
+        const qs = new URLSearchParams({ offset: String(offset), limit: String(PAGE) });
+        if (sessionDate) qs.set('date', sessionDate);
+        const res = await fetch(`/api/batch-results?${qs}`);
+        if (!res.ok) break;
+        const data = await res.json() as { ok: boolean; sessionDate: string; results: BatchRow[] };
+        if (!data?.ok) break;
+        sessionDate = data.sessionDate;
+        rows.push(...data.results);
+        if (data.results.length < PAGE) break;
+      }
+      if (!sessionDate || scanningRef.current) return;
+      // ULTRA_STRONG_BUY ordered by Jev quality when present; everything else by inflection score.
+      rows.sort((a, b) => {
+        if (a.best_stage === 'ULTRA_STRONG_BUY' && b.best_stage === 'ULTRA_STRONG_BUY') {
+          const aQ = a.raw_json.jevScore?.quality ?? -1, bQ = b.raw_json.jevScore?.quality ?? -1;
+          if (aQ !== bQ) return bQ - aQ;
+        }
+        return (b.inflection_score ?? 0) - (a.inflection_score ?? 0);
+      });
+      const batchResults = rows.map(r => r.raw_json.best).filter((r): r is AnalysisResult => r != null);
+      if (batchResults.length === 0) return;
+      setResults(batchResults);
+      setScanSource('Nightly Batch');
+      setLastScanSymbols(batchResults.map(r => r.symbol));
+      setBatchSessionDate(sessionDate);
+    })().catch(() => {});
   }, []);
 
   // Re-fetch tracked trades from cloud when the tab regains focus (picks up outcome labels
@@ -2662,12 +2681,22 @@ function HomePageInner() {
       if (!abortRef.current) setResults([...newResults]);
     }
     // Persist live scan results so next page load reuses them (avoids re-fetch between cron runs)
+    // Chunked: one request with every result exceeds Vercel's 4.5 MB body limit and is rejected.
+    // NO_SIGNAL rows are slimmed (never restored) but still saved so they overwrite stale signals.
     if (!abortRef.current && newResults.length > 0) {
-      fetch('/api/save-scan-results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: newResults }),
-      }).catch(() => {});
+      const toSave = newResults.map(r => r.stage === 'NO_SIGNAL'
+        ? { symbol: r.symbol, stage: r.stage, paramSetKey: r.paramSetKey, lastClose: r.lastClose, inflectionScore: r.inflectionScore, ucScore: r.ucScore }
+        : r);
+      (async () => {
+        for (let i = 0; i < toSave.length; i += 150) {
+          const res = await fetch('/api/save-scan-results', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results: toSave.slice(i, i + 150) }),
+          });
+          if (!res.ok) { console.warn(`[save-scan-results] chunk ${i / 150 + 1} failed: ${res.status}`); break; }
+        }
+      })().catch(e => console.warn('[save-scan-results]', e));
     }
     // AI Post-Scan Market Brief — fires once after scan completes, non-blocking
     if (!abortRef.current && newResults.length > 0) {
