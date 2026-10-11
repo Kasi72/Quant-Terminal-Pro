@@ -2,10 +2,31 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
+function groqToAnthropicStream(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  let buf = '';
+  return body.pipeThrough(new TransformStream({
+    transform(chunk, ctrl) {
+      buf += dec.decode(chunk, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6); if (raw === '[DONE]') continue;
+        try {
+          const j = JSON.parse(raw);
+          const text = j.choices?.[0]?.delta?.content;
+          if (text) ctrl.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text } })}\n\n`));
+        } catch {}
+      }
+    }
+  }));
+}
+
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
+    return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), {
       status: 503,
       headers: { 'content-type': 'application/json' },
     });
@@ -36,38 +57,28 @@ Trade details:
 
 Be direct. Focus on process and edge, not just outcome.`;
 
-  const anthropicHdrs: Record<string, string> = { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
-  const wsId = process.env.ANTHROPIC_WORKSPACE_ID;
-  if (wsId) anthropicHdrs['anthropic-workspace-id'] = wsId;
-
-  let anthropicRes: Response;
+  let groqRes: Response;
   try {
-    anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    groqRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: anthropicHdrs,
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'stealth/space-bunny-alpha',
         max_tokens: 350,
         stream: true,
         messages: [{ role: 'user', content: userPrompt }],
       }),
     });
   } catch {
-    return new Response(JSON.stringify({ error: 'Anthropic request failed' }), { status: 502 });
+    return new Response(JSON.stringify({ error: 'Groq request failed' }), { status: 502 });
   }
 
-  if (!anthropicRes.ok) {
-    const errText = await anthropicRes.text().catch(() => '');
-    return new Response(JSON.stringify({ error: errText || 'Anthropic error' }), {
-      status: anthropicRes.status,
-    });
+  if (!groqRes.ok) {
+    const errText = await groqRes.text().catch(() => '');
+    return new Response(JSON.stringify({ error: errText || 'Groq error' }), { status: groqRes.status });
   }
 
-  return new Response(anthropicRes.body, {
-    headers: {
-      'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
-      'x-accel-buffering': 'no',
-    },
+  return new Response(groqToAnthropicStream(groqRes.body!), {
+    headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' },
   });
 }

@@ -2,36 +2,63 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
-function anthropicHeaders(apiKey: string): Record<string, string> {
-  const h: Record<string, string> = { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
-  const wsId = process.env.ANTHROPIC_WORKSPACE_ID;
-  if (wsId) h['anthropic-workspace-id'] = wsId;
-  return h;
+const GROQ_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+const MODEL = 'stealth/space-bunny-alpha';
+
+function groqHeaders(apiKey: string): Record<string, string> {
+  return { 'content-type': 'application/json', 'authorization': `Bearer ${apiKey}` };
 }
 
-async function streamFromAnthropic(apiKey: string, prompt: string, maxTokens = 500): Promise<Response> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+function groqToAnthropicStream(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  let buf = '';
+  return body.pipeThrough(new TransformStream({
+    transform(chunk, ctrl) {
+      buf += dec.decode(chunk, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6); if (raw === '[DONE]') continue;
+        try {
+          const j = JSON.parse(raw);
+          const text = j.choices?.[0]?.delta?.content;
+          if (text) ctrl.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text } })}\n\n`));
+        } catch {}
+      }
+    }
+  }));
+}
+
+async function streamFromGroq(apiKey: string, prompt: string, maxTokens = 500): Promise<Response> {
+  const res = await fetch(GROQ_ENDPOINT, {
     method: 'POST',
-    headers: anthropicHeaders(apiKey),
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      stream: true,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    headers: groqHeaders(apiKey),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, stream: true, messages: [{ role: 'user', content: prompt }] }),
   });
   if (!res.ok) {
     const err = await res.text().catch(() => '');
-    return new Response(JSON.stringify({ error: err || 'Anthropic error' }), { status: res.status });
+    return new Response(JSON.stringify({ error: err || 'Groq error' }), { status: res.status });
   }
-  return new Response(res.body, {
+  return new Response(groqToAnthropicStream(res.body!), {
     headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' },
   });
 }
 
+async function callGroq(apiKey: string, prompt: string, maxTokens = 200): Promise<string> {
+  const res = await fetch(GROQ_ENDPOINT, {
+    method: 'POST',
+    headers: groqHeaders(apiKey),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] }),
+  });
+  if (!res.ok) throw new Error(`Groq ${res.status}`);
+  const data = await res.json() as { choices: { message: { content: string } }[] };
+  return data.choices?.[0]?.message?.content?.trim() ?? '';
+}
+
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 503 });
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), { status: 503 });
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 }); }
@@ -70,7 +97,7 @@ Write a concise coaching report with:
 
 Be direct, evidence-based. No fluff.`;
 
-    return streamFromAnthropic(apiKey, prompt, 700);
+    return streamFromGroq(apiKey, prompt, 700);
   }
 
   // ── Synthesize Lessons ────────────────────────────────────────────────────
@@ -96,7 +123,7 @@ Analyze ALL entries and output:
 
 Be surgical. Reference specific patterns you see. Under 350 words.`;
 
-    return streamFromAnthropic(apiKey, prompt, 500);
+    return streamFromGroq(apiKey, prompt, 500);
   }
 
   // ── Grade Trade ───────────────────────────────────────────────────────────
@@ -123,7 +150,7 @@ GRADE: [A/B/C/D]
 REASON: [one sentence on the decisive process factor]
 EDGE_USED: [yes/no — did they use their statistical edge correctly?]`;
 
-    return streamFromAnthropic(apiKey, prompt, 150);
+    return streamFromGroq(apiKey, prompt, 150);
   }
 
   // ── Explain Missed Signal ─────────────────────────────────────────────────
@@ -146,7 +173,7 @@ As a trading coach:
 
 Under 150 words.`;
 
-    return streamFromAnthropic(apiKey, prompt, 250);
+    return streamFromGroq(apiKey, prompt, 250);
   }
 
   // ── Natural Language Search ───────────────────────────────────────────────
@@ -170,7 +197,7 @@ Format: {"indices": [0, 3], "reason": "Trades where MFE exceeded 5% but P&L was 
 
 If no matches: {"indices": [], "reason": "No trades match this criteria"}`;
 
-    return streamFromAnthropic(apiKey, prompt, 200);
+    return streamFromGroq(apiKey, prompt, 200);
   }
 
   // ── Streak Advisor ────────────────────────────────────────────────────────
@@ -194,7 +221,7 @@ Provide:
 
 Be firm. Under 200 words. No fluff.`;
 
-    return streamFromAnthropic(apiKey, prompt, 350);
+    return streamFromGroq(apiKey, prompt, 350);
   }
 
   // ── Scan Brief ────────────────────────────────────────────────────────────────
@@ -214,15 +241,12 @@ Market regime: ${regime}
 
 Write exactly 2 sentences: (1) sector/signal concentration insight, (2) regime context + what to watch. Max 200 chars total. Pure prose, no bullet points, no labels.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: anthropicHeaders(apiKey),
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 120, messages: [{ role: 'user', content: prompt }] }),
-    });
-    if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
-    const data = await res.json() as { content: { type: string; text: string }[] };
-    const brief = data.content?.[0]?.text?.trim() ?? '';
-    return new Response(JSON.stringify({ brief }), { headers: { 'content-type': 'application/json' } });
+    try {
+      const brief = await callGroq(apiKey, prompt, 120);
+      return new Response(JSON.stringify({ brief }), { headers: { 'content-type': 'application/json' } });
+    } catch {
+      return new Response(JSON.stringify({ error: 'Groq error' }), { status: 502 });
+    }
   }
 
   // ── Trade Plan ────────────────────────────────────────────────────────────────
@@ -245,15 +269,12 @@ Entry:${entry} T1:${target1} Stop:${stopLoss} R:R=${rr} Conviction:${conviction}
 
 One sentence: WHY this setup has edge + HOW to manage it (key level to hold above / exit signal). Under 180 chars. No prefix labels, no symbol repetition.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: anthropicHeaders(apiKey),
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 80, messages: [{ role: 'user', content: prompt }] }),
-    });
-    if (!res.ok) return new Response(JSON.stringify({ error: 'Anthropic error' }), { status: res.status });
-    const data = await res.json() as { content: { type: string; text: string }[] };
-    const plan = data.content?.[0]?.text?.trim() ?? '';
-    return new Response(JSON.stringify({ plan }), { headers: { 'content-type': 'application/json' } });
+    try {
+      const plan = await callGroq(apiKey, prompt, 80);
+      return new Response(JSON.stringify({ plan }), { headers: { 'content-type': 'application/json' } });
+    } catch {
+      return new Response(JSON.stringify({ error: 'Groq error' }), { status: 502 });
+    }
   }
 
   return new Response(JSON.stringify({ error: `Unknown mode: ${mode}` }), { status: 400 });
