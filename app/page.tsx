@@ -50,7 +50,7 @@ import { fetchSectorIndexData, computeSectorFlowScores, sectorFlowBadgeColor, se
 import { fetchBulkFlowScores, bulkFlowConvictionBoost, bulkFlowLabel, bulkFlowColor, type BulkFlowScore, type BulkIngestionHealth } from '@/lib/bulkFlow';
 import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
-  analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
+  analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty, ensurePriceLevels,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
   computeSelfAdaptiveTrend, getArchetypeExitDefaults,
   type AnalysisResult, type ParamSetKey, type StageRating, type Candle,
@@ -2431,6 +2431,7 @@ function HomePageInner() {
             };
             if (rs63 >= 1.15 && result.stage === 'EARLY_INFLECTION') {
               result.stage = 'PRE_BREAKOUT';   // leading stock confirms setup
+              ensurePriceLevels(result, candles);
             } else if (rs63 < 0.75 && result.stage !== 'NO_SIGNAL') {
               result.stage = TIER_DOWN[result.stage] as typeof result.stage;
             }

@@ -16,6 +16,7 @@ exports.computeSelfAdaptiveTrend = computeSelfAdaptiveTrend;
 exports.setArchetypeTuning = setArchetypeTuning;
 exports.computeDynamicSL = computeDynamicSL;
 exports.analyzeStock = analyzeStock;
+exports.ensurePriceLevels = ensurePriceLevels;
 exports.detectMonster = detectMonster;
 exports.detectCandleDNA = detectCandleDNA;
 exports.generateDemoData = generateDemoData;
@@ -4007,6 +4008,29 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
         }
         catch { /* keep undefined */ }
     }
+    return ensurePriceLevels(result, candles);
+}
+const ACTIONABLE_STAGES = new Set(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
+const ARCH_PRICE_HINT = {
+    VolumeFootprint: 'VF', CompressionCoil: 'CC', MomentumPocket: 'MP', EMAStack: 'EMA',
+    PerfectStorm: 'PS', ORS: 'ORS', CircuitBreaker: 'CB',
+};
+// Stages promoted after the archetype pass (ucScore / RSI2 / relative-strength synthesis) never had
+// price levels computed, so they carried an all-zero price engine and were tracked with entry 0.
+function ensurePriceLevels(result, candles) {
+    if (!ACTIONABLE_STAGES.has(result.stage) || (result.priceEngine?.plannedEntry ?? 0) > 0)
+        return result;
+    const endIdx = candles.length - 1;
+    const sig = candles[endIdx];
+    if (!sig || sig.c <= 0)
+        return result;
+    const atr14 = computeATR14(candles)[endIdx] || sig.c * 0.02;
+    const sw5Low = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
+    const sw10Low = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
+    const wyckoffStop = computeWyckoffStop(candles, endIdx, sw10Low, atr14);
+    const pe = archetypePriceEngine(sig.c, atr14, sw5Low, ARCH_PRICE_HINT[result.archetypeType ?? ''] ?? '', wyckoffStop);
+    pe.breakoutTier = result.priceEngine?.breakoutTier ?? pe.breakoutTier;
+    result.priceEngine = pe;
     return result;
 }
 // ─── MONSTER SCAN — Detect >10% MFE probability ─────────────────────────────
