@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
 
   const rows = results.map(r => ({
     session_date:     sessionDate,
-    symbol:           r.symbol,
+    // Same key as the nightly batch (bare NSE symbol): a ".NS" key made every stock appear twice
+    // per session, with the older of the two copies restored alongside the newer one.
+    symbol:           r.symbol.replace(/\.(NS|BO)$/i, ''),
     best_stage:       r.stage,
     best_param_set:   r.paramSetKey ?? null,
     inflection_score: r.inflectionScore ?? null,

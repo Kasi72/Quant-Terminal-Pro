@@ -2014,7 +2014,14 @@ function HomePageInner() {
         }
         return (b.inflection_score ?? 0) - (a.inflection_score ?? 0);
       });
-      const batchResults = rows.map(r => r.raw_json.best).filter((r): r is AnalysisResult => r != null);
+      const seen = new Set<string>();
+      const batchResults = rows.map(r => r.raw_json.best).filter((r): r is AnalysisResult => {
+        if (r == null) return false;
+        const base = r.symbol.replace(/\.(NS|BO)$/i, '');
+        if (seen.has(base)) return false; // one row per stock, even if a session holds both key forms
+        seen.add(base);
+        return true;
+      });
       if (batchResults.length === 0) return;
       setResults(batchResults);
       setScanSource('Nightly Batch');
