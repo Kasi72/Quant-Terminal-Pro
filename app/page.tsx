@@ -79,6 +79,7 @@ import {
   loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
   deleteTradeFromCloud, deleteAllTradesFromCloud,
   mergeUnsyncedInto, ensureTradeIds, getUnsyncedTrades, subscribeTradeSync, type TradeSyncStatus,
+  markConfirmed, getPendingIds, wasConfirmed,
   setOwnerToken, hasOwnerToken,
 } from '@/lib/tradeSync';
 import { inferXgbScore } from '@/lib/xgbInfer';
@@ -1938,6 +1939,7 @@ function HomePageInner() {
         // Cloud has data. Re-apply every trade this browser changed but the server never
         // confirmed (matched by id), then any older open local-only trades from before
         // id-based tracking. Recovered trades are re-uploaded.
+        markConfirmed(cloudTrades);
         const { trades: withUnsynced, recovered } = mergeUnsyncedInto(cloudTrades);
         const ids = new Set(withUnsynced.map(t => t.id).filter(Boolean));
         const keys = new Set(withUnsynced.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
@@ -2025,34 +2027,27 @@ function HomePageInner() {
   // written by the daily brain trainer / label-uc-outcomes API without requiring a full reload).
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || !tradesLoadedRef.current) return;
       loadTradesFromCloud().then(cloudTrades => {
         if (!cloudTrades || cloudTrades.length === 0) return;
+        // Matched by id. Trades with unsaved local edits keep the local copy; every other trade
+        // takes the cloud copy, which carries server-side changes (nightly update, brain labels).
+        const pendingIds = getPendingIds();
         setTrackedTrades(prev => {
-          // Merge: keep local trades not yet synced to cloud; apply brain-trainer
-          // outcome labels from cloud into matching local trades.
-          const cloudByKey = new Map(cloudTrades.map(t => [`${t.symbol}_${t.entryDate ?? ''}`, t]));
-          const localByKey = new Set(prev.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
-          const merged = prev.map(t => {
-            const cloud = cloudByKey.get(`${t.symbol}_${t.entryDate ?? ''}`);
-            if (!cloud) return t; // local-only (unsynced recent add) — keep
-            return {
-              ...cloud,          // cloud is authoritative for brain-trainer labels
-              status: t.status,  // local status is authoritative (validated locally)
-              currentPrice: t.currentPrice ?? cloud.currentPrice,
-              cmpDate: t.cmpDate ?? cloud.cmpDate,
-              highestPrice: Math.max(t.highestPrice ?? 0, cloud.highestPrice ?? 0) || undefined,
-              mfe: Math.max(t.mfe ?? 0, cloud.mfe ?? 0) || undefined,
-              mae: Math.max(t.mae ?? 0, cloud.mae ?? 0) || undefined,
-              closedDate: t.closedDate ?? cloud.closedDate,
-              closedPrice: t.closedPrice ?? cloud.closedPrice,
-              pnlPct: t.pnlPct ?? cloud.pnlPct,
-            };
-          });
-          // Trades in cloud but not local — add (e.g. added from another device)
-          const cloudOnlyTrades = cloudTrades.filter(t => !localByKey.has(`${t.symbol}_${t.entryDate ?? ''}`));
-          return [...merged, ...cloudOnlyTrades];
+          const cloudById = new Map(cloudTrades.map(t => [t.id, t]));
+          const prevIds = new Set(prev.map(t => t.id));
+          const merged: TrackedTrade[] = [];
+          for (const t of prev) {
+            if (t.id && pendingIds.has(t.id)) { merged.push(t); continue; }
+            const cloud = t.id ? cloudById.get(t.id) : undefined;
+            if (cloud) { merged.push(cloud); continue; }
+            if (wasConfirmed(t.id)) continue; // was stored, now gone from the cloud: deleted on another device
+            merged.push(t);
+          }
+          for (const t of cloudTrades) if (!prevIds.has(t.id)) merged.push(t);
+          return merged;
         });
+        markConfirmed(cloudTrades.filter(t => !pendingIds.has(t.id!)));
       }).catch(() => {});
     };
     document.addEventListener('visibilitychange', onVisible);
@@ -3249,8 +3244,10 @@ function HomePageInner() {
           };
         });
         setTrackedTrades(prev => {
-          const autoSyms = new Set(newTrades.map(t => t.symbol));
-          return [...prev.filter(t => !autoSyms.has(t.symbol) || t.status !== 'open'), ...newTrades];
+          // Never replace an existing open position (it would linger in the cloud as a duplicate),
+          // and skip trades the server would reject.
+          const openNow = new Set(prev.filter(t => t.status === 'open').map(t => t.symbol));
+          return [...prev, ...newTrades.filter(t => !openNow.has(t.symbol) && isPlausibleTrade(t))];
         });
         setAutoTrackCount(toAutoTrack.length);
         setTimeout(() => setAutoTrackCount(0), 4000);
@@ -3515,6 +3512,12 @@ function HomePageInner() {
 
   // Track a trade (#2)
   function trackTrade(r: AnalysisResult) {
+    // Before the first load finishes the trade list is empty; tracking now would overwrite the
+    // saved local copy with just this trade.
+    if (!tradesLoadedRef.current) {
+      alert('Your tracked trades are still loading. Try again in a moment.');
+      return;
+    }
     // Surgical gate: hard-reject before save — belt-and-suspenders after display filter
     if (isSurgicallyBlockedSignal(r)) {
       alert(`⛔ Entry blocked: ${r.symbol} is PRE_BREAKOUT + ATR Explosion + Conviction ${computeConviction(r)} < 60. High stop-out risk — not added.`);
@@ -3565,9 +3568,22 @@ function HomePageInner() {
       maxHoldBars: r.priceEngine.maxHoldBars,
       breakoutTier: r.priceEngine.breakoutTier ?? 'B',
     };
+    // Same check the server applies: a trade it would reject can never be saved to the cloud.
+    const plausible: boolean = isPlausibleTrade(trade);
+    if (!plausible) {
+      const why = !(trade.target1 > trade.entryPrice) ? `target ₹${trade.target1} is not above entry ₹${trade.entryPrice}`
+        : !(trade.stopLoss < trade.entryPrice) ? `stop ₹${trade.stopLoss} is not below entry ₹${trade.entryPrice}`
+        : 'its prices or dates are out of range';
+      alert(`⛔ ${r.symbol} not tracked: ${why}. Rescan for fresh levels before tracking.`);
+      return;
+    }
     // Build next state from ref (not React state) so rapid multi-track accumulates correctly
     // even before React re-renders. Update ref + localStorage synchronously BEFORE setTrackedTrades
     // so beforeunload always captures the latest trades regardless of React's render timing.
+    // Re-tracking replaces this symbol's open position; delete the old one in the cloud too,
+    // otherwise it returns on reload as a duplicate open trade.
+    const replaced = trackedTradesRef.current.filter(t => t.symbol === r.symbol && t.status === 'open');
+    for (const old of replaced) deleteTradeFromCloud(old.symbol, old.id);
     const next = [...trackedTradesRef.current.filter(t => !(t.symbol === r.symbol && t.status === 'open')), trade];
     trackedTradesRef.current = next;
     try { const j = JSON.stringify(next); localStorage.setItem('qtp_tracked_trades', j); localStorage.setItem('qtp_tracked_trades_backup', j); } catch {}
@@ -3603,7 +3619,8 @@ function HomePageInner() {
 
   function removeTrade(trade: TrackedTrade) {
     deleteTradeFromCloud(trade.symbol, trade.id);
-    setTrackedTrades(prev => prev.filter(t => t !== trade));
+    // By id: after a cloud refresh the row's object is a different instance than `trade`.
+    setTrackedTrades(prev => prev.filter(t => (trade.id ? t.id !== trade.id : t !== trade)));
   }
 
   // Tooltip portal system — positions a single div at body level via JS
@@ -8741,7 +8758,7 @@ function HomePageInner() {
                                 try {
                                   const parsed = JSON.parse(ev.target?.result as string);
                                   if (Array.isArray(parsed) && parsed.length <= 500 && parsed.every(isPlausibleTrade)) {
-                                    const restored = parsed as TrackedTrade[];
+                                    const restored = ensureTradeIds(parsed as TrackedTrade[]);
                                     if (confirm(`Restore ${restored.length} trades? This will REPLACE current ${trackedTrades.length} trades.`)) {
                                       await deleteAllTradesFromCloud(); // purge old cloud rows before seeding
                                       setTrackedTrades(restored);

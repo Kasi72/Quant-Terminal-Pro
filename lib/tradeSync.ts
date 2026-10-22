@@ -1,5 +1,4 @@
 import type { TrackedTrade } from './tradeOps';
-import { isPlausibleTrade } from './tradeCodec';
 
 const LS_KEY = 'qtp_tracked_trades';
 const LS_BACKUP = 'qtp_tracked_trades_backup';
@@ -8,8 +7,11 @@ const LS_OWNER_TOKEN = 'qtp_owner_token';
 // Trades changed locally but not yet confirmed stored by the server. Cleared per trade only when
 // the server returns its id as stored, so an unsaved trade can never be lost on reload.
 const LS_UNSYNCED = 'qtp_trades_unsynced';
-// id -> fingerprint of the version the server last confirmed.
+// id -> fingerprint of the version the server last confirmed (or that was loaded from it).
 const LS_CONFIRMED = 'qtp_trades_confirmed';
+// Trade ids deleted locally whose cloud delete has not been confirmed yet.
+const LS_PENDING_DELETES = 'qtp_trades_pending_deletes';
+const PUT_CHUNK = 200; // server caps a request at 500 trades / 2 MB
 
 export interface TradeSyncStatus {
   pending: number;
@@ -59,24 +61,41 @@ function writeJson(key: string, value: unknown): boolean {
   try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; }
 }
 
-function computePending(trades: TrackedTrade[]): TrackedTrade[] {
-  const confirmed = readJson<Record<string, string>>(LS_CONFIRMED, {});
-  return trades.filter(t => t.id && confirmed[t.id] !== fingerprint(t));
-}
+const readConfirmed = () => readJson<Record<string, string>>(LS_CONFIRMED, {});
+const readPendingDeletes = () => new Set(readJson<string[]>(LS_PENDING_DELETES, []));
 
-export function getUnsyncedTrades(): TrackedTrade[] {
-  const list = readJson<unknown[]>(LS_UNSYNCED, []);
-  return Array.isArray(list) ? list.filter(isPlausibleOrRecoverable) : [];
-}
-
-function isPlausibleOrRecoverable(t: unknown): t is TrackedTrade {
+function isRecoverable(t: unknown): t is TrackedTrade {
   const x = t as Partial<TrackedTrade> | null;
   return !!x && typeof x.symbol === 'string' && typeof x.id === 'string' && (x.entryPrice ?? 0) > 0 && !!x.status && !!x.entryDate;
 }
 
+export function getUnsyncedTrades(): TrackedTrade[] {
+  const list = readJson<unknown[]>(LS_UNSYNCED, []);
+  return Array.isArray(list) ? list.filter(isRecoverable) : [];
+}
+
+// Ids with local changes the server has not confirmed. Local wins for these; cloud wins otherwise.
+export function getPendingIds(): Set<string> {
+  return new Set(getUnsyncedTrades().map(t => t.id!));
+}
+
+// True when this browser previously saw the trade stored in the cloud.
+export function wasConfirmed(id?: string): boolean {
+  return !!id && id in readConfirmed();
+}
+
+// Record cloud versions as the confirmed baseline so unchanged trades are never re-sent.
+// Re-sending a stale copy would overwrite newer server-side changes (e.g. the nightly update).
+export function markConfirmed(trades: TrackedTrade[]): void {
+  const confirmed = readConfirmed();
+  for (const t of trades) if (t.id) confirmed[t.id] = fingerprint(t);
+  writeJson(LS_CONFIRMED, confirmed);
+}
+
 // Local unsynced copies are newer than the cloud: replace by id, or append when the cloud lacks them.
 export function mergeUnsyncedInto(cloudTrades: TrackedTrade[]): { trades: TrackedTrade[]; recovered: number } {
-  const unsynced = getUnsyncedTrades();
+  const deleted = readPendingDeletes();
+  const unsynced = getUnsyncedTrades().filter(t => !deleted.has(t.id!));
   if (unsynced.length === 0) return { trades: cloudTrades, recovered: 0 };
   const byId = new Map(unsynced.map(t => [t.id!, t]));
   const merged = cloudTrades.map(t => (t.id && byId.has(t.id) ? byId.get(t.id)! : t));
@@ -102,16 +121,24 @@ function emit(patch: Partial<TradeSyncStatus>) {
   for (const fn of listeners) fn(lastStatus);
 }
 
+function httpError(status: number, fallback?: string): string {
+  if (status === 401) return 'Your login session expired. Log in again to save trades';
+  if (status === 403) return 'Owner token missing or wrong on this device';
+  return fallback ?? `Server error (HTTP ${status})`;
+}
+
 // ─── Load ───────────────────────────────────────────────────────────────────
 
+// Lenient on purpose: a stored trade that fails the strict write check must still be shown,
+// otherwise it silently disappears from the app while remaining in the database.
 export async function loadTradesFromCloud(): Promise<TrackedTrade[] | null> {
   try {
     const res = await fetch('/api/trades', { cache: 'no-store' });
     if (!res.ok) return null; // null = error (distinct from [] = intentionally empty)
     const body = await res.json() as { trades?: unknown[] };
-    return Array.isArray(body.trades)
-      ? body.trades.filter(isPlausibleTrade)
-      : null;
+    if (!Array.isArray(body.trades)) return null;
+    const deleted = readPendingDeletes();
+    return body.trades.filter(isRecoverable).filter(t => !deleted.has(t.id!));
   } catch {
     return null;
   }
@@ -152,51 +179,77 @@ function saveToLocal(trades: TrackedTrade[]): boolean {
   return ok;
 }
 
+// This tab's pending trades, plus unsynced entries another tab recorded for trades this tab
+// does not hold (two tabs must not erase each other's unsaved trades).
+function writeUnsynced(trades: TrackedTrade[]): { pending: TrackedTrade[]; ok: boolean } {
+  const confirmed = readConfirmed();
+  const deleted = readPendingDeletes();
+  const pending = trades.filter(t => t.id && !deleted.has(t.id) && confirmed[t.id] !== fingerprint(t));
+  const mine = new Set(trades.map(t => t.id));
+  const others = getUnsyncedTrades().filter(t => !mine.has(t.id) && !deleted.has(t.id!) && confirmed[t.id!] !== fingerprint(t));
+  const all = [...pending, ...others];
+  return { pending: all, ok: writeJson(LS_UNSYNCED, all) };
+}
+
+async function flushPendingDeletes(): Promise<string | null> {
+  const ids = [...readPendingDeletes()];
+  for (const id of ids) {
+    try {
+      const res = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
+      if (!res.ok) return httpError(res.status, 'A deleted trade could not be removed from the cloud yet');
+      const left = readPendingDeletes(); left.delete(id); writeJson(LS_PENDING_DELETES, [...left]);
+    } catch {
+      return 'Network error while deleting a trade';
+    }
+  }
+  return null;
+}
+
 let _syncing = false;
 let _pendingTrades: TrackedTrade[] | null = null;
 let _activeSync: Promise<void> | null = null;
 
-// Upsert all trades to Supabase + mirror to localStorage. Unconfirmed trades stay in the
-// unsynced list until the server reports each id as stored.
+// Mirror all trades to localStorage, then send only trades whose content changed since the server
+// last confirmed them. Unconfirmed trades stay in the unsynced list until stored.
 export async function syncTradesToCloud(input: TrackedTrade[]): Promise<void> {
   const trades = ensureTradeIds(input);
   const localOk = saveToLocal(trades);
-  const pending = computePending(trades);
-  const unsyncedOk = writeJson(LS_UNSYNCED, pending);
+  const { pending, ok: unsyncedOk } = writeUnsynced(trades);
   emit({ pending: pending.length, localSaveFailed: !localOk || !unsyncedOk });
   _pendingTrades = trades;
   if (_syncing) return _activeSync ?? Promise.resolve();
   _syncing = true;
   _activeSync = (async () => {
     while (_pendingTrades) {
-      const batch = _pendingTrades;
+      const latest = _pendingTrades;
       _pendingTrades = null;
-      const sentPrints = new Map(batch.map(t => [t.id!, fingerprint(t)]));
-      let body: { stored?: string[]; rejected?: TradeSyncStatus['rejected']; error?: string } = {};
-      try {
-        const res = await fetch('/api/trades', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Owner-Token': getOwnerToken() },
-          body: JSON.stringify({ trades: batch }),
-        });
-        body = await res.json().catch(() => ({}));
-        if (!res.ok && !Array.isArray(body.stored)) {
-          emit({ error: body.error ?? `Save failed (HTTP ${res.status})`, rejected: body.rejected ?? [] });
-          continue;
+      const deleteError = await flushPendingDeletes();
+      const { pending: toSend } = writeUnsynced(latest);
+      const rejected: TradeSyncStatus['rejected'] = [];
+      let error: string | null = deleteError;
+      for (let i = 0; i < toSend.length; i += PUT_CHUNK) {
+        const chunk = toSend.slice(i, i + PUT_CHUNK);
+        const sentPrints = new Map(chunk.map(t => [t.id!, fingerprint(t)]));
+        try {
+          const res = await fetch('/api/trades', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Owner-Token': getOwnerToken() },
+            body: JSON.stringify({ trades: chunk }),
+          });
+          const body = await res.json().catch(() => ({})) as { stored?: string[]; rejected?: TradeSyncStatus['rejected']; error?: string };
+          if (!res.ok && !Array.isArray(body.stored)) { error = httpError(res.status, body.error); break; }
+          const confirmed = readConfirmed();
+          for (const id of body.stored ?? []) { const fp = sentPrints.get(id); if (fp) confirmed[id] = fp; }
+          writeJson(LS_CONFIRMED, confirmed);
+          rejected.push(...(body.rejected ?? []));
+        } catch {
+          error = 'Network error while saving trades';
+          break;
         }
-      } catch (e) {
-        emit({ error: e instanceof Error ? e.message : 'Network error while saving trades' });
-        continue;
       }
-      const confirmed = readJson<Record<string, string>>(LS_CONFIRMED, {});
-      for (const id of body.stored ?? []) { const fp = sentPrints.get(id); if (fp) confirmed[id] = fp; }
-      for (const id of Object.keys(confirmed)) if (!sentPrints.has(id)) delete confirmed[id];
-      writeJson(LS_CONFIRMED, confirmed);
-      const latest = _pendingTrades ?? batch;
-      const stillPending = latest.filter(t => t.id && confirmed[t.id] !== fingerprint(t));
-      writeJson(LS_UNSYNCED, stillPending);
-      emit({ pending: stillPending.length, rejected: body.rejected ?? [], error: null });
-      if ((body.rejected?.length ?? 0) > 0) console.error('[tradeSync] rejected by server:', body.rejected);
+      const { pending: stillPending } = writeUnsynced(_pendingTrades ?? latest);
+      emit({ pending: stillPending.length, rejected, error });
+      if (rejected.length > 0) console.error('[tradeSync] rejected by server:', rejected);
     }
   })();
   try {
@@ -209,35 +262,24 @@ export async function syncTradesToCloud(input: TrackedTrade[]): Promise<void> {
   }
 }
 
-function forgetTrade(tradeId?: string) {
-  if (!tradeId) return;
-  writeJson(LS_UNSYNCED, getUnsyncedTrades().filter(t => t.id !== tradeId));
-  const confirmed = readJson<Record<string, string>>(LS_CONFIRMED, {});
-  delete confirmed[tradeId];
-  writeJson(LS_CONFIRMED, confirmed);
-}
-
 async function waitForSyncIdle(): Promise<void> {
   while (_activeSync) await _activeSync;
 }
 
-// Delete one trade from cloud by id. Symbol-only deletes would wipe that symbol's whole history.
+// Delete one trade by id. Queued locally first, so a failed request is retried on the next sync
+// and the trade cannot reappear from the cloud in the meantime. Symbol-only deletes are refused:
+// they would wipe that symbol's whole trade history.
 export async function deleteTradeFromCloud(symbol: string, tradeId?: string): Promise<void> {
   if (!tradeId) {
     console.error('[tradeSync] refusing symbol-wide delete without trade id:', symbol);
     return;
   }
-  forgetTrade(tradeId);
-  try {
-    await waitForSyncIdle();
-    const res = await fetch(`/api/trades?id=${encodeURIComponent(tradeId)}`, { method: 'DELETE', headers: { 'X-Owner-Token': getOwnerToken() } });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({} as { error?: string }));
-      console.error('[tradeSync] delete failed:', symbol, body.error ?? res.statusText);
-    }
-  } catch (e) {
-    console.error('[tradeSync] deleteTradeFromCloud error:', symbol, e);
-  }
+  const deletes = readPendingDeletes(); deletes.add(tradeId); writeJson(LS_PENDING_DELETES, [...deletes]);
+  writeJson(LS_UNSYNCED, getUnsyncedTrades().filter(t => t.id !== tradeId));
+  const confirmed = readConfirmed(); delete confirmed[tradeId]; writeJson(LS_CONFIRMED, confirmed);
+  await waitForSyncIdle();
+  const error = await flushPendingDeletes();
+  if (error) emit({ error });
 }
 
 // Delete all trades from cloud AND wipe localStorage so next load doesn't re-seed
@@ -259,5 +301,6 @@ export async function deleteAllTradesFromCloud(): Promise<void> {
   try { localStorage.setItem(LS_EMERGENCY, empty); } catch {}
   writeJson(LS_UNSYNCED, []);
   writeJson(LS_CONFIRMED, {});
+  writeJson(LS_PENDING_DELETES, []);
   emit({ pending: 0, rejected: [], error: null });
 }
