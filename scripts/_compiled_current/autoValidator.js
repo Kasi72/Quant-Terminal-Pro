@@ -99,9 +99,13 @@ function fiveBarSwingLow(candles, idx) {
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Execution contract:
-//  1. disasterStop is the hard broker stop. It is always stop-first and bypasses gates.
-//  2. stopLoss is an end-of-day review level before T1. A wick through it is not an
-//     executable stop. A confirmed review exit fills at the next session's open.
+//  1. Before T1 the only intraday stop is an emergency floor at 1.5x the hard-stop distance
+//     below entry (gap / crash protection). After T1 the hard/trail stop is intraday as before.
+//  2. Before T1 the hard stop (lower of stopLoss / disasterStop) is a CLOSE-based level: a wick
+//     through it is not an exit; a confirmed close below it fills at the next session's open.
+//     2023-26 replay, chart-pattern signals, +5% objective: +1.09%/trade vs +0.83% with the
+//     previous intraday disaster stop + tactical close review (scripts/research_regime_conviction.js).
+//     A Trail-A raise after day 10 still tightens this level.
 //  3. T1 books half the position. The remaining 50% stays protected by the
 //     frozen review/trail floor until T2; T2 activates the hard chandelier trail.
 //  4. G0-G9 are evaluated together. A close below the review level is shielded only
@@ -136,6 +140,8 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
     if (!(hardStop > 0) || !(riskPerShare > 0))
         return defaultResult;
     let dynamicStop = reviewStop || hardStop;
+    const initialReview = dynamicStop;
+    const emergencyFloor = entry - 1.5 * (entry - hardStop);
     const preEntryCandles = (options.preEntryCandles ?? [])
         .filter(c => c && Number.isFinite(c.h) && Number.isFinite(c.l) && Number.isFinite(c.c));
     const replayCandles = candlesSinceEntry
@@ -238,7 +244,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
         // force an immediate breakeven stop; the ARKADE 2026-06-22 replay showed that
         // doing so converts normal post-T1 pullbacks into false exits. T2 activates
         // the stronger target-floor/chandelier trail.
-        const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : hardStop;
+        const executableStop = t1Hit ? Math.max(hardStop, dynamicStop) : emergencyFloor;
         // Corporate-action guard: a single-bar drop of >50% from the entry price
         // cannot be a real stop event — it signals a split, demerger, or data error.
         // Log as SHIELDED and skip this bar so the trade stays open for manual review.
@@ -266,7 +272,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
                 dipPct: executableStop > 0 ? (executableStop - fill) / executableStop * 100 : 0,
                 triggerType: gapThroughHardStop ? 'gap_down' : 'intraday_low',
                 gatesTested: [{
-                        gate: t1Hit ? 'HARD Protective Trail' : 'HARD Disaster Stop',
+                        gate: t1Hit ? 'HARD Protective Trail' : 'HARD Emergency Floor',
                         passed: true,
                         reason: gapThroughHardStop
                             ? `Open ₹${open.toFixed(2)} crossed hard stop ₹${executableStop.toFixed(2)}; filled at open`
@@ -285,7 +291,10 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
         // Before T1, the tactical stop is reviewed on the completed candle. T1 is a
         // resting limit order, so a same-day T1 fill is valid unless the hard stop fired.
         const t1InRange = !t1Hit && effectiveT1 < Infinity && hi >= effectiveT1;
-        const reviewTouched = !t1Hit && dynamicStop > 0 && lo <= dynamicStop;
+        // Pre-T1 close level: the hard stop, unless the day-10 trail has already raised the review
+        // level above the original stop (then the trail governs).
+        const reviewLevel = dynamicStop > initialReview ? dynamicStop : hardStop;
+        const reviewTouched = !t1Hit && reviewLevel > 0 && lo <= reviewLevel;
         if (reviewTouched && !t1InRange) {
             const range = hi - lo;
             const closeLoc = range > 0 ? (close - lo) / range * 100 : 50;
@@ -294,17 +303,17 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const volRatio = avgV > 0 && vol > 0 ? vol / avgV : 0;
             const atr14 = computeATR14(history, histIdx);
             const obvSlope = obv5Slope(history, histIdx);
-            const dipBelowStop = (dynamicStop - lo) / dynamicStop * 100;
-            const closeDistanceAtr = atr14 > 0 ? Math.max(0, dynamicStop - close) / atr14 : Infinity;
-            const nearStop = close >= dynamicStop || closeDistanceAtr <= 0.30;
-            const closedAboveStop = close >= dynamicStop;
+            const dipBelowStop = (reviewLevel - lo) / reviewLevel * 100;
+            const closeDistanceAtr = atr14 > 0 ? Math.max(0, reviewLevel - close) / atr14 : Infinity;
+            const nearStop = close >= reviewLevel || closeDistanceAtr <= 0.30;
+            const closedAboveStop = close >= reviewLevel;
             const ch1 = prev ? close - prev.c : 0;
             const ch2 = prev2 && prev ? prev.c - prev2.c : 0;
             const rsiG = prev2 ? ((ch1 > 0 ? ch1 : 0) + (ch2 > 0 ? ch2 : 0)) / 2 : 0;
             const rsiL = prev2 ? ((ch1 < 0 ? -ch1 : 0) + (ch2 < 0 ? -ch2 : 0)) / 2 : 0;
             const rsi2 = !prev2 ? 50 : rsiL < 0.001 ? 100 : 100 - 100 / (1 + rsiG / rsiL);
             const buyerDefense = lwPct > 20 || closeLoc > 65;
-            const isSpring = atr14 > 0 && closedAboveStop && (dynamicStop - lo) <= 0.5 * atr14;
+            const isSpring = atr14 > 0 && closedAboveStop && (reviewLevel - lo) <= 0.5 * atr14;
             const isCapitulation = rsi2 < 10 && nearStop && buyerDefense;
             const stabilizing = !!prev && close >= prev.c && nearStop;
             const isHammer = lwPct >= 40 && closeLoc >= 55 && nearStop;
@@ -314,8 +323,8 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const isDoji = atr14 > 0 && range < 0.5 * atr14 && closeDistanceAtr <= 0.15;
             const isNarrowSweep = atr14 > 0 && range < 0.75 * atr14 && (closedAboveStop || isDoji);
             const isLowVolSweep = hasVolume && volRatio < 0.65 && nearStop;
-            const isolatedRed = !!prev && (prev.o ?? prev.c) <= prev.c && prev.c > dynamicStop && nearStop;
-            const stopToLowRange = Math.max(0, dynamicStop - lo);
+            const isolatedRed = !!prev && (prev.o ?? prev.c) <= prev.c && prev.c > reviewLevel && nearStop;
+            const stopToLowRange = Math.max(0, reviewLevel - lo);
             const recoveryPct = stopToLowRange > 0 ? (close - lo) / stopToLowRange * 100 : 0;
             const strongRecovery = recoveryPct > 60 && nearStop;
             const sw5AtEntry = trade.sw5LowAtEntry ?? 0;
@@ -327,7 +336,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             const structureIntact = structureKnown && close >= structureRef * 0.997;
             const structureBroken = structureKnown && !structureIntact;
             const logEntry = {
-                day: i + 1, date: cDate, close, low: lo, stopLevel: dynamicStop,
+                day: i + 1, date: cDate, close, low: lo, stopLevel: reviewLevel,
                 dipPct: dipBelowStop, triggerType: 'intraday_low',
                 gatesTested: [
                     { gate: 'G0 Spring Shield', passed: isSpring, reason: isSpring ? 'Shallow ATR-relative wick and close recovered above review stop' : 'No shallow close-above-stop spring' },
@@ -362,7 +371,7 @@ function validateTrade(trade, candlesSinceEntry, options = {}) {
             }
             logEntry.result = 'EXIT_PENDING';
             gateLog.push(logEntry);
-            pendingReviewExit = { signalDate: cDate, stopLevel: dynamicStop };
+            pendingReviewExit = { signalDate: cDate, stopLevel: reviewLevel };
             continue;
         }
         // ════════════════════════════════════════════════════════════════════════

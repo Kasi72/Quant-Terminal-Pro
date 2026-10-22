@@ -109,6 +109,32 @@ if (!isMainThread) {
           if (b.c < stop) { vx = j + 1 < fwd.length ? fwd[j + 1].o : b.c; break; }
         }
         variants[`close|tp${tp}`] = [Math.max(-25, Math.min(25, (vx - entry) / entry * 100)), (entry - stop) / entry * 100];
+        // Same, plus an intraday emergency floor at 1.5x the stop distance below entry (gap protection).
+        const floor = entry - 1.5 * (entry - stop);
+        let fx = fwd[fwd.length - 1].c;
+        for (let j = 0; j < fwd.length; j++) {
+          const b = fwd[j];
+          if (b.o <= floor) { fx = b.o; break; }
+          if (b.l <= floor) { fx = floor; break; }
+          if (b.o >= vTgt) { fx = b.o; break; }
+          if (b.h >= vTgt) { fx = vTgt; break; }
+          if (b.c < stop) { fx = j + 1 < fwd.length ? fwd[j + 1].o : b.c; break; }
+        }
+        variants[`closeFloor|tp${tp}`] = [Math.max(-25, Math.min(25, (fx - entry) / entry * 100)), (entry - stop) / entry * 100];
+        // As the live validator works (simplified, no shield gates): a CLOSE below the review stop
+        // (tactical) exits next open; the disaster stop is an intraday hard stop.
+        const review = pe.tacticalStop > 0 && pe.tacticalStop < entry ? pe.tacticalStop : stop;
+        const hard = pe.disasterStop > 0 && pe.disasterStop < entry ? Math.min(pe.disasterStop, review) : review;
+        let lx = fwd[fwd.length - 1].c;
+        for (let j = 0; j < fwd.length; j++) {
+          const b = fwd[j];
+          if (b.o <= hard) { lx = b.o; break; }
+          if (b.l <= hard) { lx = hard; break; }
+          if (b.o >= vTgt) { lx = b.o; break; }
+          if (b.h >= vTgt) { lx = vTgt; break; }
+          if (b.c < review) { lx = j + 1 < fwd.length ? fwd[j + 1].o : b.c; break; }
+        }
+        variants[`liveLike|tp${tp}`] = [Math.max(-25, Math.min(25, (lx - entry) / entry * 100)), (entry - hard) / entry * 100];
       }
       out.push({
         d: day, y: day.slice(0, 4), stage: r.stage, watch, ps: r.paramSetKey, arch: r.archetypeType, src,
