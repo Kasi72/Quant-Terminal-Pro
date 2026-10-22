@@ -50,12 +50,13 @@ import { fetchSectorIndexData, computeSectorFlowScores, sectorFlowBadgeColor, se
 import { fetchBulkFlowScores, bulkFlowConvictionBoost, bulkFlowLabel, bulkFlowColor, type BulkFlowScore, type BulkIngestionHealth } from '@/lib/bulkFlow';
 import PBFBAnalyzer from '@/components/PBFBAnalyzer';
 import {
-  analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty, ensurePriceLevels,
+  analyzeStock, analyzeStockMulti, analyzeStockWithLookback, computeRSvsNifty,
   computeClusterBreakdown, generateDemoData, detectMonster, PARAM_SETS, PARAM_SET_OPTIONS,
   computeSelfAdaptiveTrend, getArchetypeExitDefaults,
   type AnalysisResult, type ParamSetKey, type StageRating, type Candle,
   type SelfAdaptiveTrendResult,
 } from '@/lib/stockEngine';
+import { applyRelativeStrength, applyPostScanRules, niftyRegimeMultiplier } from '@/lib/marketContext';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { SECTOR_PRESETS } from '@/lib/sectorPresets';
 import { THEMATIC_PRESETS } from '@/lib/thematicPresets';
@@ -2392,12 +2393,7 @@ function HomePageInner() {
       }
     }
     // Item 7: Nifty 5d regime gate — bull market boosts UC probability, bear dampens it
-    let niftyRegimeMult = 1.0;
-    if (niftyData && niftyData.length >= 6) {
-      const nc = niftyData;
-      const ret5d = (nc[nc.length - 1].c - nc[nc.length - 6].c) / nc[nc.length - 6].c * 100;
-      niftyRegimeMult = ret5d > 2 ? 1.10 : ret5d < -2 ? 0.85 : 1.0;
-    }
+    const niftyRegimeMult = niftyRegimeMultiplier(niftyData);
     // Start ETA clock only after the Nifty/VIX prefetch — otherwise those 3-5s inflate perStock estimate
     setScanStartTime(Date.now());
 
@@ -2419,32 +2415,8 @@ function HomePageInner() {
         }
         // Monster scan
         result.monster = detectMonster(candles, candles.length - 1, result);
-        // Feature #4: compute RS vs Nifty (20-day + 63-day quarter RS)
-        if (niftyData && niftyData.length > 20) {
-          const rs20 = computeRSvsNifty(candles, niftyData, 20);
-          const rs63 = niftyData.length > 63 && candles.length > 63
-            ? computeRSvsNifty(candles, niftyData, 63) : undefined;
-          result.momentum = {
-            ...result.momentum,
-            rsNifty20: Number.isFinite(rs20) ? rs20 : 1.0,
-            rsNifty63: rs63 !== undefined && Number.isFinite(rs63) ? rs63 : undefined,
-          };
-          // RS 63-day stage modifier: strong RS lifts EARLY_INFLECTION; weak RS demotes one tier
-          if (rs63 !== undefined && Number.isFinite(rs63)) {
-            const TIER_DOWN: Record<string, string> = {
-              ULTRA_STRONG_BUY: 'STRONG_BUY', STRONG_BUY: 'BUY', BUY: 'PRE_BREAKOUT',
-              PRE_BREAKOUT: 'EARLY_INFLECTION', EARLY_INFLECTION: 'COMPRESSION_WATCH',
-              COMPRESSION_WATCH: 'NO_SIGNAL', NO_SIGNAL: 'NO_SIGNAL',
-            };
-            if (rs63 >= 1.15 && result.stage === 'EARLY_INFLECTION') {
-              result.stage = 'PRE_BREAKOUT';   // leading stock confirms setup
-              result.stageSource = 'rs63';
-              ensurePriceLevels(result, candles);
-            } else if (rs63 < 0.75 && result.stage !== 'NO_SIGNAL') {
-              result.stage = TIER_DOWN[result.stage] as typeof result.stage;
-            }
-          }
-        }
+        // RS vs Nifty (20d + 63d) and the 63-day stage modifier — shared with the nightly batch
+        applyRelativeStrength(result, candles, niftyData);
         // Clenow score computed before slice while full candle array available
         if (candles.length >= 130) {
           const cl = computeClenowScore(candles, 125);
@@ -2518,22 +2490,8 @@ function HomePageInner() {
         // XGBoost RETIRED 2026-09-24: uc_logger_xgb_report AUC=0.5804, Prec@top10%=2.2% < 3.4% base rate — anti-predictive.
         // loggerXgbScore kept on result for future audit/retrain. ucScore stays as pure formula output.
         void loggerXgbPred; void ucXgbPred;
-        // Item 7: apply Nifty market regime multiplier after formula+XGB blend
-        if (niftyRegimeMult !== 1.0 && result.ucScore != null) {
-          result.ucScore = Math.min(100, Math.round(result.ucScore * niftyRegimeMult));
-        }
-        // RS gate (research_remaining.js, OOS 2023-26). Skipped without Nifty data: default rsNifty20=1.0 would suppress everything.
-        // EMA Stack needs rs>=1.0: PF 0.55→1.87, positive in both train (<2025) and test (>=2025). Stricter rs>=1.03 tested worse (PF 1.13).
-        if (niftyData && niftyData.length > 20) {
-          const rs = result.momentum.rsNifty20;
-          if (result.archetypeType === 'VolumeFootprint' && result.stage === 'PRE_BREAKOUT' && rs < 1.05) return;
-          if (result.archetypeType === 'EMAStack' && rs < 1.0) return;
-        }
-        // CC Precision PRE_BREAKOUT has no OOS edge: 504 signals, every exit/feature gate tuned on 2023-24 is negative on 2025-26. Watch-only.
-        if (result.paramSetKey === 'optimized_highprecision_15plus' && result.archetypeType === 'CompressionCoil' && result.stage === 'PRE_BREAKOUT') {
-          result.stage = 'EARLY_INFLECTION';
-          (result as any).ccWatchOnly = true;
-        }
+        // Regime multiplier, RS gates and CC watch-only — shared with the nightly batch
+        if (applyPostScanRules(result, niftyData, niftyRegimeMult)) return;
         newResults.push(result);
         // Brain V3 goldmine: symbol-level WR blacklist from live brainPrior trade history
         { const _sd = (brainPrior.bySymbol as Record<string, {n: number; wr: number; avgPnl: number}>)[result.symbol];

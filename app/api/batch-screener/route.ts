@@ -4,6 +4,7 @@ import { analyzeStockMulti } from '@/lib/stockEngine';
 import { scoreSignalBatch } from '@/lib/jevScorer';
 import { NIFTY_PRESETS } from '@/lib/niftyPresets';
 import { getMarketSessionDate } from '@/lib/marketSession';
+import { applyRelativeStrength, applyPostScanRules, niftyRegimeMultiplier } from '@/lib/marketContext';
 import type { Candle } from '@/lib/compute';
 
 export const dynamic = 'force-dynamic';
@@ -113,6 +114,13 @@ export async function GET(req: NextRequest) {
   let fetched = 0;
   let failed = 0;
 
+  // Same market context as the live screener (RS promotion/demotion, regime multiplier, RS gates).
+  // Without Nifty data these steps are skipped, exactly as in the screener.
+  const niftyJson = await fetchYahoo('^NSEI');
+  const nifty = niftyJson ? parseRaw(niftyJson) : null;
+  const regimeMult = niftyRegimeMultiplier(nifty);
+  let gated = 0;
+
   await runWithConcurrency(symbols, 6, async (sym) => {
     const json = await fetchYahoo(`${sym}.NS`);
     if (!json) { failed++; return; }
@@ -130,6 +138,14 @@ export async function GET(req: NextRequest) {
 
     const result = analyzeStockMulti(candles, sym);
     fetched++;
+    applyRelativeStrength(result.best, candles, nifty);
+    const gate = applyPostScanRules(result.best, nifty, regimeMult);
+    if (gate) {
+      // The screener hides gated stocks; store them as NO_SIGNAL so the restore hides them too.
+      result.best.stage = 'NO_SIGNAL';
+      (result.best as typeof result.best & { marketGate?: string }).marketGate = gate;
+      gated++;
+    }
 
     rows.push({
       session_date:    sessionDate,
@@ -181,5 +197,7 @@ export async function GET(req: NextRequest) {
     failed,
     signals,
     upserted,
+    niftyLoaded: !!nifty,
+    gated,
   });
 }
