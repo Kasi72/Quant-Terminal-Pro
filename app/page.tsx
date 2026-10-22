@@ -304,12 +304,12 @@ function isActionableSignal(r: AnalysisResult): boolean {
   return r.stage === 'BUY' || r.stage === 'STRONG_BUY' || r.stage === 'ULTRA_STRONG_BUY';
 }
 
-// Stage reached by UC-score promotion with no chart pattern behind it (or CC Precision): watch-only.
-// 2023-26 replay: UC promotions 55.8% +5% hit rate with negative average; live watch-stage trades 1/6.
-const NO_PATTERN_STAGES = new Set<StageRating>(['NO_SIGNAL', 'COMPRESSION_WATCH', 'EARLY_INFLECTION']);
+// Stage reached by a UC-score promotion (or CC Precision): watch-only. 2023-26 replay, +5% hit rate:
+// UC from no pattern 56.2% (+0.22% avg), UC upgrade of a pattern PRE_BREAKOUT to BUY 54.9% (-1.03%),
+// vs chart-pattern signals positive in every year. Live watch-stage trades won 1/6.
 function isWatchOnlySignal(r: AnalysisResult): boolean {
   if ((r as AnalysisResult & { ccWatchOnly?: boolean }).ccWatchOnly) return true;
-  if (r.stageSource === 'uc_score') return !r.patternStage || NO_PATTERN_STAGES.has(r.patternStage);
+  if (r.stageSource === 'uc_score') return true;
   if (r.stageSource) return false;
   // Results saved before stageSource existed: no pattern condition met but a UC score at the promotion floor.
   return r.conditionsMet === 0 && r.inflectionScore === 0 && (r.ucScore ?? 0) >= 45 && r.stage !== 'NO_SIGNAL';
@@ -3506,7 +3506,12 @@ function HomePageInner() {
       return;
     }
     if (isWatchOnlySignal(r)) {
-      alert(`👁 ${r.symbol} is watch-only: its stage comes from ${(r as AnalysisResult & { ccWatchOnly?: boolean }).ccWatchOnly ? 'CC Precision, which has no out-of-sample edge' : `a UC-score promotion (UC ${r.ucScore?.toFixed(0) ?? '?'}) with no chart pattern behind it`}. Over 2023-26 these hit +5% only ~56% of the time with a negative average. Not tracked.`);
+      const why = (r as AnalysisResult & { ccWatchOnly?: boolean }).ccWatchOnly
+        ? 'CC Precision, which has no out-of-sample edge'
+        : r.patternStage && r.patternStage !== r.stage && r.conditionsMet > 0
+          ? `a UC-score upgrade (UC ${r.ucScore?.toFixed(0) ?? '?'}) of a ${r.patternStage.replace('_', '-')} pattern`
+          : `a UC-score promotion (UC ${r.ucScore?.toFixed(0) ?? '?'}) with no chart pattern behind it`;
+      alert(`👁 ${r.symbol} is watch-only: its stage comes from ${why}. Over 2023-26 these hit +5% only ~55-56% of the time with a flat-to-negative average. Not tracked.`);
       return;
     }
     // Surgical gate: hard-reject before save — belt-and-suspenders after display filter
@@ -11298,7 +11303,7 @@ function HomePageInner() {
                 // Results saved before stageSource existed: no pattern condition met but a UC score at or
                 // above the promotion floor means the stage came from the UC score.
                 const basis = r.stageSource ?? (r.conditionsMet === 0 && r.inflectionScore === 0 && (r.ucScore ?? 0) >= 45 && r.stage !== 'NO_SIGNAL' ? 'uc_score' : 'pattern');
-                const tiles: [string, string][] = basis === 'pattern'
+                const tiles: [string, string][] = basis === 'pattern' || r.conditionsMet > 0
                   ? [
                       ['Infl. Score', r.inflectionScore.toFixed(0)],
                       ['Prec. Score', r.ultraPrecisionScore.toFixed(0)],
@@ -11318,8 +11323,10 @@ function HomePageInner() {
                         {basis === 'rs63'
                           ? 'Promoted by 63-day relative strength vs Nifty.'
                           : `Promoted by UC score ${r.ucScore?.toFixed(0) ?? ''}.`}{' '}
-                        No chart pattern matched, so pattern scores don&apos;t apply.
-                        {isWatchOnlySignal(r) && <span className="block mt-1 text-amber-400/90">👁 Watch-only: UC promotions without a pattern hit +5% only ~56% of the time (2023-26), so tracking is disabled.</span>}
+                        {r.conditionsMet > 0 && r.patternStage
+                          ? `The chart pattern alone rated it ${STAGE_CONFIG[r.patternStage].label}.`
+                          : "No chart pattern matched, so pattern scores don't apply."}
+                        {isWatchOnlySignal(r) && <span className="block mt-1 text-amber-400/90">👁 Watch-only: UC-score promotions hit +5% only ~55-56% of the time (2023-26), so tracking is disabled.</span>}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2 mb-4">
