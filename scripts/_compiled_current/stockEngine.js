@@ -3932,6 +3932,7 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
             result.volSurgeScore = volSurgeScore;
             result.weeklyCloseLoc = weeklyCloseLoc;
             result.magnetFlag = magnetFlag;
+            const patternStage = result.stage;
             const _bp = result.bodyPct ?? 50;
             const _uw = result.upperWickPct ?? 50;
             result.morphType = (_bp < 25 && _uw < 20) ? 'coiled_spring'
@@ -4005,12 +4006,17 @@ function analyzeStock(candles, paramSetKey, enrich = true, forensicMode = false)
                     result.stage = 'EARLY_INFLECTION';
                 }
             }
+            result.patternStage = patternStage;
+            result.stageSource = STAGE_RANK[result.stage] > STAGE_RANK[patternStage] ? 'uc_score' : 'pattern';
         }
         catch { /* keep undefined */ }
     }
     return ensurePriceLevels(result, candles);
 }
 const ACTIONABLE_STAGES = new Set(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
+const STAGE_RANK = {
+    NO_SIGNAL: 0, COMPRESSION_WATCH: 1, EARLY_INFLECTION: 2, PRE_BREAKOUT: 3, BUY: 4, STRONG_BUY: 5, ULTRA_STRONG_BUY: 6,
+};
 const ARCH_PRICE_HINT = {
     VolumeFootprint: 'VF', CompressionCoil: 'CC', MomentumPocket: 'MP', EMAStack: 'EMA',
     PerfectStorm: 'PS', ORS: 'ORS', CircuitBreaker: 'CB',
