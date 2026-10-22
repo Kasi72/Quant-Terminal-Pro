@@ -201,6 +201,10 @@ export interface AnalysisResult {
   orsConfirmed?: boolean;   // true = green-confirmation candle fired (entry tomorrow open)
   // Phase 2 — Momentum Archetype system
   archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout' | 'CircuitBreaker';
+  // What set the stage: the chart-pattern check, or a later promotion by UC score / 63-day RS.
+  // Promoted stocks matched no pattern, so pattern scores (inflection, precision, conditions) are 0 by design.
+  stageSource?: 'pattern' | 'uc_score' | 'rs63';
+  patternStage?: StageRating;  // stage the pattern check alone produced, before promotion
   confluenceScore?: number;   // 0–6: how many of the 6 archetypes fire on this stock
   confluenceFlags?: {
     volumeFootprint: boolean;
@@ -4482,6 +4486,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
       (result as any).volSurgeScore = volSurgeScore;
       (result as any).weeklyCloseLoc= weeklyCloseLoc;
       (result as any).magnetFlag    = magnetFlag;
+      const patternStage = result.stage;
       const _bp = result.bodyPct ?? 50;
       const _uw = result.upperWickPct ?? 50;
       (result as any).morphType = (_bp < 25 && _uw < 20) ? 'coiled_spring'
@@ -4548,6 +4553,8 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
           result.stage = 'EARLY_INFLECTION';
         }
       }
+      result.patternStage = patternStage;
+      result.stageSource = STAGE_RANK[result.stage] > STAGE_RANK[patternStage] ? 'uc_score' : 'pattern';
     } catch { /* keep undefined */ }
   }
 
@@ -4555,6 +4562,9 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
 }
 
 const ACTIONABLE_STAGES = new Set<StageRating>(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
+const STAGE_RANK: Record<StageRating, number> = {
+  NO_SIGNAL: 0, COMPRESSION_WATCH: 1, EARLY_INFLECTION: 2, PRE_BREAKOUT: 3, BUY: 4, STRONG_BUY: 5, ULTRA_STRONG_BUY: 6,
+};
 const ARCH_PRICE_HINT: Record<string, string> = {
   VolumeFootprint: 'VF', CompressionCoil: 'CC', MomentumPocket: 'MP', EMAStack: 'EMA',
   PerfectStorm: 'PS', ORS: 'ORS', CircuitBreaker: 'CB',

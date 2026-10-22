@@ -2431,6 +2431,7 @@ function HomePageInner() {
             };
             if (rs63 >= 1.15 && result.stage === 'EARLY_INFLECTION') {
               result.stage = 'PRE_BREAKOUT';   // leading stock confirms setup
+              result.stageSource = 'rs63';
               ensurePriceLevels(result, candles);
             } else if (rs63 < 0.75 && result.stage !== 'NO_SIGNAL') {
               result.stage = TIER_DOWN[result.stage] as typeof result.stage;
@@ -11303,19 +11304,45 @@ function HomePageInner() {
                 {STAGE_CONFIG[selectedResult.stage].label}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {([
-                  ['Infl. Score', selectedResult.inflectionScore.toFixed(0)],
-                  ['Prec. Score', selectedResult.ultraPrecisionScore.toFixed(0)],
-                  ['Confidence',  selectedResult.confidence.toFixed(0) + '%'],
-                  ['Conditions',  `${selectedResult.conditionsMet} / ${selectedResult.totalConditions}`],
-                ] as [string, string][]).map(([label, val]) => (
-                  <div key={label} className="bg-slate-800/60 rounded px-2.5 py-2">
-                    <div className="text-xs text-slate-500">{label}</div>
-                    <div className="text-sm font-semibold text-slate-200 mt-0.5">{val}</div>
-                  </div>
-                ))}
-              </div>
+              {(() => {
+                const r = selectedResult;
+                // Results saved before stageSource existed: no pattern condition met but a UC score at or
+                // above the promotion floor means the stage came from the UC score.
+                const basis = r.stageSource ?? (r.conditionsMet === 0 && r.inflectionScore === 0 && (r.ucScore ?? 0) >= 45 && r.stage !== 'NO_SIGNAL' ? 'uc_score' : 'pattern');
+                const tiles: [string, string][] = basis === 'pattern'
+                  ? [
+                      ['Infl. Score', r.inflectionScore.toFixed(0)],
+                      ['Prec. Score', r.ultraPrecisionScore.toFixed(0)],
+                      ['Confidence',  r.confidence.toFixed(0) + '%'],
+                      ['Conditions',  `${r.conditionsMet} / ${r.totalConditions}`],
+                    ]
+                  : [
+                      ['UC Score',     r.ucScore != null ? r.ucScore.toFixed(0) : '—'],
+                      ['RS vs Nifty',  r.momentum?.rsNifty63 != null ? `${r.momentum.rsNifty63.toFixed(2)} · 63d` : `${(r.momentum?.rsNifty20 ?? 1).toFixed(2)} · 20d`],
+                      ['RSI(2)',       r.rsi2 != null ? r.rsi2.toFixed(0) : '—'],
+                      ['Pattern',      `${r.conditionsMet} / ${r.totalConditions} met`],
+                    ];
+                return (
+                  <>
+                    {basis !== 'pattern' && (
+                      <div className="text-xs text-slate-400 bg-slate-800/40 border border-slate-700/60 rounded px-2.5 py-1.5 mb-2">
+                        {basis === 'rs63'
+                          ? 'Promoted by 63-day relative strength vs Nifty.'
+                          : `Promoted by UC score ${r.ucScore?.toFixed(0) ?? ''}.`}{' '}
+                        No chart pattern matched, so pattern scores don&apos;t apply.
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {tiles.map(([label, val]) => (
+                        <div key={label} className="bg-slate-800/60 rounded px-2.5 py-2">
+                          <div className="text-xs text-slate-500">{label}</div>
+                          <div className="text-sm font-semibold text-slate-200 mt-0.5">{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Watchlist star + Signal Age — watch button owner-only */}
               <div className="flex items-center gap-2 mb-3">
