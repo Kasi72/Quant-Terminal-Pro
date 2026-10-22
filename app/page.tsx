@@ -304,8 +304,28 @@ function isActionableSignal(r: AnalysisResult): boolean {
   return r.stage === 'BUY' || r.stage === 'STRONG_BUY' || r.stage === 'ULTRA_STRONG_BUY';
 }
 
+// Stage reached by UC-score promotion with no chart pattern behind it (or CC Precision): watch-only.
+// 2023-26 replay: UC promotions 55.8% +5% hit rate with negative average; live watch-stage trades 1/6.
+const NO_PATTERN_STAGES = new Set<StageRating>(['NO_SIGNAL', 'COMPRESSION_WATCH', 'EARLY_INFLECTION']);
+function isWatchOnlySignal(r: AnalysisResult): boolean {
+  if ((r as AnalysisResult & { ccWatchOnly?: boolean }).ccWatchOnly) return true;
+  if (r.stageSource === 'uc_score') return !r.patternStage || NO_PATTERN_STAGES.has(r.patternStage);
+  if (r.stageSource) return false;
+  // Results saved before stageSource existed: no pattern condition met but a UC score at the promotion floor.
+  return r.conditionsMet === 0 && r.inflectionScore === 0 && (r.ucScore ?? 0) >= 45 && r.stage !== 'NO_SIGNAL';
+}
+
+// Ranking: chart-pattern BUY+ first (replay 64-67% / live best), pattern PRE_BREAKOUT next,
+// RS63-promoted PRE_BREAKOUT last (replay 62%, no edge over baseline). Watch-only = 0.
+function signalQualityTier(r: AnalysisResult): number {
+  if (isWatchOnlySignal(r)) return 0;
+  if (r.stageSource === 'rs63') return 1;
+  return r.stage === 'PRE_BREAKOUT' ? 2 : 3;
+}
+
 function isTradePromotedSignal(r: AnalysisResult): boolean {
   if (!isActionableSignal(r)) return false;
+  if (isWatchOnlySignal(r)) return false;
   if (r.tradePromoted === false) return false;
   if (r.tradePromoted === true) return true;
   return true;
@@ -3467,9 +3487,9 @@ function HomePageInner() {
   const topPicks = useMemo(() => {
     const buySet = new Set<StageRating>(['ULTRA_STRONG_BUY', 'STRONG_BUY', 'BUY', 'PRE_BREAKOUT']);
     return [...results]
-      .filter(r => buySet.has(r.stage) && !isSurgicallyBlockedSignal(r))
-      .map(r => ({ r, score: computeEdgeScore(r) }))
-      .sort((a, b) => b.score - a.score)
+      .filter(r => buySet.has(r.stage) && !isSurgicallyBlockedSignal(r) && !isWatchOnlySignal(r))
+      .map(r => ({ r, tier: signalQualityTier(r), score: computeEdgeScore(r) }))
+      .sort((a, b) => b.tier - a.tier || b.score - a.score)
       .slice(0, 8)
       .map(x => x.r);
   }, [results]);
@@ -3483,6 +3503,10 @@ function HomePageInner() {
     // saved local copy with just this trade.
     if (!tradesLoadedRef.current) {
       alert('Your tracked trades are still loading. Try again in a moment.');
+      return;
+    }
+    if (isWatchOnlySignal(r)) {
+      alert(`👁 ${r.symbol} is watch-only: its stage comes from ${(r as AnalysisResult & { ccWatchOnly?: boolean }).ccWatchOnly ? 'CC Precision, which has no out-of-sample edge' : `a UC-score promotion (UC ${r.ucScore?.toFixed(0) ?? '?'}) with no chart pattern behind it`}. Over 2023-26 these hit +5% only ~56% of the time with a negative average. Not tracked.`);
       return;
     }
     // Surgical gate: hard-reject before save — belt-and-suspenders after display filter
@@ -11295,6 +11319,7 @@ function HomePageInner() {
                           ? 'Promoted by 63-day relative strength vs Nifty.'
                           : `Promoted by UC score ${r.ucScore?.toFixed(0) ?? ''}.`}{' '}
                         No chart pattern matched, so pattern scores don&apos;t apply.
+                        {isWatchOnlySignal(r) && <span className="block mt-1 text-amber-400/90">👁 Watch-only: UC promotions without a pattern hit +5% only ~56% of the time (2023-26), so tracking is disabled.</span>}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2 mb-4">
