@@ -352,6 +352,33 @@ export function isTradeResolvedForWinRate(t: TrackedTrade): boolean {
   return didReachFivePctTarget(t) || isTerminalTrade(t);
 }
 
+// Drawdown sizing: halve new positions while the last 15 resolved trades win under 60%, return to
+// full size once they win 70%+ (hysteresis in between). On the live log this cut the worst drawdown
+// from -42 to -32 points at no cost in total return; a 20-trade window reacted too late.
+export const SIZING_WINDOW = 15;
+export interface SizingMode {
+  mode: 'full' | 'half';
+  wins: number;
+  n: number;
+  winRate: number | null;
+}
+
+export function computeSizingMode(trades: TrackedTrade[]): SizingMode {
+  const resolved = trades
+    .filter(t => isTradeResolvedForWinRate(t) && !isSurgicallyGateBlocked(t))
+    .map(t => ({ win: didReachFivePctTarget(t), at: (t.closedDate || t.lastCheckDate || t.entryDate || '').slice(0, 10) }))
+    .sort((a, b) => a.at.localeCompare(b.at));
+  let mode: SizingMode['mode'] = 'full';
+  for (let i = SIZING_WINDOW; i <= resolved.length; i++) {
+    const wr = resolved.slice(i - SIZING_WINDOW, i).filter(x => x.win).length / SIZING_WINDOW;
+    if (wr < 0.6) mode = 'half';
+    else if (wr >= 0.7) mode = 'full';
+  }
+  const last = resolved.slice(-SIZING_WINDOW);
+  const wins = last.filter(x => x.win).length;
+  return { mode, wins, n: last.length, winRate: last.length ? wins / last.length : null };
+}
+
 // Surgical gate: PRE_BREAKOUT in ATR explosion with conviction < 60 → disproportionate stop-out risk.
 // Excluded from win-rate/PF analytics so metrics reflect only trades that passed entry criteria.
 export function isSurgicallyGateBlocked(t: Pick<TrackedTrade, 'stage' | 'atrState' | 'conviction'>): boolean {

@@ -98,6 +98,18 @@ if (!isMainThread) {
         const pnl = Math.max(-25, Math.min(25, (vx - entry) / entry * 100));
         variants[`${cap ? 'cap' + cap : 'native'}|tp${tp}`] = [pnl, (entry - vStop) / entry * 100];
       }
+      // Closing-price stop: a day that CLOSES below the stop exits at the next open (intraday wicks ignored).
+      for (const tp of [5, 7, 10]) {
+        const vTgt = entry * (1 + tp / 100);
+        let vx = fwd[fwd.length - 1].c;
+        for (let j = 0; j < fwd.length; j++) {
+          const b = fwd[j];
+          if (b.o >= vTgt) { vx = b.o; break; }
+          if (b.h >= vTgt) { vx = vTgt; break; }
+          if (b.c < stop) { vx = j + 1 < fwd.length ? fwd[j + 1].o : b.c; break; }
+        }
+        variants[`close|tp${tp}`] = [Math.max(-25, Math.min(25, (vx - entry) / entry * 100)), (entry - stop) / entry * 100];
+      }
       out.push({
         d: day, y: day.slice(0, 4), stage: r.stage, watch, ps: r.paramSetKey, arch: r.archetypeType, src,
         pstage: r.patternStage || r.stage,
@@ -155,7 +167,7 @@ if (!isMainThread) {
   // Exit geometry: per variant, all actionable and pattern-only
   out('\n## Exit geometry (stop cap x target) — pnl clipped to ±25%');
   const vkeys = Object.keys(A[0]?.variants || {});
-  for (const [label, set] of [['ALL actionable', A], ['pattern + rs63 (no uc)', A.filter(t => t.src !== 'uc_score')]]) {
+  for (const [label, set] of [['ALL actionable', A], ['pattern + rs63 (no uc)', A.filter(t => t.src !== 'uc_score')], ['PATTERN ONLY', A.filter(t => t.src === 'pattern')]]) {
     out(`  ${label}`);
     for (const k of vkeys) {
       const v = set.map(t => t.variants[k]);

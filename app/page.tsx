@@ -67,7 +67,7 @@ import brainPrior from '@/lib/brainPrior.json';
 import {
   generateTradeSheet, tradeSheetToClipboard, computeWinRateStats, isSurgicallyGateBlocked, isStagnantTrade, isDeepEarlyMaeTrade, getLiveDaysHeld,
   computeRollingWR, computeEquityCurveR, computeArchetypeBreakdown, computeMonthlyPerf, computeTierTargetBreakdown,
-  didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate,
+  didReachFivePctTarget, getFivePctObjectivePnlPct, getFivePctObjectiveR, getTradeHardStop, getTradeRiskPerShare, getTradeMaePct, getTradeMaeR, getTradeMfePct, getTradeMfeR, isTerminalTrade, isTradeResolvedForWinRate, computeSizingMode,
   detectMarketRegime, computeParamSensitivity, QUICK_FILTERS,
   type TrackedTrade, type TradeSheet, type QuickFilterKey, type RegimeInfo,
 } from '@/lib/tradeOps';
@@ -3496,6 +3496,7 @@ function HomePageInner() {
 
   // Win rate stats (#2)
   const winStats = useMemo(() => computeWinRateStats(trackedTrades), [trackedTrades]);
+  const sizing = useMemo(() => computeSizingMode(trackedTrades), [trackedTrades]);
 
   // Track a trade (#2)
   function trackTrade(r: AnalysisResult) {
@@ -8868,6 +8869,20 @@ function HomePageInner() {
                     );
                   })()}
 
+                  {/* Position-size suggestion (drawdown sizing) */}
+                  {(() => {
+                    const sz = computeSizingMode(all);
+                    if (sz.winRate == null) return null;
+                    const half = sz.mode === 'half';
+                    return (
+                      <div className={`flex flex-wrap items-center gap-2 rounded border px-3 py-1.5 text-xs ${half ? 'border-amber-700/60 bg-amber-950/30 text-amber-200' : 'border-emerald-800/50 bg-emerald-950/20 text-emerald-200'}`}>
+                        <span className="font-semibold">{half ? '½ Half position size' : 'Full position size'}</span>
+                        <span className="opacity-80">Last {sz.n} closed trades: {sz.wins} hit +5% ({((sz.winRate) * 100).toFixed(0)}%).</span>
+                        <span className="opacity-60">{half ? 'Back to full size at 70%+.' : 'Drops to half below 60%.'}</span>
+                      </div>
+                    );
+                  })()}
+
                   {/* KPI Row */}
                   {(() => {
                     const stagnant = open.filter(isStagnantTrade);
@@ -11337,6 +11352,11 @@ function HomePageInner() {
                         </div>
                       ))}
                     </div>
+                    {sizing.mode === 'half' && sizing.winRate != null && (
+                      <div className="text-xs text-amber-300 bg-amber-950/30 border border-amber-800/50 rounded px-2.5 py-1.5 -mt-2 mb-4">
+                        ½ Use half position size: your last {sizing.n} closed trades hit +5% only {(sizing.winRate * 100).toFixed(0)}% of the time.
+                      </div>
+                    )}
                   </>
                 );
               })()}
