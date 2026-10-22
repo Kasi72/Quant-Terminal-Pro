@@ -63,19 +63,29 @@ export async function PUT(req: NextRequest) {
   const trades = body.trades;
   if (!Array.isArray(trades)) return NextResponse.json({ error: 'Invalid trades payload' }, { status: 400 });
   if (trades.length > MAX_TRADES) return NextResponse.json({ error: 'Too many trades' }, { status: 413 });
-  if (!trades.every(isPlausibleTrade)) return NextResponse.json({ error: 'Invalid trade record' }, { status: 400 });
 
-  if (trades.length === 0) {
-    return NextResponse.json({ ok: true, stored: 0 });
+  // Store every valid trade even when some are invalid: rejecting the whole batch for one bad
+  // record silently blocked every later save. Rejected ids are returned so the client keeps them.
+  const valid: TrackedTrade[] = [];
+  const rejected: { id: string | null; symbol: string | null; reason: string }[] = [];
+  for (const t of trades) {
+    const reason = !t || typeof t !== 'object' ? 'not an object'
+      : typeof t.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(t.id) ? 'missing or invalid id'
+      : !isPlausibleTrade(t) ? 'failed validation (prices, dates, targets or stops out of range)'
+      : null;
+    if (reason) rejected.push({ id: typeof t?.id === 'string' ? t.id : null, symbol: typeof t?.symbol === 'string' ? t.symbol : null, reason });
+    else valid.push(t);
   }
 
-  const db = getServiceClient();
-  const { error } = await db
-    .from('tracked_trades')
-    .upsert(trades.map(tradeToRow), { onConflict: 'id', ignoreDuplicates: false });
+  if (valid.length > 0) {
+    const db = getServiceClient();
+    const { error } = await db
+      .from('tracked_trades')
+      .upsert(valid.map(tradeToRow), { onConflict: 'id', ignoreDuplicates: false });
+    if (error) return NextResponse.json({ error: error.message, rejected }, { status: 500 });
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, stored: trades.length });
+  return NextResponse.json({ ok: rejected.length === 0, stored: valid.map(t => t.id), rejected });
 }
 
 export async function DELETE(req: NextRequest) {

@@ -78,6 +78,7 @@ import {
 import {
   loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
   deleteTradeFromCloud, deleteAllTradesFromCloud,
+  mergeUnsyncedInto, ensureTradeIds, getUnsyncedTrades, subscribeTradeSync, type TradeSyncStatus,
   setOwnerToken, hasOwnerToken,
 } from '@/lib/tradeSync';
 import { inferXgbScore } from '@/lib/xgbInfer';
@@ -1885,9 +1886,10 @@ function HomePageInner() {
 
   useEffect(() => {
     // ─── TRACKED TRADES: Cloud-first load (Supabase → localStorage fallback) ───
-    const migrateTrades = (loadedTrades: TrackedTrade[]) => {
+    const migrateTrades = (rawTrades: TrackedTrade[]) => {
       tradesLoadedRef.current = true;
-      if (loadedTrades.length === 0) { setTrackedTrades([]); return; }
+      if (rawTrades.length === 0) { setTrackedTrades([]); return; }
+      const loadedTrades = ensureTradeIds(rawTrades);
       const tickFn = (p: number) => Math.round(p / 0.05) * 0.05;
       const migrated = loadedTrades.map(t => {
         if (!t.entryPrice || !t.target1 || t.target1 <= t.entryPrice) return t;
@@ -1931,23 +1933,22 @@ function HomePageInner() {
     loadTradesFromCloud().then(cloudTrades => {
       if (cloudTrades === null) {
         // Cloud error — fall back to localStorage, don't attempt re-seed (may be transient)
-        migrateTrades(loadTradesFromLocal());
+        migrateTrades(mergeUnsyncedInto(ensureTradeIds(loadTradesFromLocal())).trades);
       } else if (cloudTrades.length > 0) {
-        // Cloud has data. Also check localStorage for open trades that saved locally
-        // but whose PUT hadn't completed before the tab was closed (e.g. user tracked
-        // and closed within milliseconds). Only recover status=open, no closedDate trades
-        // so intentionally removed/closed trades don't resurface.
-        const local = loadTradesFromLocal();
-        const cloudKeys = new Set(cloudTrades.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
-        const localOnlyOpen = local.filter(t =>
-          !cloudKeys.has(`${t.symbol}_${t.entryDate ?? ''}`) &&
+        // Cloud has data. Re-apply every trade this browser changed but the server never
+        // confirmed (matched by id), then any older open local-only trades from before
+        // id-based tracking. Recovered trades are re-uploaded.
+        const { trades: withUnsynced, recovered } = mergeUnsyncedInto(cloudTrades);
+        const ids = new Set(withUnsynced.map(t => t.id).filter(Boolean));
+        const keys = new Set(withUnsynced.map(t => `${t.symbol}_${t.entryDate ?? ''}`));
+        const localOnlyOpen = ensureTradeIds(loadTradesFromLocal()).filter(t =>
+          !ids.has(t.id) && !keys.has(`${t.symbol}_${t.entryDate ?? ''}`) &&
           t.status === 'open' && !t.closedDate && t.entryPrice > 0
         );
-        if (localOnlyOpen.length > 0) {
-          // Trades in local but not cloud — recover them and re-upload
-          const recovered = [...cloudTrades, ...localOnlyOpen];
-          migrateTrades(recovered);
-          syncTradesToCloud(recovered);
+        if (recovered > 0 || localOnlyOpen.length > 0) {
+          const all = [...withUnsynced, ...localOnlyOpen];
+          migrateTrades(all);
+          syncTradesToCloud(all);
         } else {
           migrateTrades(cloudTrades);
         }
@@ -2071,16 +2072,21 @@ function HomePageInner() {
       const json = JSON.stringify(trades);
       try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
       try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
-      // keepalive: true — browser continues this request even after page is closed
+      // keepalive: browsers cap keepalive bodies at 64 KB, so send only unconfirmed trades.
+      // They also stay in the unsynced list, which is re-applied on the next load.
+      const unsynced = getUnsyncedTrades();
+      if (unsynced.length === 0) return;
+      const body = JSON.stringify({ trades: unsynced });
+      if (body.length > 60_000) return;
       const ownerToken = localStorage.getItem('qtp_owner_token') ?? '';
       try {
         fetch('/api/trades', {
           method: 'PUT',
           keepalive: true,
           headers: { 'Content-Type': 'application/json', 'X-Owner-Token': ownerToken },
-          body: JSON.stringify({ trades }),
+          body,
         });
-      } catch { /* non-fatal — localStorage is the guaranteed backup */ }
+      } catch { /* non-fatal — the unsynced list is the guaranteed backup */ }
     };
     window.addEventListener('beforeunload', flush);
     return () => window.removeEventListener('beforeunload', flush);
@@ -2109,6 +2115,18 @@ function HomePageInner() {
     const timer = setTimeout(() => syncTradesToCloud(trackedTrades), 1000);
     return () => clearTimeout(timer);
   }, [trackedTrades]);
+
+  const [tradeSync, setTradeSync] = useState<TradeSyncStatus>({ pending: 0, rejected: [], error: null, localSaveFailed: false });
+  useEffect(() => subscribeTradeSync(setTradeSync), []);
+  // Retry unconfirmed trades every minute and whenever the tab becomes visible again.
+  useEffect(() => {
+    if (tradeSync.pending === 0) return;
+    const retry = () => { if (tradesLoadedRef.current) syncTradesToCloud(trackedTradesRef.current); };
+    const timer = setInterval(retry, 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') retry(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [tradeSync.pending]);
 
   // ─── BATCH BADGE REHYDRATION ─────────────────────────────────────────────────
   // Fires once when batch results load. Computes pcaMap (pure math over
@@ -3202,6 +3220,7 @@ function HomePageInner() {
           const rsEntry = localRsMap.get(r.symbol);
           const tfEntry = localTfMap.get(r.symbol);
           return {
+            id: crypto.randomUUID(),
             symbol: r.symbol, stage: r.stage,
             entryPrice: r.priceEngine.plannedEntry,
             entryDate: r.lastDate || new Date(Date.now() + 19800000).toISOString().slice(0, 10),
@@ -4576,7 +4595,7 @@ function HomePageInner() {
                     <td className="px-2 py-1 text-slate-600">{t.sector || '—'}</td>
                     <td className={`px-2 py-1 text-center text-[10px] font-bold ${seqMark === 'W' ? 'text-emerald-400' : seqMark === 'L' ? 'text-red-400' : 'text-slate-700'}`}>{seqMark}</td>
                     <td className="px-2 py-1 text-center">
-                      <button onClick={() => { if (t.status === 'open') deleteTradeFromCloud(t.symbol); setTrackedTrades(prev => t.status === 'open' ? prev.filter(x => !(x.symbol === t.symbol && x.status === 'open')) : prev.filter(x => x !== t)); }}
+                      <button onClick={() => removeTrade(t)}
                         className="text-slate-700 hover:text-red-400">×</button>
                     </td>
                   </tr>
@@ -4919,6 +4938,20 @@ function HomePageInner() {
             <div className="h-full bg-indigo-500 rounded-full transition-all duration-200"
               style={{ width: total > 0 ? `${(progress / total) * 100}%` : '0%' }} />
           </div>
+        </div>
+      )}
+
+      {/* ── Trade save warning ── */}
+      {(tradeSync.error || tradeSync.rejected.length > 0 || tradeSync.localSaveFailed) && (
+        <div role="alert" className="flex-shrink-0 border-b border-red-900/50 bg-red-950/30 px-4 py-1.5 flex items-center gap-2 text-xs text-red-300">
+          <span className="font-semibold">⚠ Trades not saved to the cloud.</span>
+          {tradeSync.rejected.length > 0 && (
+            <span>Rejected: {tradeSync.rejected.map(r => r.symbol ?? '?').join(', ')} ({tradeSync.rejected[0].reason}).</span>
+          )}
+          {tradeSync.error && <span>{tradeSync.error}.</span>}
+          {tradeSync.localSaveFailed && <span>Browser storage is full, so unsaved trades may not survive a reload.</span>}
+          <span className="text-red-400/80">{tradeSync.pending} kept on this device · retrying every minute</span>
+          <button onClick={() => syncTradesToCloud(trackedTradesRef.current)} className="ml-auto px-2 py-0.5 rounded border border-red-800 text-red-300 hover:bg-red-900/40 transition-colors">Retry now</button>
         </div>
       )}
 
@@ -9266,9 +9299,11 @@ function HomePageInner() {
                         <button
                           onClick={async () => {
                             if (!confirm(`Remove ${valSelected.size} selected trade(s)?`)) return;
+                            const removed = trackedTrades.filter(t => valSelected.has(`${t.symbol}_${t.entryDate ?? ''}`));
                             const updated = trackedTrades.filter(t => !valSelected.has(`${t.symbol}_${t.entryDate ?? ''}`));
                             setTrackedTrades(updated);
-                            syncTradesToCloud(updated);
+                            // Saving never deletes rows, so removed trades must be deleted explicitly or they return on reload.
+                            for (const t of removed) deleteTradeFromCloud(t.symbol, t.id);
                             setValSelected(new Set());
                           }}
                           className="text-xs text-red-500 hover:text-red-300 border border-red-800 px-2 py-0.5 rounded">

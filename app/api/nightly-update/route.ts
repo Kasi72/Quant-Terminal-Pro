@@ -179,6 +179,7 @@ function fromRow(row: Record<string, unknown>): TrackedTrade {
   const base = (row.raw_json ?? {}) as Partial<TrackedTrade>;
   return {
     ...base,
+    id: (row.id ?? base.id) as string,
     symbol: (row.symbol ?? base.symbol) as string,
     status: (row.status ?? base.status) as TrackedTrade['status'],
     stage: (row.stage ?? base.stage) as TrackedTrade['stage'],
@@ -210,6 +211,7 @@ function fromRow(row: Record<string, unknown>): TrackedTrade {
 
 function toRow(t: TrackedTrade) {
   return {
+    id: t.id,
     user_id: USER_ID,
     symbol: t.symbol,
     stage: t.stage,
@@ -570,7 +572,7 @@ export async function GET(req: NextRequest) {
 
         const { error: upsertErr } = await db
           .from('tracked_trades')
-          .upsert(toRow(updated), { onConflict: 'user_id,symbol' });
+          .upsert(toRow(updated), { onConflict: 'id' });
         if (upsertErr) {
           summary.errors.push(`${trade.symbol}: upsert failed: ${upsertErr.message}`);
           return;
