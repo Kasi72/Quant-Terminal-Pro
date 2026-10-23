@@ -51,16 +51,17 @@ if ($auc -gt 0 -and $auc -lt 0.52) {
 }
 
 # ------------------------------------------------------------------
-# 2. Run UC precision analysis — updates formula weights from labeled data
+# 2. Run UC precision analysis -- updates formula weights from labeled data
 # ------------------------------------------------------------------
 Log "Running UC precision analysis (Cohen's d weight recalibration)..."
-$node = (Get-Command node -ErrorAction SilentlyContinue)?.Source ?? "node"
+$nodeCmdObj = Get-Command node -ErrorAction SilentlyContinue
+$node = if ($nodeCmdObj) { $nodeCmdObj.Source } else { "node" }
 $precisionOut = & $node "$Root\scripts\uc_precision_analysis.js" --apply 2>&1
 $precisionOut | ForEach-Object { Log $_ }
 if ($LASTEXITCODE -eq 0) {
     Log "ucScoreWeights.ts updated from precision analysis."
 } else {
-    Log "WARN: uc_precision_analysis.js exited $LASTEXITCODE — may be insufficient labeled data. Continuing with existing weights."
+    Log "WARN: uc_precision_analysis.js exited $LASTEXITCODE -- may be insufficient labeled data. Continuing with existing weights."
 }
 
 # ------------------------------------------------------------------
@@ -105,3 +106,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Log "=== UC-XGBoost auto-retrain complete. AUC=$auc ==="
 exit 0
+
