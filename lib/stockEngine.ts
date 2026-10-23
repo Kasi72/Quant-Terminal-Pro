@@ -635,7 +635,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
   circuit_breaker_v2: {
     name: 'Circuit Breaker', tag: '⚡ Upper Circuit',
-    screenerOnly: true,  // OOS PF=1.00 max (162-combo grid, Sep-20); not in analyzeStockMulti; universe reduction only
+    screenerOnly: true,  // DISABLED v24 (2026-10-23): backtest_improve_three n=68587 signals, ALL variants OOS PF<1.0 (best conds≥7+tp5=PF 0.90). No directional edge. Removed from PARAM_SETS_LIST.
     // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
     minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -659,7 +659,7 @@ export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: str
   { key: 'optimized_ultraselective_8plus', name: PARAM_SETS.optimized_ultraselective_8plus.name, tag: PARAM_SETS.optimized_ultraselective_8plus.tag },
   { key: 'sniper_95plus', name: PARAM_SETS.sniper_95plus.name, tag: PARAM_SETS.sniper_95plus.tag },
   { key: 'ors_prime_reversal', name: PARAM_SETS.ors_prime_reversal.name, tag: PARAM_SETS.ors_prime_reversal.tag },
-  { key: 'circuit_breaker_v2', name: PARAM_SETS.circuit_breaker_v2.name, tag: PARAM_SETS.circuit_breaker_v2.tag },
+  // circuit_breaker_v2 removed v24 (2026-10-23): 68K signals, ALL variants OOS PF<1.0, no fix possible
 ];
 
 // ─── CORE HELPERS ─────────────────────────────────────────────────────────────
