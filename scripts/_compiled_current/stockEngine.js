@@ -114,7 +114,8 @@ function analyzeStockMulti(candles, symbol) {
         // Respect minUC gate — signals below the param set's UC floor are computed but not surfaced
         const minUC = exports.PARAM_SETS[key].minUC;
         const ucGate = minUC === undefined || (r.ucScore ?? 0) >= minUC;
-        if (ucGate && ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) {
+        const patternGate = !exports.PARAM_SETS[key].patternOnly || r.stageSource === 'pattern';
+        if (ucGate && patternGate && ['BUY', 'STRONG_BUY', 'ULTRA_STRONG_BUY'].includes(r.stage)) {
             passedSets.push(key);
         }
         if (ucGate && (!best || stageRank[r.stage] > stageRank[best.stage] ||
@@ -173,6 +174,7 @@ exports.PARAM_SETS = {
     // v13 forensic — stop-first validation: 68.3% WR, +2.08% avg, PF 2.24 (41 trades)
     optimized_deployable_20plus: {
         name: 'VF Scout', tag: '📊 Vol Breakout',
+        patternOnly: true, // v23: block UC-promoted signals — OOS PF 1.08→1.17, maxDD -27%→-7% (backtest_improve_weak 2026-10-23)
         minAvgTurnover20: 10000000, maxATRPct14Pctl120: 50,
         maxPre10AvgRangeATR: 0.95, maxPre10ExpansionCount: 1, expansionATRMultiplier: 1.1,
         zoneRangeATRThreshold: 1.0, minZoneLen: 4, maxZoneLen: 25, maxZoneTightnessPct: 6.0, // v2: 12→6 (tighter zone)
@@ -566,7 +568,7 @@ const WATCHLIST_ONLY_PARAM_SETS = new Set([
 //   MP:  unchanged — PF already positive OOS, no negative expectancy to fix
 const ARCHETYPE_EXIT_DEFAULTS = {
     optimized_deployable_20plus: { targetPct: 4.0, slAtrMult: 5.0, maxHoldBars: 20 }, // v22: TP 5→4% — research_remaining.js: PF=3.04 (CI 1.88-5.46), best avg/bar 0.323%, positive every year 2023-26
-    optimized_highprecision_15plus: { targetPct: 3.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v19: TP 2.5→3%, SL 5×→4×, H 30→15, UC≥55 gate — OOS WR=81.7% PF=2.43 (hyper_tune 2026-08-29)
+    optimized_highprecision_15plus: { targetPct: 10.0, slAtrMult: 4.0, maxHoldBars: 15, minUCScore: 55 }, // v23: TP 3→10% — OOS avg +0.03%→+0.41%, PF 1.01→1.11, OOS portfolio +21.11% (backtest_improve_weak 2026-10-23)
     optimized_elite_10plus: { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 }, // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
     optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 }, // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
     sniper_95plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 8 }, // v20: TP 1.5→3% — R:R 0.30→0.60, tpsl_optimizer v2 found TP=5% PF=5.25 (was v15: PF=2.94 R:R=0.30)
