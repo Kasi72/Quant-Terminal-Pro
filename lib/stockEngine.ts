@@ -201,7 +201,7 @@ export interface AnalysisResult {
   zScore252?: number;
   orsConfirmed?: boolean;   // true = green-confirmation candle fired (entry tomorrow open)
   // Phase 2 — Momentum Archetype system
-  archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout' | 'CircuitBreaker';
+  archetypeType?: 'VolumeFootprint' | 'CompressionCoil' | 'MomentumPocket' | 'EMAStack' | 'PerfectStorm' | 'ORS' | 'Breakout' | 'CircuitBreaker' | 'PreCircuit';
   // What set the stage: the chart-pattern check, or a later promotion by UC score / 63-day RS.
   // Promoted stocks matched no pattern, so pattern scores (inflection, precision, conditions) are 0 by design.
   stageSource?: 'pattern' | 'uc_score' | 'rs63';
@@ -628,16 +628,17 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
     maxCloseAboveZonePct: 5.0,
     minPriorRunUpPct: 10,                                                                    // Q5: OOS +16.7pp WR (83.3% vs 66.7%, n=12, Wilson lo 60.1%)
   },
-  // Discriminant-analysis design: case-control study 6,339 circuit events vs 31,695 controls.
-  // Backtest (cb_backtest.js): recall 15%, precision 0.36% OOS, lift 1.3× vs 0.27% base rate.
-  // Designed as a momentum screener (universe reduction), not a binary next-day predictor.
-  // tpsl_optimizer (2026-08-06): redesigned as Upper Circuit Candidate (ULTRA/STRONG + near 20d high
-  //   + vol≥2x), n=1752 OOS. PF=0.82 max across all 64 TP/SL combos. SCREENER ONLY.
+  // CB v3 (2026-10-23): PRE-CIRCUIT SCOUT — detects candle setup 1-3 days BEFORE upper circuit event.
+  // Prior CB (v1/v2) traded UC candidates on the day itself → retail trap / gap-fade → ALL OOS PF<1.0.
+  // v3 paradigm shift: trade the run-UP before UC, not the UC event.
+  // Conditions grounded in PBFB brain analysis (brain_v2_deep_analysis.txt, pbfbFeatureCorrelation_output.txt):
+  //   Day-before-UC BUY stage hit_t1=87.5%, COMPRESSION_WATCH hit_t1=100%.
+  //   Top predictors (MISSED UC events vs control): volRatio20 r=0.136, eRA r=0.128, atrPctl r=0.118, mom5 Δ+5.87pp.
   circuit_breaker_v2: {
-    name: 'Circuit Breaker', tag: '⚡ Upper Circuit',
-    screenerOnly: true,  // DISABLED v24 (2026-10-23): backtest_improve_three n=68587 signals, ALL variants OOS PF<1.0 (best conds≥7+tp5=PF 0.90). No directional edge. Removed from PARAM_SETS_LIST.
-    // Breakout fields set to pass-all — CB routes directly to analyzeCircuitBreaker()
-    minAvgTurnover20: 10_000_000, maxATRPct14Pctl120: 100,
+    name: 'Pre-Circuit Scout', tag: '⚡ Pre-UC Scout',
+    screenerOnly: false,  // v25 (2026-10-23): re-enabled — pre-UC candle detection (1-3d before UC), not UC-day trading
+    // Breakout fields set to pass-all — CB v3 routes directly to analyzeCircuitBreaker()
+    minAvgTurnover20: 5_000_000, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
     zoneRangeATRThreshold: 99, minZoneLen: 0, maxZoneLen: 100, maxZoneTightnessPct: 100,
     maxPre10AvgVolRatio: 99, maxPre5AvgVolRatio: 99,
@@ -659,7 +660,8 @@ export const PARAM_SET_OPTIONS: Array<{ key: ParamSetKey; name: string; tag: str
   { key: 'optimized_ultraselective_8plus', name: PARAM_SETS.optimized_ultraselective_8plus.name, tag: PARAM_SETS.optimized_ultraselective_8plus.tag },
   { key: 'sniper_95plus', name: PARAM_SETS.sniper_95plus.name, tag: PARAM_SETS.sniper_95plus.tag },
   { key: 'ors_prime_reversal', name: PARAM_SETS.ors_prime_reversal.name, tag: PARAM_SETS.ors_prime_reversal.tag },
-  // circuit_breaker_v2 removed v24 (2026-10-23): 68K signals, ALL variants OOS PF<1.0, no fix possible
+  { key: 'circuit_breaker_v2', name: PARAM_SETS.circuit_breaker_v2.name, tag: PARAM_SETS.circuit_breaker_v2.tag },
+  // circuit_breaker_v2 v25 (2026-10-23): re-added as Pre-Circuit Scout (pre-UC candle detection)
 ];
 
 // ─── CORE HELPERS ─────────────────────────────────────────────────────────────
@@ -904,7 +906,7 @@ const ARCHETYPE_EXIT_DEFAULTS: Partial<Record<ParamSetKey, { targetPct: number; 
   optimized_elite_10plus:         { targetPct: 4.0, slAtrMult: 4.0, maxHoldBars: 15 },              // v17: TP=4%/SL=4×/H≤15 — OOS WR=71% PF=1.43 avgPnL=+0.87% (H≤20 constraint)
   optimized_ultraselective_8plus: { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 15 },              // v18: TP 1.5→3%, H 12→15 — OOS WR=79.2% PF=3.07 avgPnL=+1.64% ✅ (v16: PF=1.88)
   sniper_95plus:                  { targetPct: 3.0, slAtrMult: 2.5, maxHoldBars: 8  },              // v20: TP 1.5→3% — R:R 0.30→0.60, tpsl_optimizer v2 found TP=5% PF=5.25 (was v15: PF=2.94 R:R=0.30)
-  circuit_breaker_v2:             { targetPct: 1,   slAtrMult: 2.5, maxHoldBars: 3  },              // v15: unchanged — structural ceiling (CB not TP-based archetype)
+  circuit_breaker_v2:             { targetPct: 10.0, slAtrMult: 2.5, maxHoldBars: 5  },             // v25 (2026-10-23): TP=10% (UC gap 10-20%, capture run-up before), H≤5 (UC within 3d of setup)
   ors_prime_reversal:             { targetPct: 5,   slAtrMult: 2.5, maxHoldBars: 5  },              // v15: unchanged — OOS WR=84.6% PF=3.76 ✅
 };
 
@@ -1490,6 +1492,7 @@ const ARCH_ULTRA: Record<string, number> = {
   MomentumPocket:   85,  // 99→85: 99 produced ~0 ULTRA; 85 = top-tier MP setup
   EMAStack:         85,  // 99→85: same rationale; EMA still selective via pre-screen gates
   CircuitBreaker:   72,  // Discovery archetype — lower bar, case-control model not P&L archetype
+  PreCircuit:       72,  // v25: Pre-Circuit Scout — same bar as CB; PBFB day-before-UC BUY hit_t1=87.5%
 };
 
 // Total condition count per archetype — used to normalize capRank to % of total
@@ -1499,6 +1502,7 @@ const ARCH_TOTAL: Record<string, number> = {
   MomentumPocket:  6,
   EMAStack:        6,
   CircuitBreaker:  8,
+  PreCircuit:      8,  // v25: 8 PBFB-grounded conditions (volRatio20, eRA, mom5, SMA50, closeLoc, rsi2, atrPctl, nearHigh10)
 };
 
 // archetypeStage v2: %-normalized thresholds, full 7-stage spectrum.
@@ -3726,6 +3730,21 @@ function analyzePerfectStorm(candles: Candle[]): AnalysisResult {
 // 8 scored conditions; c1 (isBull) AND c2 (diBull) are mandatory gates.
 // Recall 15%, precision 0.36% OOS (1.3× lift vs 0.27% base rate): use as universe reducer.
 
+// CB v3: Pre-Circuit Scout — detects candle setup 1-3 days BEFORE upper circuit event.
+// Prior CB (v1/v2) traded UC candidates on the UC day itself → retail trap/gap-fade → ALL OOS PF<1.0.
+// Paradigm shift: trade the run-up BEFORE UC, not the UC event itself.
+//
+// 8 conditions grounded in PBFB brain analysis (brain_v2_deep_analysis.txt + pbfbFeatureCorrelation_output.txt, 2026-10-23):
+//   Day-before-UC stats: BUY stage hit_t1=87.5%, COMPRESSION_WATCH hit_t1=100%.
+//   PBFB feature correlations (MISSED UC events vs control):
+//     c1 volRatio20:  r=0.136, missed avg=2.27× vs 1.05 control  (strongest predictor)
+//     c2 eRA:         r=0.128, missed avg=1.14  vs 0.94 control  (range expansion)
+//     c3 mom5:        Δ=+5.87pp, missed avg=10.48% vs 4.61%      (5d momentum surge)
+//     c4 aboveSMA50:  62.1% of UC events above SMA50 vs 54.7%
+//     c5 closeLoc:    r=0.061, missed avg=51.2% vs 45.4%
+//     c6 rsi2:        r=0.065, missed avg=58.7  vs 49.5
+//     c7 atrPctl:     r=0.118, missed avg=59.9  vs 46.8          (3rd strongest)
+//     c8 nearHigh10:  UC events cluster within 10% of 52w high
 function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   const key: ParamSetKey = 'circuit_breaker_v2';
   const base = archetypeBase(candles, key);
@@ -3739,127 +3758,101 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   const atr14Arr = computeATR14(candles);
   const atr14 = atr14Arr[endIdx] || sig.c * 0.02;
 
-  // Turnover gate
+  // Turnover gate — UC stocks need minimum liquidity (v3: lowered to 5M for smaller UC candidates)
   const tStart = Math.max(0, endIdx - 20);
   let tSum = 0, vSum = 0;
   for (let i = tStart; i < endIdx; i++) { tSum += candles[i].c * candles[i].v; vSum += candles[i].v; }
   const turnover20 = (endIdx - tStart) > 0 ? tSum / (endIdx - tStart) : 0;
-  // forensicMode: bypass — PBFB detects UC momentum regardless of liquidity
-  if (!_forensicMode && turnover20 < tuned(key, 'minAvgTurnover20', 10_000_000)) return base;
+  if (!_forensicMode && turnover20 < tuned(key, 'minAvgTurnover20', 5_000_000)) return base;
   const vAvg20 = (endIdx - tStart) > 0 ? vSum / (endIdx - tStart) : 1;
-  const volRatioD1 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
+  const volRatio20 = vAvg20 > 0 ? sig.v / vAvg20 : 0;
 
-  // ATR% gate
+  // ATR% gate — UC precursors have elevated volatility (3–20%)
   const atrPct = sig.c > 0 ? atr14 / sig.c * 100 : 0;
-  // forensicMode: bypass — detect CB pattern regardless of volatility band
   if (!_forensicMode && (atrPct < tuned(key, 'minAtrPct', 3.0) || atrPct > tuned(key, 'maxAtrPct', 20.0))) return base;
 
-  // Anti-pattern hard gates (OR 0.476, 0.508): flat/tight price or pure vol decline disqualifies
-  if (n >= 5) {
-    const last5 = candles.slice(endIdx - 4, endIdx + 1);
-    const closes5 = last5.map(b => b.c);
-    const maxC5 = Math.max(...closes5), minC5 = Math.min(...closes5);
-    const span5 = minC5 > 0 ? (maxC5 / minC5 - 1) * 100 : 99;
-    if (span5 < tuned(key, 'maxFlat5Pct', 2.5)) return base;
-    const max3 = Math.max(closes5[2], closes5[3], closes5[4]);
-    const min3 = Math.min(closes5[2], closes5[3], closes5[4]);
-    const span3 = min3 > 0 ? (max3 / min3 - 1) * 100 : 99;
-    if (span3 < tuned(key, 'maxTight3Pct', 1.5)) return base;
-    const vols5 = last5.map(b => b.v);
-    if (vols5[4] < vols5[3] && vols5[3] < vols5[2] && vols5[2] < vols5[1] && vols5[1] < vols5[0]) return base;
-  }
+  // ── Pre-UC feature computations (PBFB brain analysis) ─────────────────────
 
-  // DMI (isBull direction and momentum)
-  const { diPlus: dpArr, diMinus: dmArr, adx: adxArr } = computeDMI(candles);
-  const diPlus  = dpArr[endIdx]  ?? 20;
-  const diMinus = dmArr[endIdx]  ?? 20;
-  const adx     = adxArr[endIdx] ?? 20;
+  // c2: eRA — today's range / ATR14 (range expansion vs ATR baseline, r=0.128)
+  const eRA = atr14 > 0 ? (sig.h - sig.l) / atr14 : 1;
 
-  // ATR5 / ATR14 compression ratio — d=0.46, strongest continuous discriminant
-  const trSlice5: number[] = [];
-  for (let i = Math.max(1, endIdx - 4); i <= endIdx; i++) {
-    const prev = candles[i - 1];
-    trSlice5.push(Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - prev.c), Math.abs(candles[i].l - prev.c)));
-  }
-  const atr5 = trSlice5.length ? trSlice5.reduce((a, x) => a + x, 0) / trSlice5.length : atr14;
-  const atrComp = atr14 > 0 ? atr5 / atr14 : 1;
+  // c3: mom5 — 5-day return % (PBFB: missed UC avg=10.48% vs 4.61% control)
+  const mom5 = endIdx >= 5 ? (sig.c / candles[endIdx - 5].c - 1) * 100 : 0;
 
-  // Stochastic %K14 — d=0.40
-  const stSlice = candles.slice(Math.max(0, endIdx - 13), endIdx + 1);
-  const stLo = Math.min(...stSlice.map(b => b.l));
-  const stHi = Math.max(...stSlice.map(b => b.h));
-  const stochK = stHi > stLo ? (sig.c - stLo) / (stHi - stLo) * 100 : 50;
-
-  // MFI5 (Money Flow Index over 5 bars)
-  const mfiSlice = candles.slice(Math.max(0, endIdx - 4), endIdx + 1);
-  let posFlow = 0, negFlow = 0;
-  for (let i = 1; i < mfiSlice.length; i++) {
-    const tpI = (mfiSlice[i].h + mfiSlice[i].l + mfiSlice[i].c) / 3;
-    const tpP = (mfiSlice[i-1].h + mfiSlice[i-1].l + mfiSlice[i-1].c) / 3;
-    const mf = tpI * mfiSlice[i].v;
-    if (tpI > tpP) posFlow += mf; else negFlow += mf;
-  }
-  const mfi5 = negFlow === 0 ? 100 : 100 - 100 / (1 + posFlow / negFlow);
-
-  // Volume bull dominance over last 5 bars
-  const vol5Slice = candles.slice(Math.max(0, endIdx - 4), endIdx + 1);
-  const bullVol   = vol5Slice.filter(b => b.c > b.o).reduce((a, b) => a + b.v, 0);
-  const totalVol5 = vol5Slice.reduce((a, b) => a + b.v, 0);
-  const volBullDom = totalVol5 > 0 ? bullVol / totalVol5 : 0.5;
+  // c4: aboveSMA50 — 62.1% of UC events above SMA50 vs 54.7% control
+  const smaStart = Math.max(0, endIdx - 49);
+  let smaSum = 0;
+  for (let i = smaStart; i <= endIdx; i++) smaSum += candles[i].c;
+  const sma50 = smaSum / (endIdx - smaStart + 1);
+  const aboveSMA50 = sig.c > sma50;
 
   // Candle geometry
-  const sigRange   = sig.h - sig.l;
-  const closeLoc   = sigRange > 1e-9 ? (sig.c - sig.l) / sigRange * 100 : 50;
+  const sigRange     = sig.h - sig.l;
+  const closeLoc     = sigRange > 1e-9 ? (sig.c - sig.l) / sigRange * 100 : 50;
   const upperWickPct = sigRange > 1e-9 ? (sig.h - Math.max(sig.o, sig.c)) / sigRange * 100 : 0;
   const isBull = sig.c > sig.o;
 
-  const tech  = archetypeTech(candles, endIdx);
-  const rsi14 = tech.rsi14;
-  const cmf20 = tech.cmf20;
+  // c6: rsi2 — PBFB: missed UC avg=58.7 vs 49.5 control; optimal window 50-85
+  const rsi2 = computeRSI(candles, 2);
 
-  // 8 scored conditions (weights from case-control Odds Ratios and Cohen's d)
-  const c1 = isBull;                                                                         // OR 1.694 · mandatory
-  const c2 = diPlus > diMinus;                                                               // OR 1.603 · mandatory
-  const c3 = volRatioD1 >= tuned(key, 'minVolRatioD1', 1.2);                               // d=0.344 · 12 pts
-  const c4 = stochK >= tuned(key, 'minStoch', 35) && stochK <= tuned(key, 'maxStoch', 82); // d=0.40  · 10 pts
-  const c5 = rsi14 >= tuned(key, 'minRSI14', 42) && rsi14 <= tuned(key, 'maxRSI14', 68);  // d=0.359 · 9 pts
-  const c6 = closeLoc >= tuned(key, 'minCloseLoc', 40);                                     // d=0.353 · 9 pts
-  const c7 = atrComp >= tuned(key, 'minAtrComp', 1.0);                                     // d=0.46  · 12 pts
-  const c8 = upperWickPct <= tuned(key, 'maxUpperWick', 30);                               // d=0.204 · 5 pts
+  // c7: ATR% percentile (120-bar) — r=0.118, missed avg=59.9 vs 46.8 control
+  const lb120 = Math.max(1, endIdx - 119);
+  const atrPctWindow: number[] = [];
+  for (let i = lb120; i < endIdx; i++) {
+    const ap = atr14Arr[i] > 0 && candles[i].c > 0 ? atr14Arr[i] / candles[i].c * 100 : 0;
+    if (ap > 0) atrPctWindow.push(ap);
+  }
+  const atrPct14Pctl = atrPctWindow.length > 0 ? percentileRank(atrPctWindow, atrPct) : 50;
+
+  // c8: near 52-week high — UC events cluster near prior resistance/highs
+  const lookback52 = Math.min(252, n);
+  let high52w = 0;
+  for (let i = n - lookback52; i < n; i++) high52w = Math.max(high52w, candles[i].h);
+  const distTo52wHigh = high52w > 0 ? ((high52w - sig.c) / high52w) * 100 : 100;
+  const nearHigh10 = distTo52wHigh <= 10;
+  const nearHigh5  = distTo52wHigh <= 5;
+
+  // ── 8 conditions (weights from PBFB correlation r-values + absolute deltas) ──
+  const c1 = volRatio20 >= tuned(key, 'minVolRatio20', 1.8);                              // r=0.136 · 20 pts · mandatory
+  const c2 = eRA >= tuned(key, 'minERA', 1.05);                                           // r=0.128 · 18 pts · mandatory
+  const c3 = mom5 >= tuned(key, 'minMom5', 5.0);                                          // Δ=+5.87 · 15 pts
+  const c4 = aboveSMA50;                                                                    // base    · 12 pts
+  const c5 = closeLoc >= tuned(key, 'minCloseLoc', 50);                                   // r=0.061 · 10 pts
+  const c6 = rsi2 >= tuned(key, 'minRSI2', 50) && rsi2 <= tuned(key, 'maxRSI2', 85);    // r=0.065 · 10 pts
+  const c7 = atrPct14Pctl >= tuned(key, 'minAtrPctl', 45);                               // r=0.118 · 10 pts
+  const c8 = nearHigh10;                                                                    // UC base · 10 pts
 
   const conditions = [c1, c2, c3, c4, c5, c6, c7, c8];
   const conditionsMet = conditions.filter(Boolean).length;
 
-  // Mandatory gates: c1 AND c2 must both pass (best pair OR=2.2)
-  // forensicMode: require at least one of c1/c2 (not both must pass); live screener needs both
+  // Mandatory gates: vol surge (c1) AND range expansion (c2) are the core pre-UC signature
+  // forensicMode: require at least one; live screener needs both
   const mandatoryFail = _forensicMode ? (!c1 && !c2) : (!c1 || !c2);
   if (mandatoryFail) {
-    const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
-    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
+    const tuningDebug = { volRatio20, eRA, mom5, aboveSMA50, closeLoc, rsi2, atrPct14Pctl, distTo52wHigh, atrPct, conditionsMet };
+    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'PreCircuit', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
 
-  // forensicMode: 4/8 conditions sufficient to enter scoring; live screener requires 5/8
-  // gridOpt 2026-08-25: raised from 3→5 (25k OOS trades at 3/8 had PF=0.82; quality gate needed)
+  // Threshold: 5/8 live, 4/8 forensic
   if (conditionsMet < (_forensicMode ? 4 : 5)) {
-    const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
-    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'CircuitBreaker', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
+    const tuningDebug = { volRatio20, eRA, mom5, aboveSMA50, closeLoc, rsi2, atrPct14Pctl, distTo52wHigh, atrPct, conditionsMet };
+    return attachTuningDebug({ ...base, conditionsMet, totalConditions: 8, archetypeType: 'PreCircuit', archetypeConditions: conditionsMet, archetypeTotal: 8 }, tuningDebug);
   }
 
   // Score: base weights + magnitude bonuses (max 100)
   const score = Math.min(100, Math.round(
-    (c1 ? 18 : 0) + (c2 ? 16 : 0) + (c3 ? 12 : 0) + (c4 ? 10 : 0) +
-    (c5 ?  9 : 0) + (c6 ?  9 : 0) + (c7 ? 12 : 0) + (c8 ?  5 : 0) +
-    (volRatioD1 >= 1.8 ? 5 : volRatioD1 >= 1.4 ? 2 : 0) +
-    (diPlus >= 25 ? 4 : 0) +
-    (mfi5   >= 50 ? 4 : 0) +
-    (cmf20  >= -0.1 ? 4 : 0) +
-    (volBullDom >= 0.5 ? 3 : 0) +
-    (atrComp >= 1.15 ? 3 : 0)
+    (c1 ? 20 : 0) + (c2 ? 18 : 0) + (c3 ? 15 : 0) + (c4 ? 12 : 0) +
+    (c5 ? 10 : 0) + (c6 ? 10 : 0) + (c7 ? 10 : 0) + (c8 ? 10 : 0) +
+    // Magnitude bonuses
+    (volRatio20 >= 2.5 ? 5 : volRatio20 >= 2.0 ? 2 : 0) +
+    (mom5 >= 8 ? 3 : 0) +
+    (nearHigh5 ? 4 : 0) +
+    (isBull ? 2 : 0)
   ));
 
-  const stage = archetypeStage(conditionsMet, score, 'CircuitBreaker');
+  const stage = archetypeStage(conditionsMet, score, 'PreCircuit');
 
-  // Price engine
+  // Price engine — target UC run-up (10%), stop 2.5×ATR, max 5 days
   const entry  = sig.o > 0 ? sig.o : sig.c;
   const sw5Low      = endIdx >= 4 ? Math.min(...candles.slice(endIdx - 4, endIdx + 1).map(b => b.l)) : 0;
   const sw10Low     = endIdx >= 9 ? Math.min(...candles.slice(endIdx - 9, endIdx + 1).map(b => b.l)) : sw5Low;
@@ -3869,17 +3862,17 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
   priceEngine.breakoutTier = computeBreakoutTier(candles, endIdx, techCB, null);
 
   const checklist: ChecklistItem[] = [
-    { label: 'Bullish candle (isBull)', pass: c1, value: isBull ? 'Yes' : 'No' },
-    { label: 'DI+ > DI- (diBull)', pass: c2, value: `DI+ ${diPlus.toFixed(1)} / DI- ${diMinus.toFixed(1)}` },
-    { label: 'D-1 vol surge ≥1.2× avg', pass: c3, value: `${volRatioD1.toFixed(2)}×` },
-    { label: 'Stoch %K 35–82', pass: c4, value: stochK.toFixed(1) },
-    { label: 'RSI14 42–68', pass: c5, value: rsi14.toFixed(1) },
-    { label: 'Close loc ≥40%', pass: c6, value: `${closeLoc.toFixed(1)}%` },
-    { label: 'ATRc ≥1.0 (expanding)', pass: c7, value: atrComp.toFixed(3) },
-    { label: 'Upper wick ≤30%', pass: c8, value: `${upperWickPct.toFixed(1)}%` },
+    { label: 'Vol surge ≥1.8× avg20 (PBFB r=0.136, #1)', pass: c1, value: `${volRatio20.toFixed(2)}×` },
+    { label: 'Range expansion eRA ≥1.05 (PBFB r=0.128, #2)', pass: c2, value: eRA.toFixed(3) },
+    { label: '5d momentum ≥5% (PBFB missed avg=10.5%)', pass: c3, value: `${mom5.toFixed(1)}%` },
+    { label: 'Above SMA50 (62.1% of UC events)', pass: c4, value: aboveSMA50 ? `${((sig.c / sma50 - 1) * 100).toFixed(1)}% above` : `${((sma50 / sig.c - 1) * 100).toFixed(1)}% below` },
+    { label: 'Close loc ≥50% upper half (PBFB r=0.061)', pass: c5, value: `${closeLoc.toFixed(1)}%` },
+    { label: 'RSI2 50–85 momentum window (PBFB r=0.065)', pass: c6, value: rsi2.toFixed(1) },
+    { label: 'ATR% pctl ≥45 elevated vol (PBFB r=0.118, #3)', pass: c7, value: `${atrPct14Pctl.toFixed(0)}th pctl` },
+    { label: 'Within 10% of 52w high (UC near highs)', pass: c8, value: `${distTo52wHigh.toFixed(1)}% below high` },
   ];
 
-  const tuningDebug = { isBull, diPlus, diMinus, adx, volRatioD1, stochK, rsi14, closeLoc, atrComp, upperWickPct, mfi5, cmf20, volBullDom, atrPct, conditionsMet };
+  const tuningDebug = { volRatio20, eRA, mom5, aboveSMA50, closeLoc, rsi2, atrPct14Pctl, distTo52wHigh, atrPct, conditionsMet, score };
 
   return attachTuningDebug({
     ...base,
@@ -3888,7 +3881,7 @@ function analyzeCircuitBreaker(candles: Candle[]): AnalysisResult {
     closeLoc, upperWickPct,
     priceEngine,
     checklist,
-    archetypeType: 'CircuitBreaker',
+    archetypeType: 'PreCircuit',
     archetypeConditions: conditionsMet,
     archetypeTotal: 8,
     dayChangePct: n > 1 ? (sig.c - candles[n - 2].c) / candles[n - 2].c * 100 : 0,
@@ -4338,15 +4331,12 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
           && _t2Pct >= 4
           && (result.practicalOverlay?.passed ?? false);
       } else if (paramSetKey === 'circuit_breaker_v2') {
-        // dualTuner 2026-08-14: minUcScore=70, minT1Pct=8%, maxHold=3 → OOS WR=61.3%, Sharpe=2.19
-        // CB = upper circuit candidate; T1 (target5) must be ≥8% for positive R:R
-        const _pe = result.priceEngine;
-        const _t1Pct = (_pe?.target5 > 0 && _pe?.plannedEntry > 0)
-          ? ((_pe.target5 - _pe.plannedEntry) / _pe.plannedEntry) * 100
-          : 0;
+        // v25 (2026-10-23): Pre-Circuit Scout — pre-UC candle setup 1-3d before event.
+        // Old gates (ucScore≥70 + t1Pct≥8) tuned for UC-day trading — obsolete for pre-UC paradigm.
+        // New: conditionsMet≥6 (high-confidence pre-UC pattern) + ucScore≥55 (relaxed: pre-UC day score < UC day).
         result.tradePromoted = isActionableStage(result.stage)
-          && (result.ucScore ?? 0) >= 70
-          && _t1Pct >= 8
+          && (result.conditionsMet ?? 0) >= 6
+          && (result.ucScore ?? 0) >= 55
           && (result.practicalOverlay?.passed ?? false);
       } else if (paramSetKey === 'optimized_elite_10plus') {
         // backtest 2026-10-02: BUY stage PF=1.27 drags; SB PF=1.95. Gate to SB+USB only.
