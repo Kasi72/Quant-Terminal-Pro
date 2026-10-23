@@ -636,7 +636,7 @@ export const PARAM_SETS: Record<ParamSetKey, ParamSet> = {
   //   Top predictors (MISSED UC events vs control): volRatio20 r=0.136, eRA r=0.128, atrPctl r=0.118, mom5 Δ+5.87pp.
   circuit_breaker_v2: {
     name: 'Pre-Circuit Scout', tag: '⚡ Pre-UC Scout',
-    screenerOnly: false,  // v25 (2026-10-23): re-enabled — pre-UC candle detection (1-3d before UC), not UC-day trading
+    screenerOnly: true,   // v26 (2026-10-23): OOS PF<1 across all configs (backtest_pre_circuit_scout); conditions feed ucScore instead
     // Breakout fields set to pass-all — CB v3 routes directly to analyzeCircuitBreaker()
     minAvgTurnover20: 5_000_000, maxATRPct14Pctl120: 100,
     maxPre10AvgRangeATR: 99, maxPre10ExpansionCount: 99, expansionATRMultiplier: 1.1,
@@ -3910,6 +3910,7 @@ function computeUCScore(
   weeklyCloseLoc?: number | null,     // close position within last-5d pseudo-weekly range [0-100]
   weeklyBodyPct?: number | null,      // body% of last-5d range — weekly conviction
   magnetFlag?: boolean | null,        // price within 3% below round-number ceiling AND close_loc≥70
+  preCircuitCondsMet?: number | null, // CB v3 pre-UC conditions count [0-7] — PBFB-grounded, feeds score not trade
 ): { ucScore: number; ucGoldmine: boolean; ucStrong: boolean; ucElite: boolean; ucClass: 'PRIME' | 'WATCH' | 'ZONE' | 'COLD'; ucFeatureHits: number } {
   // Weights sourced from lib/ucScoreWeights.ts — auto-updated monthly by scripts/uc_precision_analysis.js
   const clComp  = Math.min(1, Math.max(0, (closeLoc  - 40) / 52)) * W.closeLoc_pts;  // [40, 92]
@@ -3955,6 +3956,10 @@ function computeUCScore(
   // Psychological magnet: price within 3% below a round-number ceiling with strong daily close_loc.
   // Round numbers act as spring targets — operators know retail eyes these levels.
   const magnetComp = magnetFlag ? W.magnetFlag_pts : 0;
+  // Pre-Circuit Scout: 7 PBFB conditions as continuous ucScore contributor (not standalone trade).
+  // Gate at condsMet>=2 to avoid noise; (condsMet/7) linear scale to max preCircuit_pts.
+  const pcComp = (preCircuitCondsMet != null && preCircuitCondsMet >= 2)
+    ? (preCircuitCondsMet / 7) * W.preCircuit_pts : 0;
   // Candle morphology (k-means N=1000, outcome_pct_20d>15% proxy, 2026-08-12):
   // Coiled Spring: body<25 AND upperWick<20 = hammer/dragonfly — intraday demand absorbed all selling,
   //   recovered to high, no distribution overhead → 34.6% UC-proxy rate vs 27% baseline (+7.6pp)
@@ -3972,7 +3977,8 @@ function computeUCScore(
   const ucScore = Math.round(Math.min(100,
     clComp + rsiComp + cltComp + rsvComp + rngComp + bPComp + volBonus
     + ztComp + vaComp + nbtComp + archComp
-    + volDrySurgeComp + weeklyResComp + magnetComp + morphComp + uwContinuousComp,
+    + volDrySurgeComp + weeklyResComp + magnetComp + morphComp + uwContinuousComp
+    + pcComp,
   ));
   // ucGoldmine: vol>3x + (CL>75 OR RSI2>70) → ~58-60% UC precision (entry tier)
   const ucGoldmine = volRatio20 >= 3.0 && (closeLoc >= 75 || rsi2 >= 70);
@@ -3999,13 +4005,14 @@ function computeUCScore(
   // Count of firing key UC discriminant features (0-7): confidence gauge for borderline scores.
   // Features match Brain V2 goldmine FAS with Cohen's d ≥ 0.2 cutoff.
   const ucFeatureHits = [
-    closeLoc >= 70,           // CL in top 30% of range (d=0.20)
-    rsi2 >= 65,               // Short-term momentum rising (d=0.02 live but directional signal)
-    rangeATR14 >= 1.0,        // Wide-range expansion day (d=1.05 — strongest non-vol feature)
-    volMax >= 2.0,            // Vol surge ≥2x any baseline (d=1.21 strongest overall)
-    volDrySurgeComp > 0,      // Dry+surge accumulation pattern detected
-    weeklyResComp > 0,        // Multi-timeframe weekly resonance confirmed
-    !!magnetFlag,             // Psychological round-number spring
+    closeLoc >= 70,                                       // CL in top 30% of range (d=0.20)
+    rsi2 >= 65,                                           // Short-term momentum rising (d=0.02 live but directional signal)
+    rangeATR14 >= 1.0,                                    // Wide-range expansion day (d=1.05 — strongest non-vol feature)
+    volMax >= 2.0,                                        // Vol surge ≥2x any baseline (d=1.21 strongest overall)
+    volDrySurgeComp > 0,                                  // Dry+surge accumulation pattern detected
+    weeklyResComp > 0,                                    // Multi-timeframe weekly resonance confirmed
+    !!magnetFlag,                                         // Psychological round-number spring
+    preCircuitCondsMet != null && preCircuitCondsMet >= 5, // Pre-UC candle cluster (5/7 PBFB conditions)
   ].filter(Boolean).length;
 
   return { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits };
@@ -4447,6 +4454,31 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         && closePrice > 0
         && (nearRound - closePrice) / closePrice <= 0.03
         && (result.closeLoc ?? 0) >= 70;
+      // Pre-Circuit Scout: compute 7 PBFB conditions inline — feeds ucScore for ALL archetypes.
+      // Conditions grounded in PBFB event analysis (3631 day-before-UC rows, 26548 controls).
+      // Screeneronly archetype removed from live pool (OOS PF<1); conditions contribute here instead.
+      let preCircuitCondsMet = 0;
+      if (candles.length >= 20) {
+        const sig = candles[candles.length - 1];
+        const n = candles.length;
+        const mom5 = n >= 6 ? (sig.c / candles[n - 6].c - 1) * 100 : 0;
+        const sma50slice = candles.slice(Math.max(0, n - 50), n);
+        const sma50 = sma50slice.reduce((s: number, c: Candle) => s + c.c, 0) / sma50slice.length;
+        let hi252 = 0;
+        for (let k = Math.max(0, n - 252); k < n; k++) { if (candles[k].h > hi252) hi252 = candles[k].h; }
+        const distTo52wHigh = hi252 > 0 ? (hi252 - sig.c) / hi252 * 100 : 100;
+        const volR = (result as any).exactVolRatio20 ?? result.volRatio20 ?? 0;
+        const rngATR = (result as any).exactRangeATR14 ?? 1;
+        preCircuitCondsMet = [
+          volR >= 1.8,                                                  // c1 volRatio20 (r=0.136)
+          rngATR >= 1.05,                                               // c2 eRA range/ATR (r=0.128)
+          mom5 >= 5.0,                                                  // c3 5-bar momentum (Δ+5.87pp)
+          sig.c > sma50,                                                // c4 above SMA50
+          (result.closeLoc ?? 50) >= 50,                                // c5 close location
+          (result.rsi2 ?? 50) >= 50 && (result.rsi2 ?? 50) <= 85,      // c6 RSI2 window
+          distTo52wHigh <= 10,                                          // c7 near 52w high
+        ].filter(Boolean).length;
+      }
       const { ucScore, ucGoldmine, ucStrong, ucElite, ucClass, ucFeatureHits } = computeUCScore(
         result.closeLoc ?? 50,
         (result as any).exactVolRatio20 ?? result.volRatio20 ?? 1,
@@ -4466,6 +4498,7 @@ export function analyzeStock(candles: Candle[], paramSetKey: ParamSetKey, enrich
         weeklyCloseLoc,
         weeklyBodyPct,
         magnetFlag,
+        preCircuitCondsMet,
       );
       result.ucScore        = ucScore;
       result.ucGoldmine     = ucGoldmine;

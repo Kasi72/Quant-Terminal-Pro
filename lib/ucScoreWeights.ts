@@ -55,6 +55,11 @@ export const UC_SCORE_WEIGHTS = {
   archCC_pts:        2,
   archOther_pts:     1,
 
+  // Pre-Circuit Scout (CB v3) — PBFB-grounded conditions as ucScore booster, not standalone trade
+  // OOS PF<1 as standalone archetype; 7 conditions (volRatio20 r=0.136, eRA r=0.128, atrPctl r=0.118)
+  // contribute max 6 pts when 7/7 fire. Gate: condsMet>=2 to avoid noise from single-condition hits.
+  preCircuit_pts:     6,
+
   // Brain V2 feature set 2 — added 2026-08-12 (manual_v4, pending labeled backtest)
   // vol dry+surge: surge vs quiet accumulation period (not vs 20d avg) — detects operator pre-positioning
   volDrySurge_pts:    8,
