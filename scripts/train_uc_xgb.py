@@ -46,8 +46,10 @@ except Exception as e:
 
 COLS = (
     "hit_t1,outcome_pct_20d,event_date,vol_ratio_20,close_loc,body_pct,upper_wick_pct,rsi2,"
-    "range_atr,zone_len,zone_tightness,vol_vs_pre5,vol_accel,rsi2_velocity,"
+    "range_atr,zone_len,zone_tightness,vol_vs_pre5,rsi2_velocity,"
     "cl_trend,near_breakout_tier,archetype_type"
+    # vol_accel removed 2026-10-23: column does not exist in pbfb_uc_events;
+    # vol_vs_pre5 is the equivalent proxy already present above
 )
 
 all_rows: list[dict] = []
@@ -82,14 +84,9 @@ if len(df) < 100:
     print(f"[WARN] Only {len(df)} rows with both hit_t1 and outcome_pct_20d labeled. Need 100+ for reliable training.")
     sys.exit(0)
 
-# ---------------------------------------------------------------------------
-# Fix vol_accel: vol_vs_pre5 is the correct column (written by pbfb-save).
-# vol_accel column in DB is mostly null; vol_vs_pre5 has 3x better coverage.
-# The model feature stays named "vol_accel" to match ucXgbInfer.ts interface.
-# ---------------------------------------------------------------------------
-df["vol_accel"] = pd.to_numeric(df.get("vol_vs_pre5"), errors="coerce").combine_first(
-    pd.to_numeric(df.get("vol_accel"), errors="coerce")
-)
+# vol_accel column removed from pbfb_uc_events (2026-10-23); vol_vs_pre5 is the
+# canonical source. Feature stays named "vol_accel" to match ucXgbInfer.ts.
+df["vol_accel"] = pd.to_numeric(df["vol_vs_pre5"], errors="coerce")
 
 # ---------------------------------------------------------------------------
 # Nifty 5-day return -- market regime feature.
