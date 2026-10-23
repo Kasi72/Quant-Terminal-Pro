@@ -79,3 +79,4 @@ try {
 $stamp2 = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 Add-Content $logFile "`nRUN END: $stamp2"
 Add-Content $logFile "Results in: $root\scripts\results\"
+exit 0
