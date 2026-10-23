@@ -165,7 +165,7 @@ export function loadTradesFromLocal(): TrackedTrade[] {
 
 // ─── Save ───────────────────────────────────────────────────────────────────
 
-function saveToLocal(trades: TrackedTrade[]): boolean {
+export function saveToLocal(trades: TrackedTrade[]): boolean {
   const json = JSON.stringify(trades);
   let ok = true;
   try { localStorage.setItem(LS_KEY, json); } catch { ok = false; }

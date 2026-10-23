@@ -77,7 +77,7 @@ import {
   type WatchlistItem, type SignalHistory,
 } from '@/lib/workspace';
 import {
-  loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud,
+  loadTradesFromCloud, loadTradesFromLocal, syncTradesToCloud, saveToLocal,
   deleteTradeFromCloud, deleteAllTradesFromCloud,
   mergeUnsyncedInto, ensureTradeIds, getUnsyncedTrades, subscribeTradeSync, type TradeSyncStatus,
   markConfirmed, getPendingIds, wasConfirmed,
@@ -2055,6 +2055,16 @@ function HomePageInner() {
   // written by the daily brain trainer / label-uc-outcomes API without requiring a full reload).
   useEffect(() => {
     const onVisible = () => {
+      // Going to background: flush latest trades to localStorage immediately (mobile safety net).
+      if (document.visibilityState === 'hidden') {
+        const trades = trackedTradesRef.current;
+        if (trades.length > 0) {
+          const json = JSON.stringify(trades);
+          try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
+          try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
+        }
+        return;
+      }
       if (document.visibilityState !== 'visible' || !tradesLoadedRef.current) return;
       loadTradesFromCloud().then(cloudTrades => {
         if (!cloudTrades || cloudTrades.length === 0) return;
@@ -2083,20 +2093,21 @@ function HomePageInner() {
   }, []);
 
   // Flush trades to localStorage + fire a keepalive PUT before the page unloads.
-  // This covers the case where the user closes the tab before the 1s debounce fires
-  // (e.g. tracked 8 stocks then immediately closed). localStorage write is synchronous
-  // and guaranteed; keepalive fetch survives page close at the browser level.
+  // beforeunload covers desktop close; pagehide covers mobile tab freezes/kills (Android
+  // Chrome / iOS Safari often skip beforeunload for background kills). Both are no-ops
+  // when no trades are in state, so double-firing on desktop is safe.
   useEffect(() => {
     const flush = () => {
-      if (!tradesLoadedRef.current) return;
       const trades = trackedTradesRef.current;
       if (trades.length === 0) return;
-      // Synchronous localStorage write — always completes before page unloads
+      // Synchronous localStorage write — always completes before page unloads.
+      // No tradesLoadedRef guard here: if trades are already in state we must save them
+      // regardless of whether the initial cloud load finished (e.g. tracked on slow network).
       const json = JSON.stringify(trades);
       try { localStorage.setItem('qtp_tracked_trades', json); } catch {}
       try { localStorage.setItem('qtp_tracked_trades_backup', json); } catch {}
-      // keepalive: browsers cap keepalive bodies at 64 KB, so send only unconfirmed trades.
-      // They also stay in the unsynced list, which is re-applied on the next load.
+      // keepalive: only attempt if cloud auth has completed (token is in localStorage).
+      if (!tradesLoadedRef.current) return;
       const unsynced = getUnsyncedTrades();
       if (unsynced.length === 0) return;
       const body = JSON.stringify({ trades: unsynced });
@@ -2112,7 +2123,11 @@ function HomePageInner() {
       } catch { /* non-fatal — the unsynced list is the guaranteed backup */ }
     };
     window.addEventListener('beforeunload', flush);
-    return () => window.removeEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+    };
   }, []);
 
   // On-demand sparkline fetch: when a symbol is selected but candleCache lacks it
@@ -2135,6 +2150,9 @@ function HomePageInner() {
   // the earlier PUT (missing the last trade) can land after the later one and clobber cloud.
   useEffect(() => {
     if (!tradesLoadedRef.current) return;
+    // Write to localStorage immediately (synchronous, fast) — protects against mobile
+    // background-kill where beforeunload / pagehide may not fire within the 1 s window.
+    if (trackedTrades.length > 0) saveToLocal(trackedTrades);
     const timer = setTimeout(() => syncTradesToCloud(trackedTrades), 1000);
     return () => clearTimeout(timer);
   }, [trackedTrades]);
