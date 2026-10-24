@@ -993,23 +993,23 @@ const COLUMNS: ColDef[] = [
       return strong ? 'text-emerald-400 font-semibold' : weak ? 'text-red-400' : 'text-slate-300';
     } },
   { key: 'brain', label: '🧠 Brain', width: 80, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">🧠 Adaptive Brain v2</div>'
+    headerTipHtml: '<div class="rt-hdr">🧠 Adaptive Brain v3</div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain-adjusted conviction score. Learns from +5% decided trades using Bayesian inference.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-emerald">Factors</span></div><div><div class="rt-desc">Adjusts for: sector performance, stock memory, streak, conviction threshold, Clenow, overlays</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">Sizing</span></div><div><div class="rt-desc">90+: A+ (1.5% risk) · 75+: Good (1%) · 60+: Avg (0.75%) · 45+: Weak (0.5%) · &lt;45: Skip</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">Learning</span></div><div><div class="rt-desc">Gets smarter every trade. LOW confidence until 50+ trades, then patterns emerge.</div><div class="rt-hit hit-green">Pure Bayesian math · No external AI · YOUR personal edge</div></div></div>',
     fmt: () => '', numVal: () => 0, cellClass: () => '' },
   { key: 'ucScore', label: '🔮 UC', width: 95, align: 'right',
-    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score — Brain V2 Stage-Aware + Classification</div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V2 pre-UC detection score with stage-aware intelligence. Calibrated probability displayed (%). Blended: formula + XGBoost + Brain Vectorize neighbor rate (B:xx% suffix). Shows Brain V2 forward classification and feature confidence gauge.</div></div></div>'
+    headerTipHtml: '<div class="rt-hdr">🔮 UC Goldmine Score — Brain V3 Stage-Aware + V4 Multi-Candle Fingerprint</div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-cyan">What</span></div><div><div class="rt-desc">Brain V3 pre-UC detection score with stage-aware intelligence. Calibrated probability displayed (%). Blended: formula + Brain Vectorize neighbor rate (B:xx% suffix). V4 multi-candle fingerprint: 🌱 3-candle accumulation seq, 🌿 2-candle seq, ▲N streak, ⚡V vol ignition, H near 20d high.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-purple">⚡ Elite</span></div><div><div class="rt-desc">Vol20≥2x AND VolPre5≥2x AND CL≥65 AND RSI2≥60 → 77.8% actionable (backtest n=27). Dual-vol surge confirms no single-period artefact. Highest precision tier.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🎯 Strong</span></div><div><div class="rt-desc">Vol≥3x AND CloseLoc≥75 AND RSI2≥70 → ~62-68% actionable (triple-lock).</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-fuchsia-400">△ Apex</span></div><div><div class="rt-desc">ucScore ≥90 — OOS price backtest (1416 stocks, 2023-2026): WR=70.8%, PF=1.44, MFE≥8%=39.2% (N=120). Best confirmed score tier. Fuchsia color.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-neon">🏆 Goldmine</span></div><div><div class="rt-desc">Vol≥3x AND (CloseLoc≥75 OR RSI2≥70) — OOS backtest: WR=67.6%, PF=1.66, MFE≥8%=58.8% (N=34). Nearly 60% reach +8% intraday at some point during hold window.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-lime">🟢 PRE-BRK</span></div><div><div class="rt-desc">Stage = PRE_BREAKOUT with quality candle. PBFB backtest N=123 labeled: 94.3% T1 precision.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-amber">⚠ Weak PB</span></div><div><div class="rt-desc">PRE_BREAKOUT with doji/gravestone candle (body&lt;22 AND wick&gt;40). 7/7 miss fingerprint — demoted to EARLY_INFLECTION.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-slate">W· removed</span></div><div><div class="rt-desc">Brain V2 WATCH classification removed from display. OOS backtest: WATCH WR=58.5% PF=0.90 underperforms COLD WR=59.9% PF=0.99 — no predictive edge over baseline. Treated same as COLD.</div></div></div>'
-      + '<div class="rt-row"><div><span class="rt-badge bg-sky">Z· prefix</span></div><div><div class="rt-desc">Brain V2 ZONE classification — compression detected (zoneTightness&lt;6%) but vol still quiet (&lt;2x). Mirrors "zone_only": spring loading but operator ignition not yet. Blue color.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-slate">W· removed</span></div><div><div class="rt-desc">Brain V3 WATCH classification removed from display. OOS backtest: WATCH WR=58.5% PF=0.90 underperforms COLD WR=59.9% PF=0.99 — no predictive edge over baseline. Treated same as COLD.</div></div></div>'
+      + '<div class="rt-row"><div><span class="rt-badge bg-sky">Z· prefix</span></div><div><div class="rt-desc">Brain V3 ZONE classification — compression detected (zoneTightness&lt;6%) but vol still quiet (&lt;2x). Mirrors "zone_only": spring loading but operator ignition not yet. Blue color.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-violet">🎖 PRE-UC</span></div><div><div class="rt-desc">ucScore 70–89 (not Elite/Strong/Goldmine/Apex) — pbfb_uc_events N=32 hit_t1=100%: near-certain UC event imminent. OOS price backtest shows 70-79 as caution (WR=57.9%), but event-level precision is highest in this tier.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-orange">🔔 CW</span></div><div><div class="rt-desc">Stage = COMPRESSION_WATCH — volatility compression detected. Spring loading before breakout ignition. Watch for BUY stage trigger in 1-3 sessions.</div></div></div>'
       + '<div class="rt-row"><div><span class="rt-badge bg-teal">B:xx suffix</span></div><div><div class="rt-desc">Brain Vectorize neighbor hit rate — % of historically similar D-1 fingerprints (32-dim vector) that hit UC next day. Only shown for BUY/PRE_BREAKOUT signals once Brain worker responds.</div></div></div>'
@@ -1034,6 +1034,13 @@ const COLUMNS: ColDef[] = [
       const brainRate = (r as any).neighborHitRate as number | undefined;
       const streak    = _ucStreakCache[r.symbol] ?? 0;
       const wrWarn    = (r as any).symbolWRSuppressed as boolean | undefined;
+      // Brain V4 multi-candle fingerprint fields
+      const accumFull = (r as any).preUCAccumFull  as boolean | undefined;
+      const accumPart = (r as any).preUCAccumPart  as boolean | undefined;
+      const clStreak  = (r as any).clLocStreak     as number  | undefined;
+      const volAcc    = (r as any).volAccelD0D1     as number  | undefined;
+      const dist20dH  = (r as any).distBelow20dHighPct as number | undefined;
+      const v4Bonus   = (r as any).ucV4Bonus        as number  | undefined;
       if (s == null) return '—';
       const prob      = `${calibrateUCScore(s)}%`;
       // Brain Vectorize neighbor rate — only shown for BUY/PB signals once worker responds
@@ -1049,22 +1056,33 @@ const COLUMNS: ColDef[] = [
       const cltTag    = clt != null ? (clt >= 20 ? ' ↑CL' : clt <= -20 ? ' ↓CL' : '') : '';
       // RSI2 warning for PRE_BREAKOUT: RSI2<45 = premature, not oversold enough yet
       const rsiWarn   = (r.stage === 'PRE_BREAKOUT' && r.rsi2 < 45) ? ' ↓R' : '';
-      if (el)                          return `${prob} ⚡${brainTag}${streakTag}${cltTag}${wrTag}`;
-      if (st)                          return `${prob} 🎯${brainTag}${streakTag}${cltTag}${wrTag}`;
-      if (g)                           return `${prob} 🏆${brainTag}${streakTag}${cltTag}${wrTag}`;
+      // Brain V4: multi-candle fingerprint tags
+      // 🌱 = 3-candle operator accumulation sequence (D-2+D-1 quiet build → D-0 ignition)
+      // 🌿 = 2-candle sequence (D-1 accumulation → D-0 ignition)
+      // ▲4 = 4+ consecutive days closeLoc≥70 (institutional accumulation streak)
+      // ⚡V = vol acceleration ≥2x today vs yesterday + strong close
+      // H = within 1% of 20d high (breakout ceiling proximity)
+      const accumTag  = accumFull ? ' 🌱' : accumPart ? ' 🌿' : '';
+      const clStrkTag = (clStreak != null && clStreak >= 4) ? ` ▲${clStreak}` : '';
+      const vAccTag   = (volAcc != null && volAcc >= 2.0 && (r.closeLoc ?? 0) >= 75) ? ' ⚡V' : '';
+      const h20Tag    = (dist20dH != null && dist20dH <= 1.0) ? ' H' : '';
+      const v4Tag     = `${accumTag}${clStrkTag}${vAccTag}${h20Tag}`;
+      if (el)                          return `${prob} ⚡${brainTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      if (st)                          return `${prob} 🎯${brainTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      if (g)                           return `${prob} 🏆${brainTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
       // Apex tier: score ≥90, backtest WR=70.8% PF=1.44 MFE≥8%=39.2% (N=120 OOS)
-      if (s >= 90)                     return `${prob} △${brainTag}${streakTag}${cltTag}${wrTag}`;
-      if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${rsiWarn}${streakTag}${cltTag}${wrTag}`;
-      if (weak)                        return `${prob} ⚠${streakTag}${wrTag}`;
-      if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}${cltTag}${wrTag}`;
-      if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}${cltTag}${wrTag}`;
+      if (s >= 90)                     return `${prob} △${brainTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      if (r.stage === 'PRE_BREAKOUT')  return `${prob} 🟢${rsiWarn}${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      if (weak)                        return `${prob} ⚠${streakTag}${v4Tag}${wrTag}`;
+      if (morph === 'coiled_spring')   return `${prob} 🌀${hitsTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      if (mag)                         return `${prob} 🧲${hitsTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
       // ZONE class kept; WATCH class removed (backtest: WATCH PF=0.90 < COLD PF=0.99 — no edge)
-      if (cls === 'ZONE')              return `Z· ${prob}${streakTag}${wrTag}`;
+      if (cls === 'ZONE')              return `Z· ${prob}${streakTag}${v4Tag}${wrTag}`;
       // COMPRESSION_WATCH stage: spring loading, watch for BUY in 1-3 sessions
-      if (r.stage === 'COMPRESSION_WATCH') return `${prob} 🔔${streakTag}${cltTag}${wrTag}`;
+      if (r.stage === 'COMPRESSION_WATCH') return `${prob} 🔔${streakTag}${v4Tag}${cltTag}${wrTag}`;
       // Brain V3 goldmine: uc≥70 = near-certain UC event (pbfb_uc_events N=32 hit_t1=100%)
-      if (s >= 70)                     return `${prob} 🎖${streakTag}${cltTag}${wrTag}`;
-      return `${prob}${hitsTag}${streakTag}${cltTag}${wrTag}`;
+      if (s >= 70)                     return `${prob} 🎖${streakTag}${v4Tag}${cltTag}${wrTag}`;
+      return `${prob}${hitsTag}${streakTag}${v4Tag}${cltTag}${wrTag}`;
     },
     numVal: r => (r as any).ucScore ?? 0,
     cellClass: r => {
@@ -2528,6 +2546,59 @@ function HomePageInner() {
         // XGBoost RETIRED 2026-09-24: uc_logger_xgb_report AUC=0.5804, Prec@top10%=2.2% < 3.4% base rate — anti-predictive.
         // loggerXgbScore kept on result for future audit/retrain. ucScore stays as pure formula output.
         void loggerXgbPred; void ucXgbPred;
+        // ── Brain V4: Multi-candle pre-UC fingerprint ──────────────────────────────
+        // Detects the 2-3 candle operator accumulation sequence preceding UC events.
+        // D-2/D-1: quiet accumulation (closeLoc≥65, vol 1.3-5x, body≥20, wick≤35)
+        // D-0: ignition (closeLoc≥78, vol≥2.5x, body≥30, upperWick≤30)
+        if (candles.length >= 3 && result.ucScore != null) {
+          const _d0 = candles[candles.length - 1];
+          const _d1 = candles[candles.length - 2];
+          const _d2 = candles[candles.length - 3];
+          const _clLoc = (c: Candle) => c.h === c.l ? 50 : Math.round((c.c - c.l) / (c.h - c.l) * 100);
+          const _uwP   = (c: Candle) => c.h === c.l ? 0  : (c.h - c.c) / (c.h - c.l) * 100;
+          const _bdP   = (c: Candle) => c.h === c.l ? 0  : Math.abs(c.o - c.c) / (c.h - c.l) * 100;
+          // Pre-window avg vol (D-3..D-7), excludes the 3 candles under analysis
+          const _preSlice = candles.slice(Math.max(0, candles.length - 8), candles.length - 3);
+          const _avgPre5V = _preSlice.length > 0 ? _preSlice.reduce((s, c) => s + c.v, 0) / _preSlice.length : (_d0.v || 1);
+          const _vr = (c: Candle) => _avgPre5V > 0 ? c.v / _avgPre5V : 1;
+          // Accumulation: closeLoc≥65, moderate vol build (1.3-5x), body≥20, wick≤35
+          const _isAccum = (c: Candle) => _clLoc(c) >= 65 && _vr(c) >= 1.3 && _vr(c) <= 5.0 && _bdP(c) >= 20 && _uwP(c) <= 35;
+          // Ignition (today): closeLoc≥78, vol≥2.5x, body≥30, upperWick≤30
+          const _isTrigger = (result.closeLoc ?? 0) >= 78 && (result.exactVolVsPre5 ?? 0) >= 2.5
+                           && (result.bodyPct ?? 0) >= 30 && (result.upperWickPct ?? 100) <= 30;
+          const _full3 = _isAccum(_d2) && _isAccum(_d1) && _isTrigger;
+          const _part2 = !_full3 && _isAccum(_d1) && _isTrigger;
+          (result as any).preUCAccumFull = _full3;
+          (result as any).preUCAccumPart = _part2;
+          // Consecutive closeLoc≥70 streak (institutional strength, max 5d window)
+          let _clStreak = 0;
+          for (let _i = candles.length - 1; _i >= Math.max(0, candles.length - 5); _i--) {
+            if (_clLoc(candles[_i]) >= 70) _clStreak++; else break;
+          }
+          (result as any).clLocStreak = _clStreak;
+          // Volume acceleration: today vol vs yesterday (explosive ignition signal)
+          const _volAccD0D1 = _d1.v > 0 ? Math.round(_d0.v / _d1.v * 100) / 100 : 1;
+          (result as any).volAccelD0D1 = _volAccD0D1;
+          // 20d high proximity (nearness to resistance ceiling)
+          const _hi20 = candles.slice(-20).reduce((m, c) => Math.max(m, c.h), 0);
+          const _distBelow20dH = _hi20 > 0 ? Math.round((1 - _d0.c / _hi20) * 10000) / 100 : 99;
+          (result as any).distBelow20dHighPct = _distBelow20dH;
+          // Score bonus — additive before applyPostScanRules so regime multiplier applies
+          let _ucV4Bonus = 0;
+          if      (_full3)                                                              _ucV4Bonus += 18;
+          else if (_part2)                                                              _ucV4Bonus += 9;
+          if      (_clStreak >= 4)                                                      _ucV4Bonus += 12;
+          else if (_clStreak >= 3)                                                      _ucV4Bonus += 8;
+          else if (_clStreak >= 2)                                                      _ucV4Bonus += 4;
+          if      (_volAccD0D1 >= 3.0 && (result.closeLoc ?? 0) >= 75)                 _ucV4Bonus += 10;
+          else if (_volAccD0D1 >= 2.0 && (result.closeLoc ?? 0) >= 75)                 _ucV4Bonus += 5;
+          if      (_distBelow20dH <= 0.5 && (result.exactVolVsPre5 ?? 0) >= 2.0)       _ucV4Bonus += 10;
+          else if (_distBelow20dH <= 1.0 && (result.exactVolVsPre5 ?? 0) >= 1.5)       _ucV4Bonus += 5;
+          if (_ucV4Bonus > 0) {
+            (result as any).ucV4Bonus = _ucV4Bonus;
+            result.ucScore = Math.min(100, Math.round(result.ucScore + _ucV4Bonus));
+          }
+        }
         // Regime multiplier, RS gates and CC watch-only — shared with the nightly batch
         if (applyPostScanRules(result, niftyData, niftyRegimeMult)) return;
         newResults.push(result);
@@ -5059,7 +5130,7 @@ function HomePageInner() {
             ['journal',      '📝', 'Journal',      '#a78bfa', 'Post-trade reviews and lessons learned tracker', 'purple'],
             ['focus',        '⚡', 'Focus',        '#facc15', 'Top 5 signals — zero-clutter, one-click decision view', 'yellow'],
             ['validation',   '🔬', 'Validation',   '#22d3ee', 'Auto-validated trades with MFE/MAE, scatter plots, edge analysis', 'cyan'],
-            ['intelligence', '🧠', 'Brain v2',     '#f472b6', 'Signal Command ranked by expected P&L · Setup Quality Matrix · Stock DNA · RS · Sector Rotation', 'pink'],
+            ['intelligence', '🧠', 'Brain v3',     '#f472b6', 'Signal Command ranked by expected P&L · Setup Quality Matrix · Stock DNA · RS · Sector Rotation', 'pink'],
             ['pbfb',         '📉', 'PBFB',         '#e879f9', 'Post Breakout Forensic Backtest — was the stock on my radar before it exploded?', 'pink'],
             ['pro',          '🏆', 'Pro',          '#fbbf24', 'Backtester, signal narrative, portfolio optimizer', 'yellow'],
           ] as const).map(([key, emoji, label, color, tip, tipColor]) => (
@@ -6632,7 +6703,7 @@ function HomePageInner() {
               return (
                 <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
                   <div className="flex items-center gap-2 mb-2.5">
-                    <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">🧠 Brain v2 · Trading Intelligence</h2>
+                    <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">🧠 Brain v3 · Trading Intelligence</h2>
                     {brainPrior && (
                       <span className="text-[9px] text-slate-600 ml-auto">prior: {(brainPrior as any).totalTrades ?? (brainPrior as any).total} trades · updated {new Date(brainPrior.generatedAt).toLocaleDateString()}</span>
                     )}
